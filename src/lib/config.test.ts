@@ -7,6 +7,7 @@ import { config, manifestNames } from "@/lib/config";
 const root = fileURLToPath(new URL("../..", import.meta.url));
 const configDir = join(root, "config");
 const srcDir = join(root, "src");
+const configModule = join(srcDir, "lib", "config.ts");
 
 function listFiles(dir: string): string[] {
   return readdirSync(dir, { recursive: true, encoding: "utf8" })
@@ -37,8 +38,10 @@ function valueAt(source: unknown, keys: string[]): unknown {
   );
 }
 
-function escapeRegExp(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function productNameOffenders(files: Record<string, string>): string[] {
+  return Object.keys(files).filter(
+    (file) => file !== configModule && files[file].includes(app.name),
+  );
 }
 
 const app = readJson(join(configDir, "app.json")) as {
@@ -67,12 +70,23 @@ describe("config", () => {
   });
 
   it("keeps the product name out of src/ except the config module", () => {
-    const pattern = new RegExp(`\\b${escapeRegExp(app.name)}\\b`);
-    const configModule = join(srcDir, "lib", "config.ts");
-    const offenders = listFiles(srcDir)
-      .filter((file) => file !== configModule)
-      .filter((file) => pattern.test(readFileSync(file, "utf8")))
-      .map((file) => relative(root, file).split(sep).join("/"));
-    expect(offenders).toEqual([]);
+    const files = Object.fromEntries(
+      listFiles(srcDir).map((file) => [file, readFileSync(file, "utf8")]),
+    );
+    expect(
+      productNameOffenders(files).map((file) =>
+        relative(root, file).split(sep).join("/"),
+      ),
+    ).toEqual([]);
+  });
+
+  it("flags the product name even with a letter right next to it", () => {
+    const label = join(srcDir, "review-product-label.ts");
+    expect(
+      productNameOffenders({
+        [label]: `export const productLabel = "${app.name}Mail";`,
+        [configModule]: `export const name = "${app.name}";`,
+      }),
+    ).toEqual([label]);
   });
 });
