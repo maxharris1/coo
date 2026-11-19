@@ -1,0 +1,75 @@
+{
+  "_about": "Odd jobs. The bird is busy for `minutes`, then the owner is paid `pay` seeds. Two are offered at a time, picked by hash of user id and local date.",
+  "jobs": [
+    {
+      "id": "deli-slip",
+      "text": "Rush an order slip to the deli on 4th",
+      "short": "odd job for the deli",
+      "minutes": 12,
+      "pay": 8
+    },
+    {
+      "id": "bodega-cat",
+      "text": "Carry a love note for the bodega cat",
+      "short": "love note for the bodega cat",
+      "minutes": 40,
+      "pay": 15
+    },
+    {
+      "id": "chess-move",
+      "text": "Deliver a chess move across the park",
+      "short": "chess move across the park",
+      "minutes": 15,
+      "pay": 9
+    },
+    {
+      "id": "laundry-ticket",
+      "text": "Return a laundry ticket to its owner",
+      "short": "laundry ticket run",
+      "minutes": 20,
+      "pay": 10
+    },
+    {
+      "id": "rooftop-rsvp",
+      "text": "Take an RSVP to a rooftop party",
+      "short": "RSVP to a rooftop",
+      "minutes": 25,
+      "pay": 11
+    },
+    {
+      "id": "crossword",
+      "text": "Bring 14 across to a man on a bench",
+      "short": "crossword emergency",
+      "minutes": 10,
+      "pay": 8
+    },
+    {
+      "id": "apology",
+      "text": "Deliver an apology to the upstairs neighbors",
+      "short": "apology upstairs",
+      "minutes": 30,
+      "pay": 12
+    },
+    {
+      "id": "lottery",
+      "text": "Fly lottery numbers to the newsstand before close",
+      "short": "lottery run",
+      "minutes": 18,
+      "pay": 10
+    },
+    {
+      "id": "recipe",
+      "text": "Carry a secret recipe to a rival bakery",
+      "short": "recipe espionage",
+      "minutes": 45,
+      "pay": 15
+    },
+    {
+      "id": "library",
+      "text": "Return a very overdue library slip",
+      "short": "library errand",
+      "minutes": 35,
+      "pay": 13
+    }
+  ]
+}

@@ -1,0 +1,65 @@
+{
+  "_about": "Things birds bring home. `value` is what one trades for, in seeds.",
+  "objects": [
+    {
+      "id": "button",
+      "name": "A coat button",
+      "value": 3
+    },
+    {
+      "id": "bottle-cap",
+      "name": "A bottle cap",
+      "value": 2
+    },
+    {
+      "id": "fry",
+      "name": "One french fry, cold",
+      "value": 2
+    },
+    {
+      "id": "gum-wrapper",
+      "name": "A shiny gum wrapper",
+      "value": 4
+    },
+    {
+      "id": "ticket-stub",
+      "name": "A ticket stub",
+      "value": 5
+    },
+    {
+      "id": "mitten",
+      "name": "A single mitten",
+      "value": 6
+    },
+    {
+      "id": "paperclip",
+      "name": "A paperclip",
+      "value": 3
+    },
+    {
+      "id": "key",
+      "name": "A key to something",
+      "value": 8
+    },
+    {
+      "id": "marble",
+      "name": "A marble",
+      "value": 6
+    },
+    {
+      "id": "twig",
+      "name": "A really good twig",
+      "value": 4
+    },
+    {
+      "id": "bread-tag",
+      "name": "A bread bag tag",
+      "value": 5
+    },
+    {
+      "id": "earring",
+      "name": "One earring",
+      "value": 8
+    }
+  ]
+}

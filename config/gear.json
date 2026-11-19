@@ -1,0 +1,151 @@
+{
+  "_about": "One of each item per closet. Each bird wears at most one item per slot. `rule` says exactly what the code does.",
+  "slots": [
+    "head",
+    "neck",
+    "leg",
+    "back"
+  ],
+  "items": [
+    {
+      "id": "goggles",
+      "name": "Aviator goggles",
+      "slot": "head",
+      "price": 120,
+      "effect": "Holds full speed in rain",
+      "rule": "engine: no slowdown in rain under 4 mm per hour",
+      "starter": false,
+      "available": true
+    },
+    {
+      "id": "beanie",
+      "name": "Wool beanie",
+      "slot": "head",
+      "price": 110,
+      "effect": "Fine below freezing",
+      "rule": "engine: no slowdown below 32F",
+      "starter": false,
+      "available": true
+    },
+    {
+      "id": "rainhat",
+      "name": "Rain hat",
+      "slot": "head",
+      "price": 120,
+      "effect": "Shrugs off downpours",
+      "rule": "engine: no slowdown in any rain; no rain penalty on odds",
+      "starter": false,
+      "available": true
+    },
+    {
+      "id": "cap",
+      "name": "Captain's cap",
+      "slot": "head",
+      "price": 160,
+      "effect": "Steadier in a headwind",
+      "rule": "engine: headwind factor 0.30 instead of 0.45",
+      "starter": false,
+      "available": true
+    },
+    {
+      "id": "party",
+      "name": "Party hat",
+      "slot": "head",
+      "price": 80,
+      "effect": "Weekend deliveries pay 5 extra",
+      "rule": "seeds: +5 when a delivery lands on Saturday or Sunday in the owner's time zone",
+      "starter": false,
+      "available": true
+    },
+    {
+      "id": "earmuffs",
+      "name": "Earmuffs",
+      "slot": "head",
+      "price": 140,
+      "effect": "Ignores street noise, fewer detours",
+      "rule": "engine: no street fair penalty on odds",
+      "starter": false,
+      "available": true
+    },
+    {
+      "id": "scarf",
+      "name": "Thermal scarf",
+      "slot": "neck",
+      "price": 150,
+      "effect": "Flies in snow",
+      "rule": "engine: no slowdown in snow or below 32F",
+      "starter": false,
+      "available": true
+    },
+    {
+      "id": "bow",
+      "name": "Bow tie",
+      "slot": "neck",
+      "price": 90,
+      "effect": "Friends tip 1 extra seed",
+      "rule": "seeds: tips received are +1",
+      "starter": true,
+      "available": true
+    },
+    {
+      "id": "bandana",
+      "name": "Bandana",
+      "slot": "neck",
+      "price": 130,
+      "effect": "Looks tough, hawks think twice",
+      "rule": "engine: hawk penalty 0.02 instead of 0.04",
+      "starter": false,
+      "available": true
+    },
+    {
+      "id": "band",
+      "name": "Lucky leg band",
+      "slot": "leg",
+      "price": 90,
+      "effect": "3% better arrival odds",
+      "rule": "engine: +0.03 odds",
+      "starter": false,
+      "available": true
+    },
+    {
+      "id": "bell",
+      "name": "Ankle bell",
+      "slot": "leg",
+      "price": 70,
+      "effect": "Friends hear the landing",
+      "rule": "client: the landing notification title for the recipient ends with \"Ding.\"; no game effect",
+      "starter": true,
+      "available": true
+    },
+    {
+      "id": "tube",
+      "name": "Roomy leg tube",
+      "slot": "leg",
+      "price": 200,
+      "effect": "Notes up to 280 characters",
+      "rule": "notes: limit 280 instead of 140",
+      "starter": false,
+      "available": true
+    },
+    {
+      "id": "booties",
+      "name": "Rain booties",
+      "slot": "leg",
+      "price": 60,
+      "effect": "No muddy feet on the sill",
+      "rule": "care: no feather loss from rainy flights",
+      "starter": false,
+      "available": true
+    },
+    {
+      "id": "backpack",
+      "name": "Tiny backpack",
+      "slot": "back",
+      "price": 300,
+      "effect": "Carries one photo (later release)",
+      "rule": "not in the first build: draw it in the store as 'Coming later', not for sale",
+      "starter": false,
+      "available": false
+    }
+  ]
+}

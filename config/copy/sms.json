@@ -1,0 +1,7 @@
+{
+  "_about": "Text messages. Keep each under 160 plain characters. {stop} is app.json sms.stopLine and is required on every message that is not a sign-in code.",
+  "landed-in": "{app}: {bird} landed on your sill with a note from {friend}. {url} {stop}",
+  "reply-home": "{app}: {bird} is home with a reply from {friend}. {url} {stop}",
+  "guest-landed": "{app}: {bird} has landed with your note from {friend}. {url} {stop}",
+  "share-template": "I sent you a pigeon. For real. Watch {him} fly to you: {url}"
+}

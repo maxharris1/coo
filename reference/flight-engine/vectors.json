@@ -1,0 +1,4696 @@
+{
+ "note": "Expected outputs of reference/flight-engine/flightEngine.ts. Regenerate with: node gen-vectors.mjs",
+ "config": {
+  "stepMs": 60000,
+  "sunAltitudeDeg": -0.833,
+  "kingSunAltitudeDeg": -6,
+  "capHeadwindFactor": 0.3,
+  "navDelayBase": 1.3,
+  "navDelayPerPoint": 0.1,
+  "hawkChance": 0.15,
+  "fairChance": 0.25,
+  "hazardCellDeg": 0.5,
+  "searchSuccessChance": 0.7,
+  "searchMinutes": [
+   10,
+   60
+  ],
+  "headwindFactor": 0.45,
+  "minGroundMph": 8,
+  "levelSpeedBonus": 0.01,
+  "sulkSpeed": 0.9,
+  "rainMmH": 0.5,
+  "downpourMmH": 4,
+  "rainSpeed": 0.85,
+  "downpourSpeed": 0.7,
+  "coldF": 32,
+  "coldSpeed": 0.8,
+  "snowSpeed": 0.7,
+  "oddsBase": 0.85,
+  "oddsPerFocus": 0.03,
+  "oddsHungry": 0.06,
+  "oddsDirty": 0.03,
+  "oddsTired": 0.1,
+  "oddsRain": 0.06,
+  "oddsHawk": 0.04,
+  "oddsHawkBandana": 0.02,
+  "oddsFair": 0.03,
+  "oddsBand": 0.03,
+  "oddsPer100Mi": 0.01,
+  "oddsDistanceCap": 0.1,
+  "oddsMin": 0.4,
+  "oddsMax": 0.99,
+  "hungryBelow": 30,
+  "dirtyBelow": 30,
+  "tiredBelow": 40,
+  "majorDelayShare": 0.2,
+  "minorDelayMin": [
+   4,
+   25
+  ],
+  "majorDelayMin": [
+   60,
+   300
+  ],
+  "delayFracRange": [
+   0.15,
+   0.85
+  ],
+  "maxFlavorEvents": 6,
+  "maxSimDays": 30
+ },
+ "sun": [
+  {
+   "about": "New York, 19 Nov 2026",
+   "atMs": 1795100400000,
+   "place": {
+    "lat": 40.7306,
+    "lon": -73.9866
+   },
+   "sunriseMs": 1795088927522,
+   "sunsetMs": 1795124207134
+  },
+  {
+   "about": "Chicago, 21 Jun 2026",
+   "atMs": 1782064800000,
+   "place": {
+    "lat": 41.8781,
+    "lon": -87.6298
+   },
+   "sunriseMs": 1782037004795,
+   "sunsetMs": 1782091822960
+  }
+ ],
+ "searchParty": [
+  {
+   "flightId": "a",
+   "nowMs": 1795100400000,
+   "result": 1795101540000
+  },
+  {
+   "flightId": "b",
+   "nowMs": 1795100400000,
+   "result": null
+  },
+  {
+   "flightId": "c",
+   "nowMs": 1795100400000,
+   "result": 1795101720000
+  },
+  {
+   "flightId": "d",
+   "nowMs": 1795100400000,
+   "result": null
+  },
+  {
+   "flightId": "e",
+   "nowMs": 1795100400000,
+   "result": 1795101300000
+  },
+  {
+   "flightId": "f",
+   "nowMs": 1795100400000,
+   "result": 1795101660000
+  }
+ ],
+ "hazards": [
+  {
+   "atMs": 1795100400000,
+   "from": {
+    "lat": 40.7306,
+    "lon": -73.9866
+   },
+   "to": {
+    "lat": 39.9526,
+    "lon": -75.1652
+   },
+   "localWeekend": true,
+   "result": {
+    "hawk": false,
+    "fair": false
+   }
+  },
+  {
+   "atMs": 1795186800000,
+   "from": {
+    "lat": 40.7306,
+    "lon": -73.9866
+   },
+   "to": {
+    "lat": 39.9526,
+    "lon": -75.1652
+   },
+   "localWeekend": true,
+   "result": {
+    "hawk": false,
+    "fair": false
+   }
+  },
+  {
+   "atMs": 1795273200000,
+   "from": {
+    "lat": 40.7306,
+    "lon": -73.9866
+   },
+   "to": {
+    "lat": 39.9526,
+    "lon": -75.1652
+   },
+   "localWeekend": true,
+   "result": {
+    "hawk": false,
+    "fair": true
+   }
+  },
+  {
+   "atMs": 1795359600000,
+   "from": {
+    "lat": 40.7306,
+    "lon": -73.9866
+   },
+   "to": {
+    "lat": 39.9526,
+    "lon": -75.1652
+   },
+   "localWeekend": true,
+   "result": {
+    "hawk": false,
+    "fair": false
+   }
+  },
+  {
+   "atMs": 1795446000000,
+   "from": {
+    "lat": 40.7306,
+    "lon": -73.9866
+   },
+   "to": {
+    "lat": 39.9526,
+    "lon": -75.1652
+   },
+   "localWeekend": true,
+   "result": {
+    "hawk": false,
+    "fair": false
+   }
+  },
+  {
+   "atMs": 1795532400000,
+   "from": {
+    "lat": 40.7306,
+    "lon": -73.9866
+   },
+   "to": {
+    "lat": 39.9526,
+    "lon": -75.1652
+   },
+   "localWeekend": true,
+   "result": {
+    "hawk": false,
+    "fair": false
+   }
+  },
+  {
+   "atMs": 1795618800000,
+   "from": {
+    "lat": 40.7306,
+    "lon": -73.9866
+   },
+   "to": {
+    "lat": 39.9526,
+    "lon": -75.1652
+   },
+   "localWeekend": true,
+   "result": {
+    "hawk": false,
+    "fair": false
+   }
+  },
+  {
+   "atMs": 1795705200000,
+   "from": {
+    "lat": 40.7306,
+    "lon": -73.9866
+   },
+   "to": {
+    "lat": 39.9526,
+    "lon": -75.1652
+   },
+   "localWeekend": true,
+   "result": {
+    "hawk": false,
+    "fair": true
+   }
+  }
+ ],
+ "vectors": [
+  {
+   "name": "calm-short",
+   "about": "New York to Philadelphia, calm, no gear",
+   "input": {
+    "flightId": "vector-00-calm-short",
+    "from": {
+     "lat": 40.7306,
+     "lon": -73.9866
+    },
+    "to": {
+     "lat": 39.9526,
+     "lon": -75.1652
+    },
+    "departAtMs": 1795100400000,
+    "bird": {
+     "speedMph": 45,
+     "focus": 2,
+     "navigation": 4,
+     "level": 1,
+     "belly": 80,
+     "feathers": 80,
+     "energy": 80,
+     "sulking": false,
+     "breed": "city"
+    },
+    "gear": [],
+    "weather": [
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     }
+    ]
+   },
+   "plan": {
+    "distanceMi": 82.10858428522562,
+    "bearingDeg": 229.48837723069127,
+    "onTimeOdds": 0.91,
+    "delayed": false,
+    "delayKind": "none",
+    "arriveAtMs": 1795106968687,
+    "segments": [
+     {
+      "kind": "fly",
+      "startMs": 1795100400000,
+      "endMs": 1795106968687,
+      "fromFrac": 0,
+      "toFrac": 1
+     }
+    ],
+    "events": [
+     {
+      "atMs": 1795100400000,
+      "kind": "takeoff",
+      "pick": 708
+     },
+     {
+      "atMs": 1795101859891,
+      "kind": "cruising",
+      "pick": 200
+     },
+     {
+      "atMs": 1795105566222,
+      "kind": "landmark",
+      "pick": 689
+     },
+     {
+      "atMs": 1795106968687,
+      "kind": "landing",
+      "pick": 611
+     }
+    ]
+   },
+   "samples": [
+    {
+     "atMs": 1795100400000,
+     "lat": 40.7306,
+     "lon": -73.9866,
+     "frac": 0,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795101056869,
+     "lat": 40.653341907246755,
+     "lon": -74.10568915749198,
+     "frac": 0.10000004567122775,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795102567667,
+     "lat": 40.4751861760533,
+     "lon": -74.37854943776024,
+     "frac": 0.3300000441488535,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795103684344,
+     "lat": 40.343095205620706,
+     "lon": -74.5792983135723,
+     "frac": 0.5000000761187129,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795105326515,
+     "lat": 40.148216764234306,
+     "lon": -74.87309114440244,
+     "frac": 0.7499999619406436,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795106903000,
+     "lat": 39.960438741470504,
+     "lon": -75.15354777261079,
+     "frac": 0.9899999802091346,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795106968687,
+     "lat": 39.9526,
+     "lon": -75.1652,
+     "frac": 1,
+     "state": "landed"
+    }
+   ]
+  },
+  {
+   "name": "lucky-band",
+   "about": "Same flight wearing the lucky leg band: odds 0.94",
+   "input": {
+    "flightId": "vector-01-lucky-band",
+    "from": {
+     "lat": 40.7306,
+     "lon": -73.9866
+    },
+    "to": {
+     "lat": 39.9526,
+     "lon": -75.1652
+    },
+    "departAtMs": 1795100400000,
+    "bird": {
+     "speedMph": 45,
+     "focus": 2,
+     "navigation": 4,
+     "level": 1,
+     "belly": 80,
+     "feathers": 80,
+     "energy": 80,
+     "sulking": false,
+     "breed": "city"
+    },
+    "gear": [
+     "band"
+    ],
+    "weather": [
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     }
+    ]
+   },
+   "plan": {
+    "distanceMi": 82.10858428522562,
+    "bearingDeg": 229.48837723069127,
+    "onTimeOdds": 0.94,
+    "delayed": false,
+    "delayKind": "none",
+    "arriveAtMs": 1795106968687,
+    "segments": [
+     {
+      "kind": "fly",
+      "startMs": 1795100400000,
+      "endMs": 1795106968687,
+      "fromFrac": 0,
+      "toFrac": 1
+     }
+    ],
+    "events": [
+     {
+      "atMs": 1795100400000,
+      "kind": "takeoff",
+      "pick": 942
+     },
+     {
+      "atMs": 1795102616314,
+      "kind": "food",
+      "pick": 303
+     },
+     {
+      "atMs": 1795106221297,
+      "kind": "landmark",
+      "pick": 426
+     },
+     {
+      "atMs": 1795106968687,
+      "kind": "landing",
+      "pick": 317
+     }
+    ]
+   },
+   "samples": [
+    {
+     "atMs": 1795100400000,
+     "lat": 40.7306,
+     "lon": -73.9866,
+     "frac": 0,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795101056869,
+     "lat": 40.653341907246755,
+     "lon": -74.10568915749198,
+     "frac": 0.10000004567122775,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795102567667,
+     "lat": 40.4751861760533,
+     "lon": -74.37854943776024,
+     "frac": 0.3300000441488535,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795103684344,
+     "lat": 40.343095205620706,
+     "lon": -74.5792983135723,
+     "frac": 0.5000000761187129,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795105326515,
+     "lat": 40.148216764234306,
+     "lon": -74.87309114440244,
+     "frac": 0.7499999619406436,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795106903000,
+     "lat": 39.960438741470504,
+     "lon": -75.15354777261079,
+     "frac": 0.9899999802091346,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795106968687,
+     "lat": 39.9526,
+     "lon": -75.1652,
+     "frac": 1,
+     "state": "landed"
+    }
+   ]
+  },
+  {
+   "name": "headwind",
+   "about": "14 mph wind from the southwest, straight on the beak",
+   "input": {
+    "flightId": "vector-02-headwind",
+    "from": {
+     "lat": 40.7306,
+     "lon": -73.9866
+    },
+    "to": {
+     "lat": 39.9526,
+     "lon": -75.1652
+    },
+    "departAtMs": 1795100400000,
+    "bird": {
+     "speedMph": 45,
+     "focus": 2,
+     "navigation": 4,
+     "level": 1,
+     "belly": 80,
+     "feathers": 80,
+     "energy": 80,
+     "sulking": false,
+     "breed": "city"
+    },
+    "gear": [],
+    "weather": [
+     {
+      "windMph": 14,
+      "windFromDeg": 225,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 14,
+      "windFromDeg": 225,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 14,
+      "windFromDeg": 225,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     }
+    ]
+   },
+   "plan": {
+    "distanceMi": 82.10858428522562,
+    "bearingDeg": 229.48837723069127,
+    "onTimeOdds": 0.91,
+    "delayed": false,
+    "delayKind": "none",
+    "arriveAtMs": 1795108034197,
+    "segments": [
+     {
+      "kind": "fly",
+      "startMs": 1795100400000,
+      "endMs": 1795108034197,
+      "fromFrac": 0,
+      "toFrac": 1
+     }
+    ],
+    "events": [
+     {
+      "atMs": 1795100400000,
+      "kind": "takeoff",
+      "pick": 569
+     },
+     {
+      "atMs": 1795101848373,
+      "kind": "landmark",
+      "pick": 488
+     },
+     {
+      "atMs": 1795104217099,
+      "kind": "weather",
+      "pick": 164
+     },
+     {
+      "atMs": 1795104740166,
+      "kind": "food",
+      "pick": 95
+     },
+     {
+      "atMs": 1795106843505,
+      "kind": "cruising",
+      "pick": 443
+     },
+     {
+      "atMs": 1795108034197,
+      "kind": "landing",
+      "pick": 138
+     }
+    ]
+   },
+   "samples": [
+    {
+     "atMs": 1795100400000,
+     "lat": 40.7306,
+     "lon": -73.9866,
+     "frac": 0,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795101163420,
+     "lat": 40.653341912175364,
+     "lon": -74.10568914990961,
+     "frac": 0.10000003929686384,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795102919285,
+     "lat": 40.47518621132852,
+     "lon": -74.37854938397365,
+     "frac": 0.32999999869010455,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795104217099,
+     "lat": 40.3430952138864,
+     "lon": -74.57929830105135,
+     "frac": 0.500000065494773,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795106125648,
+     "lat": 40.14821670893446,
+     "lon": -74.87309122737334,
+     "frac": 0.7500000327473866,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795107957855,
+     "lat": 39.96043872903828,
+     "lon": -75.1535477910947,
+     "frac": 0.9899999960703136,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795108034197,
+     "lat": 39.9526,
+     "lon": -75.1652,
+     "frac": 1,
+     "state": "landed"
+    }
+   ]
+  },
+  {
+   "name": "headwind-cap",
+   "about": "Same headwind with the captain's cap",
+   "input": {
+    "flightId": "vector-03-headwind-cap",
+    "from": {
+     "lat": 40.7306,
+     "lon": -73.9866
+    },
+    "to": {
+     "lat": 39.9526,
+     "lon": -75.1652
+    },
+    "departAtMs": 1795100400000,
+    "bird": {
+     "speedMph": 45,
+     "focus": 2,
+     "navigation": 4,
+     "level": 1,
+     "belly": 80,
+     "feathers": 80,
+     "energy": 80,
+     "sulking": false,
+     "breed": "city"
+    },
+    "gear": [
+     "cap"
+    ],
+    "weather": [
+     {
+      "windMph": 14,
+      "windFromDeg": 225,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 14,
+      "windFromDeg": 225,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 14,
+      "windFromDeg": 225,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     }
+    ]
+   },
+   "plan": {
+    "distanceMi": 82.10858428522562,
+    "bearingDeg": 229.48837723069127,
+    "onTimeOdds": 0.91,
+    "delayed": false,
+    "delayKind": "none",
+    "arriveAtMs": 1795107642589,
+    "segments": [
+     {
+      "kind": "fly",
+      "startMs": 1795100400000,
+      "endMs": 1795107642589,
+      "fromFrac": 0,
+      "toFrac": 1
+     }
+    ],
+    "events": [
+     {
+      "atMs": 1795100400000,
+      "kind": "takeoff",
+      "pick": 757
+     },
+     {
+      "atMs": 1795101727488,
+      "kind": "food",
+      "pick": 750
+     },
+     {
+      "atMs": 1795104021295,
+      "kind": "weather",
+      "pick": 911
+     },
+     {
+      "atMs": 1795104187551,
+      "kind": "landmark",
+      "pick": 817
+     },
+     {
+      "atMs": 1795106737303,
+      "kind": "landmark",
+      "pick": 418
+     },
+     {
+      "atMs": 1795107642589,
+      "kind": "landing",
+      "pick": 13
+     }
+    ]
+   },
+   "samples": [
+    {
+     "atMs": 1795100400000,
+     "lat": 40.7306,
+     "lon": -73.9866,
+     "frac": 0,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795101124259,
+     "lat": 40.65334193188375,
+     "lon": -74.10568911958939,
+     "frac": 0.10000001380721728,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795102790054,
+     "lat": 40.475186249954476,
+     "lon": -74.37854932507794,
+     "frac": 0.32999994891329604,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795104021295,
+     "lat": 40.34309521113117,
+     "lon": -74.57929830522501,
+     "frac": 0.5000000690360864,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795105831942,
+     "lat": 40.14821670755159,
+     "lon": -74.87309122944818,
+     "frac": 0.7500000345180432,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795107570163,
+     "lat": 39.96043873786267,
+     "lon": -75.15354777797485,
+     "frac": 0.989999984812061,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795107642589,
+     "lat": 39.9526,
+     "lon": -75.1652,
+     "frac": 1,
+     "state": "landed"
+    }
+   ]
+  },
+  {
+   "name": "tailwind",
+   "about": "14 mph wind from the northeast, pushing him along",
+   "input": {
+    "flightId": "vector-04-tailwind",
+    "from": {
+     "lat": 40.7306,
+     "lon": -73.9866
+    },
+    "to": {
+     "lat": 39.9526,
+     "lon": -75.1652
+    },
+    "departAtMs": 1795100400000,
+    "bird": {
+     "speedMph": 45,
+     "focus": 2,
+     "navigation": 4,
+     "level": 1,
+     "belly": 80,
+     "feathers": 80,
+     "energy": 80,
+     "sulking": false,
+     "breed": "city"
+    },
+    "gear": [],
+    "weather": [
+     {
+      "windMph": 14,
+      "windFromDeg": 45,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 14,
+      "windFromDeg": 45,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 14,
+      "windFromDeg": 45,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     }
+    ]
+   },
+   "plan": {
+    "distanceMi": 82.10858428522562,
+    "bearingDeg": 229.48837723069127,
+    "onTimeOdds": 0.91,
+    "delayed": false,
+    "delayKind": "none",
+    "arriveAtMs": 1795106164177,
+    "segments": [
+     {
+      "kind": "fly",
+      "startMs": 1795100400000,
+      "endMs": 1795106164177,
+      "fromFrac": 0,
+      "toFrac": 1
+     }
+    ],
+    "events": [
+     {
+      "atMs": 1795100400000,
+      "kind": "takeoff",
+      "pick": 771
+     },
+     {
+      "atMs": 1795101751752,
+      "kind": "food",
+      "pick": 508
+     },
+     {
+      "atMs": 1795103282089,
+      "kind": "weather",
+      "pick": 876
+     },
+     {
+      "atMs": 1795104199648,
+      "kind": "food",
+      "pick": 601
+     },
+     {
+      "atMs": 1795106164177,
+      "kind": "landing",
+      "pick": 812
+     }
+    ]
+   },
+   "samples": [
+    {
+     "atMs": 1795100400000,
+     "lat": 40.7306,
+     "lon": -73.9866,
+     "frac": 0,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795100976418,
+     "lat": 40.653341902318154,
+     "lon": -74.10568916507435,
+     "frac": 0.10000005204559125,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795102302178,
+     "lat": 40.47518626550694,
+     "lon": -74.37854930136402,
+     "frac": 0.3299999288710253,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795103282089,
+     "lat": 40.34309519735501,
+     "lon": -74.57929832609325,
+     "frac": 0.5000000867426521,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795104723133,
+     "lat": 40.1482167006372,
+     "lon": -74.87309123982239,
+     "frac": 0.7500000433713261,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795106106535,
+     "lat": 39.960438757233604,
+     "lon": -75.15354774917465,
+     "frac": 0.9899999600983801,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795106164177,
+     "lat": 39.9526,
+     "lon": -75.1652,
+     "frac": 1,
+     "state": "landed"
+    }
+   ]
+  },
+  {
+   "name": "rain-bare",
+   "about": "Light rain, no gear: slower and lower odds",
+   "input": {
+    "flightId": "vector-05-rain-bare",
+    "from": {
+     "lat": 40.7306,
+     "lon": -73.9866
+    },
+    "to": {
+     "lat": 39.9526,
+     "lon": -75.1652
+    },
+    "departAtMs": 1795100400000,
+    "bird": {
+     "speedMph": 45,
+     "focus": 2,
+     "navigation": 4,
+     "level": 1,
+     "belly": 80,
+     "feathers": 80,
+     "energy": 80,
+     "sulking": false,
+     "breed": "city"
+    },
+    "gear": [],
+    "weather": [
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 1,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 1,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 1,
+      "snow": false
+     }
+    ]
+   },
+   "plan": {
+    "distanceMi": 82.10858428522562,
+    "bearingDeg": 229.48837723069127,
+    "onTimeOdds": 0.85,
+    "delayed": false,
+    "delayKind": "none",
+    "arriveAtMs": 1795108127867,
+    "segments": [
+     {
+      "kind": "fly",
+      "startMs": 1795100400000,
+      "endMs": 1795108127867,
+      "fromFrac": 0,
+      "toFrac": 1
+     }
+    ],
+    "events": [
+     {
+      "atMs": 1795100400000,
+      "kind": "takeoff",
+      "pick": 943
+     },
+     {
+      "atMs": 1795101582338,
+      "kind": "food",
+      "pick": 327
+     },
+     {
+      "atMs": 1795103649659,
+      "kind": "landmark",
+      "pick": 404
+     },
+     {
+      "atMs": 1795104263934,
+      "kind": "weather",
+      "pick": 629
+     },
+     {
+      "atMs": 1795107230346,
+      "kind": "landmark",
+      "pick": 188
+     },
+     {
+      "atMs": 1795108127867,
+      "kind": "landing",
+      "pick": 68
+     }
+    ]
+   },
+   "samples": [
+    {
+     "atMs": 1795100400000,
+     "lat": 40.7306,
+     "lon": -73.9866,
+     "frac": 0,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795101172787,
+     "lat": 40.653341912543645,
+     "lon": -74.10568914934302,
+     "frac": 0.10000003882054388,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795102950196,
+     "lat": 40.47518622135757,
+     "lon": -74.37854936868167,
+     "frac": 0.3299999857658006,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795104263934,
+     "lat": 40.34309521450405,
+     "lon": -74.57929830011572,
+     "frac": 0.5000000647009065,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795106195900,
+     "lat": 40.148216759775664,
+     "lon": -74.8730911510921,
+     "frac": 0.7499999676495468,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795108050588,
+     "lat": 39.960438759429046,
+     "lon": -75.15354774591052,
+     "frac": 0.9899999572974018,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795108127867,
+     "lat": 39.9526,
+     "lon": -75.1652,
+     "frac": 1,
+     "state": "landed"
+    }
+   ]
+  },
+  {
+   "name": "rain-goggles",
+   "about": "Light rain with goggles: full speed, odds still lower",
+   "input": {
+    "flightId": "vector-06-rain-goggles",
+    "from": {
+     "lat": 40.7306,
+     "lon": -73.9866
+    },
+    "to": {
+     "lat": 39.9526,
+     "lon": -75.1652
+    },
+    "departAtMs": 1795100400000,
+    "bird": {
+     "speedMph": 45,
+     "focus": 2,
+     "navigation": 4,
+     "level": 1,
+     "belly": 80,
+     "feathers": 80,
+     "energy": 80,
+     "sulking": false,
+     "breed": "city"
+    },
+    "gear": [
+     "goggles"
+    ],
+    "weather": [
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 1,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 1,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 1,
+      "snow": false
+     }
+    ]
+   },
+   "plan": {
+    "distanceMi": 82.10858428522562,
+    "bearingDeg": 229.48837723069127,
+    "onTimeOdds": 0.85,
+    "delayed": true,
+    "delayKind": "minor",
+    "arriveAtMs": 1795107928688,
+    "segments": [
+     {
+      "kind": "fly",
+      "startMs": 1795100400000,
+      "endMs": 1795104449388,
+      "fromFrac": 0,
+      "toFrac": 0.6164683161769062
+     },
+     {
+      "kind": "delay",
+      "startMs": 1795104449388,
+      "endMs": 1795105409388,
+      "fromFrac": 0.6164683161769062,
+      "toFrac": 0.6164683161769062
+     },
+     {
+      "kind": "fly",
+      "startMs": 1795105409388,
+      "endMs": 1795107928688,
+      "fromFrac": 0.6164683161769062,
+      "toFrac": 1
+     }
+    ],
+    "events": [
+     {
+      "atMs": 1795100400000,
+      "kind": "takeoff",
+      "pick": 44
+     },
+     {
+      "atMs": 1795101624853,
+      "kind": "landmark",
+      "pick": 458
+     },
+     {
+      "atMs": 1795102424694,
+      "kind": "weather",
+      "pick": 775
+     },
+     {
+      "atMs": 1795104449388,
+      "kind": "delay",
+      "pick": 649
+     },
+     {
+      "atMs": 1795106724407,
+      "kind": "cruising",
+      "pick": 707
+     },
+     {
+      "atMs": 1795107928688,
+      "kind": "landing",
+      "pick": 857
+     }
+    ]
+   },
+   "samples": [
+    {
+     "atMs": 1795100400000,
+     "lat": 40.7306,
+     "lon": -73.9866,
+     "frac": 0,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795101152869,
+     "lat": 40.64204057748627,
+     "lon": -74.12307065105331,
+     "frac": 0.11461482197601001,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795102884467,
+     "lat": 40.43774745746443,
+     "lon": -74.43558170469578,
+     "frac": 0.37822880595465036,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795104164344,
+     "lat": 40.286209986524426,
+     "lon": -74.66534775457214,
+     "frac": 0.5730739576426462,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795106046516,
+     "lat": 40.17674410370954,
+     "lon": -74.83025940459876,
+     "frac": 0.7134630268706863,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795107853401,
+     "lat": 39.9615842558435,
+     "lon": -75.15184460553975,
+     "frac": 0.9885385028063394,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795107928688,
+     "lat": 39.9526,
+     "lon": -75.1652,
+     "frac": 1,
+     "state": "landed"
+    }
+   ]
+  },
+  {
+   "name": "downpour-rainhat",
+   "about": "Downpour with the rain hat: no effect at all",
+   "input": {
+    "flightId": "vector-07-downpour-rainhat",
+    "from": {
+     "lat": 40.7306,
+     "lon": -73.9866
+    },
+    "to": {
+     "lat": 39.9526,
+     "lon": -75.1652
+    },
+    "departAtMs": 1795100400000,
+    "bird": {
+     "speedMph": 45,
+     "focus": 2,
+     "navigation": 4,
+     "level": 1,
+     "belly": 80,
+     "feathers": 80,
+     "energy": 80,
+     "sulking": false,
+     "breed": "city"
+    },
+    "gear": [
+     "rainhat"
+    ],
+    "weather": [
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 6,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 6,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 6,
+      "snow": false
+     }
+    ]
+   },
+   "plan": {
+    "distanceMi": 82.10858428522562,
+    "bearingDeg": 229.48837723069127,
+    "onTimeOdds": 0.91,
+    "delayed": false,
+    "delayKind": "none",
+    "arriveAtMs": 1795106968687,
+    "segments": [
+     {
+      "kind": "fly",
+      "startMs": 1795100400000,
+      "endMs": 1795106968687,
+      "fromFrac": 0,
+      "toFrac": 1
+     }
+    ],
+    "events": [
+     {
+      "atMs": 1795100400000,
+      "kind": "takeoff",
+      "pick": 894
+     },
+     {
+      "atMs": 1795101722330,
+      "kind": "food",
+      "pick": 371
+     },
+     {
+      "atMs": 1795103684344,
+      "kind": "weather",
+      "pick": 208
+     },
+     {
+      "atMs": 1795104343410,
+      "kind": "cruising",
+      "pick": 999
+     },
+     {
+      "atMs": 1795106968687,
+      "kind": "landing",
+      "pick": 879
+     }
+    ]
+   },
+   "samples": [
+    {
+     "atMs": 1795100400000,
+     "lat": 40.7306,
+     "lon": -73.9866,
+     "frac": 0,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795101056869,
+     "lat": 40.653341907246755,
+     "lon": -74.10568915749198,
+     "frac": 0.10000004567122775,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795102567667,
+     "lat": 40.4751861760533,
+     "lon": -74.37854943776024,
+     "frac": 0.3300000441488535,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795103684344,
+     "lat": 40.343095205620706,
+     "lon": -74.5792983135723,
+     "frac": 0.5000000761187129,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795105326515,
+     "lat": 40.148216764234306,
+     "lon": -74.87309114440244,
+     "frac": 0.7499999619406436,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795106903000,
+     "lat": 39.960438741470504,
+     "lon": -75.15354777261079,
+     "frac": 0.9899999802091346,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795106968687,
+     "lat": 39.9526,
+     "lon": -75.1652,
+     "frac": 1,
+     "state": "landed"
+    }
+   ]
+  },
+  {
+   "name": "downpour-bare",
+   "about": "Downpour, no gear",
+   "input": {
+    "flightId": "vector-08-downpour-bare",
+    "from": {
+     "lat": 40.7306,
+     "lon": -73.9866
+    },
+    "to": {
+     "lat": 39.9526,
+     "lon": -75.1652
+    },
+    "departAtMs": 1795100400000,
+    "bird": {
+     "speedMph": 45,
+     "focus": 2,
+     "navigation": 4,
+     "level": 1,
+     "belly": 80,
+     "feathers": 80,
+     "energy": 80,
+     "sulking": false,
+     "breed": "city"
+    },
+    "gear": [],
+    "weather": [
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 6,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 6,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 6,
+      "snow": false
+     }
+    ]
+   },
+   "plan": {
+    "distanceMi": 82.10858428522562,
+    "bearingDeg": 229.48837723069127,
+    "onTimeOdds": 0.85,
+    "delayed": false,
+    "delayKind": "none",
+    "arriveAtMs": 1795109783839,
+    "segments": [
+     {
+      "kind": "fly",
+      "startMs": 1795100400000,
+      "endMs": 1795109783839,
+      "fromFrac": 0,
+      "toFrac": 1
+     }
+    ],
+    "events": [
+     {
+      "atMs": 1795100400000,
+      "kind": "takeoff",
+      "pick": 742
+     },
+     {
+      "atMs": 1795101412985,
+      "kind": "food",
+      "pick": 584
+     },
+     {
+      "atMs": 1795104156777,
+      "kind": "food",
+      "pick": 342
+     },
+     {
+      "atMs": 1795105091920,
+      "kind": "weather",
+      "pick": 655
+     },
+     {
+      "atMs": 1795107952693,
+      "kind": "cruising",
+      "pick": 480
+     },
+     {
+      "atMs": 1795109783839,
+      "kind": "landing",
+      "pick": 283
+     }
+    ]
+   },
+   "samples": [
+    {
+     "atMs": 1795100400000,
+     "lat": 40.7306,
+     "lon": -73.9866,
+     "frac": 0,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795101338384,
+     "lat": 40.65334193431977,
+     "lon": -74.10568911584173,
+     "frac": 0.10000001065661933,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795103496667,
+     "lat": 40.47518619956189,
+     "lon": -74.37854940191504,
+     "frac": 0.3300000138536051,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795105091920,
+     "lat": 40.343095223387394,
+     "lon": -74.57929828665915,
+     "frac": 0.5000000532830966,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795107437879,
+     "lat": 40.14821675531704,
+     "lon": -74.87309115778176,
+     "frac": 0.7499999733584517,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795109690001,
+     "lat": 39.96043869338218,
+     "lon": -75.15354784410722,
+     "frac": 0.9900000415608153,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795109783839,
+     "lat": 39.9526,
+     "lon": -75.1652,
+     "frac": 1,
+     "state": "landed"
+    }
+   ]
+  },
+  {
+   "name": "snow-bare",
+   "about": "Snow at 28F, no gear: cold and snow both apply",
+   "input": {
+    "flightId": "vector-09-snow-bare",
+    "from": {
+     "lat": 40.7306,
+     "lon": -73.9866
+    },
+    "to": {
+     "lat": 39.9526,
+     "lon": -75.1652
+    },
+    "departAtMs": 1795100400000,
+    "bird": {
+     "speedMph": 45,
+     "focus": 2,
+     "navigation": 4,
+     "level": 1,
+     "belly": 80,
+     "feathers": 80,
+     "energy": 80,
+     "sulking": false,
+     "breed": "city"
+    },
+    "gear": [],
+    "weather": [
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 28,
+      "precipMmH": 0,
+      "snow": true
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 28,
+      "precipMmH": 0,
+      "snow": true
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 28,
+      "precipMmH": 0,
+      "snow": true
+     }
+    ]
+   },
+   "plan": {
+    "distanceMi": 82.10858428522562,
+    "bearingDeg": 229.48837723069127,
+    "onTimeOdds": 0.91,
+    "delayed": false,
+    "delayKind": "none",
+    "arriveAtMs": 1795112129798,
+    "segments": [
+     {
+      "kind": "fly",
+      "startMs": 1795100400000,
+      "endMs": 1795112129798,
+      "fromFrac": 0,
+      "toFrac": 1
+     }
+    ],
+    "events": [
+     {
+      "atMs": 1795100400000,
+      "kind": "takeoff",
+      "pick": 626
+     },
+     {
+      "atMs": 1795101134274,
+      "kind": "cruising",
+      "pick": 604
+     },
+     {
+      "atMs": 1795105452738,
+      "kind": "food",
+      "pick": 263
+     },
+     {
+      "atMs": 1795106264899,
+      "kind": "weather",
+      "pick": 912
+     },
+     {
+      "atMs": 1795107452282,
+      "kind": "food",
+      "pick": 439
+     },
+     {
+      "atMs": 1795110866100,
+      "kind": "food",
+      "pick": 198
+     },
+     {
+      "atMs": 1795112129798,
+      "kind": "landing",
+      "pick": 814
+     }
+    ]
+   },
+   "samples": [
+    {
+     "atMs": 1795100400000,
+     "lat": 40.7306,
+     "lon": -73.9866,
+     "frac": 0,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795101572980,
+     "lat": 40.653341929376005,
+     "lon": -74.10568912344742,
+     "frac": 0.100000017050592,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795104270833,
+     "lat": 40.47518623280471,
+     "lon": -74.37854935122739,
+     "frac": 0.3299999710139936,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795106264899,
+     "lat": 40.34309526484298,
+     "lon": -74.57929822386183,
+     "frac": 0.5,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795109197349,
+     "lat": 40.14821670121892,
+     "lon": -74.87309123894958,
+     "frac": 0.75000004262648,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795112012500,
+     "lat": 39.960438727294594,
+     "lon": -75.15354779368717,
+     "frac": 0.9899999982949408,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795112129798,
+     "lat": 39.9526,
+     "lon": -75.1652,
+     "frac": 1,
+     "state": "landed"
+    }
+   ]
+  },
+  {
+   "name": "snow-scarf",
+   "about": "Snow at 28F with the thermal scarf",
+   "input": {
+    "flightId": "vector-10-snow-scarf",
+    "from": {
+     "lat": 40.7306,
+     "lon": -73.9866
+    },
+    "to": {
+     "lat": 39.9526,
+     "lon": -75.1652
+    },
+    "departAtMs": 1795100400000,
+    "bird": {
+     "speedMph": 45,
+     "focus": 2,
+     "navigation": 4,
+     "level": 1,
+     "belly": 80,
+     "feathers": 80,
+     "energy": 80,
+     "sulking": false,
+     "breed": "city"
+    },
+    "gear": [
+     "scarf"
+    ],
+    "weather": [
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 28,
+      "precipMmH": 0,
+      "snow": true
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 28,
+      "precipMmH": 0,
+      "snow": true
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 28,
+      "precipMmH": 0,
+      "snow": true
+     }
+    ]
+   },
+   "plan": {
+    "distanceMi": 82.10858428522562,
+    "bearingDeg": 229.48837723069127,
+    "onTimeOdds": 0.91,
+    "delayed": false,
+    "delayKind": "none",
+    "arriveAtMs": 1795106968687,
+    "segments": [
+     {
+      "kind": "fly",
+      "startMs": 1795100400000,
+      "endMs": 1795106968687,
+      "fromFrac": 0,
+      "toFrac": 1
+     }
+    ],
+    "events": [
+     {
+      "atMs": 1795100400000,
+      "kind": "takeoff",
+      "pick": 53
+     },
+     {
+      "atMs": 1795101199457,
+      "kind": "food",
+      "pick": 289
+     },
+     {
+      "atMs": 1795103684344,
+      "kind": "weather",
+      "pick": 353
+     },
+     {
+      "atMs": 1795105763323,
+      "kind": "landmark",
+      "pick": 381
+     },
+     {
+      "atMs": 1795106968687,
+      "kind": "landing",
+      "pick": 225
+     }
+    ]
+   },
+   "samples": [
+    {
+     "atMs": 1795100400000,
+     "lat": 40.7306,
+     "lon": -73.9866,
+     "frac": 0,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795101056869,
+     "lat": 40.653341907246755,
+     "lon": -74.10568915749198,
+     "frac": 0.10000004567122775,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795102567667,
+     "lat": 40.4751861760533,
+     "lon": -74.37854943776024,
+     "frac": 0.3300000441488535,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795103684344,
+     "lat": 40.343095205620706,
+     "lon": -74.5792983135723,
+     "frac": 0.5000000761187129,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795105326515,
+     "lat": 40.148216764234306,
+     "lon": -74.87309114440244,
+     "frac": 0.7499999619406436,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795106903000,
+     "lat": 39.960438741470504,
+     "lon": -75.15354777261079,
+     "frac": 0.9899999802091346,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795106968687,
+     "lat": 39.9526,
+     "lon": -75.1652,
+     "frac": 1,
+     "state": "landed"
+    }
+   ]
+  },
+  {
+   "name": "mixed-thirds",
+   "about": "Different weather in each third of the route",
+   "input": {
+    "flightId": "vector-11-mixed-thirds",
+    "from": {
+     "lat": 40.7306,
+     "lon": -73.9866
+    },
+    "to": {
+     "lat": 39.9526,
+     "lon": -75.1652
+    },
+    "departAtMs": 1795100400000,
+    "bird": {
+     "speedMph": 45,
+     "focus": 2,
+     "navigation": 4,
+     "level": 1,
+     "belly": 80,
+     "feathers": 80,
+     "energy": 80,
+     "sulking": false,
+     "breed": "city"
+    },
+    "gear": [],
+    "weather": [
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 2,
+      "snow": false
+     },
+     {
+      "windMph": 20,
+      "windFromDeg": 230,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     }
+    ]
+   },
+   "plan": {
+    "distanceMi": 82.10858428522562,
+    "bearingDeg": 229.48837723069127,
+    "onTimeOdds": 0.85,
+    "delayed": false,
+    "delayKind": "none",
+    "arriveAtMs": 1795107894582,
+    "segments": [
+     {
+      "kind": "fly",
+      "startMs": 1795100400000,
+      "endMs": 1795107894582,
+      "fromFrac": 0,
+      "toFrac": 1
+     }
+    ],
+    "events": [
+     {
+      "atMs": 1795100400000,
+      "kind": "takeoff",
+      "pick": 999
+     },
+     {
+      "atMs": 1795102139229,
+      "kind": "landmark",
+      "pick": 954
+     },
+     {
+      "atMs": 1795104147291,
+      "kind": "weather",
+      "pick": 565
+     },
+     {
+      "atMs": 1795104768052,
+      "kind": "food",
+      "pick": 264
+     },
+     {
+      "atMs": 1795106410847,
+      "kind": "landmark",
+      "pick": 778
+     },
+     {
+      "atMs": 1795107894582,
+      "kind": "landing",
+      "pick": 823
+     }
+    ]
+   },
+   "samples": [
+    {
+     "atMs": 1795100400000,
+     "lat": 40.7306,
+     "lon": -73.9866,
+     "frac": 0,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795101149458,
+     "lat": 40.65334196319273,
+     "lon": -74.10568907142233,
+     "frac": 0.09999997331405541,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795102873212,
+     "lat": 40.47518621652441,
+     "lon": -74.37854937605111,
+     "frac": 0.32999999199421665,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795104147291,
+     "lat": 40.34309526484298,
+     "lon": -74.57929822386183,
+     "frac": 0.5,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795106020937,
+     "lat": 40.14821668240597,
+     "lon": -74.87309126717619,
+     "frac": 0.7500000667148615,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795107819636,
+     "lat": 39.960438744783275,
+     "lon": -75.15354776768544,
+     "frac": 0.9899999759826499,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795107894582,
+     "lat": 39.9526,
+     "lon": -75.1652,
+     "frac": 1,
+     "state": "landed"
+    }
+   ]
+  },
+  {
+   "name": "hazards",
+   "about": "Rain, hawk and street fair with the lucky band: odds 0.81",
+   "input": {
+    "flightId": "vector-12-hazards",
+    "from": {
+     "lat": 40.7306,
+     "lon": -73.9866
+    },
+    "to": {
+     "lat": 39.9526,
+     "lon": -75.1652
+    },
+    "departAtMs": 1795100400000,
+    "bird": {
+     "speedMph": 45,
+     "focus": 2,
+     "navigation": 4,
+     "level": 1,
+     "belly": 80,
+     "feathers": 80,
+     "energy": 80,
+     "sulking": false,
+     "breed": "city"
+    },
+    "gear": [
+     "band"
+    ],
+    "weather": [
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 1,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 1,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 1,
+      "snow": false
+     }
+    ],
+    "hazards": {
+     "hawk": true,
+     "fair": true
+    }
+   },
+   "plan": {
+    "distanceMi": 82.10858428522562,
+    "bearingDeg": 229.48837723069127,
+    "onTimeOdds": 0.81,
+    "delayed": true,
+    "delayKind": "minor",
+    "arriveAtMs": 1795109147867,
+    "segments": [
+     {
+      "kind": "fly",
+      "startMs": 1795100400000,
+      "endMs": 1795106266145,
+      "fromFrac": 0,
+      "toFrac": 0.7590898015536368
+     },
+     {
+      "kind": "delay",
+      "startMs": 1795106266145,
+      "endMs": 1795107286145,
+      "fromFrac": 0.7590898015536368,
+      "toFrac": 0.7590898015536368
+     },
+     {
+      "kind": "fly",
+      "startMs": 1795107286145,
+      "endMs": 1795109147867,
+      "fromFrac": 0.7590898015536368,
+      "toFrac": 1
+     }
+    ],
+    "events": [
+     {
+      "atMs": 1795100400000,
+      "kind": "takeoff",
+      "pick": 529
+     },
+     {
+      "atMs": 1795101839907,
+      "kind": "landmark",
+      "pick": 969
+     },
+     {
+      "atMs": 1795103333073,
+      "kind": "weather",
+      "pick": 962
+     },
+     {
+      "atMs": 1795104703684,
+      "kind": "cruising",
+      "pick": 169
+     },
+     {
+      "atMs": 1795106266145,
+      "kind": "delay",
+      "pick": 718
+     },
+     {
+      "atMs": 1795107309064,
+      "kind": "food",
+      "pick": 85
+     },
+     {
+      "atMs": 1795109147867,
+      "kind": "landing",
+      "pick": 466
+     }
+    ]
+   },
+   "samples": [
+    {
+     "atMs": 1795100400000,
+     "lat": 40.7306,
+     "lon": -73.9866,
+     "frac": 0,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795101274787,
+     "lat": 40.64313550103302,
+     "lon": -74.12138708677581,
+     "frac": 0.11319902427091408,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795103286796,
+     "lat": 40.44137556440649,
+     "lon": -74.43005947545886,
+     "frac": 0.3735566377520216,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795104773934,
+     "lat": 40.29172347782006,
+     "lon": -74.65701813329096,
+     "frac": 0.5659949919527568,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795106960900,
+     "lat": 40.141117141062544,
+     "lon": -74.88374144699895,
+     "frac": 0.7590898015536368,
+     "state": "delayed"
+    },
+    {
+     "atMs": 1795109060388,
+     "lat": 39.96147330439859,
+     "lon": -75.15200957384376,
+     "frac": 0.9886800589723442,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795109147867,
+     "lat": 39.9526,
+     "lon": -75.1652,
+     "frac": 1,
+     "state": "landed"
+    }
+   ]
+  },
+  {
+   "name": "hazards-geared",
+   "about": "Hawk and street fair wearing the bandana: the hawk penalty is halved",
+   "input": {
+    "flightId": "vector-13-hazards-geared",
+    "from": {
+     "lat": 40.7306,
+     "lon": -73.9866
+    },
+    "to": {
+     "lat": 39.9526,
+     "lon": -75.1652
+    },
+    "departAtMs": 1795100400000,
+    "bird": {
+     "speedMph": 45,
+     "focus": 2,
+     "navigation": 4,
+     "level": 1,
+     "belly": 80,
+     "feathers": 80,
+     "energy": 80,
+     "sulking": false,
+     "breed": "city"
+    },
+    "gear": [
+     "bandana"
+    ],
+    "weather": [
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     }
+    ],
+    "hazards": {
+     "hawk": true,
+     "fair": true
+    }
+   },
+   "plan": {
+    "distanceMi": 82.10858428522562,
+    "bearingDeg": 229.48837723069127,
+    "onTimeOdds": 0.86,
+    "delayed": false,
+    "delayKind": "none",
+    "arriveAtMs": 1795106968687,
+    "segments": [
+     {
+      "kind": "fly",
+      "startMs": 1795100400000,
+      "endMs": 1795106968687,
+      "fromFrac": 0,
+      "toFrac": 1
+     }
+    ],
+    "events": [
+     {
+      "atMs": 1795100400000,
+      "kind": "takeoff",
+      "pick": 749
+     },
+     {
+      "atMs": 1795102108772,
+      "kind": "cruising",
+      "pick": 293
+     },
+     {
+      "atMs": 1795105163182,
+      "kind": "cruising",
+      "pick": 501
+     },
+     {
+      "atMs": 1795106968687,
+      "kind": "landing",
+      "pick": 452
+     }
+    ]
+   },
+   "samples": [
+    {
+     "atMs": 1795100400000,
+     "lat": 40.7306,
+     "lon": -73.9866,
+     "frac": 0,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795101056869,
+     "lat": 40.653341907246755,
+     "lon": -74.10568915749198,
+     "frac": 0.10000004567122775,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795102567667,
+     "lat": 40.4751861760533,
+     "lon": -74.37854943776024,
+     "frac": 0.3300000441488535,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795103684344,
+     "lat": 40.343095205620706,
+     "lon": -74.5792983135723,
+     "frac": 0.5000000761187129,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795105326515,
+     "lat": 40.148216764234306,
+     "lon": -74.87309114440244,
+     "frac": 0.7499999619406436,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795106903000,
+     "lat": 39.960438741470504,
+     "lon": -75.15354777261079,
+     "frac": 0.9899999802091346,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795106968687,
+     "lat": 39.9526,
+     "lon": -75.1652,
+     "frac": 1,
+     "state": "landed"
+    }
+   ]
+  },
+  {
+   "name": "hungry-tired-dirty",
+   "about": "A neglected bird: belly 20, feathers 20, energy 30, sulking",
+   "input": {
+    "flightId": "vector-14-hungry-tired-dirty",
+    "from": {
+     "lat": 40.7306,
+     "lon": -73.9866
+    },
+    "to": {
+     "lat": 39.9526,
+     "lon": -75.1652
+    },
+    "departAtMs": 1795100400000,
+    "bird": {
+     "speedMph": 45,
+     "focus": 2,
+     "navigation": 4,
+     "level": 1,
+     "belly": 20,
+     "feathers": 20,
+     "energy": 30,
+     "sulking": true,
+     "breed": "city"
+    },
+    "gear": [],
+    "weather": [
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     }
+    ]
+   },
+   "plan": {
+    "distanceMi": 82.10858428522562,
+    "bearingDeg": 229.48837723069127,
+    "onTimeOdds": 0.72,
+    "delayed": false,
+    "delayKind": "none",
+    "arriveAtMs": 1795107698541,
+    "segments": [
+     {
+      "kind": "fly",
+      "startMs": 1795100400000,
+      "endMs": 1795107698541,
+      "fromFrac": 0,
+      "toFrac": 1
+     }
+    ],
+    "events": [
+     {
+      "atMs": 1795100400000,
+      "kind": "takeoff",
+      "pick": 162
+     },
+     {
+      "atMs": 1795100923505,
+      "kind": "food",
+      "pick": 63
+     },
+     {
+      "atMs": 1795103702451,
+      "kind": "food",
+      "pick": 340
+     },
+     {
+      "atMs": 1795106320222,
+      "kind": "landmark",
+      "pick": 173
+     },
+     {
+      "atMs": 1795107698541,
+      "kind": "landing",
+      "pick": 241
+     }
+    ]
+   },
+   "samples": [
+    {
+     "atMs": 1795100400000,
+     "lat": 40.7306,
+     "lon": -73.9866,
+     "frac": 0,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795101129854,
+     "lat": 40.653341953153166,
+     "lon": -74.10568908686764,
+     "frac": 0.09999998629863147,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795102808519,
+     "lat": 40.47518616034153,
+     "lon": -74.37854946171709,
+     "frac": 0.3300000643964321,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795104049271,
+     "lat": 40.34309521154294,
+     "lon": -74.57929830460125,
+     "frac": 0.5000000685068426,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795105873906,
+     "lat": 40.14821670775826,
+     "lon": -74.8730912291381,
+     "frac": 0.7500000342534213,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795107625556,
+     "lat": 39.960438681926895,
+     "lon": -75.15354786113862,
+     "frac": 0.990000056175611,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795107698541,
+     "lat": 39.9526,
+     "lon": -75.1652,
+     "frac": 1,
+     "state": "landed"
+    }
+   ]
+  },
+  {
+   "name": "level-6",
+   "about": "Level 6 bird is 5 percent faster",
+   "input": {
+    "flightId": "vector-15-level-6",
+    "from": {
+     "lat": 40.7306,
+     "lon": -73.9866
+    },
+    "to": {
+     "lat": 39.9526,
+     "lon": -75.1652
+    },
+    "departAtMs": 1795100400000,
+    "bird": {
+     "speedMph": 45,
+     "focus": 2,
+     "navigation": 4,
+     "level": 6,
+     "belly": 80,
+     "feathers": 80,
+     "energy": 80,
+     "sulking": false,
+     "breed": "city"
+    },
+    "gear": [],
+    "weather": [
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     }
+    ]
+   },
+   "plan": {
+    "distanceMi": 82.10858428522562,
+    "bearingDeg": 229.48837723069127,
+    "onTimeOdds": 0.91,
+    "delayed": false,
+    "delayKind": "none",
+    "arriveAtMs": 1795106655893,
+    "segments": [
+     {
+      "kind": "fly",
+      "startMs": 1795100400000,
+      "endMs": 1795106655893,
+      "fromFrac": 0,
+      "toFrac": 1
+     }
+    ],
+    "events": [
+     {
+      "atMs": 1795100400000,
+      "kind": "takeoff",
+      "pick": 718
+     },
+     {
+      "atMs": 1795101027696,
+      "kind": "food",
+      "pick": 888
+     },
+     {
+      "atMs": 1795105075968,
+      "kind": "food",
+      "pick": 699
+     },
+     {
+      "atMs": 1795106655893,
+      "kind": "landing",
+      "pick": 459
+     }
+    ]
+   },
+   "samples": [
+    {
+     "atMs": 1795100400000,
+     "lat": 40.7306,
+     "lon": -73.9866,
+     "frac": 0,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795101025589,
+     "lat": 40.65334197963763,
+     "lon": -74.10568904612282,
+     "frac": 0.09999995204521561,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795102464445,
+     "lat": 40.47518617185957,
+     "lon": -74.37854944415473,
+     "frac": 0.3300000495532772,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795103527947,
+     "lat": 40.3430952026596,
+     "lon": -74.57929831805782,
+     "frac": 0.5000000799246407,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795105091920,
+     "lat": 40.148216703299624,
+     "lon": -74.87309123582774,
+     "frac": 0.7500000399623203,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795106593334,
+     "lat": 39.960438734728584,
+     "lon": -75.15354778263449,
+     "frac": 0.9899999888105503,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795106655893,
+     "lat": 39.9526,
+     "lon": -75.1652,
+     "frac": 1,
+     "state": "landed"
+    }
+   ]
+  },
+  {
+   "name": "block",
+   "about": "East Village to Williamsburg, about two miles",
+   "input": {
+    "flightId": "vector-16-block",
+    "from": {
+     "lat": 40.7306,
+     "lon": -73.9866
+    },
+    "to": {
+     "lat": 40.7081,
+     "lon": -73.9571
+    },
+    "departAtMs": 1795100400000,
+    "bird": {
+     "speedMph": 45,
+     "focus": 2,
+     "navigation": 4,
+     "level": 1,
+     "belly": 80,
+     "feathers": 80,
+     "energy": 80,
+     "sulking": false,
+     "breed": "city"
+    },
+    "gear": [],
+    "weather": [
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     }
+    ]
+   },
+   "plan": {
+    "distanceMi": 2.1916351131392457,
+    "bearingDeg": 135.17115298341554,
+    "onTimeOdds": 0.91,
+    "delayed": false,
+    "delayKind": "none",
+    "arriveAtMs": 1795100575331,
+    "segments": [
+     {
+      "kind": "fly",
+      "startMs": 1795100400000,
+      "endMs": 1795100575331,
+      "fromFrac": 0,
+      "toFrac": 1
+     }
+    ],
+    "events": [
+     {
+      "atMs": 1795100400000,
+      "kind": "takeoff",
+      "pick": 382
+     },
+     {
+      "atMs": 1795100486449,
+      "kind": "cruising",
+      "pick": 871
+     },
+     {
+      "atMs": 1795100575331,
+      "kind": "landing",
+      "pick": 949
+     }
+    ]
+   },
+   "samples": [
+    {
+     "atMs": 1795100400000,
+     "lat": 40.7306,
+     "lon": -73.9866,
+     "frac": 0,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795100417533,
+     "lat": 40.72835035083577,
+     "lon": -73.98364911928977,
+     "frac": 0.09999942965020447,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795100457859,
+     "lat": 40.723175859784966,
+     "lon": -73.97686283393791,
+     "frac": 0.3299986881954703,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795100487666,
+     "lat": 40.71935087455327,
+     "lon": -73.97184742308418,
+     "frac": 0.5000028517489776,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795100531498,
+     "lat": 40.713725736036814,
+     "lon": -73.96447317264133,
+     "frac": 0.7499985741255112,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795100573578,
+     "lat": 40.70832499737588,
+     "lon": -73.95739484916265,
+     "frac": 0.9900017680843661,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795100575331,
+     "lat": 40.7081,
+     "lon": -73.9571,
+     "frac": 1,
+     "state": "landed"
+    }
+   ]
+  },
+  {
+   "name": "boston",
+   "about": "New York to Boston",
+   "input": {
+    "flightId": "vector-17-boston",
+    "from": {
+     "lat": 40.7306,
+     "lon": -73.9866
+    },
+    "to": {
+     "lat": 42.3601,
+     "lon": -71.0589
+    },
+    "departAtMs": 1795100400000,
+    "bird": {
+     "speedMph": 45,
+     "focus": 2,
+     "navigation": 4,
+     "level": 1,
+     "belly": 80,
+     "feathers": 80,
+     "energy": 80,
+     "sulking": false,
+     "breed": "city"
+    },
+    "gear": [],
+    "weather": [
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     }
+    ]
+   },
+   "plan": {
+    "distanceMi": 188.65161881978895,
+    "bearingDeg": 52.39902808303975,
+    "onTimeOdds": 0.91,
+    "delayed": false,
+    "delayKind": "none",
+    "arriveAtMs": 1795115492130,
+    "segments": [
+     {
+      "kind": "fly",
+      "startMs": 1795100400000,
+      "endMs": 1795115492130,
+      "fromFrac": 0,
+      "toFrac": 1
+     }
+    ],
+    "events": [
+     {
+      "atMs": 1795100400000,
+      "kind": "takeoff",
+      "pick": 336
+     },
+     {
+      "atMs": 1795102019103,
+      "kind": "landmark",
+      "pick": 59
+     },
+     {
+      "atMs": 1795105778845,
+      "kind": "food",
+      "pick": 800
+     },
+     {
+      "atMs": 1795107386920,
+      "kind": "cruising",
+      "pick": 310
+     },
+     {
+      "atMs": 1795111581342,
+      "kind": "landmark",
+      "pick": 744
+     },
+     {
+      "atMs": 1795113616724,
+      "kind": "cruising",
+      "pick": 207
+     },
+     {
+      "atMs": 1795115492130,
+      "kind": "landing",
+      "pick": 732
+     }
+    ]
+   },
+   "samples": [
+    {
+     "atMs": 1795100400000,
+     "lat": 40.7306,
+     "lon": -73.9866,
+     "frac": 0,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795101909213,
+     "lat": 40.89684386524134,
+     "lon": -73.70041689733398,
+     "frac": 0.1,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795105380403,
+     "lat": 41.276493904935634,
+     "lon": -73.03671948101818,
+     "frac": 0.33000000662596995,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795107946065,
+     "lat": 41.55463179295491,
+     "lon": -72.54120113567487,
+     "frac": 0.5,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795111719098,
+     "lat": 41.959749217895684,
+     "lon": -71.80473451507088,
+     "frac": 0.7500000331298498,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795115341209,
+     "lat": 42.34417912480227,
+     "lon": -71.08891493679845,
+     "frac": 0.9900000198779099,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795115492130,
+     "lat": 42.3601,
+     "lon": -71.0589,
+     "frac": 1,
+     "state": "landed"
+    }
+   ]
+  },
+  {
+   "name": "chicago-overnight",
+   "about": "New York to Chicago: one night in a barn",
+   "input": {
+    "flightId": "vector-18-chicago-overnight",
+    "from": {
+     "lat": 40.7306,
+     "lon": -73.9866
+    },
+    "to": {
+     "lat": 41.8781,
+     "lon": -87.6298
+    },
+    "departAtMs": 1795100400000,
+    "bird": {
+     "speedMph": 45,
+     "focus": 2,
+     "navigation": 4,
+     "level": 1,
+     "belly": 80,
+     "feathers": 80,
+     "energy": 80,
+     "sulking": false,
+     "breed": "city"
+    },
+    "gear": [],
+    "weather": [
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     }
+    ]
+   },
+   "plan": {
+    "distanceMi": 711.7950481515863,
+    "bearingDeg": 280.8732161593893,
+    "onTimeOdds": 0.85,
+    "delayed": false,
+    "delayKind": "none",
+    "arriveAtMs": 1795208763604,
+    "segments": [
+     {
+      "kind": "fly",
+      "startMs": 1795100400000,
+      "endMs": 1795125480000,
+      "fromFrac": 0,
+      "toFrac": 0.4404357698386759
+     },
+     {
+      "kind": "roost",
+      "startMs": 1795125480000,
+      "endMs": 1795176900000,
+      "fromFrac": 0.4404357698386759,
+      "toFrac": 0.4404357698386759
+     },
+     {
+      "kind": "fly",
+      "startMs": 1795176900000,
+      "endMs": 1795208763604,
+      "fromFrac": 0.4404357698386759,
+      "toFrac": 1
+     }
+    ],
+    "events": [
+     {
+      "atMs": 1795100400000,
+      "kind": "takeoff",
+      "pick": 706
+     },
+     {
+      "atMs": 1795106981711,
+      "kind": "landmark",
+      "pick": 564
+     },
+     {
+      "atMs": 1795112978493,
+      "kind": "food",
+      "pick": 836
+     },
+     {
+      "atMs": 1795124549803,
+      "kind": "food",
+      "pick": 180
+     },
+     {
+      "atMs": 1795125480000,
+      "kind": "dusk",
+      "pick": 440
+     },
+     {
+      "atMs": 1795176900000,
+      "kind": "sunrise",
+      "pick": 440
+     },
+     {
+      "atMs": 1795186952783,
+      "kind": "landmark",
+      "pick": 93
+     },
+     {
+      "atMs": 1795194692382,
+      "kind": "food",
+      "pick": 682
+     },
+     {
+      "atMs": 1795204856065,
+      "kind": "food",
+      "pick": 69
+     },
+     {
+      "atMs": 1795208763604,
+      "kind": "landing",
+      "pick": 571
+     }
+    ]
+   },
+   "samples": [
+    {
+     "atMs": 1795100400000,
+     "lat": 40.7306,
+     "lon": -73.9866,
+     "frac": 0,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795111236360,
+     "lat": 41.07234332067099,
+     "lon": -76.54074502098159,
+     "frac": 0.19029986279302366,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795136159989,
+     "lat": 41.43473815857785,
+     "lon": -79.93453402789386,
+     "frac": 0.4404357698386759,
+     "state": "roosting"
+    },
+    {
+     "atMs": 1795154581802,
+     "lat": 41.43473815857785,
+     "lon": -79.93453402789386,
+     "frac": 0.4404357698386759,
+     "state": "roosting"
+    },
+    {
+     "atMs": 1795181672703,
+     "lat": 41.53373386300066,
+     "lon": -81.07953526533541,
+     "frac": 0.5242503276640758,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795207679968,
+     "lat": 41.87149331330256,
+     "lon": -87.36666168758344,
+     "frac": 0.9809700138090125,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795208763604,
+     "lat": 41.8781,
+     "lon": -87.6298,
+     "frac": 1,
+     "state": "landed"
+    }
+   ]
+  },
+  {
+   "name": "la-many-nights",
+   "about": "New York to Los Angeles: several nights, distance penalty capped",
+   "input": {
+    "flightId": "vector-19-la-many-nights",
+    "from": {
+     "lat": 40.7306,
+     "lon": -73.9866
+    },
+    "to": {
+     "lat": 34.0522,
+     "lon": -118.2437
+    },
+    "departAtMs": 1795100400000,
+    "bird": {
+     "speedMph": 45,
+     "focus": 2,
+     "navigation": 4,
+     "level": 1,
+     "belly": 80,
+     "feathers": 80,
+     "energy": 80,
+     "sulking": false,
+     "breed": "city"
+    },
+    "gear": [],
+    "weather": [
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     }
+    ]
+   },
+   "plan": {
+    "distanceMi": 2446.497542263226,
+    "bearingDeg": 273.67346695142555,
+    "onTimeOdds": 0.81,
+    "delayed": false,
+    "delayKind": "none",
+    "arriveAtMs": 1795550159804,
+    "segments": [
+     {
+      "kind": "fly",
+      "startMs": 1795100400000,
+      "endMs": 1795125600000,
+      "fromFrac": 0,
+      "toFrac": 0.12875549415373563
+     },
+     {
+      "kind": "roost",
+      "startMs": 1795125600000,
+      "endMs": 1795176780000,
+      "fromFrac": 0.12875549415373563,
+      "toFrac": 0.12875549415373563
+     },
+     {
+      "kind": "fly",
+      "startMs": 1795176780000,
+      "endMs": 1795214160000,
+      "fromFrac": 0.12875549415373563,
+      "toFrac": 0.31974281048177644
+     },
+     {
+      "kind": "roost",
+      "startMs": 1795214160000,
+      "endMs": 1795265340000,
+      "fromFrac": 0.31974281048177644,
+      "toFrac": 0.31974281048177644
+     },
+     {
+      "kind": "fly",
+      "startMs": 1795265340000,
+      "endMs": 1795302720000,
+      "fromFrac": 0.31974281048177644,
+      "toFrac": 0.5107301268098282
+     },
+     {
+      "kind": "roost",
+      "startMs": 1795302720000,
+      "endMs": 1795353780000,
+      "fromFrac": 0.5107301268098282,
+      "toFrac": 0.5107301268098282
+     },
+     {
+      "kind": "fly",
+      "startMs": 1795353780000,
+      "endMs": 1795391400000,
+      "fromFrac": 0.5107301268098282,
+      "toFrac": 0.7029436859393442
+     },
+     {
+      "kind": "roost",
+      "startMs": 1795391400000,
+      "endMs": 1795441980000,
+      "fromFrac": 0.7029436859393442,
+      "toFrac": 0.7029436859393442
+     },
+     {
+      "kind": "fly",
+      "startMs": 1795441980000,
+      "endMs": 1795480020000,
+      "fromFrac": 0.7029436859393442,
+      "toFrac": 0.8973031699714226
+     },
+     {
+      "kind": "roost",
+      "startMs": 1795480020000,
+      "endMs": 1795530060000,
+      "fromFrac": 0.8973031699714226,
+      "toFrac": 0.8973031699714226
+     },
+     {
+      "kind": "fly",
+      "startMs": 1795530060000,
+      "endMs": 1795550159804,
+      "fromFrac": 0.8973031699714226,
+      "toFrac": 1
+     }
+    ],
+    "events": [
+     {
+      "atMs": 1795100400000,
+      "kind": "takeoff",
+      "pick": 406
+     },
+     {
+      "atMs": 1795113631355,
+      "kind": "landmark",
+      "pick": 952
+     },
+     {
+      "atMs": 1795125600000,
+      "kind": "dusk",
+      "pick": 128
+     },
+     {
+      "atMs": 1795176780000,
+      "kind": "sunrise",
+      "pick": 128
+     },
+     {
+      "atMs": 1795197144335,
+      "kind": "food",
+      "pick": 201
+     },
+     {
+      "atMs": 1795214160000,
+      "kind": "dusk",
+      "pick": 319
+     },
+     {
+      "atMs": 1795265340000,
+      "kind": "sunrise",
+      "pick": 319
+     },
+     {
+      "atMs": 1795288449311,
+      "kind": "landmark",
+      "pick": 643
+     },
+     {
+      "atMs": 1795302720000,
+      "kind": "dusk",
+      "pick": 510
+     },
+     {
+      "atMs": 1795353780000,
+      "kind": "sunrise",
+      "pick": 510
+     },
+     {
+      "atMs": 1795363257810,
+      "kind": "landmark",
+      "pick": 157
+     },
+     {
+      "atMs": 1795391400000,
+      "kind": "dusk",
+      "pick": 702
+     },
+     {
+      "atMs": 1795441980000,
+      "kind": "sunrise",
+      "pick": 702
+     },
+     {
+      "atMs": 1795445895040,
+      "kind": "landmark",
+      "pick": 720
+     },
+     {
+      "atMs": 1795478350859,
+      "kind": "cruising",
+      "pick": 537
+     },
+     {
+      "atMs": 1795480020000,
+      "kind": "dusk",
+      "pick": 897
+     },
+     {
+      "atMs": 1795530060000,
+      "kind": "sunrise",
+      "pick": 897
+     },
+     {
+      "atMs": 1795550159804,
+      "kind": "landing",
+      "pick": 260
+     }
+    ]
+   },
+   "samples": [
+    {
+     "atMs": 1795100400000,
+     "lat": 40.7306,
+     "lon": -73.9866,
+     "frac": 0,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795145375980,
+     "lat": 40.866429747499495,
+     "lon": -80.00753548503859,
+     "frac": 0.12875549415373563,
+     "state": "roosting"
+    },
+    {
+     "atMs": 1795248820735,
+     "lat": 40.49165942255832,
+     "lon": -88.91492710321054,
+     "frac": 0.31974281048177644,
+     "state": "roosting"
+    },
+    {
+     "atMs": 1795325279902,
+     "lat": 39.445316395280905,
+     "lon": -97.6363761820991,
+     "frac": 0.5107301268098282,
+     "state": "roosting"
+    },
+    {
+     "atMs": 1795437719853,
+     "lat": 37.75819986157354,
+     "lon": -106.07730920310556,
+     "frac": 0.7029436859393442,
+     "state": "roosting"
+    },
+    {
+     "atMs": 1795545662206,
+     "lat": 34.38134983793259,
+     "lon": -117.34380255152018,
+     "frac": 0.9770202208268862,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795550159804,
+     "lat": 34.0522,
+     "lon": -118.2437,
+     "frac": 1,
+     "state": "landed"
+    }
+   ]
+  },
+  {
+   "name": "night-release",
+   "about": "Released at 10 pm: waits at the loft until sunrise",
+   "input": {
+    "flightId": "vector-20-night-release",
+    "from": {
+     "lat": 40.7306,
+     "lon": -73.9866
+    },
+    "to": {
+     "lat": 39.9526,
+     "lon": -75.1652
+    },
+    "departAtMs": 1795143600000,
+    "bird": {
+     "speedMph": 45,
+     "focus": 2,
+     "navigation": 4,
+     "level": 1,
+     "belly": 80,
+     "feathers": 80,
+     "energy": 80,
+     "sulking": false,
+     "breed": "city"
+    },
+    "gear": [],
+    "weather": [
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     }
+    ]
+   },
+   "plan": {
+    "distanceMi": 82.10858428522562,
+    "bearingDeg": 229.48837723069127,
+    "onTimeOdds": 0.91,
+    "delayed": false,
+    "delayKind": "none",
+    "arriveAtMs": 1795181908687,
+    "segments": [
+     {
+      "kind": "roost",
+      "startMs": 1795143600000,
+      "endMs": 1795175340000,
+      "fromFrac": 0,
+      "toFrac": 0
+     },
+     {
+      "kind": "fly",
+      "startMs": 1795175340000,
+      "endMs": 1795181908687,
+      "fromFrac": 0,
+      "toFrac": 1
+     }
+    ],
+    "events": [
+     {
+      "atMs": 1795143600000,
+      "kind": "takeoff",
+      "pick": 796
+     },
+     {
+      "atMs": 1795143600000,
+      "kind": "nightwait",
+      "pick": 0
+     },
+     {
+      "atMs": 1795175340000,
+      "kind": "sunrise",
+      "pick": 0
+     },
+     {
+      "atMs": 1795177904385,
+      "kind": "landmark",
+      "pick": 691
+     },
+     {
+      "atMs": 1795180443176,
+      "kind": "food",
+      "pick": 540
+     },
+     {
+      "atMs": 1795181908687,
+      "kind": "landing",
+      "pick": 228
+     }
+    ]
+   },
+   "samples": [
+    {
+     "atMs": 1795143600000,
+     "lat": 40.7306,
+     "lon": -73.9866,
+     "frac": 0,
+     "state": "roosting"
+    },
+    {
+     "atMs": 1795147430869,
+     "lat": 40.7306,
+     "lon": -73.9866,
+     "frac": 0,
+     "state": "roosting"
+    },
+    {
+     "atMs": 1795156241867,
+     "lat": 40.7306,
+     "lon": -73.9866,
+     "frac": 0,
+     "state": "roosting"
+    },
+    {
+     "atMs": 1795162754344,
+     "lat": 40.7306,
+     "lon": -73.9866,
+     "frac": 0,
+     "state": "roosting"
+    },
+    {
+     "atMs": 1795172331515,
+     "lat": 40.7306,
+     "lon": -73.9866,
+     "frac": 0,
+     "state": "roosting"
+    },
+    {
+     "atMs": 1795181525600,
+     "lat": 39.99829913834208,
+     "lon": -75.09720647447065,
+     "frac": 0.941679821248904,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795181908687,
+     "lat": 39.9526,
+     "lon": -75.1652,
+     "frac": 1,
+     "state": "landed"
+    }
+   ]
+  },
+  {
+   "name": "king-twilight",
+   "about": "A King pigeon to Chicago flies a little later into dusk",
+   "input": {
+    "flightId": "vector-21-king-twilight",
+    "from": {
+     "lat": 40.7306,
+     "lon": -73.9866
+    },
+    "to": {
+     "lat": 41.8781,
+     "lon": -87.6298
+    },
+    "departAtMs": 1795100400000,
+    "bird": {
+     "speedMph": 45,
+     "focus": 2,
+     "navigation": 4,
+     "level": 1,
+     "belly": 80,
+     "feathers": 80,
+     "energy": 80,
+     "sulking": false,
+     "breed": "king"
+    },
+    "gear": [],
+    "weather": [
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     }
+    ]
+   },
+   "plan": {
+    "distanceMi": 711.7950481515863,
+    "bearingDeg": 280.8732161593893,
+    "onTimeOdds": 0.85,
+    "delayed": false,
+    "delayKind": "none",
+    "arriveAtMs": 1795205103604,
+    "segments": [
+     {
+      "kind": "fly",
+      "startMs": 1795100400000,
+      "endMs": 1795127400000,
+      "fromFrac": 0,
+      "toFrac": 0.47415334073541665
+     },
+     {
+      "kind": "roost",
+      "startMs": 1795127400000,
+      "endMs": 1795175160000,
+      "fromFrac": 0.47415334073541665,
+      "toFrac": 0.47415334073541665
+     },
+     {
+      "kind": "fly",
+      "startMs": 1795175160000,
+      "endMs": 1795205103604,
+      "fromFrac": 0.47415334073541665,
+      "toFrac": 1
+     }
+    ],
+    "events": [
+     {
+      "atMs": 1795100400000,
+      "kind": "takeoff",
+      "pick": 805
+     },
+     {
+      "atMs": 1795104711700,
+      "kind": "landmark",
+      "pick": 231
+     },
+     {
+      "atMs": 1795113559031,
+      "kind": "landmark",
+      "pick": 964
+     },
+     {
+      "atMs": 1795123537002,
+      "kind": "food",
+      "pick": 843
+     },
+     {
+      "atMs": 1795127400000,
+      "kind": "dusk",
+      "pick": 474
+     },
+     {
+      "atMs": 1795175160000,
+      "kind": "sunrise",
+      "pick": 474
+     },
+     {
+      "atMs": 1795182108180,
+      "kind": "landmark",
+      "pick": 448
+     },
+     {
+      "atMs": 1795192960118,
+      "kind": "cruising",
+      "pick": 137
+     },
+     {
+      "atMs": 1795199535727,
+      "kind": "landmark",
+      "pick": 531
+     },
+     {
+      "atMs": 1795205103604,
+      "kind": "landing",
+      "pick": 702
+     }
+    ]
+   },
+   "samples": [
+    {
+     "atMs": 1795100400000,
+     "lat": 40.7306,
+     "lon": -73.9866,
+     "frac": 0,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795110870360,
+     "lat": 41.06172355497435,
+     "lon": -76.45405721421372,
+     "frac": 0.18387245084083248,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795134952189,
+     "lat": 41.47592780104583,
+     "lon": -80.39473189205377,
+     "frac": 0.47415334073541665,
+     "state": "roosting"
+    },
+    {
+     "atMs": 1795152751802,
+     "lat": 41.47592780104583,
+     "lon": -80.39473189205377,
+     "frac": 0.47415334073541665,
+     "state": "roosting"
+    },
+    {
+     "atMs": 1795178927703,
+     "lat": 41.551413787771544,
+     "lon": -81.29943914239942,
+     "frac": 0.5403188576067708,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795204056568,
+     "lat": 41.87172625570348,
+     "lon": -87.37554833114778,
+     "frac": 0.9816127550067204,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795205103604,
+     "lat": 41.8781,
+     "lon": -87.6298,
+     "frac": 1,
+     "state": "landed"
+    }
+   ]
+  },
+  {
+   "name": "frillback-drizzle",
+   "about": "A Frillback ignores light rain entirely",
+   "input": {
+    "flightId": "vector-22-frillback-drizzle",
+    "from": {
+     "lat": 40.7306,
+     "lon": -73.9866
+    },
+    "to": {
+     "lat": 39.9526,
+     "lon": -75.1652
+    },
+    "departAtMs": 1795100400000,
+    "bird": {
+     "speedMph": 45,
+     "focus": 2,
+     "navigation": 4,
+     "level": 1,
+     "belly": 80,
+     "feathers": 80,
+     "energy": 80,
+     "sulking": false,
+     "breed": "frillback"
+    },
+    "gear": [],
+    "weather": [
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 1,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 1,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 1,
+      "snow": false
+     }
+    ]
+   },
+   "plan": {
+    "distanceMi": 82.10858428522562,
+    "bearingDeg": 229.48837723069127,
+    "onTimeOdds": 0.91,
+    "delayed": false,
+    "delayKind": "none",
+    "arriveAtMs": 1795106968687,
+    "segments": [
+     {
+      "kind": "fly",
+      "startMs": 1795100400000,
+      "endMs": 1795106968687,
+      "fromFrac": 0,
+      "toFrac": 1
+     }
+    ],
+    "events": [
+     {
+      "atMs": 1795100400000,
+      "kind": "takeoff",
+      "pick": 501
+     },
+     {
+      "atMs": 1795101962203,
+      "kind": "landmark",
+      "pick": 765
+     },
+     {
+      "atMs": 1795103684344,
+      "kind": "weather",
+      "pick": 481
+     },
+     {
+      "atMs": 1795105078840,
+      "kind": "food",
+      "pick": 363
+     },
+     {
+      "atMs": 1795106968687,
+      "kind": "landing",
+      "pick": 17
+     }
+    ]
+   },
+   "samples": [
+    {
+     "atMs": 1795100400000,
+     "lat": 40.7306,
+     "lon": -73.9866,
+     "frac": 0,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795101056869,
+     "lat": 40.653341907246755,
+     "lon": -74.10568915749198,
+     "frac": 0.10000004567122775,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795102567667,
+     "lat": 40.4751861760533,
+     "lon": -74.37854943776024,
+     "frac": 0.3300000441488535,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795103684344,
+     "lat": 40.343095205620706,
+     "lon": -74.5792983135723,
+     "frac": 0.5000000761187129,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795105326515,
+     "lat": 40.148216764234306,
+     "lon": -74.87309114440244,
+     "frac": 0.7499999619406436,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795106903000,
+     "lat": 39.960438741470504,
+     "lon": -75.15354777261079,
+     "frac": 0.9899999802091346,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795106968687,
+     "lat": 39.9526,
+     "lon": -75.1652,
+     "frac": 1,
+     "state": "landed"
+    }
+   ]
+  },
+  {
+   "name": "jacobin-fair",
+   "about": "A Jacobin ignores the street fair",
+   "input": {
+    "flightId": "vector-23-jacobin-fair",
+    "from": {
+     "lat": 40.7306,
+     "lon": -73.9866
+    },
+    "to": {
+     "lat": 39.9526,
+     "lon": -75.1652
+    },
+    "departAtMs": 1795100400000,
+    "bird": {
+     "speedMph": 45,
+     "focus": 5,
+     "navigation": 2,
+     "level": 1,
+     "belly": 80,
+     "feathers": 80,
+     "energy": 80,
+     "sulking": false,
+     "breed": "jacobin"
+    },
+    "gear": [],
+    "weather": [
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     }
+    ],
+    "hazards": {
+     "fair": true
+    }
+   },
+   "plan": {
+    "distanceMi": 82.10858428522562,
+    "bearingDeg": 229.48837723069127,
+    "onTimeOdds": 0.99,
+    "delayed": false,
+    "delayKind": "none",
+    "arriveAtMs": 1795106968687,
+    "segments": [
+     {
+      "kind": "fly",
+      "startMs": 1795100400000,
+      "endMs": 1795106968687,
+      "fromFrac": 0,
+      "toFrac": 1
+     }
+    ],
+    "events": [
+     {
+      "atMs": 1795100400000,
+      "kind": "takeoff",
+      "pick": 571
+     },
+     {
+      "atMs": 1795101465280,
+      "kind": "cruising",
+      "pick": 864
+     },
+     {
+      "atMs": 1795104531007,
+      "kind": "cruising",
+      "pick": 346
+     },
+     {
+      "atMs": 1795106968687,
+      "kind": "landing",
+      "pick": 858
+     }
+    ]
+   },
+   "samples": [
+    {
+     "atMs": 1795100400000,
+     "lat": 40.7306,
+     "lon": -73.9866,
+     "frac": 0,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795101056869,
+     "lat": 40.653341907246755,
+     "lon": -74.10568915749198,
+     "frac": 0.10000004567122775,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795102567667,
+     "lat": 40.4751861760533,
+     "lon": -74.37854943776024,
+     "frac": 0.3300000441488535,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795103684344,
+     "lat": 40.343095205620706,
+     "lon": -74.5792983135723,
+     "frac": 0.5000000761187129,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795105326515,
+     "lat": 40.148216764234306,
+     "lon": -74.87309114440244,
+     "frac": 0.7499999619406436,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795106903000,
+     "lat": 39.960438741470504,
+     "lon": -75.15354777261079,
+     "frac": 0.9899999802091346,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795106968687,
+     "lat": 39.9526,
+     "lon": -75.1652,
+     "frac": 1,
+     "state": "landed"
+    }
+   ]
+  },
+  {
+   "name": "delay-minor",
+   "about": "A flight id that rolls a minor delay",
+   "input": {
+    "flightId": "vector-minor-1",
+    "from": {
+     "lat": 40.7306,
+     "lon": -73.9866
+    },
+    "to": {
+     "lat": 39.9526,
+     "lon": -75.1652
+    },
+    "departAtMs": 1795100400000,
+    "bird": {
+     "speedMph": 45,
+     "focus": 1,
+     "navigation": 4,
+     "level": 1,
+     "belly": 80,
+     "feathers": 80,
+     "energy": 80,
+     "sulking": false,
+     "breed": "city"
+    },
+    "gear": [],
+    "weather": [
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     }
+    ]
+   },
+   "plan": {
+    "distanceMi": 82.10858428522562,
+    "bearingDeg": 229.48837723069127,
+    "onTimeOdds": 0.88,
+    "delayed": true,
+    "delayKind": "minor",
+    "arriveAtMs": 1795108048687,
+    "segments": [
+     {
+      "kind": "fly",
+      "startMs": 1795100400000,
+      "endMs": 1795103779064,
+      "fromFrac": 0,
+      "toFrac": 0.5144200038630515
+     },
+     {
+      "kind": "delay",
+      "startMs": 1795103779064,
+      "endMs": 1795104859064,
+      "fromFrac": 0.5144200038630515,
+      "toFrac": 0.5144200038630515
+     },
+     {
+      "kind": "fly",
+      "startMs": 1795104859064,
+      "endMs": 1795108048687,
+      "fromFrac": 0.5144200038630515,
+      "toFrac": 1
+     }
+    ],
+    "events": [
+     {
+      "atMs": 1795100400000,
+      "kind": "takeoff",
+      "pick": 309
+     },
+     {
+      "atMs": 1795102793366,
+      "kind": "cruising",
+      "pick": 459
+     },
+     {
+      "atMs": 1795103779064,
+      "kind": "delay",
+      "pick": 754
+     },
+     {
+      "atMs": 1795105455405,
+      "kind": "landmark",
+      "pick": 197
+     },
+     {
+      "atMs": 1795108048687,
+      "kind": "landing",
+      "pick": 369
+     }
+    ]
+   },
+   "samples": [
+    {
+     "atMs": 1795100400000,
+     "lat": 40.7306,
+     "lon": -73.9866,
+     "frac": 0,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795101164869,
+     "lat": 40.64062771384706,
+     "lon": -74.125242945709,
+     "frac": 0.11644168738287537,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795102924067,
+     "lat": 40.433065600793604,
+     "lon": -74.44270634224827,
+     "frac": 0.38425746179729087,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795104224344,
+     "lat": 40.33187489494234,
+     "lon": -74.59629023928521,
+     "frac": 0.5144200038630515,
+     "state": "delayed"
+    },
+    {
+     "atMs": 1795106136515,
+     "lat": 40.180308953016144,
+     "lon": -74.8249028424529,
+     "frac": 0.7088958562271526,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795107972200,
+     "lat": 39.96172744507313,
+     "lon": -75.15163170313728,
+     "frac": 0.988355815980595,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795108048687,
+     "lat": 39.9526,
+     "lon": -75.1652,
+     "frac": 1,
+     "state": "landed"
+    }
+   ]
+  },
+  {
+   "name": "delay-major",
+   "about": "A flight id that rolls a major delay",
+   "input": {
+    "flightId": "vector-major-15",
+    "from": {
+     "lat": 40.7306,
+     "lon": -73.9866
+    },
+    "to": {
+     "lat": 39.9526,
+     "lon": -75.1652
+    },
+    "departAtMs": 1795100400000,
+    "bird": {
+     "speedMph": 45,
+     "focus": 2,
+     "navigation": 4,
+     "level": 1,
+     "belly": 80,
+     "feathers": 80,
+     "energy": 80,
+     "sulking": false,
+     "breed": "city"
+    },
+    "gear": [],
+    "weather": [
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     }
+    ]
+   },
+   "plan": {
+    "distanceMi": 82.10858428522562,
+    "bearingDeg": 229.48837723069127,
+    "onTimeOdds": 0.91,
+    "delayed": true,
+    "delayKind": "major",
+    "arriveAtMs": 1795119028688,
+    "segments": [
+     {
+      "kind": "fly",
+      "startMs": 1795100400000,
+      "endMs": 1795101688362,
+      "fromFrac": 0,
+      "toFrac": 0.19613681738264857
+     },
+     {
+      "kind": "delay",
+      "startMs": 1795101688362,
+      "endMs": 1795113748362,
+      "fromFrac": 0.19613681738264857,
+      "toFrac": 0.19613681738264857
+     },
+     {
+      "kind": "fly",
+      "startMs": 1795113748362,
+      "endMs": 1795119028688,
+      "fromFrac": 0.19613681738264857,
+      "toFrac": 1
+     }
+    ],
+    "events": [
+     {
+      "atMs": 1795100400000,
+      "kind": "takeoff",
+      "pick": 867
+     },
+     {
+      "atMs": 1795101144503,
+      "kind": "food",
+      "pick": 570
+     },
+     {
+      "atMs": 1795101688362,
+      "kind": "delay",
+      "pick": 677
+     },
+     {
+      "atMs": 1795117985499,
+      "kind": "food",
+      "pick": 518
+     },
+     {
+      "atMs": 1795119028688,
+      "kind": "landing",
+      "pick": 587
+     }
+    ]
+   },
+   "samples": [
+    {
+     "atMs": 1795100400000,
+     "lat": 40.7306,
+     "lon": -73.9866,
+     "frac": 0,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795102262869,
+     "lat": 40.57895342123402,
+     "lon": -74.2199176489187,
+     "frac": 0.19613681738264857,
+     "state": "delayed"
+    },
+    {
+     "atMs": 1795106547467,
+     "lat": 40.57895342123402,
+     "lon": -74.2199176489187,
+     "frac": 0.19613681738264857,
+     "state": "delayed"
+    },
+    {
+     "atMs": 1795109714344,
+     "lat": 40.57895342123402,
+     "lon": -74.2199176489187,
+     "frac": 0.19613681738264857,
+     "state": "delayed"
+    },
+    {
+     "atMs": 1795114371516,
+     "lat": 40.505437130140095,
+     "lon": -74.3323888920527,
+     "frac": 0.29100417172795473,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795118842401,
+     "lat": 39.97482747215749,
+     "lon": -75.13214756552803,
+     "frac": 0.9716401486006283,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795119028688,
+     "lat": 39.9526,
+     "lon": -75.1652,
+     "frac": 1,
+     "state": "landed"
+    }
+   ]
+  },
+  {
+   "name": "delay-major-poor-navigator",
+   "about": "Same major delay, navigation 1: the delay is longer",
+   "input": {
+    "flightId": "vector-major-15",
+    "from": {
+     "lat": 40.7306,
+     "lon": -73.9866
+    },
+    "to": {
+     "lat": 39.9526,
+     "lon": -75.1652
+    },
+    "departAtMs": 1795100400000,
+    "bird": {
+     "speedMph": 45,
+     "focus": 2,
+     "navigation": 1,
+     "level": 1,
+     "belly": 80,
+     "feathers": 80,
+     "energy": 80,
+     "sulking": false,
+     "breed": "city"
+    },
+    "gear": [],
+    "weather": [
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     }
+    ]
+   },
+   "plan": {
+    "distanceMi": 82.10858428522562,
+    "bearingDeg": 229.48837723069127,
+    "onTimeOdds": 0.91,
+    "delayed": true,
+    "delayKind": "major",
+    "arriveAtMs": 1795123048688,
+    "segments": [
+     {
+      "kind": "fly",
+      "startMs": 1795100400000,
+      "endMs": 1795101688362,
+      "fromFrac": 0,
+      "toFrac": 0.19613681738264857
+     },
+     {
+      "kind": "delay",
+      "startMs": 1795101688362,
+      "endMs": 1795117768362,
+      "fromFrac": 0.19613681738264857,
+      "toFrac": 0.19613681738264857
+     },
+     {
+      "kind": "fly",
+      "startMs": 1795117768362,
+      "endMs": 1795123048688,
+      "fromFrac": 0.19613681738264857,
+      "toFrac": 1
+     }
+    ],
+    "events": [
+     {
+      "atMs": 1795100400000,
+      "kind": "takeoff",
+      "pick": 867
+     },
+     {
+      "atMs": 1795101144503,
+      "kind": "food",
+      "pick": 570
+     },
+     {
+      "atMs": 1795101688362,
+      "kind": "delay",
+      "pick": 677
+     },
+     {
+      "atMs": 1795122005499,
+      "kind": "food",
+      "pick": 518
+     },
+     {
+      "atMs": 1795123048688,
+      "kind": "landing",
+      "pick": 587
+     }
+    ]
+   },
+   "samples": [
+    {
+     "atMs": 1795100400000,
+     "lat": 40.7306,
+     "lon": -73.9866,
+     "frac": 0,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795102664869,
+     "lat": 40.57895342123402,
+     "lon": -74.2199176489187,
+     "frac": 0.19613681738264857,
+     "state": "delayed"
+    },
+    {
+     "atMs": 1795107874067,
+     "lat": 40.57895342123402,
+     "lon": -74.2199176489187,
+     "frac": 0.19613681738264857,
+     "state": "delayed"
+    },
+    {
+     "atMs": 1795111724344,
+     "lat": 40.57895342123402,
+     "lon": -74.2199176489187,
+     "frac": 0.19613681738264857,
+     "state": "delayed"
+    },
+    {
+     "atMs": 1795117386516,
+     "lat": 40.57895342123402,
+     "lon": -74.2199176489187,
+     "frac": 0.19613681738264857,
+     "state": "delayed"
+    },
+    {
+     "atMs": 1795122822201,
+     "lat": 39.97962284122199,
+     "lon": -75.12501216059685,
+     "frac": 0.9655202045022493,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795123048688,
+     "lat": 39.9526,
+     "lon": -75.1652,
+     "frac": 1,
+     "state": "landed"
+    }
+   ]
+  },
+  {
+   "name": "delay-major-search-party",
+   "about": "Same major delay ended early by a search party",
+   "input": {
+    "flightId": "vector-major-15",
+    "from": {
+     "lat": 40.7306,
+     "lon": -73.9866
+    },
+    "to": {
+     "lat": 39.9526,
+     "lon": -75.1652
+    },
+    "departAtMs": 1795100400000,
+    "bird": {
+     "speedMph": 45,
+     "focus": 2,
+     "navigation": 4,
+     "level": 1,
+     "belly": 80,
+     "feathers": 80,
+     "energy": 80,
+     "sulking": false,
+     "breed": "city"
+    },
+    "gear": [],
+    "weather": [
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     }
+    ],
+    "delayEndOverrideMs": 1795102888362
+   },
+   "plan": {
+    "distanceMi": 82.10858428522562,
+    "bearingDeg": 229.48837723069127,
+    "onTimeOdds": 0.91,
+    "delayed": true,
+    "delayKind": "major",
+    "arriveAtMs": 1795108168688,
+    "segments": [
+     {
+      "kind": "fly",
+      "startMs": 1795100400000,
+      "endMs": 1795101688362,
+      "fromFrac": 0,
+      "toFrac": 0.19613681738264857
+     },
+     {
+      "kind": "delay",
+      "startMs": 1795101688362,
+      "endMs": 1795102888362,
+      "fromFrac": 0.19613681738264857,
+      "toFrac": 0.19613681738264857
+     },
+     {
+      "kind": "fly",
+      "startMs": 1795102888362,
+      "endMs": 1795108168688,
+      "fromFrac": 0.19613681738264857,
+      "toFrac": 1
+     }
+    ],
+    "events": [
+     {
+      "atMs": 1795100400000,
+      "kind": "takeoff",
+      "pick": 867
+     },
+     {
+      "atMs": 1795101144503,
+      "kind": "food",
+      "pick": 570
+     },
+     {
+      "atMs": 1795101688362,
+      "kind": "delay",
+      "pick": 677
+     },
+     {
+      "atMs": 1795107125499,
+      "kind": "food",
+      "pick": 518
+     },
+     {
+      "atMs": 1795108168688,
+      "kind": "landing",
+      "pick": 587
+     }
+    ]
+   },
+   "samples": [
+    {
+     "atMs": 1795100400000,
+     "lat": 40.7306,
+     "lon": -73.9866,
+     "frac": 0,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795101176869,
+     "lat": 40.63921486715087,
+     "lon": -74.12741505978788,
+     "frac": 0.11826847825629817,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795102963667,
+     "lat": 40.57007514702429,
+     "lon": -74.23352234787157,
+     "frac": 0.20760105594803255,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795104284344,
+     "lat": 40.4141120486732,
+     "lon": -74.47153207383342,
+     "frac": 0.4086575089832307,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795106226516,
+     "lat": 40.18387350166079,
+     "lon": -74.81954579823936,
+     "frac": 0.7043287544916154,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795108091001,
+     "lat": 39.96187063175293,
+     "lon": -75.15141880305535,
+     "frac": 0.9881731319111748,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795108168688,
+     "lat": 39.9526,
+     "lon": -75.1652,
+     "frac": 1,
+     "state": "landed"
+    }
+   ]
+  }
+ ]
+}

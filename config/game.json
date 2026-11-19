@@ -1,0 +1,223 @@
+{
+  "_about": "Every tunable number in the game. Code reads these; nothing is hard-coded. `engine` must stay identical to CONFIG in the flight engine (a test checks this).",
+  "engine": {
+    "stepMs": 60000,
+    "sunAltitudeDeg": -0.833,
+    "kingSunAltitudeDeg": -6,
+    "capHeadwindFactor": 0.3,
+    "navDelayBase": 1.3,
+    "navDelayPerPoint": 0.1,
+    "hawkChance": 0.15,
+    "fairChance": 0.25,
+    "hazardCellDeg": 0.5,
+    "searchSuccessChance": 0.7,
+    "searchMinutes": [
+      10,
+      60
+    ],
+    "headwindFactor": 0.45,
+    "minGroundMph": 8,
+    "levelSpeedBonus": 0.01,
+    "sulkSpeed": 0.9,
+    "rainMmH": 0.5,
+    "downpourMmH": 4,
+    "rainSpeed": 0.85,
+    "downpourSpeed": 0.7,
+    "coldF": 32,
+    "coldSpeed": 0.8,
+    "snowSpeed": 0.7,
+    "oddsBase": 0.85,
+    "oddsPerFocus": 0.03,
+    "oddsHungry": 0.06,
+    "oddsDirty": 0.03,
+    "oddsTired": 0.1,
+    "oddsRain": 0.06,
+    "oddsHawk": 0.04,
+    "oddsHawkBandana": 0.02,
+    "oddsFair": 0.03,
+    "oddsBand": 0.03,
+    "oddsPer100Mi": 0.01,
+    "oddsDistanceCap": 0.1,
+    "oddsMin": 0.4,
+    "oddsMax": 0.99,
+    "hungryBelow": 30,
+    "dirtyBelow": 30,
+    "tiredBelow": 40,
+    "majorDelayShare": 0.2,
+    "minorDelayMin": [
+      4,
+      25
+    ],
+    "majorDelayMin": [
+      60,
+      300
+    ],
+    "delayFracRange": [
+      0.15,
+      0.85
+    ],
+    "maxFlavorEvents": 6,
+    "maxSimDays": 30
+  },
+  "notes": {
+    "baseLimit": 140,
+    "tubeLimit": 280,
+    "pouterMultiplier": 2
+  },
+  "start": {
+    "seeds": 60,
+    "perches": 3,
+    "gear": [
+      "bell",
+      "bow"
+    ],
+    "looks": [
+      "gerald",
+      "brenda",
+      "kevin"
+    ],
+    "birds": [
+      {
+        "speedMph": 45,
+        "focus": 2,
+        "navigation": 4
+      },
+      {
+        "speedMph": 54,
+        "focus": 1,
+        "navigation": 3
+      }
+    ],
+    "care": {
+      "belly": 80,
+      "feathers": 80,
+      "energy": 100
+    }
+  },
+  "seeds": {
+    "deliveryBase": 10,
+    "milesPerBonusSeed": 25,
+    "fullPayDeliveriesPerDay": 10,
+    "reducedDeliveryPay": 2,
+    "replyHome": 5,
+    "newCity": 25,
+    "punchCardSize": 10,
+    "punchCardPay": 50,
+    "snackCost": 5,
+    "tip": 5,
+    "bowTipBonus": 1,
+    "fantailTipMultiplier": 2,
+    "partyHatWeekendBonus": 5,
+    "feedCost": 3,
+    "searchPartyCost": 20
+  },
+  "care": {
+    "bellyPerHour": -2,
+    "feathersPerHour": -1,
+    "birdbathFeatherFactor": 0.5,
+    "energyHomePerHour": 10,
+    "energyFlyPerHour": -8,
+    "energyRoostPerHour": 5,
+    "kingEnergyFactor": 0.5,
+    "rainFlightFeathers": -15,
+    "feedBelly": 50,
+    "snackBelly": 40,
+    "bathMinutes": 10,
+    "napMinutes": 30,
+    "napEnergy": 50,
+    "sulkAfterHoursUnfed": 72,
+    "minEnergyToFly": 15,
+    "hungryBelow": 30,
+    "dirtyBelow": 30,
+    "tiredBelow": 40
+  },
+  "levels": {
+    "milesPerLevelSquared": 25,
+    "max": 10
+  },
+  "visits": {
+    "waitMinutes": 30
+  },
+  "guestLinks": {
+    "expireDays": 7,
+    "perDay": 5,
+    "tokenChars": 16
+  },
+  "eggs": {
+    "firstAtDeliveries": 5,
+    "everyDeliveries": 25
+  },
+  "perches": {
+    "start": 3,
+    "max": 5,
+    "prices": {
+      "4": 250,
+      "5": 400
+    }
+  },
+  "loftItems": [
+    {
+      "id": "birdbath",
+      "name": "Rooftop birdbath",
+      "effect": "Feathers stay clean twice as long",
+      "price": 220
+    }
+  ],
+  "jobs": {
+    "offered": 2,
+    "fullPayPerDay": 3,
+    "maxPerDay": 6,
+    "reducedPayFactor": 0.5,
+    "foundObjectChance": 0.25
+  },
+  "foundOnReturn": {
+    "chance": 0.1
+  },
+  "roost": {
+    "gridLatDeg": 0.002,
+    "gridLonDeg": 0.0025
+  },
+  "travel": {
+    "minHoursBetweenChanges": 12
+  },
+  "schedule": {
+    "maxHoursAhead": 24,
+    "forecastHours": [
+      7,
+      9,
+      11,
+      13,
+      15
+    ]
+  },
+  "limits": {
+    "flightsPerDay": 40,
+    "recipientsPerSend": 5,
+    "friendsMax": 150,
+    "geoSearchPerMinute": 30,
+    "reportsPerDay": 10,
+    "smsPerUserPer15Min": 1,
+    "guestViewsPerMinutePerIp": 30
+  },
+  "weather": {
+    "sampleFractions": [
+      0.1667,
+      0.5,
+      0.8333
+    ],
+    "cacheMinutes": 10,
+    "cellDeg": 0.1,
+    "windyMph": 12,
+    "fallback": {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+    }
+  },
+  "takeoffMs": 1500,
+  "sync": {
+    "pollSeconds": 20
+  }
+}

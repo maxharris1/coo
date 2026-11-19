@@ -1,0 +1,85 @@
+{
+  "_about": "Flight log lines. The client picks lines[event.pick % lines.length] for the event kind. Tokens: {bird} name, {He}/{he}/{him}/{his} pronouns, {place} nearest place name (omit the sentence part if unknown), {speed} mph, {friend} recipient name.",
+  "takeoff": [
+    "Released from your loft. Looked back once.",
+    "Left in a hurry. Forgot nothing, owns nothing.",
+    "Circled the block to show off, then got going."
+  ],
+  "takeoff_return": [
+    "Left {friend}'s sill. Did not tidy up.",
+    "Homeward bound. Knows the way, mostly."
+  ],
+  "nightwait": [
+    "Released after dark. Refused. Leaves at sunrise.",
+    "It is night. {bird} is asleep on the note."
+  ],
+  "cruising": [
+    "Making good time and knows it.",
+    "Holding a steady {speed}. Wind is cooperating.",
+    "Overtook a seagull. Did not look back.",
+    "Nothing to report. {He} would like that noted."
+  ],
+  "food": [
+    "Circled a hot dog cart twice. Kept going.",
+    "Passed a bagel shop. Kept it professional.",
+    "Saw a dropped pretzel. Chose the mission. Barely.",
+    "Smelled a bakery near {place}. Stayed strong."
+  ],
+  "landmark": [
+    "Flew over {place}. Nobody waved.",
+    "Passed {place}, quite high up.",
+    "Used {place} to check {his} bearings. Close enough."
+  ],
+  "weather_rain": [
+    "Rain started. Flapping through it.",
+    "Wet. Not happy. Still flying."
+  ],
+  "weather_rain_geared": [
+    "Rain started. The gear is doing its job."
+  ],
+  "weather_headwind": [
+    "Headwind. Flapping harder and complaining about it."
+  ],
+  "weather_tailwind": [
+    "Tailwind. {He} is taking the credit."
+  ],
+  "weather_cold": [
+    "Cold up here. Regrets everything."
+  ],
+  "weather_cold_geared": [
+    "Cold up here. Dressed for it."
+  ],
+  "weather_snow": [
+    "Snow. Flying low and squinting."
+  ],
+  "weather_snow_geared": [
+    "Snow. The scarf was a good call."
+  ],
+  "dusk": [
+    "Sun went down. Found a barn. The cows are fine with it.",
+    "Roosting on a water tower with a nice view.",
+    "Too dark to fly. Asleep on a ledge near {place}."
+  ],
+  "sunrise": [
+    "Up at first light. Back in the air.",
+    "Left the roost. Did not say goodbye."
+  ],
+  "delay_minor": [
+    "Stopped to look at a puddle. Moving again.",
+    "Followed a pizza box for three blocks.",
+    "Brief disagreement with a crow."
+  ],
+  "delay_major": [
+    "Found a statue. Sat on its head. Lost track of time.",
+    "Joined some other pigeons. Remembered the job eventually.",
+    "Found a pretzel. Chose the pretzel."
+  ],
+  "landing": [
+    "Landed. Would like a snack and some respect.",
+    "Touched down. Pretended it was easy.",
+    "Arrived. Stuck the landing."
+  ],
+  "landing_tumbler": [
+    "Landed with a backflip. Nobody asked."
+  ]
+}

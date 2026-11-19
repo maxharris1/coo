@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Typecheck, lint and test
+        shell: bash
+        run: |
+          if [ -f package.json ]; then
+            npm ci
+            npm run typecheck
+            npm run lint
+            npm test
+          else
+            echo "No package.json yet (T001 scaffolds the app). Skipping checks."
+          fi

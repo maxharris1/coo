@@ -1,0 +1,22 @@
+{
+  "_about": "The only place the product name, domain and public wording live. Change the name here and nowhere else.",
+  "name": "Coo",
+  "shortName": "Coo",
+  "tagline": "Messages, eventually.",
+  "domain": "coo.example",
+  "supportEmail": "hello@coo.example",
+  "themeColor": "#A9DDF7",
+  "backgroundColor": "#FFF4DC",
+  "paths": {
+    "guestLink": "/b/",
+    "invite": "/join/"
+  },
+  "sms": {
+    "senderName": "Coo",
+    "stopLine": "Reply STOP to end."
+  },
+  "mapAttribution": "OpenFreeMap © OpenMapTiles Data from OpenStreetMap",
+  "weatherAttribution": "Weather data by Open-Meteo.com",
+  "defaultLocale": "en-US",
+  "defaultUnits": "mi"
+}

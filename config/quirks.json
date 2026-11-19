@@ -1,0 +1,37 @@
+{
+  "_about": "Cosmetic. Each bird gets one fear and one love at hatching, picked at random.",
+  "fears": [
+    "Afraid of statues",
+    "Afraid of wind chimes",
+    "Afraid of the color orange",
+    "Afraid of escalators",
+    "Afraid of geese",
+    "Afraid of balloons"
+  ],
+  "loves": [
+    "Loves New Jersey",
+    "Loves fire escapes",
+    "Loves a parade",
+    "Loves the smell of toast",
+    "Loves construction sites",
+    "Loves other people's picnics"
+  ],
+  "defaultNames": [
+    "Gerald",
+    "Brenda",
+    "Kevin",
+    "Dumpling",
+    "Biscuit",
+    "Pretzel",
+    "Admiral Crumbs",
+    "Mabel",
+    "Stanley",
+    "Noodle",
+    "Doris",
+    "Walnut",
+    "Pickle",
+    "Frank",
+    "Beans",
+    "Margaret"
+  ]
+}

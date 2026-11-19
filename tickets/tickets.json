@@ -1,0 +1,846 @@
+[
+ {
+  "id": "T001",
+  "title": "Scaffold the app",
+  "phase": "0 Foundation",
+  "deps": [],
+  "read": [
+   "README.md",
+   "AGENTS.md",
+   "docs/02-architecture.md"
+  ],
+  "refs": [],
+  "goal": "An empty Next.js app with the packet's folder layout, tooling and the packet's files in place.",
+  "file": "T001-scaffold-the-app.md"
+ },
+ {
+  "id": "T002",
+  "title": "Tokens, fonts and base components",
+  "phase": "0 Foundation",
+  "deps": [
+   "T001"
+  ],
+  "read": [
+   "docs/08-design-system.md",
+   "docs/07-screens.md (Shell)"
+  ],
+  "refs": [
+   "sheets/Tokens",
+   "sheets/Components",
+   "screens/Main"
+  ],
+  "goal": "The design system in code, so every later screen is assembled from the same parts.",
+  "file": "T002-tokens-fonts-and-base-components.md"
+ },
+ {
+  "id": "T003",
+  "title": "The Bird component",
+  "phase": "0 Foundation",
+  "deps": [
+   "T002"
+  ],
+  "read": [
+   "docs/08-design-system.md (Birds, Motion)"
+  ],
+  "refs": [
+   "sheets/Pigeons",
+   "sheets/Gear",
+   "sheets/Motion"
+  ],
+  "goal": "A React component that draws any bird in any pose and outfit, animated, by porting the Python rig.",
+  "file": "T003-the-bird-component.md"
+ },
+ {
+  "id": "T004",
+  "title": "Port the flight engine",
+  "phase": "0 Foundation",
+  "deps": [
+   "T001"
+  ],
+  "read": [
+   "docs/05-flight-engine.md"
+  ],
+  "refs": [],
+  "goal": "The reference engine in the app, proven by its vectors.",
+  "file": "T004-port-the-flight-engine.md"
+ },
+ {
+  "id": "T005",
+  "title": "Pure game rules",
+  "phase": "0 Foundation",
+  "deps": [
+   "T004"
+  ],
+  "read": [
+   "docs/04-game-rules.md"
+  ],
+  "refs": [],
+  "goal": "Every rule that is not the flight engine, as pure tested functions in `src/lib/game/`.",
+  "file": "T005-pure-game-rules.md"
+ },
+ {
+  "id": "T006",
+  "title": "Database layer and test database",
+  "phase": "0 Foundation",
+  "deps": [
+   "T001"
+  ],
+  "read": [
+   "docs/02-architecture.md (Database access)",
+   "docs/03-data-model.md"
+  ],
+  "refs": [],
+  "goal": "A small typed way to talk to Postgres that works the same in production and in tests.",
+  "file": "T006-database-layer-and-test-database.md"
+ },
+ {
+  "id": "T007",
+  "title": "Clock, ports and fakes",
+  "phase": "0 Foundation",
+  "deps": [
+   "T006"
+  ],
+  "read": [
+   "docs/02-architecture.md (Rules of the layering, Time)",
+   "docs/13-testing.md (Fakes)"
+  ],
+  "refs": [],
+  "goal": "The seams that make everything testable: time and the four outside services.",
+  "file": "T007-clock-ports-and-fakes.md"
+ },
+ {
+  "id": "T008",
+  "title": "Phone sign-in",
+  "phase": "0 Foundation",
+  "deps": [
+   "T007",
+   "T002"
+  ],
+  "read": [
+   "docs/02-architecture.md (Sign-in)",
+   "docs/07-screens.md (Hello, Phone, Code)",
+   "docs/12-security-privacy.md (Accounts and sessions)"
+  ],
+  "refs": [
+   "screens/Welcome"
+  ],
+  "goal": "People can sign in with a phone number and a text code, and the server knows who is calling.",
+  "file": "T008-phone-sign-in.md"
+ },
+ {
+  "id": "T009",
+  "title": "Onboarding: profile and first birds",
+  "phase": "0 Foundation",
+  "deps": [
+   "T008",
+   "T005",
+   "T003"
+  ],
+  "read": [
+   "docs/04-game-rules.md (1)",
+   "docs/06-api.md (Onboarding)",
+   "docs/07-screens.md (First bird)"
+  ],
+  "refs": [
+   "screens/Welcome"
+  ],
+  "goal": "A new person names a pigeon and gets a working account.",
+  "file": "T009-onboarding-profile-and-first-birds.md"
+ },
+ {
+  "id": "T010",
+  "title": "Places, roosts and the loft",
+  "phase": "0 Foundation",
+  "deps": [
+   "T009"
+  ],
+  "read": [
+   "docs/09-map.md (Places and names)",
+   "docs/12-security-privacy.md (Location)",
+   "docs/04-game-rules.md (4)",
+   "docs/07-screens.md (Loft, Travel sheet)"
+  ],
+  "refs": [],
+  "goal": "People set where birds find them, and only a snapped roost is ever kept.",
+  "file": "T010-places-roosts-and-the-loft.md"
+ },
+ {
+  "id": "T011",
+  "title": "Sync and the loft screen",
+  "phase": "0 Foundation",
+  "deps": [
+   "T010"
+  ],
+  "read": [
+   "docs/06-api.md (Sync, Shared shapes)",
+   "docs/07-screens.md (Shell, Main)"
+  ],
+  "refs": [
+   "screens/Main"
+  ],
+  "goal": "The signed-in app shell and its home screen, fed by one endpoint.",
+  "file": "T011-sync-and-the-loft-screen.md"
+ },
+ {
+  "id": "T012",
+  "title": "Friends",
+  "phase": "1 The core loop",
+  "deps": [
+   "T011"
+  ],
+  "read": [
+   "docs/06-api.md (Friends)",
+   "docs/03-data-model.md (friendships)",
+   "docs/07-screens.md (Friends, Join)",
+   "docs/12-security-privacy.md"
+  ],
+  "refs": [
+   "screens/Friends"
+  ],
+  "goal": "People become friends by link and control what each friend can see.",
+  "file": "T012-friends.md"
+ },
+ {
+  "id": "T013",
+  "title": "Weather",
+  "phase": "1 The core loop",
+  "deps": [
+   "T007"
+  ],
+  "read": [
+   "docs/09-map.md (Weather)",
+   "docs/04-game-rules.md (5)"
+  ],
+  "refs": [],
+  "goal": "Real weather for a route, now and for the coming hours, with a safe fallback.",
+  "file": "T013-weather.md"
+ },
+ {
+  "id": "T014",
+  "title": "Quotes and the Recipients screen",
+  "phase": "1 The core loop",
+  "deps": [
+   "T012",
+   "T013",
+   "T004"
+  ],
+  "read": [
+   "docs/06-api.md (Sending: quote)",
+   "docs/04-game-rules.md (3, 4, 5)",
+   "docs/07-screens.md (Recipients)"
+  ],
+  "refs": [
+   "screens/Recipients"
+  ],
+  "goal": "Before sending, people see who they can reach, how far and how long.",
+  "file": "T014-quotes-and-the-recipients-screen.md"
+ },
+ {
+  "id": "T015",
+  "title": "Compose, release and takeoff",
+  "phase": "1 The core loop",
+  "deps": [
+   "T014"
+  ],
+  "read": [
+   "docs/04-game-rules.md (2, 5)",
+   "docs/06-api.md (POST /api/flights)",
+   "docs/07-screens.md (Compose, Takeoff)"
+  ],
+  "refs": [
+   "screens/Compose",
+   "screens/Takeoff"
+  ],
+  "goal": "Write a note, pick a bird, let it go.",
+  "file": "T015-compose-release-and-takeoff.md"
+ },
+ {
+  "id": "T016",
+  "title": "The map and the tracker",
+  "phase": "1 The core loop",
+  "deps": [
+   "T015",
+   "T003"
+  ],
+  "read": [
+   "docs/09-map.md",
+   "docs/07-screens.md (Flight)",
+   "docs/05-flight-engine.md (Using the plan)"
+  ],
+  "refs": [
+   "screens/Flight",
+   "screens/FlightBlock",
+   "screens/FlightLong",
+   "sheets/MapStyle"
+  ],
+  "goal": "Watch a bird cross a real map at any scale, day or night.",
+  "file": "T016-the-map-and-the-tracker.md"
+ },
+ {
+  "id": "T017",
+  "title": "Place names and the flight log",
+  "phase": "1 The core loop",
+  "deps": [
+   "T016",
+   "T010"
+  ],
+  "read": [
+   "docs/09-map.md (Places and names)",
+   "docs/05-flight-engine.md (Step 6)",
+   "docs/14-content-voice.md"
+  ],
+  "refs": [
+   "screens/Flight"
+  ],
+  "goal": "The tracker says where the bird is and tells small true jokes about the trip.",
+  "file": "T017-place-names-and-the-flight-log.md"
+ },
+ {
+  "id": "T018",
+  "title": "The tick: landing deliveries",
+  "phase": "1 The core loop",
+  "deps": [
+   "T015",
+   "T005"
+  ],
+  "read": [
+   "docs/06-api.md (The claim pattern, The tick)",
+   "docs/04-game-rules.md (7, 10, 14, 15)",
+   "docs/10-notifications.md (The notification pipeline, steps 1 to 3)"
+  ],
+  "refs": [],
+  "goal": "When a bird's arrival time passes, everything that should happen happens, exactly once.",
+  "file": "T018-the-tick-landing-deliveries.md"
+ },
+ {
+  "id": "T019",
+  "title": "The sill and the Landed screen",
+  "phase": "1 The core loop",
+  "deps": [
+   "T018"
+  ],
+  "read": [
+   "docs/04-game-rules.md (8)",
+   "docs/06-api.md (Receiving)",
+   "docs/07-screens.md (Landed and the Sill tab)"
+  ],
+  "refs": [
+   "screens/Landed"
+  ],
+  "goal": "A bird arrives on your sill with a note you can finally read.",
+  "file": "T019-the-sill-and-the-landed-screen.md"
+ },
+ {
+  "id": "T020",
+  "title": "Replies and the trip home",
+  "phase": "1 The core loop",
+  "deps": [
+   "T019"
+  ],
+  "read": [
+   "docs/04-game-rules.md (8)",
+   "docs/06-api.md (The tick, steps 3 and 4)",
+   "docs/07-screens.md (Reply, TakeoffHome)"
+  ],
+  "refs": [
+   "screens/Reply",
+   "screens/TakeoffHome"
+  ],
+  "goal": "A reply rides home free, and every bird gets home.",
+  "file": "T020-replies-and-the-trip-home.md"
+ },
+ {
+  "id": "T021",
+  "title": "The Flights screen",
+  "phase": "1 The core loop",
+  "deps": [
+   "T020"
+  ],
+  "read": [
+   "docs/07-screens.md (Flights)",
+   "docs/06-api.md (GET /api/flights)"
+  ],
+  "refs": [
+   "screens/Flights"
+  ],
+  "goal": "One list of every bird in the air, coming in, and recently landed.",
+  "file": "T021-the-flights-screen.md"
+ },
+ {
+  "id": "T022",
+  "title": "Delays, incident reports and search parties",
+  "phase": "1 The core loop",
+  "deps": [
+   "T021"
+  ],
+  "read": [
+   "docs/04-game-rules.md (6)",
+   "docs/05-flight-engine.md",
+   "docs/06-api.md (search-party; tick steps 5 and 6)",
+   "docs/07-screens.md (Lost)"
+  ],
+  "refs": [
+   "screens/Lost"
+  ],
+  "goal": "When a bird wanders off, it is funny, clear, and never a lost note.",
+  "file": "T022-delays-incident-reports-and-search-parties.md"
+ },
+ {
+  "id": "T023",
+  "title": "Forecast and scheduled sends",
+  "phase": "1 The core loop",
+  "deps": [
+   "T022"
+  ],
+  "read": [
+   "docs/07-screens.md (Forecast)",
+   "docs/04-game-rules.md (5)",
+   "docs/06-api.md (quote; tick step 1; cancel)"
+  ],
+  "refs": [
+   "screens/Forecast"
+  ],
+  "goal": "Pick a better hour, or let the app release the bird for you.",
+  "file": "T023-forecast-and-scheduled-sends.md"
+ },
+ {
+  "id": "T024",
+  "title": "Several recipients at once",
+  "phase": "1 The core loop",
+  "deps": [
+   "T023"
+  ],
+  "read": [
+   "docs/04-game-rules.md (3)",
+   "docs/07-screens.md (Recipients, Compose)"
+  ],
+  "refs": [
+   "screens/Recipients",
+   "screens/Compose"
+  ],
+  "goal": "One note, several friends, one bird each.",
+  "file": "T024-several-recipients-at-once.md"
+ },
+ {
+  "id": "T025",
+  "title": "Install to the home screen",
+  "phase": "2 Install and notifications",
+  "deps": [
+   "T011"
+  ],
+  "read": [
+   "docs/10-notifications.md (Home screen install)",
+   "docs/07-screens.md (Install)"
+  ],
+  "refs": [
+   "screens/Install",
+   "sheets/AppIcon"
+  ],
+  "goal": "Coo sits on the home screen and opens like an app.",
+  "file": "T025-install-to-the-home-screen.md"
+ },
+ {
+  "id": "T026",
+  "title": "In-app notifications and the realtime nudge",
+  "phase": "2 Install and notifications",
+  "deps": [
+   "T018"
+  ],
+  "read": [
+   "docs/10-notifications.md",
+   "docs/06-api.md (Notifications, Realtime)",
+   "docs/07-screens.md (Notifications)"
+  ],
+  "refs": [],
+  "goal": "The open app reacts within a second or two when something happens.",
+  "file": "T026-in-app-notifications-and-the-realtime-nudge.md"
+ },
+ {
+  "id": "T027",
+  "title": "Push notifications",
+  "phase": "2 Install and notifications",
+  "deps": [
+   "T026",
+   "T025"
+  ],
+  "read": [
+   "docs/10-notifications.md (The notification pipeline, Web push, Quiet hours)"
+  ],
+  "refs": [],
+  "goal": "A tap on the shoulder when a bird lands, even with the app closed.",
+  "file": "T027-push-notifications.md"
+ },
+ {
+  "id": "T028",
+  "title": "Text message fallback",
+  "phase": "2 Install and notifications",
+  "deps": [
+   "T027"
+  ],
+  "read": [
+   "docs/10-notifications.md (Text messages)"
+  ],
+  "refs": [],
+  "goal": "People without push still hear that a bird landed.",
+  "file": "T028-text-message-fallback.md"
+ },
+ {
+  "id": "T029",
+  "title": "Wire the minute tick",
+  "phase": "2 Install and notifications",
+  "deps": [
+   "T020",
+   "T022"
+  ],
+  "read": [
+   "docs/02-architecture.md (Moving the world forward)",
+   "supabase/migrations/0002_cron.sql",
+   "docs/15-open-items.md"
+  ],
+  "refs": [],
+  "goal": "The world moves forward every minute without anyone opening the app.",
+  "file": "T029-wire-the-minute-tick.md"
+ },
+ {
+  "id": "T030",
+  "title": "Send to someone new",
+  "phase": "3 Guest links",
+  "deps": [
+   "T024",
+   "T017"
+  ],
+  "read": [
+   "docs/11-guest-links.md",
+   "docs/06-api.md (POST /api/flights)",
+   "docs/07-screens.md (NewRecipient, ShareLink)"
+  ],
+  "refs": [
+   "screens/NewRecipient",
+   "screens/ShareLink"
+  ],
+  "goal": "Send a real pigeon to a friend who has never heard of Coo.",
+  "file": "T030-send-to-someone-new.md"
+ },
+ {
+  "id": "T031",
+  "title": "The guest page",
+  "phase": "3 Guest links",
+  "deps": [
+   "T030"
+  ],
+  "read": [
+   "docs/11-guest-links.md",
+   "docs/06-api.md (Guest links)",
+   "docs/12-security-privacy.md"
+  ],
+  "refs": [
+   "screens/Guest",
+   "screens/GuestClaim"
+  ],
+  "goal": "A stranger taps a link and watches a pigeon fly to them.",
+  "file": "T031-the-guest-page.md"
+ },
+ {
+  "id": "T032",
+  "title": "Claiming a link and expiry",
+  "phase": "3 Guest links",
+  "deps": [
+   "T031"
+  ],
+  "read": [
+   "docs/11-guest-links.md (Claiming, Timing rules, Abuse controls)",
+   "docs/06-api.md (tick step 10)"
+  ],
+  "refs": [
+   "screens/GuestClaim"
+  ],
+  "goal": "The stranger becomes a friend with a bird of their own, and replies.",
+  "file": "T032-claiming-a-link-and-expiry.md"
+ },
+ {
+  "id": "T033",
+  "title": "The pigeon page and care",
+  "phase": "4 Flock and economy",
+  "deps": [
+   "T020"
+  ],
+  "read": [
+   "docs/04-game-rules.md (9, 12)",
+   "docs/06-api.md (Flock)",
+   "docs/07-screens.md (Pigeon)",
+   "docs/08-design-system.md (Which pose when)"
+  ],
+  "refs": [
+   "screens/Pigeon"
+  ],
+  "goal": "Birds need feeding, bathing and rest, and show how they feel.",
+  "file": "T033-the-pigeon-page-and-care.md"
+ },
+ {
+  "id": "T034",
+  "title": "The closet",
+  "phase": "4 Flock and economy",
+  "deps": [
+   "T033"
+  ],
+  "read": [
+   "docs/04-game-rules.md (11)",
+   "docs/06-api.md (gear, outfits)",
+   "docs/07-screens.md (Wardrobe)"
+  ],
+  "refs": [
+   "screens/Wardrobe",
+   "sheets/Gear"
+  ],
+  "goal": "Dress birds for the weather from one shared closet.",
+  "file": "T034-the-closet.md"
+ },
+ {
+  "id": "T035",
+  "title": "The seed store",
+  "phase": "4 Flock and economy",
+  "deps": [
+   "T034"
+  ],
+  "read": [
+   "docs/04-game-rules.md (10, 14)",
+   "docs/06-api.md (shop)",
+   "docs/07-screens.md (Shop)"
+  ],
+  "refs": [
+   "screens/Shop"
+  ],
+  "goal": "Spend seeds on gear, a birdbath and perches.",
+  "file": "T035-the-seed-store.md"
+ },
+ {
+  "id": "T036",
+  "title": "Earning: the punch card and pay table",
+  "phase": "4 Flock and economy",
+  "deps": [
+   "T035"
+  ],
+  "read": [
+   "docs/04-game-rules.md (10)",
+   "docs/07-screens.md (Earn)"
+  ],
+  "refs": [
+   "screens/Earn"
+  ],
+  "goal": "People can see how seeds are earned and how close the weekly card is.",
+  "file": "T036-earning-the-punch-card-and-pay-table.md"
+ },
+ {
+  "id": "T037",
+  "title": "Odd jobs and found objects",
+  "phase": "4 Flock and economy",
+  "deps": [
+   "T036"
+  ],
+  "read": [
+   "docs/04-game-rules.md (13)",
+   "docs/06-api.md (jobs, found; tick step 7)"
+  ],
+  "refs": [
+   "screens/Earn",
+   "screens/Flights"
+  ],
+  "goal": "Idle birds can earn a little and bring home odd things.",
+  "file": "T037-odd-jobs-and-found-objects.md"
+ },
+ {
+  "id": "T038",
+  "title": "Postmarks, badges and birds met",
+  "phase": "4 Flock and economy",
+  "deps": [
+   "T022",
+   "T037"
+  ],
+  "read": [
+   "docs/04-game-rules.md (15)",
+   "config/badges.json",
+   "docs/07-screens.md (Collections)"
+  ],
+  "refs": [
+   "screens/Collections"
+  ],
+  "goal": "A sticker album of where your birds have been.",
+  "file": "T038-postmarks-badges-and-birds-met.md"
+ },
+ {
+  "id": "T039",
+  "title": "Eggs, breeds and the aviary",
+  "phase": "4 Flock and economy",
+  "deps": [
+   "T038"
+  ],
+  "read": [
+   "docs/04-game-rules.md (14)",
+   "config/breeds.json",
+   "docs/05-flight-engine.md",
+   "docs/07-screens.md (Aviary, Hatch moment)"
+  ],
+  "refs": [
+   "screens/Aviary",
+   "sheets/Pigeons"
+  ],
+  "goal": "New birds hatch, and fancy breeds fly differently.",
+  "file": "T039-eggs-breeds-and-the-aviary.md"
+ },
+ {
+  "id": "T040",
+  "title": "The shoebox",
+  "phase": "4 Flock and economy",
+  "deps": [
+   "T020"
+  ],
+  "read": [
+   "docs/06-api.md (GET /api/notes)",
+   "docs/07-screens.md (Shoebox)"
+  ],
+  "refs": [
+   "screens/Shoebox"
+  ],
+  "goal": "Every note, kept.",
+  "file": "T040-the-shoebox.md"
+ },
+ {
+  "id": "T041",
+  "title": "The post office menu",
+  "phase": "4 Flock and economy",
+  "deps": [
+   "T039",
+   "T040"
+  ],
+  "read": [
+   "docs/07-screens.md (More)"
+  ],
+  "refs": [
+   "screens/More"
+  ],
+  "goal": "One menu that leads to everything that is not a tab.",
+  "file": "T041-the-post-office-menu.md"
+ },
+ {
+  "id": "T042",
+  "title": "Settings and deleting an account",
+  "phase": "5 Settings, safety and polish",
+  "deps": [
+   "T028",
+   "T041"
+  ],
+  "read": [
+   "docs/07-screens.md (Settings, Travel sheet)",
+   "docs/06-api.md (settings, account)",
+   "docs/03-data-model.md (Deleting an account)",
+   "docs/12-security-privacy.md"
+  ],
+  "refs": [
+   "screens/Settings"
+  ],
+  "goal": "People control notifications, privacy and their data.",
+  "file": "T042-settings-and-deleting-an-account.md"
+ },
+ {
+  "id": "T043",
+  "title": "Limits, blocks and an authorisation audit",
+  "phase": "5 Settings, safety and polish",
+  "deps": [
+   "T042",
+   "T032"
+  ],
+  "read": [
+   "docs/12-security-privacy.md",
+   "docs/04-game-rules.md (16)",
+   "docs/06-api.md (Friends: block)"
+  ],
+  "refs": [],
+  "goal": "Prove that nobody can see or touch what is not theirs.",
+  "file": "T043-limits-blocks-and-an-authorisation-audit.md"
+ },
+ {
+  "id": "T044",
+  "title": "Empty, offline and error states; accessibility; performance",
+  "phase": "5 Settings, safety and polish",
+  "deps": [
+   "T043"
+  ],
+  "read": [
+   "docs/07-screens.md (Empty, loading and error states)",
+   "docs/08-design-system.md (Accessibility)",
+   "docs/14-content-voice.md"
+  ],
+  "refs": [
+   "sheets/Illustrations",
+   "sheets/Voice"
+  ],
+  "goal": "The app is kind when there is nothing to show, when things fail, and to everyone using it.",
+  "file": "T044-empty-offline-and-error-states-accessibility-per.md"
+ },
+ {
+  "id": "T045",
+  "title": "The dev panel and test clock",
+  "phase": "5 Settings, safety and polish",
+  "deps": [
+   "T022"
+  ],
+  "read": [
+   "docs/06-api.md (Internal)",
+   "docs/07-screens.md (Dev panel)",
+   "docs/02-architecture.md (Time)"
+  ],
+  "refs": [],
+  "goal": "Skip two days in two taps, so the slow parts of a slow app can be tested.",
+  "file": "T045-the-dev-panel-and-test-clock.md"
+ },
+ {
+  "id": "T046",
+  "title": "End-to-end journeys",
+  "phase": "5 Settings, safety and polish",
+  "deps": [
+   "T045",
+   "T044"
+  ],
+  "read": [
+   "docs/13-testing.md (End-to-end journeys)"
+  ],
+  "refs": [],
+  "goal": "The six journeys run in a real browser from sign-up to reply.",
+  "file": "T046-end-to-end-journeys.md"
+ },
+ {
+  "id": "T047",
+  "title": "Deploy",
+  "phase": "5 Settings, safety and polish",
+  "deps": [
+   "T046",
+   "T029"
+  ],
+  "read": [
+   "docs/15-open-items.md",
+   "docs/02-architecture.md (Environment variables)"
+  ],
+  "refs": [],
+  "goal": "A real address friends can open.",
+  "file": "T047-deploy.md"
+ },
+ {
+  "id": "T048",
+  "title": "Finish the map style",
+  "phase": "5 Settings, safety and polish",
+  "deps": [
+   "T016"
+  ],
+  "read": [
+   "docs/09-map.md (The style, Style rules)"
+  ],
+  "refs": [
+   "sheets/MapStyle",
+   "screens/Flight",
+   "screens/FlightBlock",
+   "screens/FlightLong"
+  ],
+  "goal": "The real map looks like it belongs in the sticker book, day and night, at every zoom.",
+  "file": "T048-finish-the-map-style.md"
+ }
+]

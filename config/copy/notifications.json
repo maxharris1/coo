@@ -1,0 +1,101 @@
+{
+  "_about": "Push and in-app notification text. Tokens in braces. `setting` is the profile switch that turns it off. Quiet hours hold back push and SMS but not the in-app row.",
+  "incoming": {
+    "setting": "notify_landed_in",
+    "title": "A pigeon is headed your way",
+    "body": "{bird} left {fromCity} with a note from {friend}. Lands about {eta}.",
+    "url": "/flights/{flightId}",
+    "sms": false
+  },
+  "landed-in": {
+    "setting": "notify_landed_in",
+    "title": "{bird} has landed",
+    "body": "There is a note from {friend} on your sill.",
+    "url": "/sill/{visitId}",
+    "sms": true
+  },
+  "landed-out": {
+    "setting": "notify_landed_out",
+    "title": "{bird} delivered your note",
+    "body": "{friend} has it. {distance} in {duration}. You earned {seeds} seeds.",
+    "url": "/flights/{flightId}",
+    "sms": false
+  },
+  "reply-home": {
+    "setting": "notify_landed_out",
+    "title": "{bird} is home, with a reply",
+    "body": "{friend} wrote back. It rode home free.",
+    "url": "/shoebox?friend={friendId}",
+    "sms": true
+  },
+  "home-empty": {
+    "setting": "notify_landed_out",
+    "title": "{bird} is home",
+    "body": "No reply this time. {He} is pretending not to mind.",
+    "url": "/",
+    "sms": false
+  },
+  "delayed": {
+    "setting": "notify_delays",
+    "title": "{bird} is running late",
+    "body": "Last seen {lastSeen}. Tap to send a search party.",
+    "url": "/flights/{flightId}/incident",
+    "sms": false
+  },
+  "delayed-in": {
+    "setting": "notify_delays",
+    "title": "A bird is on the way, eventually",
+    "body": "{friend}'s pigeon {bird} got distracted. The note is still attached. Probably.",
+    "url": "/flights/{flightId}",
+    "sms": false
+  },
+  "roosting": {
+    "setting": "notify_delays",
+    "title": "{bird} stopped for the night",
+    "body": "Asleep near {place}. Back in the air at {sunrise}.",
+    "url": "/flights/{flightId}",
+    "sms": false
+  },
+  "hungry": {
+    "setting": "notify_hungry",
+    "title": "{bird} is hungry",
+    "body": "{He} has opinions about it.",
+    "url": "/birds/{birdId}",
+    "sms": false
+  },
+  "hatched": {
+    "setting": null,
+    "title": "Your egg hatched",
+    "body": "Come meet whoever this is.",
+    "url": "/aviary",
+    "sms": false
+  },
+  "tip": {
+    "setting": null,
+    "title": "{friend} gave {bird} a snack",
+    "body": "You got {seeds} seeds. {bird} got the snack.",
+    "url": "/",
+    "sms": false
+  },
+  "friend-joined": {
+    "setting": null,
+    "title": "{friend} made a loft",
+    "body": "You can send birds both ways now.",
+    "url": "/friends",
+    "sms": false
+  },
+  "link-expired": {
+    "setting": null,
+    "title": "Your note to {name} came back",
+    "body": "The link was not opened in 7 days.",
+    "url": "/shoebox",
+    "sms": false
+  },
+  "reply-delivered": {
+    "setting": "notify_landed_out",
+    "title": "{bird} made it home",
+    "body": "{friend} has your reply.",
+    "url": "/shoebox?friend={friendId}",
+    "sms": false
+  }
+}

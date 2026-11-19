@@ -1,0 +1,101 @@
+{
+  "_about": "Twelve badges. `goal` above 1 means progress is counted and shown, like '4 of 9'.",
+  "badges": [
+    {
+      "id": "first-flight",
+      "name": "First flight",
+      "text": "Your first note landed",
+      "icon": "feather",
+      "goal": 1,
+      "rule": "a delivery of yours lands"
+    },
+    {
+      "id": "night-owl",
+      "name": "Night owl",
+      "text": "A bird roosted overnight",
+      "icon": "moon",
+      "goal": 1,
+      "rule": "a delivery of yours lands whose plan has a roost segment after the first flying segment"
+    },
+    {
+      "id": "cher-ami",
+      "name": "Cher Ami",
+      "text": "Deliver through a storm",
+      "icon": "rain",
+      "goal": 1,
+      "rule": "a delivery lands whose input weather has rain of 4 mm per hour or more in any third"
+    },
+    {
+      "id": "rfc-1149",
+      "name": "RFC 1149",
+      "text": "Replies on the same bird",
+      "icon": "link",
+      "goal": 9,
+      "rule": "count return flights of your birds that carried a reply"
+    },
+    {
+      "id": "around-the-block",
+      "name": "Around the block",
+      "text": "A delivery under one mile",
+      "icon": "pin",
+      "goal": 1,
+      "rule": "a delivery lands with distance under 1 mile"
+    },
+    {
+      "id": "century",
+      "name": "Century",
+      "text": "A delivery over 100 miles",
+      "icon": "wing",
+      "goal": 1,
+      "rule": "a delivery lands with distance of 100 miles or more"
+    },
+    {
+      "id": "long-haul",
+      "name": "Long haul",
+      "text": "A delivery over 500 miles",
+      "icon": "map",
+      "goal": 1,
+      "rule": "a delivery lands with distance of 500 miles or more"
+    },
+    {
+      "id": "full-card",
+      "name": "Full card",
+      "text": "Fill a punch card",
+      "icon": "stamp",
+      "goal": 1,
+      "rule": "a punch card is paid"
+    },
+    {
+      "id": "early-bird",
+      "name": "Early bird",
+      "text": "Release a bird before 7 am",
+      "icon": "sun",
+      "goal": 1,
+      "rule": "a delivery is released before 07:00 in the owner's time zone and after sunrise at the loft"
+    },
+    {
+      "id": "search-and-rescue",
+      "name": "Search and rescue",
+      "text": "A search party found your bird",
+      "icon": "search",
+      "goal": 1,
+      "rule": "a search party succeeds"
+    },
+    {
+      "id": "full-house",
+      "name": "Full house",
+      "text": "Five birds in the loft",
+      "icon": "home",
+      "goal": 5,
+      "rule": "progress is the number of birds owned"
+    },
+    {
+      "id": "postmaster",
+      "name": "Postmaster",
+      "text": "Ten postmarks",
+      "icon": "envelope",
+      "goal": 10,
+      "rule": "progress is the number of postmarks"
+    }
+  ]
+}
