@@ -3,13 +3,13 @@ import { getEnv } from "@/env";
 
 export interface Db {
   query<T>(sql: string, params?: unknown[]): Promise<T[]>;
-  /** BEGIN ... COMMIT, ROLLBACK on throw. A nested call joins the outer transaction, so an inner throw the outer fn catches still commits the inner writes. */
   tx<T>(fn: (db: Db) => Promise<T>): Promise<T>;
 }
 
 function int8(text: string): number {
   const n = Number(text);
-  if (!Number.isSafeInteger(n)) throw new RangeError(`int8 ${text} is not a safe integer`);
+  if (!Number.isSafeInteger(n))
+    throw new RangeError(`int8 ${text} is not a safe integer`);
   return n;
 }
 
@@ -44,7 +44,10 @@ export function poolDb(pool: PoolLike): Db {
       try {
         await client.query("BEGIN");
         const out = await fn(handle.db);
-        await client.query("COMMIT");
+        const commit = await client.query("COMMIT");
+        if (commit.command === "ROLLBACK") {
+          throw new Error("transaction was rolled back instead of committed");
+        }
         handle.end();
         client.release();
         return out;
@@ -79,7 +82,9 @@ let db: Db | undefined;
 export function getDb(): Db {
   if (!db) {
     const pool = createPool(getEnv().DATABASE_URL);
-    pool.on("error", (err) => console.error("idle database client failed", err.message));
+    pool.on("error", (err) =>
+      console.error("idle database client failed", err.message),
+    );
     db = poolDb(pool);
   }
   return db;

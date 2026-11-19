@@ -69,14 +69,17 @@ describe("testDb tx", () => {
 
 type Call = string | QueryConfig;
 
-function fakePool(opts: { failOn?: string } = {}) {
+function fakePool(opts: { failOn?: string; abortedCommit?: boolean } = {}) {
   const calls: Call[] = [];
   const releases: (boolean | Error | undefined)[] = [];
   const run = async (q: Call, values?: unknown[]) => {
     calls.push(typeof q === "string" ? q : { ...q });
     const text = typeof q === "string" ? q : q.text;
-    if (opts.failOn && text.startsWith(opts.failOn)) throw new Error(`${text} failed`);
-    return { rows: [{ text, values }] };
+    if (opts.failOn && text.startsWith(opts.failOn))
+      throw new Error(`${text} failed`);
+    const command =
+      opts.abortedCommit && text === "COMMIT" ? "ROLLBACK" : text.split(" ")[0];
+    return { command, rows: [{ text, values }] };
   };
   const client = {
     query: run,
@@ -133,6 +136,17 @@ describe("poolDb", () => {
       }),
     ).rejects.toThrow("boom");
     expect(f.releases).toEqual([true]);
+  });
+
+  it("throws when COMMIT reports the transaction was rolled back", async () => {
+    const f = fakePool({ abortedCommit: true });
+    await expect(
+      poolDb(f.pool).tx(async (t) => {
+        await t.query("insert 1").catch(() => undefined);
+        return "saved?";
+      }),
+    ).rejects.toThrow(/rolled back/);
+    expect(f.releases).toHaveLength(1);
   });
 
   it("refuses queries on a handle after its tx ended", async () => {
