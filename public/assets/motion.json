@@ -1,0 +1,214 @@
+{
+  "keyframes": [
+    {
+      "name": "coo-flap",
+      "duration": ".34s",
+      "easing": "cubic-bezier(.4,0,.6,1)",
+      "use": "Each wing. Flips through the body, far wing 50ms behind"
+    },
+    {
+      "name": "coo-fly-core",
+      "duration": ".34s",
+      "easing": "ease-in-out",
+      "use": "Body, head and tail pitch against the wing beat"
+    },
+    {
+      "name": "coo-fly-tail",
+      "duration": ".34s",
+      "easing": "ease-in-out",
+      "use": "Tail counter-swing in flight"
+    },
+    {
+      "name": "coo-bob",
+      "duration": "1.7s",
+      "easing": "ease-in-out, alternate",
+      "use": "Slow float of the whole flying bird"
+    },
+    {
+      "name": "coo-streak",
+      "duration": ".5s",
+      "easing": "linear",
+      "use": "Speed lines behind a flying bird"
+    },
+    {
+      "name": "coo-flutter",
+      "duration": ".28s",
+      "easing": "ease-in-out, alternate",
+      "use": "Scarf tails trailing in flight"
+    },
+    {
+      "name": "coo-takeoff-crouch",
+      "duration": "3s",
+      "easing": "stepped per keyframe",
+      "use": "Release, part 1: anticipate, crouch, spring"
+    },
+    {
+      "name": "coo-takeoff-fly",
+      "duration": "3s",
+      "easing": "stepped per keyframe",
+      "use": "Release, part 2: flying pose climbs out top right"
+    },
+    {
+      "name": "coo-land-fly",
+      "duration": "4s",
+      "easing": "stepped per keyframe",
+      "use": "Arrival, part 1: glide in from top left"
+    },
+    {
+      "name": "coo-land-perch",
+      "duration": "4s",
+      "easing": "stepped per keyframe",
+      "use": "Arrival, part 2: touch down, squash, settle"
+    },
+    {
+      "name": "coo-puff",
+      "duration": "3s",
+      "easing": "ease-out",
+      "use": "Dust kicked up at takeoff"
+    },
+    {
+      "name": "coo-feather",
+      "duration": "3s",
+      "easing": "ease-in-out",
+      "use": "Loose feather rocking down after takeoff"
+    },
+    {
+      "name": "coo-headbob",
+      "duration": "4.2s",
+      "easing": "ease-in-out",
+      "use": "Idle: pigeon head bob, forward and hold"
+    },
+    {
+      "name": "coo-blink",
+      "duration": "4.6s",
+      "easing": "ease-in-out",
+      "use": "Idle: eyelid, two frames shut"
+    },
+    {
+      "name": "coo-breathe",
+      "duration": "1.9s",
+      "easing": "ease-in-out, alternate",
+      "use": "Idle: body rises and settles"
+    },
+    {
+      "name": "coo-tail-flick",
+      "duration": "5.5s",
+      "easing": "ease-in-out",
+      "use": "Idle: occasional tail flick with overshoot"
+    },
+    {
+      "name": "coo-wing-shrug",
+      "duration": "6s",
+      "easing": "ease-in-out",
+      "use": "Idle: wing lifts and resettles"
+    },
+    {
+      "name": "coo-tilt",
+      "duration": "5s",
+      "easing": "ease-in-out",
+      "use": "Curious head tilt and hold"
+    },
+    {
+      "name": "coo-sway",
+      "duration": "2.6s",
+      "easing": "ease-in-out, alternate",
+      "use": "Scarf tails, pom-poms and bells at rest"
+    },
+    {
+      "name": "coo-hop",
+      "duration": "3.2s",
+      "easing": "ease-in-out",
+      "use": "Hop with squash before and after"
+    },
+    {
+      "name": "coo-peck-body",
+      "duration": "1.5s",
+      "easing": "ease-in-out",
+      "use": "Feeding: body tips forward"
+    },
+    {
+      "name": "coo-peck-head",
+      "duration": "1.5s",
+      "easing": "ease-in-out",
+      "use": "Feeding: head double-pecks"
+    },
+    {
+      "name": "coo-sigh",
+      "duration": "3.4s",
+      "easing": "ease-in-out",
+      "use": "Sulking: a heavy sigh"
+    },
+    {
+      "name": "coo-sleep",
+      "duration": "2.4s",
+      "easing": "ease-in-out, alternate",
+      "use": "Asleep: slow breathing"
+    },
+    {
+      "name": "coo-snooze",
+      "duration": "2.4s",
+      "easing": "ease-out",
+      "use": "Asleep: z letters drift up and fade"
+    },
+    {
+      "name": "coo-march",
+      "duration": "1.2s",
+      "easing": "linear",
+      "use": "Dotted path still to fly"
+    },
+    {
+      "name": "coo-drift",
+      "duration": "7s",
+      "easing": "ease-in-out, alternate",
+      "use": "Clouds"
+    },
+    {
+      "name": "coo-pulse",
+      "duration": "1.4s",
+      "easing": "ease-in-out",
+      "use": "Live dot"
+    },
+    {
+      "name": "coo-rain",
+      "duration": ".7s",
+      "easing": "ease-in, alternate",
+      "use": "Forecast rain"
+    },
+    {
+      "name": "coo-twinkle",
+      "duration": "2.2s",
+      "easing": "ease-in-out",
+      "use": "Night map stars"
+    },
+    {
+      "name": "coo-spin",
+      "duration": "60s",
+      "easing": "linear",
+      "use": "Sunburst behind a landing"
+    },
+    {
+      "name": "coo-stamp",
+      "duration": "1.8s",
+      "easing": "cubic-bezier(.2,1.6,.4,1)",
+      "use": "Postmark thunk on arrival"
+    },
+    {
+      "name": "coo-burst",
+      "duration": "1.8s",
+      "easing": "ease-out",
+      "use": "Seeds paid out (three directions)"
+    },
+    {
+      "name": "coo-press",
+      "duration": "1.6s",
+      "easing": "ease-in-out",
+      "use": "Button press with a 1px rebound"
+    },
+    {
+      "name": "coo-point",
+      "duration": ".6s",
+      "easing": "ease-in-out, alternate",
+      "use": "Install arrow"
+    }
+  ]
+}

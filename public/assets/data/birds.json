@@ -1,0 +1,101 @@
+{
+  "gerald": {
+    "name": "Gerald",
+    "body": "#B8B3D6",
+    "wing": "#8E88B5",
+    "collar": "#7FD6B6",
+    "sheen": "#A98BE8",
+    "note": "City pigeon. Loyal, bread-motivated.",
+    "speed": "45 mph"
+  },
+  "brenda": {
+    "name": "Brenda",
+    "body": "#FFFBF0",
+    "wing": "#F2C9A0",
+    "collar": "#F59C8E",
+    "note": "Fast and judgmental.",
+    "speed": "54 mph"
+  },
+  "kevin": {
+    "name": "Kevin",
+    "body": "#7A7396",
+    "wing": "#595278",
+    "collar": "#A98BE8",
+    "note": "Has never once been on time.",
+    "speed": "38 mph"
+  },
+  "admiral": {
+    "name": "Admiral Crumbs",
+    "body": "#E0A870",
+    "wing": "#B87A45",
+    "collar": "#7FD6B6",
+    "note": "Hungry. Has opinions about it.",
+    "speed": "52 mph"
+  },
+  "dumpling": {
+    "name": "Dumpling",
+    "body": "#FFE9C4",
+    "wing": "#F2C08A",
+    "collar": "#F59C8E",
+    "rx": 38,
+    "ry": 30,
+    "note": "Priya's bird. Extremely round.",
+    "speed": "43 mph"
+  },
+  "fantail": {
+    "name": "Fantail",
+    "body": "#FFFBF0",
+    "wing": "#E3DCF0",
+    "collar": "#D5D1EA",
+    "breed": "fantail",
+    "note": "Slow, gorgeous, knows it.",
+    "trait": "Friends tip double"
+  },
+  "pouter": {
+    "name": "Pouter",
+    "body": "#CFE3F2",
+    "wing": "#9DB9D6",
+    "collar": "#A9DDF7",
+    "breed": "pouter",
+    "note": "Mostly air.",
+    "trait": "Carries two notes"
+  },
+  "frillback": {
+    "name": "Frillback",
+    "body": "#F2C9A0",
+    "wing": "#D99A6C",
+    "collar": "#F59C8E",
+    "breed": "frillback",
+    "note": "Permed. Unbothered by rain.",
+    "trait": "Ignores drizzle"
+  },
+  "jacobin": {
+    "name": "Jacobin",
+    "body": "#FFFBF0",
+    "wing": "#E9E3D0",
+    "collar": "#FFFBF0",
+    "breed": "jacobin",
+    "note": "Cannot see much. Does not care.",
+    "trait": "Never distracted"
+  },
+  "king": {
+    "name": "King",
+    "body": "#FFFBF0",
+    "wing": "#F4EBD6",
+    "collar": "#FFC93C",
+    "breed": "king",
+    "rx": 40,
+    "ry": 31,
+    "note": "Large. Carries snacks for the trip.",
+    "trait": "Longer range"
+  },
+  "tumbler": {
+    "name": "Tumbler",
+    "body": "#9CC7B5",
+    "wing": "#6FA893",
+    "collar": "#FFC93C",
+    "breed": "tumbler",
+    "note": "Does a backflip on arrival.",
+    "trait": "Lands with style"
+  }
+}

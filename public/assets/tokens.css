@@ -1,0 +1,32 @@
+:root {
+  --coo-ink: #2A2140; /* Text, outlines, hard shadows */
+  --coo-paper: #FFF4DC; /* App background */
+  --coo-card: #FFFBF0; /* Cards, inputs, note paper */
+  --coo-sky: #A9DDF7; /* Hero areas, water, info cards */
+  --coo-tomato: #F4623F; /* Primary action, flown path, alerts */
+  --coo-sun: #FFC93C; /* Selected state, secondary action, seeds */
+  --coo-mint: #86D9A0; /* Ready, good odds, grass */
+  --coo-lilac: #D5D1EA; /* Resting, roosting, quirks */
+  --coo-peach: #F9C5B4; /* Soft warning tiles */
+  --coo-sand: #E9E3D0; /* Locked or unavailable */
+  --coo-muted: #5E5675; /* Secondary text on paper or card */
+  --coo-stamp: #C23A1C; /* Postmarks and stamp ink */
+  --coo-night: #4A4380; /* Map land after dusk */
+  --coo-night-water: #2C2752; /* Map water after dusk */
+  --coo-font-display: 'Bagel Fat One', 'Arial Rounded MT Bold', 'Trebuchet MS', sans-serif;
+  --coo-font-body: 'Nunito', 'Avenir Next', 'Segoe UI', system-ui, sans-serif;
+  --coo-font-hand: 'Caveat', 'Bradley Hand', 'Segoe Print', cursive;
+  --coo-radius-paper: 6px;
+  --coo-radius-tile: 14px;
+  --coo-radius-row: 16px;
+  --coo-radius-card: 18px;
+  --coo-radius-button: 20px;
+  --coo-radius-pill: 999px;
+  --coo-line: 2.5px solid var(--coo-ink);
+  --coo-line-thin: 2px solid var(--coo-ink);
+  --coo-shadow-1: 0 3px 0 var(--coo-ink);
+  --coo-shadow-2: 0 4px 0 var(--coo-ink);
+  --coo-shadow-3: 0 5px 0 var(--coo-ink);
+  --coo-gutter: 16px;
+  --coo-touch: 44px;
+}

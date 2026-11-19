@@ -1,0 +1,15 @@
+.next/
+node_modules/
+package-lock.json
+next-env.d.ts
+public/
+assets/
+reference/
+supabase/
+docs/
+tickets/
+config/
+README.md
+AGENTS.md
+factory.md
+.github/
