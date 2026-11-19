@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { FlightInput, FlightPlan, Segment, WeatherSample } from "@/lib/flight/engine";
+import type {
+  FlightInput,
+  FlightPlan,
+  Segment,
+  WeatherSample,
+} from "@/lib/flight/engine";
 import {
   bathDone,
   careAt,
@@ -30,7 +35,13 @@ function bird(over: Partial<CareSnapshot> = {}): CareSnapshot {
   };
 }
 
-const dry: WeatherSample = { windMph: 0, windFromDeg: 0, tempF: 55, precipMmH: 0, snow: false };
+const dry: WeatherSample = {
+  windMph: 0,
+  windFromDeg: 0,
+  tempF: 55,
+  precipMmH: 0,
+  snow: false,
+};
 const rain: WeatherSample = { ...dry, precipMmH: 1 };
 
 function flight(opts: {
@@ -41,7 +52,13 @@ function flight(opts: {
 }): { plan: FlightPlan; input: FlightInput } {
   let at = NOON;
   const segments: Segment[] = opts.segments.map(([kind, hours]) => {
-    const s = { kind, startMs: at, endMs: at + hours * HOUR, fromFrac: 0, toFrac: 1 };
+    const s = {
+      kind,
+      startMs: at,
+      endMs: at + hours * HOUR,
+      fromFrac: 0,
+      toFrac: 1,
+    };
     at = s.endMs;
     return s;
   });
@@ -101,24 +118,40 @@ describe("careAt", () => {
 
   it("refuses to fly under 15 energy", () => {
     const away = { status: "visiting" as const };
-    expect(careAt(bird({ ...away, energy: 14.9 }), NOON, noBath).canFly).toBe(false);
-    expect(careAt(bird({ ...away, energy: 15 }), NOON, noBath).canFly).toBe(true);
+    expect(careAt(bird({ ...away, energy: 14.9 }), NOON, noBath).canFly).toBe(
+      false,
+    );
+    expect(careAt(bird({ ...away, energy: 15 }), NOON, noBath).canFly).toBe(
+      true,
+    );
   });
 
   it("flags scruffy under 30 feathers and tired under 40 energy", () => {
-    const c = careAt(bird({ status: "flying", feathers: 29.9, energy: 39.9 }), NOON, noBath);
+    const c = careAt(
+      bird({ status: "flying", feathers: 29.9, energy: 39.9 }),
+      NOON,
+      noBath,
+    );
     expect(c).toMatchObject({ scruffy: true, tired: true, hungry: false });
-    const ok = careAt(bird({ status: "flying", feathers: 30, energy: 40 }), NOON, noBath);
+    const ok = careAt(
+      bird({ status: "flying", feathers: 30, energy: 40 }),
+      NOON,
+      noBath,
+    );
     expect(ok).toMatchObject({ scruffy: false, tired: false });
   });
 
   it("restores energy at home, scheduled and busy, and freezes it away", () => {
     const low = { energy: 20 };
     for (const status of ["home", "scheduled", "busy"] as const) {
-      expect(careAt(bird({ ...low, status }), NOON + 2 * HOUR, noBath).energy).toBe(40);
+      expect(
+        careAt(bird({ ...low, status }), NOON + 2 * HOUR, noBath).energy,
+      ).toBe(40);
     }
     for (const status of ["flying", "visiting"] as const) {
-      expect(careAt(bird({ ...low, status }), NOON + 2 * HOUR, noBath).energy).toBe(20);
+      expect(
+        careAt(bird({ ...low, status }), NOON + 2 * HOUR, noBath).energy,
+      ).toBe(20);
     }
   });
 
@@ -129,7 +162,10 @@ describe("careAt", () => {
   });
 
   it("never drains before the snapshot time", () => {
-    expect(careAt(bird(), NOON - 5 * HOUR, noBath)).toMatchObject({ belly: 80, feathers: 80 });
+    expect(careAt(bird(), NOON - 5 * HOUR, noBath)).toMatchObject({
+      belly: 80,
+      feathers: 80,
+    });
   });
 });
 
@@ -146,13 +182,23 @@ describe("feed, snack, bath and nap", () => {
 
   it("snacks +40 belly without counting as feeding", () => {
     const s = snack(bird({ belly: 70, hungryNotified: true }), NOON, noBath);
-    expect(s).toMatchObject({ belly: 100, lastFedAtMs: NOON, hungryNotified: true });
-    expect(careAt(snack(bird(), NOON + 72 * HOUR, noBath), NOON + 72 * HOUR, noBath).sulking).toBe(true);
+    expect(s).toMatchObject({
+      belly: 100,
+      lastFedAtMs: NOON,
+      hungryNotified: true,
+    });
+    expect(
+      careAt(snack(bird(), NOON + 72 * HOUR, noBath), NOON + 72 * HOUR, noBath)
+        .sulking,
+    ).toBe(true);
   });
 
   it("bathes feathers back to 100 and naps +50 energy", () => {
     expect(bathDone(bird({ feathers: 12 }), NOON, noBath).feathers).toBe(100);
-    expect(napDone(bird({ status: "busy", energy: 20 }), NOON + HOUR / 2, noBath).energy).toBe(75);
+    expect(
+      napDone(bird({ status: "busy", energy: 20 }), NOON + HOUR / 2, noBath)
+        .energy,
+    ).toBe(75);
   });
 });
 
@@ -167,11 +213,23 @@ describe("settleFlight", () => {
   });
 
   it("costs 15 feathers in the rain, unless the bird wears booties", () => {
-    const wet = [dry, rain, dry] as [WeatherSample, WeatherSample, WeatherSample];
+    const wet = [dry, rain, dry] as [
+      WeatherSample,
+      WeatherSample,
+      WeatherSample,
+    ];
     const rainy = flight({ segments: [["fly", 2]], weather: wet });
-    expect(settleFlight(flying, rainy.plan, rainy.input, noBath).feathers).toBe(63);
-    const booted = flight({ segments: [["fly", 2]], weather: wet, gear: ["booties"] });
-    expect(settleFlight(flying, booted.plan, booted.input, noBath).feathers).toBe(78);
+    expect(settleFlight(flying, rainy.plan, rainy.input, noBath).feathers).toBe(
+      63,
+    );
+    const booted = flight({
+      segments: [["fly", 2]],
+      weather: wet,
+      gear: ["booties"],
+    });
+    expect(
+      settleFlight(flying, booted.plan, booted.input, noBath).feathers,
+    ).toBe(78);
   });
 
   it("charges a King half the energy", () => {
@@ -180,12 +238,24 @@ describe("settleFlight", () => {
   });
 
   it("restores 5 an hour roosting and counts a delay as flown", () => {
-    const { plan, input } = flight({ segments: [["fly", 1], ["roost", 4], ["delay", 1]] });
-    expect(settleFlight(bird({ status: "flying", energy: 50 }), plan, input, noBath).energy).toBe(54);
+    const { plan, input } = flight({
+      segments: [
+        ["fly", 1],
+        ["roost", 4],
+        ["delay", 1],
+      ],
+    });
+    expect(
+      settleFlight(bird({ status: "flying", energy: 50 }), plan, input, noBath)
+        .energy,
+    ).toBe(54);
   });
 
   it("returns the same snapshot when settled twice", () => {
-    const { plan, input } = flight({ segments: [["fly", 2]], weather: [rain, rain, rain] });
+    const { plan, input } = flight({
+      segments: [["fly", 2]],
+      weather: [rain, rain, rain],
+    });
     const once = settleFlight(flying, plan, input, noBath);
     expect(settleFlight(once, plan, input, noBath)).toEqual(once);
   });
@@ -194,7 +264,10 @@ describe("settleFlight", () => {
 describe("projectCare", () => {
   it("keeps energy from accruing across a status the bird was not in", () => {
     const releasedAt = NOON + 3 * HOUR;
-    const atRelease = { ...projectCare(bird({ energy: 50 }), releasedAt, noBath), status: "flying" as const };
+    const atRelease = {
+      ...projectCare(bird({ energy: 50 }), releasedAt, noBath),
+      status: "flying" as const,
+    };
     expect(atRelease.energy).toBe(80);
     expect(careAt(atRelease, releasedAt + 2 * HOUR, noBath).energy).toBe(80);
   });
@@ -203,7 +276,13 @@ describe("projectCare", () => {
 describe("determinism", () => {
   it("gives equal outputs for the same inputs", () => {
     const now = NOON + 33 * HOUR;
-    const { plan, input } = flight({ segments: [["fly", 1], ["roost", 2]], weather: [rain, dry, dry] });
+    const { plan, input } = flight({
+      segments: [
+        ["fly", 1],
+        ["roost", 2],
+      ],
+      weather: [rain, dry, dry],
+    });
     const calls = [
       () => careAt(bird(), now, withBath),
       () => projectCare(bird(), now, withBath),

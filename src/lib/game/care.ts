@@ -37,16 +37,16 @@ const energyPerHour: Record<BirdStatus, number> = {
   visiting: 0,
 };
 
-function clamp(v: number): number {
+function toScale(v: number): number {
   return Math.round(Math.min(FULL, Math.max(0, v)) * 10) / 10;
 }
 
-function settled(bird: CareSnapshot): CareSnapshot {
+function clamped(bird: CareSnapshot): CareSnapshot {
   return {
     ...bird,
-    belly: clamp(bird.belly),
-    feathers: clamp(bird.feathers),
-    energy: clamp(bird.energy),
+    belly: toScale(bird.belly),
+    feathers: toScale(bird.feathers),
+    energy: toScale(bird.energy),
   };
 }
 
@@ -57,7 +57,7 @@ export function projectCare(
 ): CareSnapshot {
   const hours = Math.max(0, atMs - bird.careAtMs) / HOUR_MS;
   const featherFactor = owner.hasBirdbath ? care.birdbathFeatherFactor : 1;
-  return settled({
+  return clamped({
     ...bird,
     belly: bird.belly + care.bellyPerHour * hours,
     feathers: bird.feathers + care.feathersPerHour * featherFactor * hours,
@@ -90,7 +90,7 @@ export function feed(
   owner: CareOwner,
 ): CareSnapshot {
   const now = projectCare(bird, atMs, owner);
-  return settled({
+  return clamped({
     ...now,
     belly: now.belly + care.feedBelly,
     lastFedAtMs: atMs,
@@ -104,7 +104,7 @@ export function snack(
   owner: CareOwner,
 ): CareSnapshot {
   const now = projectCare(bird, atMs, owner);
-  return settled({ ...now, belly: now.belly + care.snackBelly });
+  return clamped({ ...now, belly: now.belly + care.snackBelly });
 }
 
 export function bathDone(
@@ -121,7 +121,7 @@ export function napDone(
   owner: CareOwner,
 ): CareSnapshot {
   const now = projectCare(bird, atMs, owner);
-  return settled({ ...now, energy: now.energy + care.napEnergy });
+  return clamped({ ...now, energy: now.energy + care.napEnergy });
 }
 
 export function settleFlight(
@@ -149,7 +149,7 @@ export function settleFlight(
   );
   const soaked = rained && !input.gear.includes("booties");
   const landed = projectCare(bird, plan.arriveAtMs, owner);
-  return settled({
+  return clamped({
     ...landed,
     energy: landed.energy + flightEnergy,
     feathers: landed.feathers + (soaked ? care.rainFlightFeathers : 0),
