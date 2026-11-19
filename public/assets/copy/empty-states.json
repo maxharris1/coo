@@ -1,0 +1,26 @@
+[
+  {
+    "state": "No flights",
+    "text": "No birds in the air. Suspiciously quiet."
+  },
+  {
+    "state": "Empty sill",
+    "text": "Nobody on your sill yet. Send the first note."
+  },
+  {
+    "state": "No rested birds",
+    "text": "Everyone is asleep or eating. Feed someone, or wait for a nap to end."
+  },
+  {
+    "state": "Offline",
+    "text": "You are offline. Birds keep flying. The map catches up when you are back."
+  },
+  {
+    "state": "Expired link",
+    "text": "That link has expired. The bird went home with the note."
+  },
+  {
+    "state": "Place not found",
+    "text": "Could not find that place. Try a neighborhood or a city."
+  }
+]
