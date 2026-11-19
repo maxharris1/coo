@@ -1,0 +1,14 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  padding: 24px var(--coo-gutter) 48px;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--coo-font-display);
+  font-weight: 400;
+  font-size: 36px;
+  line-height: 1;
+}
