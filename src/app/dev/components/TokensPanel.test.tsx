@@ -15,7 +15,55 @@ const radii = declared(/--coo-radius-([a-z]+):\s*(\S+);/g);
 const shadows = declared(/--coo-shadow-(\d):\s*([^;]+);/g);
 const html = renderToStaticMarkup(<TokensPanel />);
 
+const referencePairs = [
+  ["ink", "paper", "13.8 to 1", "Passes for all text"],
+  ["ink", "card", "14.6 to 1", "Passes for all text"],
+  ["ink", "sky", "10.3 to 1", "Passes for all text"],
+  ["ink", "tomato", "4.8 to 1", "Passes for all text"],
+  ["ink", "sun", "9.8 to 1", "Passes for all text"],
+  ["ink", "mint", "9.0 to 1", "Passes for all text"],
+  ["ink", "lilac", "10.2 to 1", "Passes for all text"],
+  ["muted", "paper", "6.3 to 1", "Passes for all text"],
+  ["muted", "card", "6.6 to 1", "Passes for all text"],
+  ["stamp", "card", "5.2 to 1", "Passes for all text"],
+  ["paper", "night", "8.0 to 1", "Passes for all text"],
+  ["card", "tomato", "3.0 to 1", "Large text only"],
+] as const;
+
 describe("TokensPanel", () => {
+  it("shows the sections in the Tokens sheet's order", () => {
+    const headings = [...html.matchAll(/<h2[^>]*>([^<]*)<\/h2>/g)].map(
+      (m) => m[1],
+    );
+    expect(headings).toEqual([
+      "Colour tokens",
+      "Contrast pairs",
+      "Type",
+      "Outline, radius, shadow",
+      "Spacing",
+    ]);
+  });
+
+  it("draws each of the twelve contrast pairs in its tokens with its ratio and verdict", () => {
+    const section = html.slice(
+      html.indexOf(">Contrast pairs<"),
+      html.indexOf(">Type<"),
+    );
+    const specimens = [
+      ...section.matchAll(/<li[^>]*>(?:(?!<\/li>).)*<\/li>/g),
+    ].map((m) => m[0]);
+    expect(specimens).toHaveLength(referencePairs.length);
+    referencePairs.forEach(([text, surface, ratio, verdict], i) => {
+      const specimen = specimens[i];
+      expect(specimen).toContain(
+        `background:var(--coo-${surface});color:var(--coo-${text})`,
+      );
+      expect(specimen).toContain(`>${text} on ${surface}<`);
+      expect(specimen).toContain(`>${ratio}<`);
+      expect(specimen).toContain(`>${verdict}<`);
+    });
+  });
+
   it("shows a swatch with its hex label for each of the fourteen colour tokens", () => {
     expect(colours).toHaveLength(14);
     for (const { name, value } of colours) {

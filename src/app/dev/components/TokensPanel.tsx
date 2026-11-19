@@ -6,6 +6,12 @@ type ColourName = keyof typeof tokens.color;
 type RadiusName = keyof typeof tokens.radius;
 type FontName = keyof typeof tokens.font;
 
+type ContrastPair = {
+  text: ColourName;
+  surface: ColourName;
+  ratio: string;
+  verdict: "Passes for all text" | "Large text only";
+};
 type ShapeSample = { label: string; use: string; style: CSSProperties };
 type TypeSample = { spec: string; text: string; style: CSSProperties };
 type TypeFamily = {
@@ -41,6 +47,71 @@ const darkSwatches: ReadonlySet<ColourName> = new Set([
 ]);
 
 const colours = Object.entries(tokens.color) as [ColourName, string][];
+
+const contrastPairs: ContrastPair[] = [
+  {
+    text: "ink",
+    surface: "paper",
+    ratio: "13.8",
+    verdict: "Passes for all text",
+  },
+  {
+    text: "ink",
+    surface: "card",
+    ratio: "14.6",
+    verdict: "Passes for all text",
+  },
+  {
+    text: "ink",
+    surface: "sky",
+    ratio: "10.3",
+    verdict: "Passes for all text",
+  },
+  {
+    text: "ink",
+    surface: "tomato",
+    ratio: "4.8",
+    verdict: "Passes for all text",
+  },
+  { text: "ink", surface: "sun", ratio: "9.8", verdict: "Passes for all text" },
+  {
+    text: "ink",
+    surface: "mint",
+    ratio: "9.0",
+    verdict: "Passes for all text",
+  },
+  {
+    text: "ink",
+    surface: "lilac",
+    ratio: "10.2",
+    verdict: "Passes for all text",
+  },
+  {
+    text: "muted",
+    surface: "paper",
+    ratio: "6.3",
+    verdict: "Passes for all text",
+  },
+  {
+    text: "muted",
+    surface: "card",
+    ratio: "6.6",
+    verdict: "Passes for all text",
+  },
+  {
+    text: "stamp",
+    surface: "card",
+    ratio: "5.2",
+    verdict: "Passes for all text",
+  },
+  {
+    text: "paper",
+    surface: "night",
+    ratio: "8.0",
+    verdict: "Passes for all text",
+  },
+  { text: "card", surface: "tomato", ratio: "3.0", verdict: "Large text only" },
+];
 
 const radiusUses = {
   paper: "Paper, forms",
@@ -212,6 +283,34 @@ export function TokensPanel() {
               <div className={styles.swatchText}>
                 <span className={styles.tokenName}>{`--coo-${name}`}</span>
                 <span className={styles.caption}>{colourRoles[name]}</span>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </Section>
+
+      <Section
+        title="Contrast pairs"
+        note="Measured WCAG ratios. Tomato and sun always carry ink text, never white."
+      >
+        <ul className={styles.pairs}>
+          {contrastPairs.map(({ text, surface, ratio, verdict }) => (
+            <li key={`${text}-${surface}`} className={styles.pair}>
+              <div
+                className={styles.specimen}
+                style={{
+                  background: `var(--coo-${surface})`,
+                  color: `var(--coo-${text})`,
+                }}
+              >
+                Aa
+              </div>
+              <div className={styles.pairText}>
+                <span
+                  className={styles.pairLabel}
+                >{`${text} on ${surface}`}</span>
+                <span className={styles.ratio}>{`${ratio} to 1`}</span>
+                <span className={styles.caption}>{verdict}</span>
               </div>
             </li>
           ))}

@@ -42,6 +42,7 @@
 }
 
 .swatches,
+.pairs,
 .shapes,
 .spacing {
   margin: 0;
@@ -90,6 +91,55 @@
 .tokenName {
   font-weight: 900;
   font-size: 13px;
+}
+
+.pairs {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(max(200px, calc((100% - 48px) / 4)), 1fr)
+  );
+  gap: 16px;
+}
+
+.pair {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 84px;
+  padding: 8px 12px;
+  background: var(--coo-card);
+  border: var(--coo-line-thin);
+  border-radius: var(--coo-radius-tile);
+}
+
+.specimen {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  border: var(--coo-line-thin);
+  border-radius: 12px;
+  font-family: var(--coo-font-display);
+  font-size: 26px;
+}
+
+.pairText {
+  display: flex;
+  flex-direction: column;
+}
+
+.pairLabel {
+  font-weight: 900;
+  font-size: 13.5px;
+}
+
+.ratio {
+  font-weight: 900;
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
 }
 
 .typeCards {
