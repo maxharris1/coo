@@ -8,6 +8,8 @@ const root = fileURLToPath(new URL("../..", import.meta.url));
 const configDir = join(root, "config");
 const srcDir = join(root, "src");
 const configModule = join(srcDir, "lib", "config.ts");
+const flightEngine = join(srcDir, "lib", "flight", "engine.ts");
+const productNameExempt = new Set([configModule, flightEngine]);
 
 function listFiles(dir: string): string[] {
   return readdirSync(dir, { recursive: true, encoding: "utf8" })
@@ -40,7 +42,7 @@ function valueAt(source: unknown, keys: string[]): unknown {
 
 function productNameOffenders(files: Record<string, string>): string[] {
   return Object.keys(files).filter(
-    (file) => file !== configModule && files[file].includes(app.name),
+    (file) => !productNameExempt.has(file) && files[file].includes(app.name),
   );
 }
 
@@ -69,7 +71,7 @@ describe("config", () => {
     }
   });
 
-  it("keeps the product name out of src/ except the config module", () => {
+  it("keeps the product name out of src/ except the config module and the flight engine", () => {
     const files = Object.fromEntries(
       listFiles(srcDir).map((file) => [file, readFileSync(file, "utf8")]),
     );
@@ -82,11 +84,14 @@ describe("config", () => {
 
   it("flags the product name even with a letter right next to it", () => {
     const label = join(srcDir, "review-product-label.ts");
+    const flightNeighbour = join(srcDir, "lib", "flight", "route.ts");
     expect(
       productNameOffenders({
         [label]: `export const productLabel = "${app.name}Mail";`,
         [configModule]: `export const name = "${app.name}";`,
+        [flightEngine]: ` * ${app.name} flight engine: reference implementation.`,
+        [flightNeighbour]: `// ${app.name} route`,
       }),
-    ).toEqual([label]);
+    ).toEqual([label, flightNeighbour]);
   });
 });

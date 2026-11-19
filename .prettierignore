@@ -5,6 +5,7 @@ next-env.d.ts
 public/
 assets/
 reference/
+src/lib/flight/engine.ts
 supabase/
 docs/
 tickets/
