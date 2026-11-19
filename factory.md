@@ -31,7 +31,7 @@ skills: []
 ---
 
 ## Review
-One reviewer from a different model family than the builder gives the final verdict. `review.verify` is `none`. Low-risk changes get one round; leftover minors are batched into a follow-up issue. High-risk changes get up to three rounds; every extra round needs Max's own words.
+One reviewer from a different model family than the builder gives the final verdict. `review.verify` is `none`. Low-risk changes get one round; leftover minors are batched into a follow-up issue. High-risk changes get up to three rounds; I (Factory) may grant one extra round per finding, and any further round needs Max's own words.
 
 Check every PR against `AGENTS.md` (the packet's rules for coding agents) and the ticket's acceptance criteria. Block on:
 - `npm run typecheck`, `npm run lint`, `npm test` or `npm run build` failing, or a test weakened or deleted to make it pass.
