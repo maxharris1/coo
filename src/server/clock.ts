@@ -22,10 +22,10 @@ export function clockSource(
   return async (db) => {
     const readAt = Date.now();
     if (!cached || readAt - cached.readAt >= OFFSET_TTL_MS) {
-      const [row] = await db.query<{ offset_ms: number }>(
+      const [{ offset_ms }] = await db.query<{ offset_ms: number }>(
         "select offset_ms from dev_clock",
       );
-      cached = { offsetMs: row?.offset_ms ?? 0, readAt };
+      cached = { offsetMs: offset_ms, readAt };
     }
     return offsetClock(cached.offsetMs);
   };
