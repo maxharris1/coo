@@ -2,13 +2,7 @@ import { describe, expect, it } from "vitest";
 import flightLog from "../../config/copy/flight-log.json";
 import notifications from "../../config/copy/notifications.json";
 import sms from "../../config/copy/sms.json";
-import {
-  clockTime,
-  distance,
-  duration,
-  fill,
-  pronounTokens,
-} from "./format";
+import { clockTime, distance, duration, fill, pronounTokens } from "./format";
 
 describe("duration", () => {
   it.each([
@@ -34,7 +28,7 @@ describe("distance", () => {
     [0.15, "3 blocks"],
     [0.05, "1 block"],
     [0.01, "1 block"],
-    [0, "1 block"],
+    [0, "0 blocks"],
     [0.4, "8 blocks"],
     [0.49, "10 blocks"],
     [0.5, "1 mile"],
@@ -52,6 +46,7 @@ describe("distance", () => {
     [0.15, "250 metres"],
     [0.25, "400 metres"],
     [0.01, "50 metres"],
+    [0, "0 metres"],
   ])("formats %d miles in km as %j", (miles, text) => {
     expect(distance(miles, "km")).toBe(text);
   });
@@ -70,12 +65,12 @@ describe("clockTime", () => {
   });
 
   it("shows midnight and noon as 12", () => {
-    expect(clockTime(new Date("2026-11-20T05:00:00Z"), "America/New_York")).toBe(
-      "12:00 am",
-    );
-    expect(clockTime(new Date("2026-11-20T17:00:00Z"), "America/New_York")).toBe(
-      "12:00 pm",
-    );
+    expect(
+      clockTime(new Date("2026-11-20T05:00:00Z"), "America/New_York"),
+    ).toBe("12:00 am");
+    expect(
+      clockTime(new Date("2026-11-20T17:00:00Z"), "America/New_York"),
+    ).toBe("12:00 pm");
   });
 });
 
@@ -106,20 +101,111 @@ describe("fill", () => {
     ["she", "Nothing to report. She would like that noted."],
     ["they", "Nothing to report. They would like that noted."],
   ] as const)("fills pronoun tokens for %s", (pronoun, text) => {
-    expect(fill("Nothing to report. {He} would like that noted.", {}, pronoun)).toBe(text);
+    expect(
+      fill("Nothing to report. {He} would like that noted.", {}, pronoun),
+    ).toBe(text);
   });
 
   it("fills every pronoun form in one line", () => {
     expect(
       fill("{He} said {he} took {his} map, so leave {him} be.", {}, "they"),
     ).toBe("They said they took their map, so leave them be.");
-    expect(fill(sms["share-template"], { url: "https://coo.example/g/x" }, "she")).toBe(
+    expect(
+      fill(sms["share-template"], { url: "https://coo.example/g/x" }, "she"),
+    ).toBe(
       "I sent you a pigeon. For real. Watch her fly to you: https://coo.example/g/x",
     );
   });
 
+  it.each([
+    [
+      "he",
+      "Tailwind. He is taking the credit.",
+      "No reply this time. He is pretending not to mind.",
+      "He has opinions about it.",
+    ],
+    [
+      "she",
+      "Tailwind. She is taking the credit.",
+      "No reply this time. She is pretending not to mind.",
+      "She has opinions about it.",
+    ],
+    [
+      "they",
+      "Tailwind. They are taking the credit.",
+      "No reply this time. They are pretending not to mind.",
+      "They have opinions about it.",
+    ],
+  ] as const)(
+    "agrees the verb with %s in the copy",
+    (pronoun, tailwind, homeEmpty, hungry) => {
+      expect(fill(flightLog.weather_tailwind[0], {}, pronoun)).toBe(tailwind);
+      expect(fill(notifications["home-empty"].body, {}, pronoun)).toBe(
+        homeEmpty,
+      );
+      expect(fill(notifications.hungry.body, {}, pronoun)).toBe(hungry);
+    },
+  );
+
+  it("covers every copy line whose subject is a pronoun", () => {
+    const strings = (value: unknown): string[] =>
+      typeof value === "string"
+        ? [value]
+        : value && typeof value === "object"
+          ? Object.values(value).flatMap(strings)
+          : [];
+    const subjectLines = [flightLog, notifications, sms]
+      .flatMap(strings)
+      .filter((line) => /\{[Hh]e\} [a-z]/.test(line));
+    expect(subjectLines.sort()).toEqual(
+      [
+        flightLog.cruising[3],
+        flightLog.weather_tailwind[0],
+        notifications["home-empty"].body,
+        notifications.hungry.body,
+      ].sort(),
+    );
+  });
+
+  it.each([
+    ["{He} takes the long way.", "They take the long way."],
+    ["{He} flies home.", "They fly home."],
+    ["{He} watches the river.", "They watch the river."],
+    ["{He} misses nothing.", "They miss nothing."],
+    ["{He} goes quiet.", "They go quiet."],
+    ["{He} was asleep.", "They were asleep."],
+    ["{He} isn't hungry.", "They aren't hungry."],
+    ["{He} doesn't mind.", "They don't mind."],
+    ["{He} would like that noted.", "They would like that noted."],
+    ["{He} said nothing.", "They said nothing."],
+    ["Then {he} lands.", "Then they land."],
+    [
+      "{bird} is late and {his} map is wet.",
+      "Gerald is late and their map is wet.",
+    ],
+  ])("uses plural verbs for they in %j", (template, text) => {
+    expect(fill(template, { bird: "Gerald" }, "they")).toBe(text);
+  });
+
+  it.each([
+    ["he", "Gerald takes the long way. He takes the long way. Then he lands."],
+    [
+      "she",
+      "Gerald takes the long way. She takes the long way. Then she lands.",
+    ],
+  ] as const)("keeps singular verbs for %s", (pronoun, text) => {
+    expect(
+      fill(
+        "{bird} takes the long way. {He} takes the long way. Then {he} lands.",
+        { bird: "Gerald" },
+        pronoun,
+      ),
+    ).toBe(text);
+  });
+
   it("drops the sentence that needs a missing token", () => {
-    const line = "Crossed the river. Used {place} to check {his} bearings. Close enough.";
+    const line =
+      "Crossed the river. Used {place} to check {his} bearings. Close enough.";
     expect(fill(line, {}, "he")).toBe("Crossed the river. Close enough.");
     expect(fill(line, { place: "the Ben Franklin Bridge" }, "he")).toBe(
       "Crossed the river. Used the Ben Franklin Bridge to check his bearings. Close enough.",
@@ -131,12 +217,19 @@ describe("fill", () => {
   });
 
   it("fills every flight log line with no braces left", () => {
-    const tokens = { bird: "Gerald", place: "Trenton", speed: "45 mph", friend: "Priya" };
+    const tokens = {
+      bird: "Gerald",
+      place: "Trenton",
+      speed: "45 mph",
+      friend: "Priya",
+    };
     for (const [kind, lines] of Object.entries(flightLog)) {
       if (!Array.isArray(lines)) continue;
       for (const pronoun of ["he", "she", "they"] as const) {
         for (const line of lines) {
-          expect(fill(line, tokens, pronoun), `${kind}: ${line}`).not.toMatch(/[{}]/);
+          expect(fill(line, tokens, pronoun), `${kind}: ${line}`).not.toMatch(
+            /[{}]/,
+          );
         }
       }
     }

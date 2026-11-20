@@ -29,7 +29,19 @@ const pronouns: Record<Pronoun, PronounForms> = {
   they: { He: "They", he: "they", him: "them", his: "their" },
 };
 
+const pluralVerbs: Record<string, string> = {
+  is: "are",
+  was: "were",
+  has: "have",
+  does: "do",
+  "isn't": "aren't",
+  "wasn't": "weren't",
+  "hasn't": "haven't",
+  "doesn't": "don't",
+};
+
 const TOKEN = /\{(\w+)\}/g;
+const SUBJECT_VERB = /(\{[Hh]e\} )([a-z']+)/g;
 const SENTENCE_BREAK = /(?<=[.?])\s+/;
 
 export function duration(ms: number): string {
@@ -46,7 +58,11 @@ export function distance(miles: number, units: Units): string {
   const local = miles * scale.perMile;
   const [n, words] =
     local < SMALL_BELOW
-      ? [Math.max(1, Math.round(local / STEP)) * scale.stepValue, scale.step]
+      ? [
+          (local > 0 ? Math.max(1, Math.round(local / STEP)) : 0) *
+            scale.stepValue,
+          scale.step,
+        ]
       : [Math.round(local), scale.whole];
   return `${n} ${n === 1 ? words.one : words.many}`;
 }
@@ -79,6 +95,14 @@ export function pronounTokens(p: Pronoun): PronounForms {
   return pronouns[p];
 }
 
+function pluralVerb(verb: string): string {
+  if (verb in pluralVerbs) return pluralVerbs[verb];
+  if (verb.endsWith("ies")) return `${verb.slice(0, -3)}y`;
+  if (/(ch|sh|ss|x|z|o)es$/.test(verb)) return verb.slice(0, -2);
+  if (/[^s]s$/.test(verb)) return verb.slice(0, -1);
+  return verb;
+}
+
 export function fill(
   template: string,
   tokens: Record<string, string | number | undefined>,
@@ -88,11 +112,22 @@ export function fill(
     ...(pronoun && pronouns[pronoun]),
     ...tokens,
   };
-  return template
+  const agreed =
+    pronoun === "they"
+      ? template.replace(
+          SUBJECT_VERB,
+          (_, subject: string, verb: string) => subject + pluralVerb(verb),
+        )
+      : template;
+  return agreed
     .split(SENTENCE_BREAK)
     .filter((sentence) =>
-      [...sentence.matchAll(TOKEN)].every(([, name]) => values[name] !== undefined),
+      [...sentence.matchAll(TOKEN)].every(
+        ([, name]) => values[name] !== undefined,
+      ),
     )
-    .map((sentence) => sentence.replace(TOKEN, (_, name: string) => String(values[name])))
+    .map((sentence) =>
+      sentence.replace(TOKEN, (_, name: string) => String(values[name])),
+    )
     .join(" ");
 }
