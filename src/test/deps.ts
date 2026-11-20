@@ -1,5 +1,6 @@
 import { config } from "@/lib/config";
 import type { Deps } from "@/server/deps";
+import { testAuth } from "@/server/testAuth";
 import { FakeClock } from "./fakes/clock";
 import { FakeGeocoder } from "./fakes/geocoder";
 import { FakePush } from "./fakes/push";
@@ -18,9 +19,18 @@ export interface TestDeps extends Deps {
 export async function makeTestDeps(
   overrides: Partial<TestDeps> = {},
 ): Promise<TestDeps> {
+  const db = overrides.db ?? (await testDb());
+  const clock = overrides.clock ?? new FakeClock(Date.UTC(2026, 10, 19, 15));
   return {
-    db: overrides.db ?? (await testDb()),
-    clock: new FakeClock(Date.UTC(2026, 10, 19, 15)),
+    db,
+    clock,
+    auth: (jar) =>
+      testAuth(
+        jar,
+        { APP_ENV: "test", TEST_AUTH_SECRET: "test-auth-secret" },
+        db,
+        clock,
+      ),
     weather: new FakeWeather(),
     geocoder: new FakeGeocoder(),
     push: new FakePush(),
