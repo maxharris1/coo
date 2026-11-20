@@ -1,3 +1,5 @@
+import type { BirdStatus, BreedId, GearId } from "@/lib/game/types";
+
 type Tag =
   | "uuid"
   | "text"
@@ -171,7 +173,7 @@ export function toBirdRecord(r: Row<"birds">) {
     id: r.id,
     ownerId: r.owner_id,
     name: r.name,
-    breed: r.breed,
+    breed: r.breed as BreedId,
     look: r.look,
     pronoun: r.pronoun,
     speedMph: r.speed_mph,
@@ -187,10 +189,10 @@ export function toBirdRecord(r: Row<"birds">) {
     careAt: r.care_at.getTime(),
     lastFedAt: r.last_fed_at.getTime(),
     hungryNotified: r.hungry_notified,
-    status: r.status,
+    status: r.status as BirdStatus,
     busyKind: r.busy_kind,
     busyUntil: r.busy_until?.getTime() ?? null,
-    gear: r.gear,
+    gear: r.gear as GearId[],
     hatchedAt: r.hatched_at.getTime(),
   };
 }
