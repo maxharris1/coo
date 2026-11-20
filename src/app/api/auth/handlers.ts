@@ -15,5 +15,10 @@ export function authRoutes(jsonRoute: ReturnType<typeof createJsonRoute>) {
       ({ deps, auth, jar, input }) =>
         signIn.verifyCode({ auth, db: deps.db }, jar, input.code),
     ),
+    session: jsonRoute("user", {}, async ({ caller }) => ({
+      userId: caller.userId,
+      onboarded: caller.profile?.onboarded_at != null,
+    })),
+    signOut: jsonRoute("user", {}, ({ auth }) => signIn.signOut(auth)),
   };
 }

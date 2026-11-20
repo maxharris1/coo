@@ -42,28 +42,49 @@ beforeEach(async () => {
   bodies = [];
 });
 
-async function post(
+async function send(
   route: (req: NextRequest) => Promise<Response>,
-  path: string,
-  body: unknown,
+  req: NextRequest,
 ) {
-  const res = await route(
-    new NextRequest(`https://coo.test${path}`, {
-      method: "POST",
-      headers: { "content-type": "application/json", cookie },
-      body: JSON.stringify(body),
-    }),
+  const res = await route(req);
+  const jar = new Map(
+    cookie
+      .split("; ")
+      .filter(Boolean)
+      .map((c) => c.split("=", 2) as [string, string]),
   );
-  const pending = res.headers
-    .getSetCookie()
-    .find((c) => c.startsWith("coo_otp_phone="));
-  if (pending) cookie = pending.split(";")[0]!;
+  for (const c of res.headers.getSetCookie()) {
+    const [name, value] = c.split(";")[0]!.split("=", 2) as [string, string];
+    if (value === "" || /max-age=0/i.test(c)) jar.delete(name);
+    else jar.set(name, value);
+  }
+  cookie = [...jar].map(([name, value]) => `${name}=${value}`).join("; ");
   bodies.push(
     JSON.stringify(await res.json()),
     res.headers.get("location") ?? "",
   );
   return res.status;
 }
+
+const post = (
+  route: (req: NextRequest) => Promise<Response>,
+  path: string,
+  body: unknown,
+) =>
+  send(
+    route,
+    new NextRequest(`https://coo.test${path}`, {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie },
+      body: JSON.stringify(body),
+    }),
+  );
+
+const get = (route: (req: NextRequest) => Promise<Response>, path: string) =>
+  send(
+    route,
+    new NextRequest(`https://coo.test${path}`, { headers: { cookie } }),
+  );
 
 function expectNoPhoneLogged() {
   const logged = spies
@@ -77,7 +98,47 @@ function expectNoPhoneLogged() {
   }
 }
 
-describe("ac-4 send code and verify write no phone number to any log", () => {
+describe("ac-4 the sign-in flow writes no phone number to any log", () => {
+  it("over send, wrong code, right code, session, sign-out and session again", async () => {
+    const { code, verify, session, signOut } = authRoutes(
+      createJsonRoute(async () => deps),
+    );
+    expect(
+      await post(code, "/api/auth/code", { phone: "(555) 123-4567" }),
+    ).toBe(200);
+    expect(await post(verify, "/api/auth/verify", { code: "123456" })).toBe(
+      400,
+    );
+    expect(await post(verify, "/api/auth/verify", { code: "000000" })).toBe(
+      200,
+    );
+    expect(await get(session, "/api/auth/session")).toBe(200);
+    expect(await post(signOut, "/api/auth/sign-out", {})).toBe(200);
+    expect(await get(session, "/api/auth/session")).toBe(401);
+    expect(spies[0]).toHaveBeenCalled();
+    expectNoPhoneLogged();
+  });
+
+  it("over a database failure inside session", async () => {
+    const { code, verify } = authRoutes(createJsonRoute(async () => deps));
+    await post(code, "/api/auth/code", { phone: "(555) 123-4567" });
+    expect(await post(verify, "/api/auth/verify", { code: "000000" })).toBe(
+      200,
+    );
+    const failing = await makeTestDeps({
+      db: {
+        ...deps.db,
+        query: async () => {
+          throw new Error("db failed for +1 (555) 123-4567");
+        },
+      },
+    });
+    const { session } = authRoutes(createJsonRoute(async () => failing));
+    expect(await get(session, "/api/auth/session")).toBe(500);
+    expect(spies[2]).toHaveBeenCalledOnce();
+    expectNoPhoneLogged();
+  });
+
   it("over send, wrong code and right code", async () => {
     const { code, verify } = authRoutes(createJsonRoute(async () => deps));
     expect(

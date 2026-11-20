@@ -24,15 +24,16 @@ beforeEach(async () => {
   cookies = new Map();
 });
 
-function request(path: string, body: unknown): NextRequest {
+function request(path: string, body?: unknown): NextRequest {
+  const cookie = [...cookies]
+    .map(([name, value]) => `${name}=${value}`)
+    .join("; ");
+  if (body === undefined) {
+    return new NextRequest(`${ORIGIN}${path}`, { headers: { cookie } });
+  }
   return new NextRequest(`${ORIGIN}${path}`, {
     method: "POST",
-    headers: {
-      "content-type": "application/json",
-      cookie: [...cookies]
-        .map(([name, value]) => `${name}=${value}`)
-        .join("; "),
-    },
+    headers: { "content-type": "application/json", cookie },
     body: JSON.stringify(body),
   });
 }
@@ -40,7 +41,7 @@ function request(path: string, body: unknown): NextRequest {
 async function call(
   route: (req: NextRequest) => Promise<Response>,
   path: string,
-  body: unknown,
+  body?: unknown,
 ) {
   const res = (await route(request(path, body))) as Response & {
     cookies: { getAll(): { name: string; value: string; maxAge?: number }[] };
@@ -62,6 +63,9 @@ const sendCode = (phone: unknown) =>
   call(routes.code, "/api/auth/code", { phone });
 const verify = (code: string) =>
   call(routes.verify, "/api/auth/verify", { code });
+
+const session = () => call(routes.session, "/api/auth/session");
+const signOut = () => call(routes.signOut, "/api/auth/sign-out", {});
 
 const userCount = async () =>
   (
@@ -207,5 +211,70 @@ describe("POST /api/auth/verify (ac-1)", () => {
     const { status, json } = await signIn();
     expect(status).toBe(200);
     expect(json.next).toBe("/");
+  });
+});
+
+describe("GET /api/auth/session", () => {
+  it("refuses a caller with no session with 401", async () => {
+    const { status, json } = await session();
+    expect(status).toBe(401);
+    expect(json.error.code).toBe("unauthenticated");
+  });
+
+  it("gives the signed-in user id with onboarded false, then true once onboarded_at is set", async () => {
+    await signIn();
+    const { userId } = await requireUser({
+      auth: deps.auth(sessionJar()),
+      db: deps.db,
+    });
+    const before = await session();
+    expect(before.status).toBe(200);
+    expect(before.json).toMatchObject({ userId, onboarded: false });
+
+    await onboard(deps, userId, {
+      name: "Max",
+      timezone: "America/New_York",
+      bird: { name: "Gerald", look: "gerald", pronoun: "he" },
+      secondBird: { name: "Brenda", pronoun: "she" },
+    });
+    expect((await session()).json).toMatchObject({ userId, onboarded: false });
+    await deps.db.query("update profiles set onboarded_at = $2 where id = $1", [
+      userId,
+      new Date(deps.clock.now()).toISOString(),
+    ]);
+    expect((await session()).json).toMatchObject({ userId, onboarded: true });
+  });
+
+  it("gives each caller their own user id, never another user's", async () => {
+    await signIn("(555) 123-4567");
+    const first = (await session()).json.userId;
+    cookies.clear();
+    await signIn("(555) 765-4321");
+    const second = (await session()).json.userId;
+    expect(second).not.toBe(first);
+    expect(await userCount()).toBe(2);
+  });
+});
+
+describe("POST /api/auth/sign-out", () => {
+  it("clears the session so GET /api/auth/session gives 401", async () => {
+    await signIn();
+    expect((await session()).status).toBe(200);
+    const { status, json, set } = await signOut();
+    expect(status).toBe(200);
+    expect(Object.keys(json)).toEqual(["serverNow"]);
+    expect(set).toContainEqual(
+      expect.objectContaining({ name: TEST_SESSION_COOKIE, maxAge: 0 }),
+    );
+    expect(cookies.has(TEST_SESSION_COOKIE)).toBe(false);
+    const after = await session();
+    expect(after.status).toBe(401);
+    expect(after.json.error.code).toBe("unauthenticated");
+  });
+
+  it("refuses a caller with no session with 401", async () => {
+    const { status, json } = await signOut();
+    expect(status).toBe(401);
+    expect(json.error.code).toBe("unauthenticated");
   });
 });

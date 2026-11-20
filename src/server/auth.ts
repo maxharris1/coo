@@ -93,7 +93,12 @@ async function verifyCode(
   return { next: profile?.onboarded_at ? "/" : "/welcome/install" };
 }
 
-export const signIn = { sendCode, verifyCode };
+async function signOut(auth: AuthPort): Promise<object> {
+  await auth.signOut();
+  return {};
+}
+
+export const signIn = { sendCode, verifyCode, signOut };
 
 const ROUTES: readonly {
   kind: Exclude<RouteKind, "app">;
