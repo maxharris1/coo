@@ -10,6 +10,7 @@ const srcDir = join(root, "src");
 const configModule = join(srcDir, "lib", "config.ts");
 const flightEngine = join(srcDir, "lib", "flight", "engine.ts");
 const productNameExempt = new Set([configModule, flightEngine]);
+const wordsContainingProductName = /Cookie/g;
 
 function listFiles(dir: string): string[] {
   return readdirSync(dir, { recursive: true, encoding: "utf8" })
@@ -42,7 +43,9 @@ function valueAt(source: unknown, keys: string[]): unknown {
 
 function productNameOffenders(files: Record<string, string>): string[] {
   return Object.keys(files).filter(
-    (file) => !productNameExempt.has(file) && files[file].includes(app.name),
+    (file) =>
+      !productNameExempt.has(file) &&
+      files[file].replace(wordsContainingProductName, "").includes(app.name),
   );
 }
 
@@ -85,13 +88,17 @@ describe("config", () => {
   it("flags the product name even with a letter right next to it", () => {
     const label = join(srcDir, "review-product-label.ts");
     const flightNeighbour = join(srcDir, "lib", "flight", "route.ts");
+    const cookieJar = join(srcDir, "server", "supabase", "cookies.ts");
+    const cookieJarWithName = join(srcDir, "server", "jar.ts");
     expect(
       productNameOffenders({
         [label]: `export const productLabel = "${app.name}Mail";`,
         [configModule]: `export const name = "${app.name}";`,
         [flightEngine]: ` * ${app.name} flight engine: reference implementation.`,
         [flightNeighbour]: `// ${app.name} route`,
+        [cookieJar]: `import type { CookieOptions } from "@supabase/ssr";\nconst [setCookie] = res.headers.getSetCookie();`,
+        [cookieJarWithName]: `// Cookies for ${app.name}`,
       }),
-    ).toEqual([label, flightNeighbour]);
+    ).toEqual([label, flightNeighbour, cookieJarWithName]);
   });
 });
