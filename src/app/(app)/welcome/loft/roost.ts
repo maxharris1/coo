@@ -9,7 +9,11 @@ export type PlaceResult = {
   kind: "neighbourhood" | "city" | "address";
 };
 
-export type Roost = Point & { label: string; city: string | null };
+export type Roost = Point & {
+  label: string;
+  city: string | null;
+  placeId?: string;
+};
 
 export type LoftBody = (Point | { placeId: string }) & { centre?: true };
 
@@ -123,8 +127,15 @@ export async function saveLoft(
   );
   if (!result.ok) return result;
   const { lat, lon, label, city } = result.data.loft;
-  return { ok: true, data: { lat, lon, label, city } };
+  const from = "placeId" in body ? { placeId: body.placeId } : {};
+  return { ok: true, data: { lat, lon, label, city, ...from } };
 }
 
-export const townCentre = ({ lat, lon }: Point, fetchImpl: Fetch = fetch) =>
-  saveLoft({ lat, lon, centre: true }, fetchImpl);
+export const townCentre = (
+  { lat, lon, placeId }: Point & { placeId?: string },
+  fetchImpl: Fetch = fetch,
+) =>
+  saveLoft(
+    placeId ? { placeId, centre: true } : { lat, lon, centre: true },
+    fetchImpl,
+  );

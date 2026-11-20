@@ -76,7 +76,7 @@ Also updates `profiles.timezone` if the request header `X-Timezone` differs.
 
 | Endpoint | Does |
 |---|---|
-| `GET /api/geo/search?q=` | Up to 6 results `{ placeId, label, sublabel, kind: 'neighbourhood'|'city'|'address' }`. Results are held server-side under `placeId` for 10 minutes; coordinates are not returned |
+| `GET /api/geo/search?q=` | Up to 6 results `{ placeId, label, sublabel, kind: 'neighbourhood'|'city'|'address' }`. Results are held server-side under `placeId` for 10 minutes, and a place saved with `POST /api/loft` stays held for its owner so its town centre can still be chosen; coordinates are not returned |
 | `GET /api/geo/here?lat=&lon=` | For "use my location": returns the snapped roost label and city. The exact position is used once and dropped |
 
 ## Friends

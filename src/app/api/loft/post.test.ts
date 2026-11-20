@@ -208,6 +208,110 @@ describe("POST /api/loft", () => {
     });
   });
 
+  it("stores the chosen Réunion town's centre when the reverse geocode leaves out the state", async () => {
+    const { id, jar } = await withProfile("(555) 123-4567", "Max");
+    vi.spyOn(deps.geocoder, "reverse").mockResolvedValue({
+      suburb: "La Source",
+      city: "Saint-Denis",
+      country: "France",
+      countryCode: "FR",
+    });
+    vi.spyOn(deps.geocoder, "search").mockImplementation(async (q) =>
+      q === "Saint-Denis, Réunion, France"
+        ? [REUNION_SAINT_DENIS, MAINLAND_SAINT_DENIS]
+        : [MAINLAND_SAINT_DENIS, REUNION_SAINT_DENIS],
+    );
+    const { results } = await searchPlaces(
+      deps,
+      id as UserId,
+      "Saint-Denis, Réunion",
+    );
+    const reunion = results.find((r) => r.sublabel === "Réunion, France")!;
+    const { status, json } = await client.post(
+      { placeId: reunion.placeId, centre: true },
+      jar,
+    );
+    expect(status).toBe(200);
+    expect(json.loft).toMatchObject({ lat: -20.8823, lon: 55.4504 });
+    expect(await homeOf(id)).toEqual({
+      lat: -20.8823,
+      lon: 55.4504,
+      label: "Saint-Denis",
+      city: "Saint-Denis, France",
+      cityLat: -20.8823,
+      cityLon: 55.4504,
+    });
+  });
+
+  it("keeps the reverse geocode's state when the chosen Réunion town has none", async () => {
+    const { id, jar } = await withProfile("(555) 123-4567", "Max");
+    const stateless = { ...REUNION_SAINT_DENIS, region: undefined };
+    vi.spyOn(deps.geocoder, "reverse").mockResolvedValue(LA_SOURCE);
+    vi.spyOn(deps.geocoder, "search").mockImplementation(async (q) =>
+      q === "Saint-Denis, Réunion, France"
+        ? [REUNION_SAINT_DENIS, MAINLAND_SAINT_DENIS]
+        : q === "Saint-Denis, France"
+          ? [MAINLAND_SAINT_DENIS, REUNION_SAINT_DENIS]
+          : [stateless],
+    );
+    const { results } = await searchPlaces(deps, id as UserId, "Saint-Denis");
+    const { status, json } = await client.post(
+      { placeId: results[0].placeId, centre: true },
+      jar,
+    );
+    expect(status).toBe(200);
+    expect(json.loft).toMatchObject({ lat: -20.8823, lon: 55.4504 });
+    expect(await homeOf(id)).toMatchObject({
+      lat: -20.8823,
+      lon: 55.4504,
+      cityLat: -20.8823,
+      cityLon: 55.4504,
+    });
+  });
+
+  it("stores the saved place's town centre after its search hold expires", async () => {
+    const { id, jar } = await withProfile("(555) 123-4567", "Max");
+    const { results } = await searchPlaces(deps, id as UserId, "Fishtown");
+    const { placeId } = results[0];
+    expect((await client.post({ placeId }, jar)).status).toBe(200);
+    deps.clock.advance(10 * 60_000 + 1);
+    const { status, json } = await client.post({ placeId, centre: true }, jar);
+    expect(status).toBe(200);
+    expect(json.loft).toMatchObject({ lat: 39.9526, lon: -75.1652 });
+    expect(await homeOf(id)).toMatchObject({
+      lat: 39.9526,
+      lon: -75.1652,
+      label: "Philadelphia",
+    });
+  });
+
+  it("refuses someone else's saved place after its search hold expires", async () => {
+    const owner = await withProfile("(555) 123-4567", "Max");
+    const { results } = await searchPlaces(
+      deps,
+      owner.id as UserId,
+      "Fishtown",
+    );
+    const { placeId } = results[0];
+    expect((await client.post({ placeId }, owner.jar)).status).toBe(200);
+    deps.clock.advance(10 * 60_000 + 1);
+    const other = await withProfile("(555) 765-4321", "Ana");
+    const { status } = await client.post({ placeId, centre: true }, other.jar);
+    expect(status).toBe(400);
+    expect((await profile(other.id)).home_lat).toBeNull();
+  });
+
+  it("refuses a search result that was never saved once its hold expires", async () => {
+    const { id, jar } = await withProfile("(555) 123-4567", "Max");
+    const { results } = await searchPlaces(deps, id as UserId, "Fishtown");
+    deps.clock.advance(10 * 60_000 + 1);
+    const { status } = await client.post(
+      { placeId: results[0].placeId, centre: true },
+      jar,
+    );
+    expect(status).toBe(400);
+  });
+
   it("stores the town centre of a place chosen from search", async () => {
     const { id, jar } = await withProfile("(555) 123-4567", "Max");
     const { results } = await searchPlaces(deps, id as UserId, "Fishtown");

@@ -135,7 +135,7 @@ describe("loft api calls", () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ placeId: "p" }),
     });
-    expect(result).toEqual({ ok: true, data: BROOKLYN });
+    expect(result).toEqual({ ok: true, data: { ...BROOKLYN, placeId: "p" } });
   });
 
   it("passes the API's error message through", async () => {
@@ -198,6 +198,20 @@ describe("townCentre", () => {
         label: "Saint-Denis",
         city: "Saint-Denis, France",
       },
+    });
+  });
+
+  it("asks for the town centre of the place picked from search by its placeId", async () => {
+    const fetchImpl = vi.fn(async () =>
+      json(200, { loft: { ...LA_SOURCE, travelling: false } }),
+    );
+    const picked = await saveLoft({ placeId: "p" }, fetchImpl);
+    if (!picked.ok) throw new Error(picked.message);
+    await townCentre(picked.data, fetchImpl);
+    expect(fetchImpl).toHaveBeenLastCalledWith("/api/loft", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ placeId: "p", centre: true }),
     });
   });
 
