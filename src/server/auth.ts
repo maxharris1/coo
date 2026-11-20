@@ -1,7 +1,8 @@
+import { toE164 } from "@/lib/phone";
 import type { Db } from "./db";
 import { makeDeps } from "./deps";
 import { AppError } from "./errors";
-import type { AuthPort, UserId } from "./ports/auth";
+import type { AuthPort, JarOptions, SessionJar, UserId } from "./ports/auth";
 import type { Row } from "./rows";
 import { headersJar } from "./supabase/cookies";
 
@@ -42,6 +43,57 @@ export async function requireOnboarded(
     profile: { ...profile, onboarded_at: profile.onboarded_at },
   };
 }
+
+export const OTP_COOKIE = "coo_otp_phone";
+const OTP_COOKIE_OPTIONS: JarOptions = {
+  httpOnly: true,
+  secure: true,
+  sameSite: "lax",
+  path: "/api/auth",
+  maxAge: 600,
+};
+export const WRONG_CODE = "That's not it. Try once more.";
+export type SignInNext = "/welcome/install" | "/";
+
+async function sendCode(
+  auth: AuthPort,
+  jar: SessionJar,
+  raw: string,
+): Promise<{ next: "/sign-in/verify" }> {
+  const phone = toE164(raw);
+  if (!phone) {
+    throw new AppError("invalid", "That doesn't look like a phone number.");
+  }
+  await auth.sendCode(phone);
+  jar.setAll([{ name: OTP_COOKIE, value: phone, options: OTP_COOKIE_OPTIONS }]);
+  return { next: "/sign-in/verify" };
+}
+
+async function verifyCode(
+  { auth, db }: Session,
+  jar: SessionJar,
+  code: string,
+): Promise<{ next: SignInNext }> {
+  const pending = jar.getAll().find((c) => c.name === OTP_COOKIE);
+  const phone = pending && toE164(pending.value);
+  if (!phone) throw new AppError("invalid", "Send it again for a new code.");
+  const userId = await auth.verifyCode(phone, code);
+  if (!userId) throw new AppError("invalid", WRONG_CODE);
+  jar.setAll([
+    {
+      name: OTP_COOKIE,
+      value: "",
+      options: { ...OTP_COOKIE_OPTIONS, maxAge: 0 },
+    },
+  ]);
+  const [profile] = await db.query<Pick<Profile, "onboarded_at">>(
+    "select onboarded_at from profiles where id = $1",
+    [userId],
+  );
+  return { next: profile?.onboarded_at ? "/" : "/welcome/install" };
+}
+
+export const signIn = { sendCode, verifyCode };
 
 const ROUTES: readonly {
   kind: Exclude<RouteKind, "app">;
