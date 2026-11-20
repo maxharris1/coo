@@ -9,7 +9,9 @@ export const slowTestReporter: Reporter = {
         Array.from(testModule.children.allTests(), (test) => ({
           file: testModule.relativeModuleId,
           name: test.fullName,
-          durationMs: test.diagnostic()?.duration ?? 0,
+          durationMs:
+            test.diagnostic()?.duration ??
+            test.attempts().reduce((sum, attempt) => sum + attempt.duration, 0),
         })),
       )
       .filter((row) => row.durationMs > SLOW_TEST_THRESHOLD_MS)
