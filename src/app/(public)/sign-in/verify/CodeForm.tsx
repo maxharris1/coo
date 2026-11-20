@@ -35,12 +35,13 @@ export function CodeForm({ initial }: { initial?: CodeState }) {
     (given) => given ?? initialCode(now),
   );
   const boxes = useRef<(HTMLInputElement | null)[]>([]);
+  const { resendAt } = state;
 
   useEffect(() => {
-    if (canResend(state, now)) return;
-    const timer = setTimeout(() => setNow(Date.now()), state.resendAt - now);
+    if (now >= resendAt) return;
+    const timer = setTimeout(() => setNow(Date.now()), resendAt - Date.now());
     return () => clearTimeout(timer);
-  }, [state, now]);
+  }, [resendAt, now]);
 
   const verify = async (digits: readonly string[]) => {
     dispatch({ type: "checking" });
