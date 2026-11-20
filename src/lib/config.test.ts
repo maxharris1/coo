@@ -10,7 +10,7 @@ const srcDir = join(root, "src");
 const configModule = join(srcDir, "lib", "config.ts");
 const flightEngine = join(srcDir, "lib", "flight", "engine.ts");
 const productNameExempt = new Set([configModule, flightEngine]);
-const wordsContainingProductName = /Cookie/g;
+const wordsContainingProductName = /Cookie|Coordinate/g;
 
 function listFiles(dir: string): string[] {
   return readdirSync(dir, { recursive: true, encoding: "utf8" })
@@ -90,6 +90,7 @@ describe("config", () => {
     const flightNeighbour = join(srcDir, "lib", "flight", "route.ts");
     const cookieJar = join(srcDir, "server", "supabase", "cookies.ts");
     const cookieJarWithName = join(srcDir, "server", "jar.ts");
+    const geolocation = join(srcDir, "lib", "position.ts");
     expect(
       productNameOffenders({
         [label]: `export const productLabel = "${app.name}Mail";`,
@@ -98,6 +99,7 @@ describe("config", () => {
         [flightNeighbour]: `// ${app.name} route`,
         [cookieJar]: `import type { CookieOptions } from "@supabase/ssr";\nconst [setCookie] = res.headers.getSetCookie();`,
         [cookieJarWithName]: `// Cookies for ${app.name}`,
+        [geolocation]: `type Fix = Pick<GeolocationCoordinates, "latitude">;`,
       }),
     ).toEqual([label, flightNeighbour, cookieJarWithName]);
   });
