@@ -22,7 +22,6 @@ type LoftResult = { loft: Me["loft"] };
 const HOUR_MS = 3_600_000;
 
 async function cityCentre(deps: Deps, name: GeoName): Promise<Point | null> {
-  if (!name.city) return null;
   const query = [name.city, name.state, name.country]
     .filter(Boolean)
     .join(", ");
