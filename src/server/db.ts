@@ -1,6 +1,7 @@
 import pg, { type Pool, type PoolClient } from "pg";
 import { getEnv } from "@/env";
 import { log } from "./log";
+import { SUPABASE_ROOT_2021_CA } from "./certs/supabaseRoot2021";
 
 export interface Db {
   query<T>(sql: string, params?: unknown[]): Promise<T[]>;
@@ -66,9 +67,59 @@ export function poolDb(pool: PoolLike): Db {
   };
 }
 
+type PoolTarget =
+  | { kind: "local"; connectionString: string }
+  | {
+      kind: "remote";
+      connectionString: string;
+      ssl: { ca: string; rejectUnauthorized: true };
+    };
+
+const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+const SSL_PARAMS = [
+  "uselibpqcompat",
+  "ssl",
+  "sslrootcert",
+  "sslcert",
+  "sslkey",
+  "sslnegotiation",
+];
+
+function refuse(setting: string, hint = ""): never {
+  throw new Error(
+    `DATABASE_URL must not set ${setting}: TLS is always verified against the Supabase Root 2021 CA.${hint}`,
+  );
+}
+
+function poolTarget(connectionString: string): PoolTarget {
+  let url: URL;
+  try {
+    url = new URL(connectionString);
+  } catch {
+    throw new Error("DATABASE_URL is not a valid URL");
+  }
+  if (LOCAL_HOSTS.has(url.hostname)) return { kind: "local", connectionString };
+
+  for (const name of SSL_PARAMS) if (url.searchParams.has(name)) refuse(name);
+  for (const mode of url.searchParams.getAll("sslmode")) {
+    if (mode !== "verify-full")
+      refuse(`sslmode=${mode}`, " Use sslmode=verify-full or leave it out.");
+  }
+  // pg replaces the ssl option wholesale with whatever sslmode implies, dropping the ca.
+  url.searchParams.delete("sslmode");
+  return {
+    kind: "remote",
+    connectionString: url.toString(),
+    ssl: { ca: SUPABASE_ROOT_2021_CA, rejectUnauthorized: true },
+  };
+}
+
 export function createPool(connectionString: string): Pool {
+  const target = poolTarget(connectionString);
   return new pg.Pool({
-    connectionString,
+    connectionString: target.connectionString,
+    ssl: target.kind === "remote" ? target.ssl : undefined,
     max: 5,
     types: {
       getTypeParser: ((oid: number, format?: "text" | "binary") =>
