@@ -92,3 +92,50 @@ export async function joinByCode(
     return { friend };
   });
 }
+
+const SET_SHOWS = {
+  a: "update friendships set a_shows = $3 where a_id = $1 and b_id = $2",
+  b: "update friendships set b_shows = $3 where a_id = $1 and b_id = $2",
+} as const;
+
+export async function setShows(
+  deps: Deps,
+  me: UserId,
+  them: UserId,
+  shows: Shows,
+): Promise<{
+  friend: {
+    id: UserId;
+    name: string;
+    handle: string;
+    shows: Shows;
+    theyShow: Shows;
+  };
+}> {
+  const now = new Date(deps.clock.now()).toISOString();
+  return deps.db.tx(async (db) => {
+    const existing = await friendshipBetween(db, me, them);
+    if (existing?.status !== "accepted")
+      throw new AppError("not_found", "No such friend");
+
+    const [a, b] = pair(me, them);
+    await db.query(SET_SHOWS[me === a ? "a" : "b"], [a, b, shows]);
+    await db.query(
+      "insert into events (user_id, kind, created_at) values ($1, 'friends', $2)",
+      [them, now],
+    );
+    const [profile] = await db.query<Pick<Row<"profiles">, "name" | "handle">>(
+      "select name, handle from profiles where id = $1",
+      [them],
+    );
+    return {
+      friend: {
+        id: them,
+        name: profile.name,
+        handle: profile.handle,
+        shows,
+        theyShow: existing.theirShows,
+      },
+    };
+  });
+}
