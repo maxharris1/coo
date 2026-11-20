@@ -32,15 +32,13 @@ function isTimeZone(tz: string): boolean {
   }
 }
 
-// char_length in Postgres counts code points, not UTF-16 units.
+const codePointLength = (s: string) => [...s].length;
+
 const displayName = (max: number) =>
   z
     .string()
     .trim()
-    .refine((s) => {
-      const n = [...s].length;
-      return n >= 1 && n <= max;
-    })
+    .refine((s) => codePointLength(s) >= 1 && codePointLength(s) <= max)
     .refine((s) => !isBlocked(s));
 
 const pronoun = z.enum(["he", "she", "they"]);
