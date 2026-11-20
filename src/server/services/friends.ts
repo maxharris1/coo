@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { haversineMi } from "@/lib/flight/engine";
 import { fill } from "@/lib/format";
 import {
@@ -11,6 +11,7 @@ import type { Db } from "@/server/db";
 import type { Deps } from "@/server/deps";
 import { AppError } from "@/server/errors";
 import type { UserId } from "@/server/ports/auth";
+import { rateLimit } from "@/server/rateLimit";
 import { pair, type Row } from "@/server/rows";
 
 export type Shows = "block" | "city";
@@ -318,4 +319,45 @@ export async function listFriends(
   );
 
   return { friends, guestLinks };
+}
+
+export type ReportTarget = { userId: UserId } | { guestLinkToken: string };
+
+export async function report(
+  deps: Deps,
+  me: UserId,
+  target: ReportTarget,
+  reason: string,
+  pepper: string,
+): Promise<Record<string, never>> {
+  await rateLimit(
+    deps.db,
+    deps.clock,
+    `reports:${me}`,
+    deps.config.game.limits.reportsPerDay,
+    86400,
+  );
+  const now = new Date(deps.clock.now()).toISOString();
+
+  if ("userId" in target) {
+    if (!(await friendshipBetween(deps.db, me, target.userId)))
+      throw new AppError("not_found", "No one to report");
+    await deps.db.query(
+      "insert into reports (reporter_id, target_user_id, reason, created_at) values ($1, $2, $3, $4)",
+      [me, target.userId, reason, now],
+    );
+    return {};
+  }
+
+  const tokenHash = createHash("sha256")
+    .update(pepper + target.guestLinkToken)
+    .digest("hex");
+  const filed = await deps.db.query(
+    `insert into reports (reporter_id, guest_link_id, reason, created_at)
+     select $1, id, $3, $4 from guest_links where token_hash = $2
+     returning id`,
+    [me, tokenHash, reason, now],
+  );
+  if (filed.length === 0) throw new AppError("not_found", "No such link");
+  return {};
 }
