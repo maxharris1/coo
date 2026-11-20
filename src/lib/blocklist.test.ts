@@ -102,6 +102,13 @@ describe("isBlocked", () => {
     expect(isBlocked(name)).toBe(true);
   });
 
+  it.each(["Bobn@i@g@g@e@r", "xn!i|g#g§e@rx", "mrn$i+g^g<e{r", "ret@rdo"])(
+    "flags %j with symbols inside a longer word",
+    (name) => {
+      expect(isBlocked(name)).toBe(true);
+    },
+  );
+
   it.each([
     "Max",
     "Gerald",
@@ -117,6 +124,14 @@ describe("isBlocked", () => {
     "Margaret Arden",
     "Bret Arden",
     "Bret-Arden",
+    "Margaret.Arden",
+    "Bret.Arden",
+    "Bret_Arden",
+    "Bret/Arden",
+    "Bret,Arden",
+    "Bret:Arden",
+    "Bret'Arden",
+    "Bret*Arden",
     "",
   ])("passes %j", (name) => {
     expect(isBlocked(name)).toBe(false);
