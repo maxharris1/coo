@@ -21,8 +21,7 @@ const CALLER: { [A in Access]: (s: Session) => Promise<CallerFor[A]> } = {
   onboarded: requireOnboarded,
 };
 
-// log.ts redacts phone-like digit runs, which would garble the logged copy of a UUID.
-const newRequestId = () =>
+const digitFreeRequestId = () =>
   crypto.randomUUID().replace(/\d/g, (d) => "ghijklmnop"[Number(d)]);
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
@@ -98,7 +97,7 @@ export function createJsonRoute(build: () => Promise<Deps>) {
         );
       } catch (err) {
         const { status, body } = toErrorResponse(err, {
-          requestId: newRequestId(),
+          requestId: digitFreeRequestId(),
           path: req.nextUrl.pathname,
         });
         const payload = deps ? { ...body, serverNow: deps.clock.now() } : body;
