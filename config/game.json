@@ -134,7 +134,9 @@
   },
   "levels": {
     "milesPerLevelSquared": 25,
-    "max": 10
+    "max": 10,
+    "rangePerMph": 7.1,
+    "rangeRoundMi": 10
   },
   "visits": {
     "waitMinutes": 30
