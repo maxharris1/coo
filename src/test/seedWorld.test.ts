@@ -3,37 +3,15 @@ import type { Db } from "@/server/db";
 import { config } from "@/lib/config";
 import { haversineMi } from "@/lib/flight/engine";
 import { testDb } from "./testDb";
-import { pair } from "@/server/rows";
+import {
+  pair,
+  toBirdRecord,
+  toMe,
+  toOutfit,
+  type Me,
+  type Row,
+} from "@/server/rows";
 import { seedWorld, type World } from "./seedWorld";
-
-type ProfileRow = {
-  id: string;
-  name: string;
-  handle: string;
-  seeds: number;
-  perches: number;
-  home_lat: number;
-  home_lon: number;
-  home_label: string;
-  home_city: string;
-  onboarded_at: Date;
-};
-type BirdRow = {
-  owner_id: string;
-  name: string;
-  look: string;
-  speed_mph: number;
-  focus: number;
-  navigation: number;
-  belly: number;
-  feathers: number;
-  energy: number;
-  care_at: Date;
-  last_fed_at: Date;
-  hatched_at: Date;
-  status: string;
-};
-type FriendshipRow = { a_id: string; b_id: string; status: string };
 
 const NOW = Date.UTC(2026, 10, 19, 15, 0, 0);
 const { start, roost } = config.game;
@@ -46,29 +24,27 @@ function onGrid(value: number, step: number): boolean {
 describe("seedWorld", () => {
   let db: Db;
   let world: World;
-  let profiles: Map<string, ProfileRow>;
+  let profileRows: Row<"profiles">[];
+  let me: Map<string, Me>;
 
   beforeAll(async () => {
     db = await testDb();
     world = await seedWorld(db, NOW);
-    const rows = await db.query<ProfileRow>("select * from profiles");
-    profiles = new Map(rows.map((r) => [r.id, r]));
+    profileRows = await db.query<Row<"profiles">>("select * from profiles");
+    me = new Map(profileRows.map(toMe).map((m) => [m.id, m]));
   });
 
   const people = () => [world.max, world.priya, world.rosa];
-  const loft = (id: string) => {
-    const p = profiles.get(id)!;
-    return { lat: p.home_lat, lon: p.home_lon };
-  };
+  const loft = (id: string) => me.get(id)!.loft!;
 
   it("stores Max, Priya and Rosa with ids ordered max < priya < rosa", () => {
-    expect(profiles.size).toBe(3);
-    expect(people().map((p) => profiles.get(p.id)?.name)).toEqual([
+    expect(me.size).toBe(3);
+    expect(people().map((p) => me.get(p.id)?.name)).toEqual([
       "Max",
       "Priya",
       "Rosa",
     ]);
-    expect(people().map((p) => profiles.get(p.id)?.handle)).toEqual([
+    expect(people().map((p) => me.get(p.id)?.handle)).toEqual([
       "max",
       "priya",
       "rosa",
@@ -80,18 +56,22 @@ describe("seedWorld", () => {
   it("gives each person a loft on the roost grid, onboarded at nowMs", () => {
     expect(
       people().map((p) => [
-        profiles.get(p.id)?.home_label,
-        profiles.get(p.id)?.home_city,
+        me.get(p.id)?.loft?.label,
+        me.get(p.id)?.loft?.city,
       ]),
     ).toEqual([
       ["East Village", "New York"],
       ["Center City", "Philadelphia"],
       ["Williamsburg", "New York"],
     ]);
-    for (const p of profiles.values()) {
-      expect(onGrid(p.home_lat, roost.gridLatDeg)).toBe(true);
-      expect(onGrid(p.home_lon, roost.gridLonDeg)).toBe(true);
-      expect(p.onboarded_at.getTime()).toBe(NOW);
+    for (const m of me.values()) {
+      const l = m.loft!;
+      expect(onGrid(l.lat, roost.gridLatDeg)).toBe(true);
+      expect(onGrid(l.lon, roost.gridLonDeg)).toBe(true);
+      expect(l.travelling).toBe(false);
+    }
+    for (const p of profileRows) {
+      expect(p.onboarded_at?.getTime()).toBe(NOW);
     }
   });
 
@@ -112,24 +92,26 @@ describe("seedWorld", () => {
     expect(ledger).toHaveLength(3);
     for (const { user_id, total } of ledger) {
       expect(total).toBe(start.seeds);
-      expect(profiles.get(user_id)?.seeds).toBe(start.seeds);
+      expect(me.get(user_id)?.seeds).toBe(start.seeds);
     }
   });
 
   it("gives each person the two starter birds, cared for at nowMs", async () => {
-    const birds = await db.query<BirdRow>(
-      "select * from birds order by owner_id, hatched_at, name",
-    );
+    const birds = (
+      await db.query<Row<"birds">>(
+        "select * from birds order by owner_id, hatched_at, name",
+      )
+    ).map(toBirdRecord);
     expect(birds).toHaveLength(6);
     for (const p of people()) {
-      const own = birds.filter((b) => b.owner_id === p.id);
+      const own = birds.filter((b) => b.ownerId === p.id);
       expect(own.map((b) => b.name).sort()).toEqual(
         p.birds.map((b) => b.name).sort(),
       );
       expect(
         own
           .map((b) => ({
-            speedMph: b.speed_mph,
+            speedMph: b.speedMph,
             focus: b.focus,
             navigation: b.navigation,
           }))
@@ -144,16 +126,14 @@ describe("seedWorld", () => {
         energy: b.energy,
       }).toEqual(start.care);
       expect(b.status).toBe("home");
-      expect(
-        [b.care_at, b.last_fed_at, b.hatched_at].map((d) => d.getTime()),
-      ).toEqual([NOW, NOW, NOW]);
+      expect([b.careAt, b.lastFedAt, b.hatchedAt]).toEqual([NOW, NOW, NOW]);
     }
-    const [gerald] = await db.query<BirdRow>(
+    const [gerald] = await db.query<Row<"birds">>(
       "select * from birds where owner_id = $1 and name = 'Gerald'",
       [world.max.id],
     );
-    expect(gerald).toMatchObject({
-      speed_mph: 45,
+    expect(toBirdRecord(gerald)).toMatchObject({
+      speedMph: 45,
       focus: 2,
       navigation: 4,
       look: "gerald",
@@ -171,18 +151,22 @@ describe("seedWorld", () => {
         [p.id],
       );
       expect(gear.map((g) => g.gear_id)).toEqual([...start.gear].sort());
-      const outfits = await db.query<{ name: string; items: string[] }>(
-        "select name, items from outfits where user_id = $1",
+      const outfits = await db.query<Row<"outfits">>(
+        "select * from outfits where user_id = $1",
         [p.id],
       );
-      expect(outfits).toEqual([{ name: "Everyday", items: [...start.gear] }]);
+      expect(outfits.map(toOutfit)).toEqual([
+        { id: expect.any(String), name: "Everyday", items: [...start.gear] },
+      ]);
     }
   });
 
   it("makes Max friends with Priya and with Rosa, and Priya and Rosa strangers", async () => {
-    const rows = await db.query<FriendshipRow>(
-      "select a_id, b_id, status from friendships order by a_id, b_id",
-    );
+    const rows = (
+      await db.query<Row<"friendships">>(
+        "select * from friendships order by a_id, b_id",
+      )
+    ).map(({ a_id, b_id, status }) => ({ a_id, b_id, status }));
     const { max, priya, rosa } = world;
     expect(rows).toEqual(
       [pair(max.id, priya.id), pair(max.id, rosa.id)].map(([a_id, b_id]) => ({
