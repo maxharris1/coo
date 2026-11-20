@@ -258,6 +258,7 @@ describe("ac-1 error shape and serverNow", () => {
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({
       error: { code: "invalid", message: "body must be application/json" },
+      serverNow: expect.any(Number),
     });
     expect(build).not.toHaveBeenCalled();
     expect(run).not.toHaveBeenCalled();
@@ -528,6 +529,7 @@ describe("cross-site write refusal", () => {
       expect(res.status).toBe(403);
       expect(await res.json()).toEqual({
         error: { code: "forbidden", message: "Cross-site request refused" },
+        serverNow: expect.any(Number),
       });
       expect(build).not.toHaveBeenCalled();
       expect(run).not.toHaveBeenCalled();
@@ -573,7 +575,7 @@ describe("cross-site write refusal", () => {
       },
     ],
   ])(
-    "responds internal without serverNow when the dependency factory %s",
+    "responds internal with serverNow when the dependency factory %s",
     async (_name, fail) => {
       vi.spyOn(console, "error").mockImplementation(() => {});
       const build = vi.fn(fail);
@@ -584,6 +586,7 @@ describe("cross-site write refusal", () => {
       expect(res.status).toBe(500);
       expect(await res.json()).toEqual({
         error: { code: "internal", message: INTERNAL },
+        serverNow: expect.any(Number),
       });
     },
   );
