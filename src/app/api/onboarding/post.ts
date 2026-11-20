@@ -1,18 +1,9 @@
 import { z } from "zod";
-import { requireUser } from "@/server/auth";
-import type { createHandler } from "@/server/handler";
-import type { SessionJar } from "@/server/ports/auth";
+import type { createJsonRoute } from "@/server/http";
 import { onboard } from "@/server/services/onboarding";
 
-export function onboardingPost(
-  handler: ReturnType<typeof createHandler>,
-  jarFor: (req: Request) => Promise<SessionJar>,
-) {
-  return handler({ body: z.unknown() }, async (deps, body, req) => {
-    const { userId } = await requireUser({
-      auth: deps.auth(await jarFor(req)),
-      db: deps.db,
-    });
-    return onboard(deps, userId, body);
-  });
+export function onboardingPost(jsonRoute: ReturnType<typeof createJsonRoute>) {
+  return jsonRoute("user", { body: z.unknown() }, ({ deps, caller, input }) =>
+    onboard(deps, caller.userId, input),
+  );
 }
