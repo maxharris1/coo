@@ -47,19 +47,27 @@ const ROUTES: readonly {
   kind: Exclude<RouteKind, "app">;
   exact: readonly string[];
   prefixes: readonly string[];
+  slugParents: readonly string[];
 }[] = [
-  { kind: "api", exact: ["/api"], prefixes: ["/api/"] },
+  { kind: "api", exact: ["/api"], prefixes: ["/api/"], slugParents: [] },
   {
     kind: "public",
     exact: ["/welcome", "/sign-in", "/sign-in/verify", "/dev"],
-    prefixes: ["/dev/", "/join/", "/b/"],
+    prefixes: [],
+    slugParents: ["/dev", "/join", "/b"],
   },
 ];
 
+const isSlugUnder = (path: string, parent: string) =>
+  path.startsWith(`${parent}/`) &&
+  /^[^/]+$/.test(path.slice(parent.length + 1));
+
 export function routeKind(path: string): RouteKind {
   const route = ROUTES.find(
-    ({ exact, prefixes }) =>
-      exact.includes(path) || prefixes.some((p) => path.startsWith(p)),
+    ({ exact, prefixes, slugParents }) =>
+      exact.includes(path) ||
+      prefixes.some((p) => path.startsWith(p)) ||
+      slugParents.some((p) => isSlugUnder(path, p)),
   );
   return route?.kind ?? "app";
 }

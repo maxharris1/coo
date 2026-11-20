@@ -147,6 +147,13 @@ describe("routeKind", () => {
     ["/welcome/loft", "app"],
     ["/sign-in/elsewhere", "app"],
     ["/no-such-page", "app"],
+    ["/join/", "app"],
+    ["/b/", "app"],
+    ["/dev/", "app"],
+    ["/join/k3x9/settings", "app"],
+    ["/b/amber-gull-42/claim", "app"],
+    ["/dev/birds/extra", "app"],
+    ["/join//k3x9", "app"],
   ] as const)("%s is %s", (path, kind) => {
     expect(routeKind(path)).toBe(kind);
   });
