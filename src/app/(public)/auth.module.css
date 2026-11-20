@@ -162,8 +162,34 @@
   color: var(--coo-muted);
 }
 
+.codeRow {
+  display: flex;
+  gap: 8px;
+}
+
+.digit {
+  flex: 1;
+  min-width: 0;
+  min-height: 60px;
+  box-sizing: border-box;
+  padding: 0;
+  background: var(--coo-card);
+  border: var(--coo-line);
+  border-radius: var(--coo-radius-tile);
+  box-shadow: var(--coo-shadow-2);
+  color: var(--coo-ink);
+  font-family: var(--coo-font-display);
+  font-size: 30px;
+  text-align: center;
+}
+
+.digit:disabled {
+  opacity: 0.7;
+}
+
 .country:focus-visible,
-.number:focus-visible {
+.number:focus-visible,
+.digit:focus-visible {
   outline: 3px solid var(--coo-ink);
   outline-offset: 2px;
 }
@@ -178,6 +204,16 @@
 
 button.primary {
   width: 100%;
+  cursor: pointer;
+}
+
+button.secondary {
+  width: 100%;
+  padding: 0;
+  background: none;
+  border: 0;
+  font: inherit;
+  font-weight: 800;
   cursor: pointer;
 }
 
