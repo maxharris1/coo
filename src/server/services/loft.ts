@@ -6,7 +6,7 @@ import { AppError } from "@/server/errors";
 import type { UserId } from "@/server/ports/auth";
 import type { GeoName } from "@/server/ports/geocoder";
 import { toMe, type Me } from "@/server/rows";
-import { PLACE_NOT_FOUND, resolvePlace } from "./places";
+import { PLACE_NOT_FOUND, resolvePlace, type HeldPlace } from "./places";
 
 type LoftPlace = {
   roost: Point;
@@ -23,8 +23,13 @@ type LoftResult = { loft: Me["loft"] };
 
 const HOUR_MS = 3_600_000;
 
-async function cityCentre(deps: Deps, name: GeoName): Promise<Point | null> {
-  const query = [name.city, name.state, name.country]
+type Town = Pick<GeoName, "city" | "state" | "country">;
+
+const heldTown = ({ city, region, country }: HeldPlace): Town | undefined =>
+  city ? { city, state: region, country } : undefined;
+
+async function cityCentre(deps: Deps, town: Town): Promise<Point | null> {
+  const query = [town.city, town.state, town.country]
     .filter(Boolean)
     .join(", ");
   const [top] = await deps.geocoder.search(query).catch(() => []);
@@ -34,7 +39,11 @@ async function cityCentre(deps: Deps, name: GeoName): Promise<Point | null> {
 async function describeRoost(
   deps: Deps,
   roost: Point,
-  { label, centre = false }: { label?: string; centre?: boolean } = {},
+  {
+    label,
+    town: held,
+    centre = false,
+  }: { label?: string; town?: Town; centre?: boolean } = {},
 ): Promise<LoftPlace> {
   const name = await deps.geocoder
     .reverse(roost.lat, roost.lon)
@@ -44,10 +53,11 @@ async function describeRoost(
   if (!name || !roostName || !city) {
     throw new AppError("invalid", PLACE_NOT_FOUND);
   }
-  const town = await cityCentre(deps, name);
-  if (!centre) return { roost, label: roostName, city, cityCentre: town };
-  if (!town || !name.city) throw new AppError("invalid", PLACE_NOT_FOUND);
-  return { roost: town, label: name.city, city, cityCentre: town };
+  const town = held ?? name;
+  const middle = await cityCentre(deps, town);
+  if (!centre) return { roost, label: roostName, city, cityCentre: middle };
+  if (!middle || !town.city) throw new AppError("invalid", PLACE_NOT_FOUND);
+  return { roost: middle, label: town.city, city, cityCentre: middle };
 }
 
 async function locate(
@@ -58,7 +68,11 @@ async function locate(
   const { centre } = input;
   if ("roost" in input) return describeRoost(deps, input.roost, { centre });
   const held = await resolvePlace(deps, userId, input.placeId);
-  return describeRoost(deps, held.roost, { label: held.label, centre });
+  return describeRoost(deps, held.roost, {
+    label: held.label,
+    town: heldTown(held),
+    centre,
+  });
 }
 
 const placeColumns = ({ roost, label, city, cityCentre }: LoftPlace) => [

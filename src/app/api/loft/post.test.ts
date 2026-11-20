@@ -210,8 +210,12 @@ describe("POST /api/loft", () => {
 
   it("stores the chosen Réunion town's centre when the reverse geocode leaves out the state", async () => {
     const { id, jar } = await withProfile("(555) 123-4567", "Max");
-    const { state: _state, ...noState } = LA_SOURCE;
-    vi.spyOn(deps.geocoder, "reverse").mockResolvedValue(noState);
+    vi.spyOn(deps.geocoder, "reverse").mockResolvedValue({
+      suburb: "La Source",
+      city: "Saint-Denis",
+      country: "France",
+      countryCode: "FR",
+    });
     vi.spyOn(deps.geocoder, "search").mockImplementation(async (q) =>
       q === "Saint-Denis, Réunion, France"
         ? [REUNION_SAINT_DENIS, MAINLAND_SAINT_DENIS]

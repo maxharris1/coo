@@ -135,7 +135,7 @@ describe("loft api calls", () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ placeId: "p" }),
     });
-    expect(result).toEqual({ ok: true, data: BROOKLYN });
+    expect(result).toEqual({ ok: true, data: { ...BROOKLYN, placeId: "p" } });
   });
 
   it("passes the API's error message through", async () => {
