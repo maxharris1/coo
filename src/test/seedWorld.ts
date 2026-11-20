@@ -1,5 +1,6 @@
 import type { Db } from "@/server/db";
 import { config } from "@/lib/config";
+import { pair } from "@/server/rows";
 
 export type SeededBird = { id: string; name: string };
 export type Person = {
@@ -72,10 +73,6 @@ const FRIENDS: [keyof World, keyof World][] = [
   ["max", "priya"],
   ["max", "rosa"],
 ];
-
-export function pair(x: string, y: string): [string, string] {
-  return x < y ? [x, y] : [y, x];
-}
 
 export async function seedWorld(db: Db, nowMs: number): Promise<World> {
   const { start } = config.game;

@@ -3,7 +3,8 @@ import type { Db } from "@/server/db";
 import { config } from "@/lib/config";
 import { haversineMi } from "@/lib/flight/engine";
 import { testDb } from "./testDb";
-import { pair, seedWorld, type World } from "./seedWorld";
+import { pair } from "@/server/rows";
+import { seedWorld, type World } from "./seedWorld";
 
 type ProfileRow = {
   id: string;
