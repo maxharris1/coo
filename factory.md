@@ -47,7 +47,7 @@ Check every PR against `AGENTS.md` (the packet's rules for coding agents) and th
 - A committed secret, key, token or `.env` value.
 
 ## Ship
-`ship: merge` applies to PRs into `main`. On APPROVE of the covered head with green CI, squash-merge with `--match-head-commit`. PRs touching `supabase/migrations/**`, `.github/**`, `factory.md`, `src/middleware.ts`, `src/server/auth.ts` or `src/app/api/cron/**` are held for Max's OK. Never push to `main` directly.
+`ship: merge` applies to PRs into `main`. On APPROVE of the covered head with green CI, squash-merge with `--match-head-commit`. PRs touching `supabase/migrations/**`, `.github/**`, `factory.md`, `src/middleware.ts`, `src/proxy.ts`, `src/server/auth.ts` or `src/app/api/cron/**` are held for Max's OK. Never push to `main` directly.
 
 ## Context
 - Coo is a pigeon messenger: one Next.js (App Router, strict TypeScript) app on Vercel and one Supabase project (Auth by phone, Postgres, Realtime). The spec packet lives in the repo: `README.md`, `AGENTS.md`, `docs/`, `tickets/`, `config/`, `assets/`, `reference/`, `supabase/`. Each issue names its packet ticket (`Packet ticket: T0NN`); read that ticket and every doc under its "Read first" before coding.
