@@ -61,8 +61,11 @@ describe("with a session store", () => {
     it("rejects a session cookie whose signature does not verify", async () => {
       await signIn();
       const cookie = jar.cookies.get(TEST_SESSION_COOKIE)!;
+      const dot = cookie.value.lastIndexOf(".");
+      const sig = Buffer.from(cookie.value.slice(dot + 1), "base64url");
+      sig[0] ^= 0xff;
       const flipped =
-        cookie.value.slice(0, -1) + (cookie.value.endsWith("A") ? "B" : "A");
+        cookie.value.slice(0, dot + 1) + sig.toString("base64url");
       jar.cookies.set(TEST_SESSION_COOKIE, { ...cookie, value: flipped });
       const err = await rejection(requireUser(session()));
       expect(err.code).toBe("unauthenticated");
