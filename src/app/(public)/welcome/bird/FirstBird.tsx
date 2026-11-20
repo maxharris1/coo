@@ -1,9 +1,21 @@
 "use client";
 
 import { useReducer, useRef } from "react";
-import type { PointerEvent } from "react";
+import type { Dispatch, FormEvent, PointerEvent } from "react";
+import { useRouter } from "next/navigation";
 import { Bird } from "@/components/Bird";
-import { FIRST_BIRD, PRONOUNS, firstBird, initialFirstBird } from "./choices";
+import {
+  FIRST_BIRD,
+  PRONOUNS,
+  firstBird,
+  initialFirstBird,
+  onboardingBody,
+  roommateLook,
+  submitOnboarding,
+  type FirstBirdAction,
+  type FirstBirdState,
+  type Pronoun,
+} from "./choices";
 import styles from "./page.module.css";
 
 const SWIPE_PX = 40;
@@ -67,8 +79,147 @@ function Scene() {
   );
 }
 
+function PronounChips({
+  name,
+  value,
+  onChange,
+}: {
+  name: string;
+  value: Pronoun;
+  onChange: (pronoun: Pronoun) => void;
+}) {
+  return (
+    <fieldset className={styles.pronouns}>
+      <legend className={styles.label}>Pronoun</legend>
+      <div className={styles.chips}>
+        {PRONOUNS.map((p) => (
+          <label key={p.value} className={styles.chip}>
+            <input
+              type="radio"
+              name={name}
+              value={p.value}
+              checked={value === p.value}
+              onChange={() => onChange(p.value)}
+            />
+            {p.label}
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
+type PanelProps = {
+  state: FirstBirdState;
+  dispatch: Dispatch<FirstBirdAction>;
+};
+
+export function Roommate({
+  state,
+  dispatch,
+  onSubmit,
+}: PanelProps & { onSubmit: () => void }) {
+  const { look, name: lookName } = roommateLook(state);
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!state.sending) onSubmit();
+  };
+
+  return (
+    <form className={styles.form} onSubmit={submit}>
+      <h2 className={styles.subtitle}>{`${state.name} has a roommate`}</h2>
+      <div className={styles.stage}>
+        <Scene />
+        <div className={styles.bird}>
+          <Bird look={look} size={203} title={lookName} />
+        </div>
+      </div>
+
+      <div className={styles.field}>
+        <label htmlFor="roommate-name" className={styles.label}>
+          Name the roommate
+        </label>
+        <input
+          id="roommate-name"
+          type="text"
+          autoComplete="off"
+          required
+          className={styles.name}
+          value={state.roommate.name}
+          onChange={(e) => dispatch({ type: "roommate", name: e.target.value })}
+        />
+      </div>
+
+      <PronounChips
+        name="roommate-pronoun"
+        value={state.roommate.pronoun}
+        onChange={(pronoun) => dispatch({ type: "roommatePronoun", pronoun })}
+      />
+
+      <div className={styles.field}>
+        <label htmlFor="your-name" className={styles.label}>
+          Your name
+        </label>
+        <input
+          id="your-name"
+          type="text"
+          autoComplete="given-name"
+          required
+          className={styles.name}
+          value={state.yourName}
+          onChange={(e) => dispatch({ type: "yourName", name: e.target.value })}
+        />
+      </div>
+
+      {state.error !== null && (
+        <div className={styles.toast} role="alert">
+          <p>{state.error}</p>
+          <button
+            type="button"
+            className={styles.toastClose}
+            aria-label="Dismiss"
+            onClick={() => dispatch({ type: "dismiss" })}
+          >
+            OK
+          </button>
+        </div>
+      )}
+
+      <div className={styles.footer}>
+        <button type="submit" className={styles.adopt} disabled={state.sending}>
+          {`Adopt ${state.roommate.name.trim() || lookName}`}
+        </button>
+        <button
+          type="button"
+          className={styles.back}
+          onClick={() => dispatch({ type: "back" })}
+        >
+          Back
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function RoommateStep({ state, dispatch }: PanelProps) {
+  const router = useRouter();
+  const send = async () => {
+    dispatch({ type: "send" });
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const result = await submitOnboarding(onboardingBody(state, timezone));
+    if (result.ok) router.push("/welcome/loft");
+    else dispatch({ type: "failed", message: result.message });
+  };
+  return <Roommate state={state} dispatch={dispatch} onSubmit={send} />;
+}
+
 export function FirstBird() {
   const [state, dispatch] = useReducer(firstBird, undefined, initialFirstBird);
+  const Panel = state.panel === "roommate" ? RoommateStep : FirstPanel;
+  return <Panel state={state} dispatch={dispatch} />;
+}
+
+function FirstPanel({ state, dispatch }: PanelProps) {
   const swipeFrom = useRef<number | null>(null);
   const { look, name: lookName } = FIRST_BIRD.looks[state.index];
   const count = FIRST_BIRD.looks.length;
@@ -85,7 +236,13 @@ export function FirstBird() {
   };
 
   return (
-    <form className={styles.form} onSubmit={(e) => e.preventDefault()}>
+    <form
+      className={styles.form}
+      onSubmit={(e) => {
+        e.preventDefault();
+        dispatch({ type: "adopt" });
+      }}
+    >
       <div
         className={styles.carousel}
         role="group"
@@ -159,23 +316,11 @@ export function FirstBird() {
         </div>
       </div>
 
-      <fieldset className={styles.pronouns}>
-        <legend className={styles.label}>Pronoun</legend>
-        <div className={styles.chips}>
-          {PRONOUNS.map(({ value, label }) => (
-            <label key={value} className={styles.chip}>
-              <input
-                type="radio"
-                name="pronoun"
-                value={value}
-                checked={state.pronoun === value}
-                onChange={() => dispatch({ type: "pronoun", pronoun: value })}
-              />
-              {label}
-            </label>
-          ))}
-        </div>
-      </fieldset>
+      <PronounChips
+        name="pronoun"
+        value={state.pronoun}
+        onChange={(pronoun) => dispatch({ type: "pronoun", pronoun })}
+      />
 
       <div className={styles.footer}>
         <button type="submit" className={styles.adopt}>
