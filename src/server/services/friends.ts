@@ -64,6 +64,21 @@ export async function joinByCode(
       throw new AppError("conflict", "You can't join this person");
     if (existing) return { friend };
 
+    const max = deps.config.game.limits.friendsMax;
+    const full = await db.query<{ id: string }>(
+      `select u.id from unnest($1::uuid[]) as u (id)
+       join friendships f on f.status = 'accepted' and u.id in (f.a_id, f.b_id)
+       group by u.id having count(*) >= $2`,
+      [[me, friend.id], max],
+    );
+    if (full.some((p) => p.id === me))
+      throw new AppError("rate_limited", `You already have ${max} friends`);
+    if (full.length)
+      throw new AppError(
+        "rate_limited",
+        `${friend.name} already has ${max} friends`,
+      );
+
     const [a, b] = pair(me, friend.id);
     await db.query(
       "insert into friendships (a_id, b_id, created_at) values ($1, $2, $3) on conflict do nothing",
