@@ -1,5 +1,7 @@
 export type E164 = string & { readonly __brand: "E164" };
 
+export const NOT_A_PHONE = "That doesn't look like a phone number.";
+
 export const PHONE_SEPARATORS = "\\s.\\-()";
 const SEPARATOR_RUNS = new RegExp(`[${PHONE_SEPARATORS}]+`, "g");
 

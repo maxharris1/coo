@@ -1,4 +1,4 @@
-import { toE164 } from "@/lib/phone";
+import { NOT_A_PHONE, toE164 } from "@/lib/phone";
 import type { Db } from "./db";
 import { makeDeps } from "./deps";
 import { AppError } from "./errors";
@@ -61,9 +61,7 @@ async function sendCode(
   raw: string,
 ): Promise<{ next: "/sign-in/verify" }> {
   const phone = toE164(raw);
-  if (!phone) {
-    throw new AppError("invalid", "That doesn't look like a phone number.");
-  }
+  if (!phone) throw new AppError("invalid", NOT_A_PHONE);
   await auth.sendCode(phone);
   jar.setAll([{ name: OTP_COOKIE, value: phone, options: OTP_COOKIE_OPTIONS }]);
   return { next: "/sign-in/verify" };

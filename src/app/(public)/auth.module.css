@@ -110,3 +110,87 @@
   outline: 3px solid var(--coo-ink);
   outline-offset: 2px;
 }
+
+.title {
+  margin: 0;
+  padding: 0 4px;
+  font-family: var(--coo-font-display);
+  font-weight: 400;
+  font-size: 34px;
+  line-height: 1.05;
+}
+
+.form {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.phoneRow {
+  display: flex;
+  gap: 8px;
+}
+
+.country,
+.number {
+  min-height: 60px;
+  box-sizing: border-box;
+  padding: 0 14px;
+  background: var(--coo-card);
+  border: var(--coo-line);
+  border-radius: var(--coo-radius-tile);
+  box-shadow: var(--coo-shadow-2);
+  color: var(--coo-ink);
+  font-family: var(--coo-font-body);
+  font-weight: 900;
+  font-size: 22px;
+}
+
+.country {
+  flex: none;
+  width: 76px;
+  text-align: center;
+}
+
+.number {
+  flex: 1;
+  min-width: 0;
+}
+
+.number::placeholder {
+  color: var(--coo-muted);
+}
+
+.country:focus-visible,
+.number:focus-visible {
+  outline: 3px solid var(--coo-ink);
+  outline-offset: 2px;
+}
+
+.error {
+  padding: 10px 12px;
+  background: var(--coo-peach);
+  border: var(--coo-line-thin);
+  border-radius: var(--coo-radius-tile);
+  font-weight: 800;
+}
+
+button.primary {
+  width: 100%;
+  cursor: pointer;
+}
+
+button.primary:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
