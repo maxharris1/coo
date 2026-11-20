@@ -1,7 +1,8 @@
+import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it } from "vitest";
 import { BLOCKED_NAMES } from "@/lib/blocklist";
 import { toE164, type E164 } from "@/lib/phone";
-import { createHandler } from "@/server/handler";
+import { createJsonRoute } from "@/server/http";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
 import { FakeJar } from "@/test/fakes/jar";
 import { onboardingPost } from "./post";
@@ -16,15 +17,12 @@ const BODY = {
 
 let deps: TestDeps;
 let jar: FakeJar;
-let post: (req: Request) => Promise<Response>;
+let post: (req: NextRequest) => Promise<Response>;
 
 beforeEach(async () => {
   deps = await makeTestDeps();
   jar = new FakeJar();
-  post = onboardingPost(
-    createHandler(async () => deps),
-    async () => jar,
-  );
+  post = onboardingPost(createJsonRoute(async () => deps));
 });
 
 async function signIn(number: string, into = jar): Promise<string> {
@@ -33,10 +31,16 @@ async function signIn(number: string, into = jar): Promise<string> {
   return id;
 }
 
-function request(body: unknown): Request {
-  return new Request(URL_ONBOARDING, {
+const cookieHeader = () =>
+  jar
+    .getAll()
+    .map(({ name, value }) => `${name}=${value}`)
+    .join("; ");
+
+function request(body: unknown): NextRequest {
+  return new NextRequest(URL_ONBOARDING, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", cookie: cookieHeader() },
     body: JSON.stringify(body),
   });
 }
@@ -95,7 +99,11 @@ describe("POST /api/onboarding (ac-4)", () => {
   it("answers a body that is not JSON with 400 invalid", async () => {
     await signIn("(555) 123-4567");
     const res = await post(
-      new Request(URL_ONBOARDING, { method: "POST", body: "{" }),
+      new NextRequest(URL_ONBOARDING, {
+        method: "POST",
+        headers: { "content-type": "application/json", cookie: cookieHeader() },
+        body: "{",
+      }),
     );
     expect(res.status).toBe(400);
     expect((await res.json()).error.code).toBe("invalid");

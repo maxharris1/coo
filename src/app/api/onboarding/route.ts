@@ -1,5 +1,4 @@
-import { handler } from "@/server/handler";
-import { headersJar } from "@/server/supabase/cookies";
+import { jsonRoute } from "@/server/http";
 import { onboardingPost } from "./post";
 
-export const POST = onboardingPost(handler, () => headersJar());
+export const POST = onboardingPost(jsonRoute);

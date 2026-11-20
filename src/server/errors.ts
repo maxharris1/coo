@@ -38,12 +38,15 @@ export function toErrorResponse(
       body: { error: { code: err.code, message: err.message } },
     };
   }
-  try {
-    log.error("server.unhandled", { requestId, error: describe(err) });
-  } catch {}
+  log.error("http.internal", { requestId });
   return {
     status: ERROR_STATUS.internal,
-    body: { error: { code: "internal", message: "Something went wrong" } },
+    body: {
+      error: {
+        code: "internal",
+        message: `Something went wrong (ref ${requestId})`,
+      },
+    },
   };
 }
 
@@ -52,13 +55,5 @@ function isAppError(err: unknown): err is AppError {
     return err instanceof AppError;
   } catch {
     return false;
-  }
-}
-
-function describe(err: unknown): string {
-  try {
-    return String(err instanceof Error ? err.message : err);
-  } catch {
-    return "unprintable thrown value";
   }
 }

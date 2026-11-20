@@ -58,33 +58,18 @@ describe("with a session store", () => {
       expect(err.status).toBe(401);
     });
 
-    it.each([
-      ["a first sign-in", async () => {}],
-      [
-        "a sign-in whose signature ends in A",
-        async () => {
-          await deps.db.query(
-            "insert into auth.users (id, phone) values ($1, $2)",
-            ["00000000-0000-4000-8000-000000000041", "15551234567"],
-          );
-        },
-      ],
-    ])(
-      "rejects a session cookie whose signature does not verify after %s",
-      async (_, before) => {
-        await before();
-        await signIn();
-        const cookie = jar.cookies.get(TEST_SESSION_COOKIE)!;
-        const sigStart = cookie.value.lastIndexOf(".") + 1;
-        const flipped =
-          cookie.value.slice(0, sigStart) +
-          (cookie.value[sigStart] === "A" ? "B" : "A") +
-          cookie.value.slice(sigStart + 1);
-        jar.cookies.set(TEST_SESSION_COOKIE, { ...cookie, value: flipped });
-        const err = await rejection(requireUser(session()));
-        expect(err.code).toBe("unauthenticated");
-      },
-    );
+    it("rejects a session cookie whose signature does not verify", async () => {
+      await signIn();
+      const cookie = jar.cookies.get(TEST_SESSION_COOKIE)!;
+      const dot = cookie.value.lastIndexOf(".");
+      const sig = Buffer.from(cookie.value.slice(dot + 1), "base64url");
+      sig[0] ^= 0xff;
+      const flipped =
+        cookie.value.slice(0, dot + 1) + sig.toString("base64url");
+      jar.cookies.set(TEST_SESSION_COOKIE, { ...cookie, value: flipped });
+      const err = await rejection(requireUser(session()));
+      expect(err.code).toBe("unauthenticated");
+    });
 
     it("returns the user with a null profile before onboarding starts", async () => {
       const id = await signIn();
