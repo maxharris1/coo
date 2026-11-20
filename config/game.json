@@ -112,6 +112,7 @@
     "searchPartyCost": 20
   },
   "care": {
+    "full": 100,
     "bellyPerHour": -2,
     "feathersPerHour": -1,
     "birdbathFeatherFactor": 0.5,
