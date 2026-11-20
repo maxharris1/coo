@@ -160,7 +160,9 @@ same processing for the calling user's own rows before it answers.
 | `LINK_TOKEN_PEPPER` | Mixed into guest link token hashes |
 | `GEOCODER_URL` | Default `https://photon.komoot.io` |
 | `WEATHER_URL` | Default `https://api.open-meteo.com` |
-| `APP_ENV` | `development`, `preview` or `production`. Dev tools exist only outside production |
+| `APP_ENV` | `development`, `preview`, `production` or `test`. Dev tools exist only outside production. `test` enables the test auth module and is refused when `VERCEL_ENV=production` |
+| `VERCEL_ENV` | Set by Vercel. Test auth refuses to load when it is `production` |
+| `TEST_AUTH_SECRET` | Signs the test auth session cookie. Only with `APP_ENV=test` |
 
 Provide `.env.example` with every name and no values.
 

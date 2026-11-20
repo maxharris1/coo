@@ -61,3 +61,29 @@ describe("parseEnv", () => {
     expect(env.WEATHER_URL).toBe("https://api.open-meteo.com");
   });
 });
+
+describe("parseEnv test auth gate", () => {
+  it("accepts APP_ENV=test with VERCEL_ENV and TEST_AUTH_SECRET", () => {
+    const env = parseEnv({
+      ...full,
+      APP_ENV: "test",
+      VERCEL_ENV: "preview",
+      TEST_AUTH_SECRET: "test-secret-value",
+    });
+    expect(env.APP_ENV).toBe("test");
+    expect(env.VERCEL_ENV).toBe("preview");
+    expect(env.TEST_AUTH_SECRET).toBe("test-secret-value");
+  });
+
+  it("rejects APP_ENV=test on Vercel production", () => {
+    const error = errorFrom(() =>
+      parseEnv({ ...full, APP_ENV: "test", VERCEL_ENV: "production" }),
+    );
+    expect(error.message).toContain("APP_ENV");
+  });
+
+  it("requires APP_ENV", () => {
+    const error = errorFrom(() => parseEnv({ ...full, APP_ENV: undefined }));
+    expect(error.message).toContain("missing APP_ENV");
+  });
+});
