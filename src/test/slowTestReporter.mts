@@ -1,6 +1,12 @@
-import type { Reporter } from "vitest/node";
+import type { Reporter, TestAttempt } from "vitest/node";
 
 export const SLOW_TEST_THRESHOLD_MS = 2000;
+
+function elapsedAcrossAttempts(attempts: ReadonlyArray<TestAttempt>): number {
+  const first = attempts.at(0);
+  const last = attempts.at(-1);
+  return first && last ? last.startTime + last.duration - first.startTime : 0;
+}
 
 export const slowTestReporter: Reporter = {
   onTestRunEnd(testModules) {
@@ -11,7 +17,7 @@ export const slowTestReporter: Reporter = {
           name: test.fullName,
           durationMs:
             test.diagnostic()?.duration ??
-            test.attempts().reduce((sum, attempt) => sum + attempt.duration, 0),
+            elapsedAcrossAttempts(test.attempts()),
         })),
       )
       .filter((row) => row.durationMs > SLOW_TEST_THRESHOLD_MS)
