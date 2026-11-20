@@ -1,0 +1,127 @@
+import { beforeEach, describe, expect, it } from "vitest";
+import type { UserId } from "@/server/ports/auth";
+import { onboard } from "@/server/services/onboarding";
+import { makeTestDeps, type TestDeps } from "@/test/deps";
+import { geoClient } from "@/test/geoRoute";
+import { shopBuyPost } from "./post";
+
+const SETUP = {
+  timezone: "America/New_York",
+  bird: { name: "Gerald", look: "gerald", pronoun: "he" },
+};
+
+let deps: TestDeps;
+let client: ReturnType<typeof geoClient>;
+
+beforeEach(async () => {
+  deps = await makeTestDeps();
+  client = geoClient(deps, shopBuyPost, "/api/shop/buy");
+});
+
+async function withProfile(number: string, name: string) {
+  const session = await client.signIn(number);
+  await onboard(deps, session.id as UserId, { ...SETUP, name });
+  return session;
+}
+
+async function onboarded(number: string, name: string, seeds = 0) {
+  const session = await withProfile(number, name);
+  await deps.db.query(
+    "update profiles set onboarded_at = to_timestamp($2 / 1000.0) where id = $1",
+    [session.id, deps.clock.now()],
+  );
+  if (seeds > 0) {
+    await deps.db.query("select apply_seeds($1, $2, 'test', null)", [
+      session.id,
+      seeds,
+    ]);
+  }
+  return session;
+}
+
+async function balance(id: string) {
+  const [row] = await deps.db.query<{ seeds: number; ledger: number }>(
+    `select seeds, (select coalesce(sum(delta), 0)::int from seed_ledger where user_id = $1) as ledger
+     from profiles where id = $1`,
+    [id],
+  );
+  return row;
+}
+
+describe("POST /api/shop/buy", () => {
+  it("refuses a request without a session as 401", async () => {
+    const { status, json } = await client.post({ itemId: "goggles" });
+    expect(status).toBe(401);
+    expect(json.error.code).toBe("unauthenticated");
+  });
+
+  it("refuses a user who has not finished onboarding as 409 not_onboarded", async () => {
+    const { jar } = await withProfile("(555) 123-4567", "Max");
+    const { status, json } = await client.post({ itemId: "goggles" }, jar);
+    expect(status).toBe(409);
+    expect(json.error.code).toBe("not_onboarded");
+  });
+
+  it.each([
+    ["an empty body", {}],
+    ["an unknown key", { itemId: "goggles", userId: "someone" }],
+    ["an unknown item", { itemId: "rocket" }],
+  ])("answers %s with 400 invalid", async (_, body) => {
+    const { jar } = await onboarded("(555) 123-4567", "Max", 1000);
+    const { status, json } = await client.post(body, jar);
+    expect(status).toBe(400);
+    expect(json.error.code).toBe("invalid");
+  });
+
+  it("answers a buy the caller cannot afford with 402 insufficient_seeds", async () => {
+    const { id, jar } = await onboarded("(555) 123-4567", "Max");
+    const before = await balance(id);
+    const { status, json } = await client.post({ itemId: "birdbath" }, jar);
+    expect(status).toBe(402);
+    expect(json.error.code).toBe("insufficient_seeds");
+    expect(await balance(id)).toEqual(before);
+  });
+
+  it("buys gear and returns the account and closet", async () => {
+    const { id, jar } = await onboarded("(555) 123-4567", "Max", 1000);
+    const before = await balance(id);
+    const { status, json } = await client.post({ itemId: "goggles" }, jar);
+    expect(status).toBe(200);
+    expect(json.me).toMatchObject({ id, seeds: before.seeds - 120 });
+    expect(json.closet).toContain("goggles");
+    const after = await balance(id);
+    expect(after.ledger).toBe(after.seeds);
+  });
+
+  it("answers a second birdbath with 409 conflict", async () => {
+    const { jar } = await onboarded("(555) 123-4567", "Max", 1000);
+    expect((await client.post({ itemId: "birdbath" }, jar)).status).toBe(200);
+    const { status, json } = await client.post({ itemId: "birdbath" }, jar);
+    expect(status).toBe(409);
+    expect(json.error.code).toBe("conflict");
+  });
+
+  it("charges once for two requests at once", async () => {
+    const { id, jar } = await onboarded("(555) 123-4567", "Max", 1000);
+    const before = await balance(id);
+    const statuses = (
+      await Promise.all([
+        client.post({ itemId: "goggles" }, jar),
+        client.post({ itemId: "goggles" }, jar),
+      ])
+    )
+      .map((r) => r.status)
+      .sort();
+    expect(statuses).toEqual([200, 409]);
+    expect((await balance(id)).seeds).toBe(before.seeds - 120);
+  });
+
+  it("charges only the caller, never someone else", async () => {
+    const other = await onboarded("(555) 765-4321", "Brenda", 1000);
+    const { id, jar } = await onboarded("(555) 123-4567", "Max", 1000);
+    const theirs = await balance(other.id);
+    const { json } = await client.post({ itemId: "birdbath" }, jar);
+    expect(json.me.id).toBe(id);
+    expect(await balance(other.id)).toEqual(theirs);
+  });
+});
