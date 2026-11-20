@@ -108,7 +108,7 @@ describe("ac-1 error shape and serverNow", () => {
     });
   });
 
-  it("hides an unexpected error and logs only a request id and the path", async () => {
+  it("hides an unexpected error and logs only a request id", async () => {
     const logged = vi.spyOn(log, "error").mockImplementation(() => {});
     const route = jsonRoute(
       "public",
@@ -129,7 +129,6 @@ describe("ac-1 error shape and serverNow", () => {
     expect(logged).toHaveBeenCalledOnce();
     expect(logged).toHaveBeenCalledWith("http.internal", {
       requestId: refOf(json.error.message),
-      path: "/api/x",
     });
   });
 
@@ -200,7 +199,6 @@ describe("ac-1 error shape and serverNow", () => {
       level: "error",
       event: "http.internal",
       requestId: refOf(json.error.message),
-      path: "/api/x",
     });
   });
 
@@ -421,7 +419,7 @@ describe("auth cookies reach the response", () => {
 });
 
 describe("ac-4 no phone number reaches a log on the internal-error path", () => {
-  it("logs one http.internal line with only the request id and path", async () => {
+  it("logs one http.internal line with only the request id", async () => {
     const spies = [
       vi.spyOn(console, "log").mockImplementation(() => {}),
       vi.spyOn(console, "warn").mockImplementation(() => {}),
@@ -445,7 +443,6 @@ describe("ac-4 no phone number reaches a log on the internal-error path", () => 
       level: "error",
       event: "http.internal",
       requestId: ref,
-      path: "/api/x",
     });
 
     const logged = spies
@@ -461,6 +458,39 @@ describe("ac-4 no phone number reaches a log on the internal-error path", () => 
     ]) {
       expect(logged).not.toContain(fragment);
     }
+  });
+});
+
+describe("no guest link token reaches a log on the internal-error path", () => {
+  const token = "AbCdEfGhIjKlMnOp";
+  const failing = createJsonRoute(async () => {
+    throw new Error("database unavailable");
+  });
+
+  it.each([
+    ["GET", `/api/guest/${token}`],
+    ["POST", `/api/guest/${token}/notify`],
+    ["POST", `/api/guest/${token}/report`],
+    ["POST", `/api/guest/${token}/claim`],
+  ])("%s %s", async (method, path) => {
+    const spies = [
+      vi.spyOn(console, "log").mockImplementation(() => {}),
+      vi.spyOn(console, "warn").mockImplementation(() => {}),
+      vi.spyOn(console, "error").mockImplementation(() => {}),
+    ];
+    const routes = [
+      failing("public", {}, async () => ({})),
+      jsonRoute("public", {}, async () => {
+        throw new Error("handler failed");
+      }),
+    ];
+    for (const route of routes) {
+      const req = new NextRequest(`https://coo.test${path}`, { method });
+      expect((await route(req)).status).toBe(500);
+    }
+    expect(spies[2]).toHaveBeenCalledTimes(2);
+    const logged = JSON.stringify(spies.flatMap((spy) => spy.mock.calls));
+    expect(logged).not.toContain(token);
   });
 });
 

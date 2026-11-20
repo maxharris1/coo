@@ -30,7 +30,7 @@ export class AppError extends Error {
 
 export function toErrorResponse(
   err: unknown,
-  { requestId, path }: { requestId: string; path: string },
+  requestId: string,
 ): { status: number; body: { error: { code: ErrorCode; message: string } } } {
   if (isAppError(err)) {
     return {
@@ -38,7 +38,7 @@ export function toErrorResponse(
       body: { error: { code: err.code, message: err.message } },
     };
   }
-  log.error("http.internal", { requestId, path });
+  log.error("http.internal", { requestId });
   return {
     status: ERROR_STATUS.internal,
     body: {

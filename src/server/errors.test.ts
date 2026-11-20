@@ -37,7 +37,6 @@ describe("AppError", () => {
 describe("toErrorResponse", () => {
   afterEach(() => vi.restoreAllMocks());
 
-  const at = (requestId: string) => ({ requestId, path: "/api/x" });
   const internal = (requestId: string) => ({
     status: 500,
     body: {
@@ -51,7 +50,7 @@ describe("toErrorResponse", () => {
   it("passes an AppError through with its status and message", () => {
     const logged = vi.spyOn(log, "error").mockImplementation(() => {});
     expect(
-      toErrorResponse(new AppError("conflict", "bird not home"), at("r1")),
+      toErrorResponse(new AppError("conflict", "bird not home"), "r1"),
     ).toEqual({
       status: 409,
       body: { error: { code: "conflict", message: "bird not home" } },
@@ -59,21 +58,20 @@ describe("toErrorResponse", () => {
     expect(logged).not.toHaveBeenCalled();
   });
 
-  it("hides a plain Error behind a referenced internal message and logs only the request id and path", () => {
+  it("hides a plain Error behind a referenced internal message and logs only the request id", () => {
     const logged = vi.spyOn(log, "error").mockImplementation(() => {});
-    const res = toErrorResponse(new Error("secret detail"), at("r2"));
+    const res = toErrorResponse(new Error("secret detail"), "r2");
     expect(res).toEqual(internal("r2"));
     expect(logged).toHaveBeenCalledOnce();
     expect(logged).toHaveBeenCalledWith("http.internal", {
       requestId: "r2",
-      path: "/api/x",
     });
     expect(JSON.stringify(logged.mock.calls)).not.toContain("secret detail");
   });
 
   it("treats a thrown string as internal without logging it", () => {
     const logged = vi.spyOn(log, "error").mockImplementation(() => {});
-    const res = toErrorResponse("boom", at("r3"));
+    const res = toErrorResponse("boom", "r3");
     expect(res).toEqual(internal("r3"));
     expect(JSON.stringify(logged.mock.calls)).not.toContain("boom");
   });
@@ -108,10 +106,9 @@ describe("toErrorResponse", () => {
     ],
   ])("treats %s as internal", (_name, make) => {
     const logged = vi.spyOn(log, "error").mockImplementation(() => {});
-    expect(toErrorResponse(make(), at("r4"))).toEqual(internal("r4"));
+    expect(toErrorResponse(make(), "r4")).toEqual(internal("r4"));
     expect(logged).toHaveBeenCalledWith("http.internal", {
       requestId: "r4",
-      path: "/api/x",
     });
   });
 });

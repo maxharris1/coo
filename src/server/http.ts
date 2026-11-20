@@ -96,10 +96,7 @@ export function createJsonRoute(build: () => Promise<Deps>) {
           NextResponse.json({ ...result, serverNow: deps.clock.now() }),
         );
       } catch (err) {
-        const { status, body } = toErrorResponse(err, {
-          requestId: digitFreeRequestId(),
-          path: req.nextUrl.pathname,
-        });
+        const { status, body } = toErrorResponse(err, digitFreeRequestId());
         const payload = deps ? { ...body, serverNow: deps.clock.now() } : body;
         return commit(NextResponse.json(payload, { status }));
       }
