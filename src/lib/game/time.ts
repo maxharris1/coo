@@ -92,9 +92,8 @@ export function weekStart(ms: number, tz: string): LocalDate {
 export function startOfLocalDayMs(ms: number, tz: string): number {
   const p = partsAt(ms, tz);
   const midnightAsUtc = Date.UTC(p.year, p.month - 1, p.day);
-  // The offset at `ms` can differ from the one at midnight on DST days, so read it again there.
-  const guess = midnightAsUtc - offsetMs(ms, tz);
-  return midnightAsUtc - offsetMs(guess, tz);
+  const midnightAtOffsetOfMs = midnightAsUtc - offsetMs(ms, tz);
+  return midnightAsUtc - offsetMs(midnightAtOffsetOfMs, tz);
 }
 
 export function isTimeZone(tz: string): boolean {
