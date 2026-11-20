@@ -113,11 +113,19 @@ export interface Db {
 
 ## Sign-in
 
-- The browser calls Supabase Auth directly: `signInWithOtp({ phone })`, then
-  `verifyOtp({ phone, token, type: 'sms' })`. Supabase sends the code through Twilio.
-- `@supabase/ssr` keeps the session in cookies. Middleware refreshes it.
-- `requireUser()` on the server reads the user from the cookie session with `auth.getUser()` and
-  returns the user id. It then loads the `profiles` row; if there is none, the user is sent to onboarding.
+- The browser never calls Supabase Auth. The sign-in screens POST the number to
+  `/api/auth/code` and the code to `/api/auth/verify`.
+- The server calls `signInWithOtp({ phone })` and `verifyOtp({ phone, token, type: 'sms' })`
+  through the `@supabase/ssr` server client. Supabase sends the code through Twilio.
+  A good code sets the session in HttpOnly cookies.
+- Between the two calls the number waits in an HttpOnly `coo_otp_phone` cookie, path
+  `/api/auth`, for 10 minutes. It is never put in a URL. A good code clears it.
+- `GET /api/auth/session` returns `{ userId, onboarded }`. `POST /api/auth/sign-out` signs out
+  of Supabase and clears the session cookies. Both answer 401 without a session.
+- `src/proxy.ts` refreshes the session on every request it matches.
+- `requireUser()` reads the user id from the cookie session with `auth.getClaims()` and loads the
+  `profiles` row. A user with no row is not onboarded. `requireOnboarded()` refuses them, and
+  `/api/auth/verify` sends them to `/welcome/install`.
 - Phone numbers stay in Supabase Auth. `profiles` holds only the last four digits, for display.
 
 ## Staying live
