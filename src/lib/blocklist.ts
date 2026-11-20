@@ -34,9 +34,23 @@ const IN_WORD_GAP = `(?:${SYMBOL_GAP}|(?<!${WORD_CHAR}.)${PUNCTUATION_GAP}|${PUN
 const ANY_GAP = "[^a-z]*";
 const NORMALIZED_PUNCTUATION = "\u00a4";
 
+const JOIN_MIN_LETTERS = 2;
+
+function letterAt(term: string, index: number): string {
+  const subs = [...(LETTER_CLASSES[term[index]] ?? term[index])];
+  const marks = subs.filter((sub) => /\p{P}/u.test(sub)).join("");
+  const inside =
+    index >= JOIN_MIN_LETTERS && term.length - index > JOIN_MIN_LETTERS;
+  if (!marks || inside) return `[${subs.join("")}]`;
+  const others = subs.filter((sub) => !marks.includes(sub)).join("");
+  return `(?:[${others}]|(?<!${WORD_CHAR})[${marks}]|[${marks}](?!${WORD_CHAR}))`;
+}
+
 const BLOCKED_PATTERNS = BLOCKED_NAMES.map((term) => {
   const letters = [...term].map((ch) => `[${LETTER_CLASSES[ch] ?? ch}]`);
-  const inWord = letters.join(IN_WORD_GAP);
+  const inWord = [...term]
+    .map((_, index) => letterAt(term, index))
+    .join(IN_WORD_GAP);
   const wholeSpan = `(?<!${WORD_CHAR})${letters.join(ANY_GAP)}(?!${WORD_CHAR})`;
   return new RegExp(`${inWord}|${wholeSpan}`, "su");
 });
