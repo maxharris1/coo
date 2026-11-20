@@ -83,7 +83,7 @@ export async function seedWorld(db: Db, nowMs: number): Promise<World> {
       const city = CITIES[loft.city];
       await t.query(
         "insert into auth.users (id, phone, created_at) values ($1, $2, $3)",
-        [id, `+1555000000${n + 1}`, now],
+        [id, `1555000000${n + 1}`, now],
       );
       await t.query(
         `insert into profiles (id, name, handle, invite_code, home_lat, home_lon, home_label,

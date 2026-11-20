@@ -1,0 +1,232 @@
+import { NextRequest } from "next/server";
+import { beforeEach, describe, expect, it } from "vitest";
+import { config } from "@/lib/config";
+import { toE164, type E164 } from "@/lib/phone";
+import type { Db } from "@/server/db";
+import { createJsonRoute } from "@/server/http";
+import { makeTestDeps, type TestDeps } from "@/test/deps";
+import { FakeJar } from "@/test/fakes/jar";
+import { seedWorld, type World } from "@/test/seedWorld";
+import { syncGet } from "./get";
+
+const MAX_PHONE = "+15550000001";
+const PRIYA_PHONE = "+15550000002";
+
+let deps: TestDeps;
+let world: World;
+let statements: string[];
+
+function recordingDb(inner: Db): Db {
+  return {
+    query(sql, params) {
+      statements.push(sql);
+      return inner.query(sql, params);
+    },
+    tx: (fn) => inner.tx((db) => fn(recordingDb(db))),
+  };
+}
+
+beforeEach(async () => {
+  const base = await makeTestDeps();
+  statements = [];
+  deps = { ...base, db: recordingDb(base.db) };
+  world = await seedWorld(base.db, deps.clock.now());
+});
+
+async function signIn(phone: string) {
+  const jar = new FakeJar();
+  const id = await deps.auth(jar).verifyCode(toE164(phone) as E164, "000000");
+  if (!id) throw new Error("test sign-in failed");
+  return { id, jar };
+}
+
+async function sync(jar?: FakeJar, headers: Record<string, string> = {}) {
+  const handler = syncGet(createJsonRoute(async () => deps));
+  const cookie = (jar?.getAll() ?? [])
+    .map(({ name, value }) => `${name}=${value}`)
+    .join("; ");
+  const res = await handler(
+    new NextRequest("https://coo.test/api/sync", {
+      headers: { cookie, ...headers },
+    }),
+  );
+  return { status: res.status, json: await res.json() };
+}
+
+async function timezoneOf(id: string) {
+  const [row] = await deps.db.query<{ timezone: string }>(
+    "select timezone from profiles where id = $1",
+    [id],
+  );
+  return row.timezone;
+}
+
+const profileUpdates = () =>
+  statements.filter((s) => /update\s+profiles/i.test(s));
+
+describe("GET /api/sync", () => {
+  it("returns Max's two birds with computed care and nothing of Priya's", async () => {
+    const { jar } = await signIn(MAX_PHONE);
+    const { status, json } = await sync(jar);
+
+    expect(status).toBe(200);
+    expect(json.me.id).toBe(world.max.id);
+    expect(json.birds.map((b: { id: string }) => b.id)).toEqual(
+      world.max.birds.map((b) => b.id),
+    );
+    for (const bird of json.birds) {
+      expect(bird).toMatchObject({
+        belly: expect.any(Number),
+        feathers: expect.any(Number),
+        energy: expect.any(Number),
+        hungry: false,
+        canFly: true,
+        noteLimit: config.game.notes.baseLimit,
+      });
+      expect(bird).not.toHaveProperty("ownerId");
+    }
+
+    const body = JSON.stringify(json);
+    for (const leak of [
+      world.priya.id,
+      ...world.priya.birds.map((b) => b.id),
+      ...world.priya.birds.map((b) => b.name),
+      "Center City",
+      "Philadelphia",
+    ])
+      expect(body).not.toContain(leak);
+  });
+
+  it("is 401 without a session and still carries serverNow", async () => {
+    const { status, json } = await sync();
+    expect(status).toBe(401);
+    expect(json.error.code).toBe("unauthenticated");
+    expect(json.serverNow).toBe(deps.clock.now());
+  });
+
+  it("is 409 not_onboarded before onboarding and still carries serverNow", async () => {
+    const { jar } = await signIn("(555) 123-4567");
+    const { status, json } = await sync(jar);
+    expect(status).toBe(409);
+    expect(json.error.code).toBe("not_onboarded");
+    expect(json.serverNow).toBe(deps.clock.now());
+  });
+
+  it("carries serverNow from the clock module on success", async () => {
+    deps.clock.advance(90_000);
+    const { jar } = await signIn(MAX_PHONE);
+    const { json } = await sync(jar);
+    expect(json.serverNow).toBe(deps.clock.now());
+  });
+
+  it("updates profiles.timezone when X-Timezone differs, and a repeat changes nothing", async () => {
+    const { jar } = await signIn(MAX_PHONE);
+    expect(await timezoneOf(world.max.id)).toBe("America/New_York");
+
+    const first = await sync(jar, { "x-timezone": "Europe/London" });
+    expect(first.json.me.timezone).toBe("Europe/London");
+    expect(await timezoneOf(world.max.id)).toBe("Europe/London");
+    expect(profileUpdates()).toHaveLength(1);
+
+    const again = await sync(jar, { "x-timezone": "Europe/London" });
+    expect(again.status).toBe(200);
+    expect(again.json.me.timezone).toBe("Europe/London");
+    expect(profileUpdates()).toHaveLength(1);
+    expect(await timezoneOf(world.priya.id)).toBe("America/New_York");
+  });
+
+  it.each([[{}], [{ "x-timezone": "Mars/Olympus_Mons" }]])(
+    "leaves the timezone alone for %j",
+    async (headers) => {
+      const { jar } = await signIn(MAX_PHONE);
+      const { status } = await sync(jar, headers);
+      expect(status).toBe(200);
+      expect(await timezoneOf(world.max.id)).toBe("America/New_York");
+      expect(profileUpdates()).toHaveLength(0);
+    },
+  );
+
+  it("reads me, closet, outfits, egg, punch card, unread and friends from the caller's rows", async () => {
+    const { max, priya, rosa } = world;
+    const db = deps.db;
+    await db.query("update profiles set deliveries_count = 4 where id = $1", [
+      max.id,
+    ]);
+    await db.query(
+      "insert into eggs (user_id, hatch_at_delivery, status) values ($1, 10, 'incubating'), ($2, 3, 'ready')",
+      [max.id, priya.id],
+    );
+    await db.query(
+      "insert into punch_cards (user_id, week_start, deliveries, paid) values ($1, '2026-11-16', 3, false), ($1, '2026-11-09', 9, true), ($2, '2026-11-16', 7, true)",
+      [max.id, priya.id],
+    );
+    await db.query(
+      `insert into notifications (user_id, kind, title, body, read_at) values
+         ($1, 'landed', 't', 'b', null), ($1, 'landed', 't', 'b', null),
+         ($1, 'landed', 't', 'b', now()), ($2, 'landed', 't', 'b', null)`,
+      [max.id, priya.id],
+    );
+    await db.query(
+      "insert into gear_owned (user_id, gear_id) values ($1, 'top_hat')",
+      [priya.id],
+    );
+    await db.query(
+      "insert into outfits (user_id, name, items) values ($1, 'Fancy', '{top_hat}')",
+      [priya.id],
+    );
+    await db.query(
+      "update friendships set status = 'blocked', blocked_by = $1 where $2 in (a_id, b_id)",
+      [max.id, rosa.id],
+    );
+    const [lo, hi] = [priya.id, rosa.id].sort();
+    await db.query("insert into friendships (a_id, b_id) values ($1, $2)", [
+      lo,
+      hi,
+    ]);
+
+    const { jar } = await signIn(MAX_PHONE);
+    const { status, json } = await sync(jar);
+
+    expect(status).toBe(200);
+    expect(json.me).toMatchObject({
+      id: max.id,
+      name: "Max",
+      handle: "max",
+      seeds: config.game.start.seeds,
+      timezone: "America/New_York",
+      loft: { label: "East Village", city: "New York", travelling: false },
+    });
+    expect(json.closet).toEqual(config.game.start.gear);
+    expect(json.outfits).toEqual([
+      {
+        id: expect.any(String),
+        name: "Everyday",
+        items: config.game.start.gear,
+      },
+    ]);
+    expect(json.egg).toEqual({ status: "incubating", deliveriesToGo: 6 });
+    expect(json.punchCard).toEqual({
+      weekStart: "2026-11-16",
+      deliveries: 3,
+      size: config.game.seeds.punchCardSize,
+      paid: false,
+    });
+    expect(json.unread).toBe(2);
+    expect(json.friendsCount).toBe(1);
+    expect(json.flights).toEqual([]);
+    expect(json.visits).toEqual([]);
+    expect(json.myVisiting).toEqual([]);
+  });
+
+  it("gives an empty punch card for a week with no row yet", async () => {
+    const { jar } = await signIn(PRIYA_PHONE);
+    const { json } = await sync(jar);
+    expect(json.me.id).toBe(world.priya.id);
+    expect(json.punchCard).toEqual({
+      weekStart: "2026-11-16",
+      deliveries: 0,
+      size: config.game.seeds.punchCardSize,
+      paid: false,
+    });
+  });
+});

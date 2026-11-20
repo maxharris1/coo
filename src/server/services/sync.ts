@@ -1,8 +1,17 @@
 import { careAt, type CareOwner } from "@/lib/game/care";
 import { levelFor } from "@/lib/game/levels";
 import { noteLimit } from "@/lib/game/notes";
+import { isTimeZone, weekStart } from "@/lib/game/time";
 import type { BirdStatus } from "@/lib/game/types";
-import type { BirdRecord } from "@/server/rows";
+import type { OnboardedCaller, Profile } from "@/server/auth";
+import type { Deps } from "@/server/deps";
+import {
+  toBirdRecord,
+  toMe,
+  toOutfit,
+  type BirdRecord,
+  type Row,
+} from "@/server/rows";
 
 export type CannotFly = "away" | "busy" | "tired";
 
@@ -60,3 +69,91 @@ export function toBirdView(b: BirdRecord, nowMs: number, owner: CareOwner) {
   };
 }
 export type BirdView = ReturnType<typeof toBirdView>;
+
+async function syncTimezone(
+  deps: Deps,
+  caller: OnboardedCaller,
+  timezone: string | null,
+): Promise<Profile> {
+  const { profile } = caller;
+  if (!timezone || timezone === profile.timezone || !isTimeZone(timezone)) {
+    return profile;
+  }
+  const [updated] = await deps.db.query<Profile>(
+    "update profiles set timezone = $2 where id = $1 and timezone <> $2 returning *",
+    [caller.userId, timezone],
+  );
+  return updated ?? profile;
+}
+
+export async function sync(
+  deps: Deps,
+  caller: OnboardedCaller,
+  timezone: string | null,
+) {
+  const now = deps.clock.now();
+  const profile = await syncTimezone(deps, caller, timezone);
+  const id = caller.userId;
+  const week = weekStart(now, profile.timezone);
+  const [birds, gear, outfits, eggs, cards, [unread], [friends]] =
+    await Promise.all([
+      deps.db.query<Row<"birds">>(
+        "select * from birds where owner_id = $1 order by hatched_at, id",
+        [id],
+      ),
+      deps.db.query<{ gear_id: string }>(
+        "select gear_id from gear_owned where user_id = $1 order by acquired_at, gear_id",
+        [id],
+      ),
+      deps.db.query<Row<"outfits">>(
+        "select * from outfits where user_id = $1 order by position, id",
+        [id],
+      ),
+      deps.db.query<{ status: string; hatch_at_delivery: number }>(
+        "select status, hatch_at_delivery from eggs where user_id = $1 and status <> 'hatched'",
+        [id],
+      ),
+      deps.db.query<{ deliveries: number; paid: boolean }>(
+        "select deliveries, paid from punch_cards where user_id = $1 and week_start = $2",
+        [id, week],
+      ),
+      deps.db.query<{ count: number }>(
+        "select count(*)::int as count from notifications where user_id = $1 and read_at is null",
+        [id],
+      ),
+      deps.db.query<{ count: number }>(
+        "select count(*)::int as count from friendships where status = 'accepted' and $1 in (a_id, b_id)",
+        [id],
+      ),
+    ]);
+  const [egg] = eggs;
+  const [card] = cards;
+  return {
+    me: toMe(profile),
+    birds: birds.map((r) =>
+      toBirdView(toBirdRecord(r), now, { hasBirdbath: profile.has_birdbath }),
+    ),
+    closet: gear.map((g) => g.gear_id),
+    outfits: outfits.map(toOutfit),
+    flights: [],
+    visits: [],
+    myVisiting: [],
+    egg: egg
+      ? {
+          status: egg.status,
+          deliveriesToGo: Math.max(
+            0,
+            egg.hatch_at_delivery - profile.deliveries_count,
+          ),
+        }
+      : null,
+    punchCard: {
+      weekStart: week,
+      deliveries: card?.deliveries ?? 0,
+      size: deps.config.game.seeds.punchCardSize,
+      paid: card?.paid ?? false,
+    },
+    unread: unread.count,
+    friendsCount: friends.count,
+  };
+}
