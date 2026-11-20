@@ -73,10 +73,10 @@ function useActions(state: LoftState, dispatch: Dispatch<LoftAction>): Actions {
       dispatch({ type: "located", roost: saved.data, pending: null });
     },
     async townCentre() {
-      const city = state.roost?.city;
-      if (!city) return;
+      const { roost } = state;
+      if (!roost?.city) return;
       dispatch({ type: "busy" });
-      const saved = await townCentre(city);
+      const saved = await townCentre(roost);
       if (!saved.ok) return fail(saved.message);
       dispatch({ type: "located", roost: saved.data, pending: null });
     },

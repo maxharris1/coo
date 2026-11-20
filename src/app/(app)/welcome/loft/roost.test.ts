@@ -162,61 +162,52 @@ describe("loft api calls", () => {
 });
 
 describe("townCentre", () => {
-  it("searches the roost's city and saves its city result as the roost", async () => {
+  const LA_SOURCE = {
+    lat: -20.902,
+    lon: 55.48,
+    label: "La Source",
+    city: "Saint-Denis, France",
+  };
+
+  it("asks the loft for the selected roost's own town centre, never a city search", async () => {
     const fetchImpl = vi.fn<
       (url: string, init?: RequestInit) => Promise<Response>
-    >(async (url) =>
-      url.startsWith("/api/geo/search")
-        ? json(200, {
-            results: [
-              {
-                placeId: "n",
-                label: "Brooklyn Heights",
-                sublabel: "Brooklyn, NY",
-                kind: "neighbourhood",
-              },
-              {
-                placeId: "c",
-                label: "Brooklyn",
-                sublabel: "New York, US",
-                kind: "city",
-              },
-            ],
-          })
-        : json(200, {
-            loft: {
-              lat: 40.65,
-              lon: -73.95,
-              label: "Brooklyn",
-              city: "Brooklyn, NY",
-              travelling: false,
-            },
-          }),
+    >(async () =>
+      json(200, {
+        loft: {
+          lat: -20.8823,
+          lon: 55.4504,
+          label: "Saint-Denis",
+          city: "Saint-Denis, France",
+          travelling: false,
+        },
+      }),
     );
-    const result = await townCentre("Brooklyn, NY", fetchImpl);
-    expect(fetchImpl).toHaveBeenNthCalledWith(
-      1,
-      "/api/geo/search?q=Brooklyn%2C+NY",
-    );
-    expect(fetchImpl.mock.calls[1][1]).toMatchObject({
-      body: JSON.stringify({ placeId: "c" }),
+    const result = await townCentre(LA_SOURCE, fetchImpl);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(fetchImpl).toHaveBeenCalledWith("/api/loft", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ lat: -20.902, lon: 55.48, centre: true }),
     });
     expect(result).toEqual({
       ok: true,
       data: {
-        lat: 40.65,
-        lon: -73.95,
-        label: "Brooklyn",
-        city: "Brooklyn, NY",
+        lat: -20.8823,
+        lon: 55.4504,
+        label: "Saint-Denis",
+        city: "Saint-Denis, France",
       },
     });
   });
 
-  it("says the place was not found when the city has no city result", async () => {
+  it("passes the loft's message through when the town has no centre", async () => {
     const fetchImpl = vi.fn(async () =>
-      json(200, { results: [], message: "Could not find that place" }),
+      json(400, {
+        error: { code: "invalid", message: "Could not find that place" },
+      }),
     );
-    expect(await townCentre("Nowhere", fetchImpl)).toEqual({
+    expect(await townCentre(LA_SOURCE, fetchImpl)).toEqual({
       ok: false,
       message: "Could not find that place",
     });

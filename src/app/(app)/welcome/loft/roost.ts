@@ -1,4 +1,3 @@
-import emptyStates from "../../../../../assets/copy/empty-states.json";
 import { snap, type Point } from "@/lib/game/privacy";
 
 export const STOCK_STYLE = "https://tiles.openfreemap.org/styles/liberty";
@@ -12,7 +11,7 @@ export type PlaceResult = {
 
 export type Roost = Point & { label: string; city: string | null };
 
-export type LoftBody = Point | { placeId: string };
+export type LoftBody = (Point | { placeId: string }) & { centre?: true };
 
 export type LoftState = {
   query: string;
@@ -70,9 +69,6 @@ export const snappedPosition = ({
   snap(latitude, longitude);
 
 const UNREACHABLE = "We could not reach the loft. Try again.";
-const PLACE_NOT_FOUND = emptyStates.find(
-  (s) => s.state === "Place not found",
-)!.text;
 
 type Result<T> = { ok: true; data: T } | { ok: false; message: string };
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
@@ -130,15 +126,5 @@ export async function saveLoft(
   return { ok: true, data: { lat, lon, label, city } };
 }
 
-export async function townCentre(
-  city: string,
-  fetchImpl: Fetch = fetch,
-): Promise<Result<Roost>> {
-  const found = await searchPlaces(city, fetchImpl);
-  if (!found.ok) return found;
-  const centre = found.data.results.find((r) => r.kind === "city");
-  if (!centre) {
-    return { ok: false, message: found.data.message ?? PLACE_NOT_FOUND };
-  }
-  return saveLoft({ placeId: centre.placeId }, fetchImpl);
-}
+export const townCentre = ({ lat, lon }: Point, fetchImpl: Fetch = fetch) =>
+  saveLoft({ lat, lon, centre: true }, fetchImpl);
