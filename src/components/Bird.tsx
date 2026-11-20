@@ -13,6 +13,7 @@ export const POSES = [
   "crouch",
   "landed",
   "proud",
+  "fly",
 ] as const;
 export type Pose = (typeof POSES)[number];
 export const GEAR_IDS = [
@@ -44,8 +45,17 @@ type Palette = {
 };
 type Eye = "open" | "closed" | "happy" | "wide" | "lid";
 type Part =
-  "all" | "tail" | "torso" | "wing" | "head" | "scarf" | "pom" | "bell";
-type Motion = Partial<Record<Part, string>> & { blink?: true };
+  | "all"
+  | "tail"
+  | "torso"
+  | "wing"
+  | "wing2"
+  | "core"
+  | "head"
+  | "scarf"
+  | "pom"
+  | "bell";
+type Motion = Partial<Record<Part, string>> & { blink?: true; streak?: true };
 
 const INK = "#2A2140",
   CARD = "#FFFBF0",
@@ -126,10 +136,21 @@ const SULKING: Motion = {
   all: "coo-wobble 3.4s ease-in-out infinite",
 };
 const STARTLED: Motion = { tail: "coo-tail-flick 1.6s ease-in-out infinite" };
+const FLYING: Motion = {
+  wing: "coo-flap .34s cubic-bezier(.4,0,.6,1) infinite",
+  wing2: "coo-flap .34s cubic-bezier(.4,0,.6,1) -.05s infinite",
+  core: "coo-fly-core .34s ease-in-out infinite",
+  tail: "coo-fly-tail .34s ease-in-out infinite",
+  blink: true,
+  scarf: "coo-flutter .28s ease-in-out infinite alternate",
+  streak: true,
+};
 
 const OWN: Partial<Record<Look, GearId[]>> = { admiral: ["cap"] };
 
 const PERCH_VB = "-10 -22 140 132";
+const FLY_VB = "-24 -12 164 120";
+const WING = "M46 55 Q32 22 62 2 Q70 8 72 20 Q80 27 78 39 Q83 47 77 58 Z";
 
 function darken(hex: string, f = 0.84) {
   return (
@@ -278,6 +299,61 @@ function bird(
   );
 }
 
+function fly(p: Palette, gear: readonly GearId[], anim: Motion | undefined) {
+  const { body, wing, collar } = p;
+  const wd = darken(wing),
+    wf = darken(wing, 0.72);
+  const far = `<g transform="translate(13 -3)"><g><path d="${WING}" fill="${wf}" ${J}${style(anim, "wing2", "50% 97%")}/></g></g>`;
+  const near =
+    `<g><g${style(anim, "wing", "50% 97%")}><path d="${WING}" fill="${wing}" ${J}/><path d="M55.6 50 Q50.6 30 60.6 12 M66 52 Q63 34 70 22" fill="none" stroke="${INK}" stroke-width="${T}" stroke-linecap="round"/>` +
+    `<path d="M48.6 53 Q62 60 76 55 Q70 47.6 60 46.6 Q52 46.6 48.6 53 Z" fill="${wd}" stroke="${INK}" stroke-width="${T}" stroke-linejoin="round"/></g></g>`;
+  const streak = anim?.streak
+    ? `<g stroke="${INK}" stroke-width="3" stroke-linecap="round" fill="none"><path d="M-6 38 H-20" style="animation: coo-streak .5s linear infinite"/><path d="M-8 60 H-18" style="animation: coo-streak .5s linear .18s infinite"/>` +
+      `<path d="M-2 76 H-14" style="animation: coo-streak .5s linear .33s infinite"/></g>`
+    : "";
+  const tail = `<g${style(anim, "tail", "100% 50%")}><path d="M26 52 L0 41 L5 52 L-2 62 L8 61.6 L24 65 Z" fill="${wing}" ${J}/><path d="M6 52 L23 57 M9 60.4 L24 61" stroke="${INK}" stroke-width="${T}" fill="none" stroke-linecap="round"/></g>`;
+  const feet =
+    `<path d="M46 72 L34 80 M34 80 L29 78 M34 80 L31 84.6 M58 74 L48 83 M48 83 L43 81.6 M48 83 L45.6 87.6" stroke="${TOMATO}" stroke-width="${SW + 0.3}" stroke-linecap="round" fill="none"/>` +
+    `<rect x="33" y="72.6" width="12.6" height="7.4" rx="2.2" fill="${CARD}" stroke="${INK}" stroke-width="2" transform="rotate(-36 39 76)"/>`;
+  const hd = `<circle cx="96" cy="44" r="15" fill="${body}" ${S}/><path d="M85.6 38.4 Q89 31.6 96.6 31" fill="none" stroke="${CARD}" stroke-width="${T}" stroke-linecap="round" opacity=".55"/>`;
+  const onHead = (inner: string) =>
+    `<g transform="translate(96 44) scale(.84) translate(-86 -34)">${inner}</g>`;
+  const hgPre = gear.includes("goggles") ? onHead(ON_PRE_GOGGLES) : "";
+  let eye = `<circle cx="101" cy="41" r="5.5" fill="#FFB03A" stroke="${INK}" stroke-width="${W}"/><circle cx="102.4" cy="41" r="2.2" fill="${INK}"/><circle cx="103.2" cy="40" r=".8" fill="${CARD}"/>`;
+  if (anim?.blink)
+    eye += `<circle cx="101" cy="41" r="6.4" fill="${body}" stroke="${INK}" stroke-width="${W}" style="transform-box: fill-box; transform-origin: 50% 0%; transform: scaleY(0); animation: coo-blink 3.8s ease-in-out infinite"/>`;
+  const onTop: GearId[] = ["goggles", ...HEAD];
+  const hg = onTop
+    .filter((x) => gear.includes(x))
+    .map((x) => onHead(tokens(ON[x], anim)))
+    .join("");
+  const beak = `<path d="M109 41 L122 45 L109 49 Z" fill="${SUN}" stroke="${INK}" stroke-width="${W}" stroke-linejoin="round"/><path d="M109.6 45 H119" stroke="${INK}" stroke-width="${T}" stroke-linecap="round"/><ellipse cx="110" cy="40.5" rx="3" ry="2.2" fill="${CARD}" stroke="${INK}" stroke-width="${(W * 0.7).toFixed(1)}"/>`;
+  const collarSvg = `<ellipse cx="84" cy="55" rx="8" ry="9" fill="${collar}" stroke="${INK}" stroke-width="${W}"/>`;
+  const scarf = anim?.scarf
+    ? ` style="transform-box: fill-box; transform-origin: 60% 0%; animation: ${anim.scarf}"`
+    : ' transform="rotate(64 78 58)"';
+  const ng = NECK.filter((x) => gear.includes(x))
+    .map(
+      (x) =>
+        `<g transform="translate(84 55) scale(.56 .95) translate(-83 -53)">${tokens(ON[x].replace("§scarf§", scarf), undefined)}</g>`,
+    )
+    .join("");
+  const core =
+    `<g${style(anim, "core", "50% 50%")}>` +
+    tail +
+    feet +
+    `<ellipse cx="58" cy="56" rx="36" ry="19" fill="${body}" ${S}/><ellipse cx="60" cy="63" rx="24" ry="8" fill="${CARD}" opacity=".32"/>` +
+    hd +
+    hgPre +
+    eye +
+    beak +
+    hg +
+    collarSvg +
+    ng +
+    "</g>";
+  return streak + far + core + near;
+}
+
 const seed = (x: number, y: number) =>
   `<ellipse cx="${x}" cy="${y}" rx="3" ry="2" fill="${SUN}" stroke="${INK}" stroke-width="1.6"/>`;
 const snooze = (delay: number) =>
@@ -286,6 +362,7 @@ const snooze = (delay: number) =>
 type Draw = (
   b: (o: Omit<BirdOptions, "gear">) => string,
   animated: boolean,
+  bird: { palette: Palette; gear: readonly GearId[] },
 ) => { viewBox: string; inner: string };
 
 const DRAW: Record<Pose, Draw> = {
@@ -360,6 +437,10 @@ const DRAW: Record<Pose, Draw> = {
       `<g transform="rotate(-6 60 101)">${b({ eye: "happy", anim: animated ? CALM : undefined })}</g>` +
       `<path d="M112 6 l2 5 l5 2 l-5 2 l-2 5 l-2 -5 l-5 -2 l5 -2 z" fill="${SUN}" stroke="${INK}" stroke-width="1.8" stroke-linejoin="round"/>`,
   }),
+  fly: (_b, animated, { palette, gear }) => ({
+    viewBox: FLY_VB,
+    inner: fly(palette, gear, animated ? FLYING : undefined),
+  }),
 };
 
 export function drawPose(
@@ -377,6 +458,7 @@ export function drawPose(
   return DRAW[pose](
     (o) => bird(palette, shape, { ...o, gear: worn }),
     animated,
+    { palette, gear: worn },
   );
 }
 
@@ -388,6 +470,7 @@ export type BirdProps = {
   animated?: boolean;
   size?: number;
   title?: string;
+  flip?: boolean;
 };
 
 export function Bird({
@@ -398,6 +481,7 @@ export function Bird({
   animated = true,
   size = 140,
   title,
+  flip,
 }: BirdProps) {
   const { viewBox, inner } = drawPose(look, pose, { gear, breed, animated });
   const [, , vw, vh] = viewBox.split(" ").map(Number);
@@ -411,7 +495,12 @@ export function Bird({
       width={size}
       height={Math.round((size * vh) / vw)}
       {...a11y}
-      style={{ display: "block", flexShrink: 0, overflow: "visible" }}
+      style={{
+        display: "block",
+        flexShrink: 0,
+        overflow: "visible",
+        transform: flip ? "scaleX(-1)" : undefined,
+      }}
       dangerouslySetInnerHTML={{ __html: inner }}
     />
   );
