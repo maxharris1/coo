@@ -1,0 +1,92 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  --sheet: min(1180px, 100vw);
+  width: var(--sheet);
+  margin-inline: calc((100% - var(--sheet)) / 2);
+  padding: 24px var(--coo-gutter) 48px;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--coo-font-display);
+  font-weight: 400;
+  font-size: 36px;
+  line-height: 1;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.heading {
+  margin: 0;
+  font-family: var(--coo-font-display);
+  font-weight: 400;
+  font-size: 24px;
+}
+
+.grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.sky {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 200px;
+  padding: 14px;
+  border: var(--coo-line-thin);
+  border-radius: var(--coo-radius-card);
+  background: var(--coo-sky);
+}
+
+.caption {
+  margin: 0;
+  font-size: 13px;
+  color: var(--coo-muted);
+  text-align: center;
+}
+
+.caption b {
+  display: block;
+  color: var(--coo-ink);
+}
+
+.dots {
+  display: flex;
+  gap: 6px;
+}
+
+.dot {
+  width: 16px;
+  height: 16px;
+  border: var(--coo-line-thin);
+  border-radius: var(--coo-radius-pill);
+}
+
+.row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  overflow-x: auto;
+}
+
+.row > .caption {
+  flex: 0 0 120px;
+  text-align: left;
+}
+
+.cell {
+  flex: 0 0 auto;
+  padding: 8px;
+  border: var(--coo-line-thin);
+  border-radius: var(--coo-radius-tile);
+  background: var(--coo-card);
+}
