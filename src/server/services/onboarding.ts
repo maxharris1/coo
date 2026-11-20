@@ -1,0 +1,200 @@
+import { randomBytes, randomInt } from "node:crypto";
+import { z } from "zod";
+import birdLooks from "../../../public/assets/data/birds.json";
+import { isBlocked } from "@/lib/blocklist";
+import type { Config } from "@/lib/config";
+import { handleBase } from "@/lib/handle";
+import type { Db } from "@/server/db";
+import type { Deps } from "@/server/deps";
+import { AppError } from "@/server/errors";
+import type { UserId } from "@/server/ports/auth";
+import {
+  toBirdRecord,
+  toMe,
+  type BirdRecord,
+  type Me,
+  type Row,
+} from "@/server/rows";
+
+export type OnboardingResult = { me: Me; birds: BirdRecord[] };
+
+const OUTFIT_NAMES = ["Everyday", "Cold snap", "Fancy"];
+const HANDLE = /^[a-z0-9_]{2,20}$/;
+const HANDLE_MAX = 20;
+const HANDLE_TRIES = 6;
+
+function isTimeZone(tz: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// char_length in Postgres counts code points, not UTF-16 units.
+const displayName = (max: number) =>
+  z
+    .string()
+    .trim()
+    .refine((s) => {
+      const n = [...s].length;
+      return n >= 1 && n <= max;
+    })
+    .refine((s) => !isBlocked(s));
+
+const pronoun = z.enum(["he", "she", "they"]);
+
+function schema(config: Config) {
+  return z.object({
+    name: displayName(30),
+    handle: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .regex(HANDLE)
+      .refine((s) => !isBlocked(s))
+      .optional(),
+    timezone: z.string().refine(isTimeZone),
+    bird: z.object({
+      name: displayName(24),
+      look: z.string().refine((l) => config.game.start.looks.includes(l)),
+      pronoun,
+    }),
+    secondBird: z.object({ name: displayName(24), pronoun }).optional(),
+  });
+}
+
+type Body = z.infer<ReturnType<typeof schema>>;
+
+function parse(config: Config, input: unknown): Body {
+  const result = schema(config).safeParse(input);
+  if (result.success) return result.data;
+  const path = result.error.issues[0].path;
+  throw new AppError("invalid", path.length > 0 ? path.join(".") : "body");
+}
+
+function* handleCandidates(body: Body): Generator<string> {
+  const base = handleBase(body.name);
+  for (let i = 0; i < HANDLE_TRIES; i++) {
+    if (body.handle) yield body.handle;
+    else if (i === 0) yield base;
+    else {
+      const suffix = `_${randomInt(10_000).toString().padStart(4, "0")}`;
+      yield base.slice(0, HANDLE_MAX - suffix.length) + suffix;
+    }
+  }
+}
+
+async function claimProfile(
+  db: Db,
+  user: UserId,
+  body: Body,
+  now: string,
+): Promise<boolean> {
+  for (const handle of handleCandidates(body)) {
+    const inviteCode = `${handle}-${randomBytes(9).toString("base64url")}`;
+    const claimed = await db.query(
+      `insert into profiles (id, name, handle, invite_code, timezone, created_at)
+       values ($1, $2, $3, $4, $5, $6)
+       on conflict do nothing
+       returning id`,
+      [user, body.name, handle, inviteCode, body.timezone, now],
+    );
+    if (claimed.length > 0) return true;
+    const [{ mine, taken }] = await db.query<{ mine: boolean; taken: boolean }>(
+      `select exists (select 1 from profiles where id = $1) as mine,
+              exists (select 1 from profiles where handle = $2) as taken`,
+      [user, handle],
+    );
+    if (mine) return false;
+    if (taken && body.handle) throw new AppError("conflict", "handle");
+  }
+  throw new AppError("internal", "Could not find a free handle");
+}
+
+function secondBird(config: Config, body: Body) {
+  const { looks } = config.game.start;
+  const look = looks[(looks.indexOf(body.bird.look) + 1) % looks.length];
+  const name =
+    body.secondBird?.name ?? birdLooks[look as keyof typeof birdLooks].name;
+  return { name, look, pronoun: body.secondBird?.pronoun ?? "they" };
+}
+
+async function stockAccount(
+  db: Db,
+  config: Config,
+  user: UserId,
+  body: Body,
+  now: string,
+): Promise<void> {
+  const { start, eggs } = config.game;
+  const { fears, loves } = config.quirks;
+  const pick = (list: string[]) => list[randomInt(list.length)];
+  const birds = [body.bird, secondBird(config, body)];
+  for (const [i, bird] of birds.entries()) {
+    const stats = start.birds[i];
+    await db.query(
+      `insert into birds (owner_id, name, look, pronoun, speed_mph, focus, navigation, quirks,
+         belly, feathers, energy, care_at, last_fed_at, hatched_at)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $12, $12)`,
+      [
+        user,
+        bird.name,
+        bird.look,
+        bird.pronoun,
+        stats.speedMph,
+        stats.focus,
+        stats.navigation,
+        [pick(fears), pick(loves)],
+        start.care.belly,
+        start.care.feathers,
+        start.care.energy,
+        now,
+      ],
+    );
+  }
+  await db.query(
+    "insert into gear_owned (user_id, gear_id, acquired_at) select $1, unnest($2::text[]), $3",
+    [user, start.gear, now],
+  );
+  await db.query(
+    "insert into outfits (user_id, name, position) select $1, name, pos - 1 from unnest($2::text[]) with ordinality as o(name, pos)",
+    [user, OUTFIT_NAMES],
+  );
+  await db.query(
+    "insert into eggs (user_id, hatch_at_delivery, laid_at) values ($1, $2, $3)",
+    [user, eggs.firstAtDeliveries, now],
+  );
+  await db.query("select apply_seeds($1, $2, 'welcome', $1)", [
+    user,
+    start.seeds,
+  ]);
+}
+
+async function readAccount(db: Db, user: UserId): Promise<OnboardingResult> {
+  const [profile] = await db.query<Row<"profiles">>(
+    "select * from profiles where id = $1",
+    [user],
+  );
+  const birds = await db.query<Row<"birds">>(
+    "select * from birds where owner_id = $1 order by hatched_at, id",
+    [user],
+  );
+  return { me: toMe(profile), birds: birds.map(toBirdRecord) };
+}
+
+export async function onboard(
+  deps: Deps,
+  caller: UserId,
+  input: unknown,
+): Promise<OnboardingResult> {
+  const body = parse(deps.config, input);
+  const now = new Date(deps.clock.now()).toISOString();
+  return deps.db.tx(async (db) => {
+    if (await claimProfile(db, caller, body, now)) {
+      await stockAccount(db, deps.config, caller, body, now);
+    }
+    return readAccount(db, caller);
+  });
+}
