@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BLOCKED_NAMES, isBlocked } from "./blocklist";
+import { BLOCKED_NAMES, LETTER_CLASSES, isBlocked } from "./blocklist";
 
 const DIGITS: Record<string, string> = {
   a: "4",
@@ -39,6 +39,29 @@ const variants = (word: string) => ({
   everything: ` ${[...swap(word.toUpperCase(), { A: "4", E: "3", I: "1", O: "0" })].join(". ")}! `,
 });
 
+const substitutions = (word: string) =>
+  [...new Set(word)].flatMap((letter) =>
+    [...(LETTER_CLASSES[letter] ?? "")]
+      .filter((sub) => sub !== letter)
+      .map((sub) => [`${letter} -> ${sub}`, word.replaceAll(letter, sub)]),
+  );
+
+describe("LETTER_CLASSES", () => {
+  it.each([
+    ["g", "96"],
+    ["o", "0"],
+    ["i", "1!|"],
+    ["l", "1!|"],
+    ["e", "3"],
+    ["a", "4@"],
+    ["s", "5$"],
+    ["t", "7"],
+    ["b", "8"],
+  ])("maps %s to each of %s", (letter, subs) => {
+    for (const sub of subs) expect(LETTER_CLASSES[letter]).toContain(sub);
+  });
+});
+
 describe("isBlocked", () => {
   it("has a list to check", () => {
     expect(BLOCKED_NAMES.length).toBeGreaterThan(0);
@@ -49,12 +72,34 @@ describe("isBlocked", () => {
       expect(isBlocked(word)).toBe(true);
     });
 
+    it.each(substitutions(word))("flags %s", (_, variant) => {
+      expect(isBlocked(variant)).toBe(true);
+    });
+
     it.each(Object.entries(variants(word)))(
       "flags the %s variant",
       (_, variant) => {
         expect(isBlocked(variant)).toBe(true);
       },
     );
+  });
+
+  it.each(["ni99er", "ni99a", "ra9head", "fa99ot", "mon9oloid", "ni66er"])(
+    "flags %j",
+    (name) => {
+      expect(isBlocked(name)).toBe(true);
+    },
+  );
+
+  it.each([
+    "n i g g e r@",
+    "@n i g g e r",
+    "$n-i-g-g-e-r$",
+    "!n i g g e r!",
+    "(n-i-g-g-e-r)",
+    "n@i@g@g@e@r",
+  ])("flags %j with punctuation around it", (name) => {
+    expect(isBlocked(name)).toBe(true);
   });
 
   it.each([

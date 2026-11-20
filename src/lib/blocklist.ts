@@ -12,7 +12,7 @@ export const BLOCKED_NAMES: readonly string[] = [
   "mongoloid",
 ];
 
-const LETTER_CLASSES: Readonly<Record<string, string>> = {
+export const LETTER_CLASSES: Readonly<Record<string, string>> = {
   a: "a4@",
   b: "b8",
   e: "e3",
