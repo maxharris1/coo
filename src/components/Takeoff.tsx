@@ -18,6 +18,7 @@ type FlightProps = {
 };
 
 const TAKEOFF_DURATION = "2.5s";
+const ITERATIONS_UNTIL_LOOP_RESET_FRAME = 0.94;
 
 const motionDuration = (name: string) =>
   motion.keyframes.find((k) => k.name === name)!.duration;
@@ -46,9 +47,8 @@ function FlightSprites({
   size = flight.size,
   title,
 }: FlightProps & { flight: Flight }) {
-  // Each keyframe's 100% frame resets the loop, so stop at 94% and hold it.
   const play = (name: string) =>
-    `${name} ${flight.duration} linear 0.94 forwards`;
+    `${name} ${flight.duration} linear ${ITERATIONS_UNTIL_LOOP_RESET_FRAME} forwards`;
   return (
     <div style={{ position: "relative", width: size }}>
       <div
