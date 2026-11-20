@@ -4,6 +4,7 @@ import { useReducer, useRef } from "react";
 import type { Dispatch, FormEvent, PointerEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Bird } from "@/components/Bird";
+import { HatchScene } from "@/components/HatchScene";
 import {
   FIRST_BIRD,
   PRONOUNS,
@@ -31,50 +32,6 @@ function Arrow({ d }: { d: string }) {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-    </svg>
-  );
-}
-
-function Scene() {
-  return (
-    <svg viewBox="0 0 250 250" className={styles.scene} aria-hidden="true">
-      <circle
-        cx="125"
-        cy="125"
-        r="120"
-        fill="var(--coo-sky)"
-        stroke="var(--coo-ink)"
-        strokeWidth="3"
-      />
-      <path
-        d="M150 62 q-6 -2 -5 -8 q0 -8 10 -8 q5 -7 15 -4 q10 -3 12 6 q10 0 10 8 q0 6 -8 6 z"
-        fill="var(--coo-card)"
-        stroke="var(--coo-ink)"
-        strokeWidth="2.5"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M22 196 Q125 176 228 196 Q200 238 125 244 Q50 238 22 196 Z"
-        fill="var(--coo-mint)"
-        stroke="var(--coo-ink)"
-        strokeWidth="3"
-        strokeLinejoin="round"
-      />
-      <g
-        stroke="var(--coo-ink)"
-        strokeWidth="2.5"
-        strokeLinejoin="round"
-        fill="var(--coo-card)"
-      >
-        <path
-          d="M34 196 l7 -9 l7 9 l7 -9 l7 9 l7 -9 l7 9 q-3 20 -21 20 q-18 0 -21 -20 z"
-          transform="rotate(-14 55 205)"
-        />
-        <path
-          d="M176 200 l7 -9 l7 9 l7 -9 l7 9 l7 -9 l7 9 q-3 20 -21 20 q-18 0 -21 -20 z"
-          transform="rotate(16 197 209)"
-        />
-      </g>
     </svg>
   );
 }
@@ -129,7 +86,7 @@ export function Roommate({
     <form className={styles.form} onSubmit={submit}>
       <h2 className={styles.subtitle}>{`${state.name} has a roommate`}</h2>
       <div className={styles.stage}>
-        <Scene />
+        <HatchScene className={styles.scene} />
         <div className={styles.bird}>
           <Bird look={look} size={203} title={lookName} />
         </div>
@@ -263,7 +220,7 @@ function FirstPanel({ state, dispatch }: PanelProps) {
           onPointerUp={onPointerUp}
           onPointerCancel={() => (swipeFrom.current = null)}
         >
-          <Scene />
+          <HatchScene className={styles.scene} />
           <div key={look} className={styles.bird}>
             <Bird look={look} size={203} title={lookName} />
           </div>
