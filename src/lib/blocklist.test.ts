@@ -158,6 +158,14 @@ describe("isBlocked", () => {
     "Eric Ink",
     "Eric-Ink",
     "Eric#Ink",
+    "Bret (Hink)",
+    "Bret((Hink",
+    "Eric(#Ink",
+    "Bret -(Hink",
+    "Bret{ Hink",
+    "Eric #Ink",
+    "Eric# Ink",
+    "(Bret) (Hink)",
     "",
   ])("passes %j", (name) => {
     expect(isBlocked(name)).toBe(false);
