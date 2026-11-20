@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
-import type {
-  FlightInput,
-  FlightPlan,
-  Segment,
-  WeatherSample,
+import vectors from "../../../reference/flight-engine/vectors.json";
+import {
+  computeFlightPlan,
+  type FlightInput,
+  type FlightPlan,
+  type Segment,
+  type WeatherSample,
 } from "@/lib/flight/engine";
 import {
   bathDone,
@@ -249,6 +251,50 @@ describe("settleFlight", () => {
       settleFlight(bird({ status: "flying", energy: 50 }), plan, input, noBath)
         .energy,
     ).toBe(54);
+  });
+
+  it("caps roost recovery at 100 before spending flight energy", () => {
+    const { plan, input } = flight({
+      segments: [
+        ["roost", 8.8167],
+        ["fly", 1.8246],
+      ],
+    });
+    expect(
+      settleFlight(bird({ status: "flying", energy: 80 }), plan, input, noBath)
+        .energy,
+    ).toBe(85.4);
+  });
+
+  it("floors flight cost at 0 before roosting restores energy", () => {
+    const { plan, input } = flight({
+      segments: [
+        ["fly", 2],
+        ["roost", 2],
+      ],
+    });
+    expect(
+      settleFlight(bird({ status: "flying", energy: 10 }), plan, input, noBath)
+        .energy,
+    ).toBe(10);
+  });
+
+  it("settles the engine's night-release plan with recovery capped", () => {
+    const vector = vectors.vectors.find((v) => v.name === "night-release");
+    if (!vector) throw new Error("vectors.json has no night-release vector");
+    const [a, b, c] = vector.input.weather;
+    const input = { ...vector.input, weather: [a, b, c] } as FlightInput;
+    const start = bird({
+      belly: input.bird.belly,
+      feathers: input.bird.feathers,
+      energy: input.bird.energy,
+      careAtMs: input.departAtMs,
+      lastFedAtMs: input.departAtMs,
+      status: "flying",
+    });
+    expect(
+      settleFlight(start, computeFlightPlan(input), input, noBath).energy,
+    ).toBe(85.4);
   });
 
   it("returns the same snapshot when settled twice", () => {
