@@ -1,8 +1,23 @@
 import { describe, expect, it } from "vitest";
 import { BLOCKED_NAMES, isBlocked } from "./blocklist";
 
-const DIGITS: Record<string, string> = { a: "4", e: "3", i: "1", o: "0", s: "5", t: "7" };
-const ACCENTS: Record<string, string> = { a: "á", e: "é", i: "ï", o: "ö", u: "ü", n: "ñ", c: "ç" };
+const DIGITS: Record<string, string> = {
+  a: "4",
+  e: "3",
+  i: "1",
+  o: "0",
+  s: "5",
+  t: "7",
+};
+const ACCENTS: Record<string, string> = {
+  a: "á",
+  e: "é",
+  i: "ï",
+  o: "ö",
+  u: "ü",
+  n: "ñ",
+  c: "ç",
+};
 
 const swap = (word: string, table: Record<string, string>) =>
   [...word].map((ch) => table[ch] ?? ch).join("");
@@ -31,9 +46,12 @@ describe("isBlocked", () => {
       expect(isBlocked(word)).toBe(true);
     });
 
-    it.each(Object.entries(variants(word)))("flags the %s variant", (_, variant) => {
-      expect(isBlocked(variant)).toBe(true);
-    });
+    it.each(Object.entries(variants(word)))(
+      "flags the %s variant",
+      (_, variant) => {
+        expect(isBlocked(variant)).toBe(true);
+      },
+    );
   });
 
   it.each([
@@ -47,7 +65,7 @@ describe("isBlocked", () => {
     "Raccoon",
     "Spice",
     "Pigeon 42",
-    "Sir Coos-a-Lot",
+    "Sir Flaps-a-Lot",
     "",
   ])("passes %j", (name) => {
     expect(isBlocked(name)).toBe(false);

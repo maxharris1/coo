@@ -20,7 +20,9 @@ describe("handleBase", () => {
   });
 
   it("caps the stem at 20 characters without a trailing underscore", () => {
-    expect(handleBase("Bartholomew Featherstonehaugh")).toBe("bartholomew_feathers");
+    expect(handleBase("Bartholomew Featherstonehaugh")).toBe(
+      "bartholomew_feathers",
+    );
     expect(handleBase("abcdefghijklmnopqrs tuv")).toBe("abcdefghijklmnopqrs");
   });
 
