@@ -84,10 +84,10 @@ export async function seedWorld(db: Db, nowMs: number): Promise<World> {
     const entries = Object.entries(PEOPLE) as [keyof World, PersonSpec][];
     for (const [n, [handle, { id, name, loft, birds }]] of entries.entries()) {
       const city = CITIES[loft.city];
-      await t.query("insert into auth.users (id, phone) values ($1, $2)", [
-        id,
-        `+1555000000${n + 1}`,
-      ]);
+      await t.query(
+        "insert into auth.users (id, phone, created_at) values ($1, $2, $3)",
+        [id, `+1555000000${n + 1}`, now],
+      );
       await t.query(
         `insert into profiles (id, name, handle, invite_code, home_lat, home_lon, home_label,
            home_city, home_city_lat, home_city_lon, onboarded_at, created_at)
@@ -110,6 +110,10 @@ export async function seedWorld(db: Db, nowMs: number): Promise<World> {
         id,
         start.seeds,
       ]);
+      await t.query(
+        "update seed_ledger set created_at = $2 where user_id = $1 and reason = 'welcome' and ref_id = $1",
+        [id, now],
+      );
       for (const [i, bird] of birds.entries()) {
         const stats = start.birds[i];
         await t.query(

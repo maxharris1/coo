@@ -195,6 +195,41 @@ describe("seedWorld", () => {
     );
   });
 
+  it("stamps every stored timestamp with nowMs, not the database clock", async () => {
+    const columns = await db.query<{
+      table_schema: string;
+      table_name: string;
+      column_name: string;
+    }>(
+      `select table_schema, table_name, column_name from information_schema.columns
+        where table_schema in ('public', 'auth') and data_type = 'timestamp with time zone'`,
+    );
+    const stamped = new Set<string>();
+    const wrong = new Set<string>();
+    for (const c of columns) {
+      const name = `${c.table_schema}.${c.table_name}.${c.column_name}`;
+      const rows = await db.query<{ at: Date }>(
+        `select "${c.column_name}" as at from "${c.table_schema}"."${c.table_name}"
+          where "${c.column_name}" is not null`,
+      );
+      for (const { at } of rows) {
+        stamped.add(name);
+        if (at.getTime() !== NOW) wrong.add(name);
+      }
+    }
+    expect([...stamped]).toEqual(
+      expect.arrayContaining([
+        "auth.users.created_at",
+        "public.seed_ledger.created_at",
+        "public.profiles.created_at",
+        "public.birds.care_at",
+        "public.gear_owned.acquired_at",
+        "public.friendships.created_at",
+      ]),
+    );
+    expect([...wrong]).toEqual([]);
+  });
+
   it("pair orders two ids whichever way they come in", () => {
     expect(pair("b", "a")).toEqual(["a", "b"]);
     expect(pair("a", "b")).toEqual(["a", "b"]);
