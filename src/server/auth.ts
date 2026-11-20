@@ -107,7 +107,7 @@ const ROUTES: readonly {
   { kind: "api", exact: ["/api"], prefixes: ["/api/"], slugParents: [] },
   {
     kind: "public",
-    exact: ["/welcome", "/sign-in", "/sign-in/verify", "/dev"],
+    exact: ["/welcome", "/sign-in", "/sign-in/verify", "/offline", "/dev"],
     prefixes: [],
     slugParents: ["/dev", "/join", "/b"],
   },
