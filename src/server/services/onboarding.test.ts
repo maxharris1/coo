@@ -187,6 +187,21 @@ describe("onboard: bad input is invalid and writes nothing (ac-4)", () => {
       "secondBird.name",
     ],
     [
+      "a name with a symbol inside a slur",
+      { ...BODY, name: "xn\u2a74iggerx" },
+      "name",
+    ],
+    [
+      "a bird name with a symbol inside a slur",
+      { ...BODY, bird: { ...BODY.bird, name: "xn\u2a74iggerx" } },
+      "bird.name",
+    ],
+    [
+      "a second bird name with a symbol inside a slur",
+      { ...BODY, secondBird: { name: "xn\u2a74iggerx", pronoun: "he" } },
+      "secondBird.name",
+    ],
+    [
       "a 25-character bird name",
       { ...BODY, bird: { ...BODY.bird, name: "G".repeat(25) } },
       "bird.name",

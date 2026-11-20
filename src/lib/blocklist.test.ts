@@ -109,6 +109,13 @@ describe("isBlocked", () => {
     },
   );
 
+  it.each(["xn\u2a74iggerx", "x\u24a9iggerx"])(
+    "flags %j where a symbol normalizes to punctuation inside a word",
+    (name) => {
+      expect(isBlocked(name)).toBe(true);
+    },
+  );
+
   it.each([
     "Max",
     "Gerald",
@@ -132,6 +139,12 @@ describe("isBlocked", () => {
     "Bret:Arden",
     "Bret'Arden",
     "Bret*Arden",
+    "Margaret!Arden",
+    "Bret!Arden",
+    "Bret#Arden",
+    "Bret(Arden",
+    "Bret@Arden",
+    "Bret{Arden",
     "",
   ])("passes %j", (name) => {
     expect(isBlocked(name)).toBe(false);
