@@ -25,11 +25,13 @@ const IN_APP = [
 ];
 const IOS_OTHER_BROWSER = /CriOS|FxiOS|EdgiOS/;
 
-// iPadOS Safari asks for the desktop site by default, so it reports a Mac user
-// agent. Only the touch points give it away.
-const isIos = ({ userAgent, maxTouchPoints }: PlatformSnapshot) =>
-  /iPhone|iPad|iPod/.test(userAgent) ||
-  (/Macintosh/.test(userAgent) && maxTouchPoints > 1);
+const isIpadAskingForDesktopSite = ({
+  userAgent,
+  maxTouchPoints,
+}: PlatformSnapshot) => /Macintosh/.test(userAgent) && maxTouchPoints > 1;
+
+const isIos = (s: PlatformSnapshot) =>
+  /iPhone|iPad|iPod/.test(s.userAgent) || isIpadAskingForDesktopSite(s);
 
 export function detectPlatform(s: PlatformSnapshot): Platform {
   const ua = s.userAgent;
