@@ -9,7 +9,7 @@ import {
 } from "./auth";
 import { makeDeps, type Deps } from "./deps";
 import { AppError, toErrorResponse } from "./errors";
-import type { AuthPort } from "./ports/auth";
+import type { AuthPort, SessionJar } from "./ports/auth";
 import { requestJar } from "./supabase/cookies";
 
 export type Access = "public" | "user" | "onboarded";
@@ -60,6 +60,7 @@ async function parseBody<S extends z.ZodType>(
 type Ctx<A extends Access, S> = {
   deps: Deps;
   auth: AuthPort;
+  jar: SessionJar;
   caller: CallerFor[A];
   input: S extends z.ZodType ? z.infer<S> : undefined;
   req: NextRequest;
@@ -88,6 +89,7 @@ export function createJsonRoute(build: () => Promise<Deps>) {
         const result = await run({
           deps,
           auth,
+          jar,
           caller,
           input: input as Ctx<A, S>["input"],
           req,
