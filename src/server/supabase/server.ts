@@ -39,19 +39,47 @@ function logFailure(op: Op, error: AuthError, level: "warn" | "error") {
   });
 }
 
-const ERROR_CODE = /^[a-z0-9_]+$/;
+const KNOWN_CODES: ReadonlySet<string> = new Set([
+  "unexpected_failure",
+  "validation_failed",
+  "bad_json",
+  "bad_jwt",
+  "no_authorization",
+  "user_not_found",
+  "user_banned",
+  "signup_disabled",
+  "session_not_found",
+  "session_expired",
+  "refresh_token_not_found",
+  "refresh_token_already_used",
+  "phone_exists",
+  "phone_provider_disabled",
+  "phone_not_confirmed",
+  "sms_send_failed",
+  "otp_expired",
+  "otp_disabled",
+  "invalid_credentials",
+  "captcha_failed",
+  "over_request_rate_limit",
+  "over_sms_send_rate_limit",
+  "request_timeout",
+  "hook_timeout",
+  "hook_timeout_after_retry",
+  "weak_password",
+  "conflict",
+]);
 const API_VERSION = "x-supabase-api-version";
 
 async function errorCodes(response: Response): Promise<Record<string, string>> {
   const body: unknown = await response.json().catch(() => null);
   if (typeof body !== "object" || body === null) return {};
   return Object.fromEntries(
-    Object.entries(body).filter(
-      ([key, value]) =>
-        (key === "code" || key === "error_code") &&
-        typeof value === "string" &&
-        ERROR_CODE.test(value),
-    ),
+    Object.entries(body)
+      .filter(
+        (entry): entry is [string, string] =>
+          (entry[0] === "code" || entry[0] === "error_code") && typeof entry[1] === "string",
+      )
+      .map(([key, value]) => [key, KNOWN_CODES.has(value) ? value : "unknown"]),
   );
 }
 

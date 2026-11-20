@@ -13,7 +13,7 @@ const phone = toE164("+15551234567") as E164;
 const PHONE_FRAGMENTS = ["5551234567", "555-123-4567", "1234567"];
 const USER_ID = "8f0e7c52-4a8b-4f43-9d0c-1f2e3d4c5b6a";
 
-type Reply = { status: number; body: unknown };
+type Reply = { status: number; body: unknown; headers?: Record<string, string> };
 type Routes = Partial<Record<"otp" | "verify" | "logout" | "token", Reply>>;
 
 function echoingError(status: number, code: string): Reply {
@@ -37,7 +37,7 @@ function fakeFetch(routes: Routes): typeof fetch {
     if (!reply) throw new Error(`unexpected request to ${url.pathname}`);
     return new Response(JSON.stringify(reply.body), {
       status: reply.status,
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...reply.headers },
     });
   };
 }
@@ -291,6 +291,49 @@ describe("supabaseAuth SDK-owned logging never leaks the phone", () => {
       loggedLines().forEach(expectNoPhone);
     },
   );
+
+  describe("a provider error code that carries a phone", () => {
+    const PHONE_CODE = "phone_12025550173";
+    const phoneCode = (status: number): Reply => ({
+      status,
+      headers: { "x-supabase-api-version": "2024-01-01" },
+      body: { message: "+12025550173", code: PHONE_CODE, error_code: PHONE_CODE },
+    });
+
+    it.each([429, 400, 403])(
+      "never reaches a log on a %s session refresh",
+      async (status) => {
+        sessionCookie(1, GOOD_HEADER);
+        const auth = supabaseAuth(
+          jar,
+          env,
+          fakeFetch({ token: phoneCode(status), logout: phoneCode(status) }),
+        );
+        await auth.currentUserId();
+        await auth.signOut();
+        expect(loggedLines().join("\n")).not.toContain("12025550173");
+      },
+    );
+
+    it.each([429, 400, 403])(
+      "never reaches the error or a log when a %s send-code fails",
+      async (status) => {
+        const auth = supabaseAuth(jar, env, fakeFetch({ otp: phoneCode(status) }));
+        const error = await caught(auth.sendCode(phone));
+        expect(JSON.stringify(error)).not.toContain("12025550173");
+        expect(error.message).not.toContain("12025550173");
+        expect(loggedLines().join("\n")).not.toContain("12025550173");
+      },
+    );
+
+    it("is logged as unknown when verifying fails", async () => {
+      const auth = supabaseAuth(jar, env, fakeFetch({ verify: phoneCode(403) }));
+      await auth.verifyCode(phone, "123456");
+      expect(loggedLines().map((line) => JSON.parse(line))).toEqual([
+        expect.objectContaining({ op: "verifyCode", status: 403, code: "unknown" }),
+      ]);
+    });
+  });
 
   it("keeps the Supabase error code after redacting the body", async () => {
     const auth = supabaseAuth(
