@@ -1,6 +1,8 @@
+import { X509Certificate } from "node:crypto";
 import { beforeEach, describe, expect, it } from "vitest";
-import type { PoolClient, QueryConfig } from "pg";
+import pg, { type Pool, type PoolClient, type QueryConfig } from "pg";
 import { createPool, poolDb, type Db, type PoolLike } from "./db";
+import { SUPABASE_ROOT_2021_CA } from "./certs/supabaseRoot2021";
 import { testDb } from "@/test/testDb";
 
 describe("testDb tx", () => {
@@ -185,5 +187,117 @@ describe("createPool", () => {
       new Date("2026-11-19T12:00:00Z"),
     );
     await pool.end();
+  });
+});
+
+interface Resolved {
+  ssl: unknown;
+  application_name?: string;
+}
+
+function resolved(pool: Pool): Resolved {
+  const client = new pg.Client(pool.options) as unknown as {
+    connectionParameters: Resolved;
+  };
+  return client.connectionParameters;
+}
+
+const POOLER =
+  "postgres://u:secretpw@aws-1-us-east-1.pooler.supabase.com:6543/postgres";
+
+describe("createPool TLS", () => {
+  it.each(["", "?sslmode=verify-full"])(
+    "verifies the pooler URL%s against the bundled Supabase CA",
+    async (query) => {
+      const pool = createPool(POOLER + query);
+      const { ssl } = resolved(pool);
+      expect(ssl).toMatchObject({
+        ca: SUPABASE_ROOT_2021_CA,
+        rejectUnauthorized: true,
+      });
+      expect(ssl).not.toHaveProperty("checkServerIdentity");
+      await pool.end();
+    },
+  );
+
+  it("keeps other query params alongside verify-full", async () => {
+    const pool = createPool(
+      `${POOLER}?sslmode=verify-full&application_name=coo`,
+    );
+    const params = resolved(pool);
+    expect(params.application_name).toBe("coo");
+    expect(params.ssl).toMatchObject({
+      ca: SUPABASE_ROOT_2021_CA,
+      rejectUnauthorized: true,
+    });
+    await pool.end();
+  });
+
+  it.each([
+    ["sslmode=require", "sslmode=require"],
+    ["sslmode=no-verify", "sslmode=no-verify"],
+    ["sslmode=disable", "sslmode=disable"],
+    ["sslmode=prefer", "sslmode=prefer"],
+    ["sslmode=verify-ca", "sslmode=verify-ca"],
+    ["sslmode=verify-full&sslmode=require", "sslmode=require"],
+    ["uselibpqcompat=true&sslmode=require", "uselibpqcompat"],
+    ["ssl=0", "ssl"],
+    ["sslrootcert=/x", "sslrootcert"],
+  ])("refuses ?%s", (query, named) => {
+    let message = "";
+    try {
+      createPool(`${POOLER}?${query}`);
+    } catch (err) {
+      message = (err as Error).message;
+    }
+    expect(message).toContain(`must not set ${named}`);
+    expect(message).not.toContain("secretpw");
+  });
+
+  it("refuses an unparseable URL without carrying the password", () => {
+    let error: unknown;
+    try {
+      createPool(
+        "postgres://u:secretpw@aws-1-us-east-1.pooler.supabase.com:99999/db",
+      );
+    } catch (err) {
+      error = err;
+    }
+    expect(error).toBeInstanceOf(Error);
+    expect(JSON.stringify({ ...(error as object) })).not.toContain("secretpw");
+    expect((error as Error).message).not.toContain("secretpw");
+  });
+
+  it("verifies a localhost URL whose host param points elsewhere", async () => {
+    const pool = createPool(
+      "postgres://u:pw@localhost:5432/db?host=db.example.com",
+    );
+    expect(resolved(pool).ssl).toMatchObject({
+      ca: SUPABASE_ROOT_2021_CA,
+      rejectUnauthorized: true,
+    });
+    await pool.end();
+  });
+
+  it.each([
+    "postgres://user:pw@localhost:5432/db",
+    "postgres://user:pw@127.0.0.1:5432/db",
+    "postgres://user:pw@[::1]:5432/db",
+  ])("leaves local %s without TLS", async (url) => {
+    const pool = createPool(url);
+    expect(pool.options.connectionString).toBe(url);
+    expect(resolved(pool).ssl).toBe(false);
+    await pool.end();
+  });
+});
+
+describe("bundled Supabase Root 2021 CA", () => {
+  it("is the Supabase root with the pinned fingerprint", () => {
+    const cert = new X509Certificate(SUPABASE_ROOT_2021_CA);
+    expect(cert.subject).toMatch(/^CN=Supabase Root 2021 CA$/m);
+    expect(cert.fingerprint256).toBe(
+      "80:70:25:AD:50:D4:ED:21:9D:2C:9C:7D:29:9C:00:4F:82:4E:B0:0C:F7:F6:5A:FE:F6:07:D0:7B:72:E6:CA:FA",
+    );
+    expect(new Date(cert.validTo).getUTCFullYear()).toBe(2031);
   });
 });

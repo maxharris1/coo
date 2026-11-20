@@ -104,6 +104,8 @@ export interface Db {
 
 - Production: `pg` Pool using `DATABASE_URL`, the Supabase connection pooler in transaction mode.
   Keep the pool small (max 5 per function instance). Do not use prepared statements by name.
+  The pool verifies the pooler's TLS certificate and host name against the bundled Supabase
+  Root 2021 CA in `src/server/certs/`.
 - Tests: an adapter with the same interface over PGlite, loaded with
   `supabase/test/auth-stub.sql` then the migrations.
 - SQL is written by hand with numbered parameters. No string building from user input.
@@ -161,7 +163,7 @@ same processing for the calling user's own rows before it answers.
 | Name | What |
 |---|---|
 | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase project and its publishable key |
-| `DATABASE_URL` | Pooler connection string, transaction mode |
+| `DATABASE_URL` | Pooler connection string, transaction mode, `sslmode=verify-full`. TLS is verified against the bundled Supabase Root 2021 CA (`src/server/certs/`). Other sslmode values are refused. |
 | `CRON_SECRET` | Shared secret for `/api/cron/tick` |
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Web push keys |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM` | Text messages for landings |
