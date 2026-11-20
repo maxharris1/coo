@@ -18,7 +18,7 @@ export type JarEntry = {
 
 export interface SessionJar {
   getAll(): { name: string; value: string }[];
-  setAll(cookies: JarEntry[]): void;
+  setAll(cookies: JarEntry[], headers?: Record<string, string>): void;
 }
 
 export interface AuthPort {
