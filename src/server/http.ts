@@ -50,6 +50,17 @@ async function parseBody<S extends z.ZodType>(
   const raw: unknown = await req.json().catch(() => {
     throw new AppError("invalid", "body is not valid JSON");
   });
+  return parseInput(schema, raw);
+}
+
+export function parseQuery<S extends z.ZodType>(
+  req: NextRequest,
+  schema: S,
+): z.infer<S> {
+  return parseInput(schema, Object.fromEntries(req.nextUrl.searchParams));
+}
+
+function parseInput<S extends z.ZodType>(schema: S, raw: unknown): z.infer<S> {
   const result = schema.safeParse(raw);
   if (result.success) return result.data;
   const issue = result.error.issues[0];
