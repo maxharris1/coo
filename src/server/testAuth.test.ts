@@ -26,6 +26,8 @@ beforeEach(async () => {
   vi.stubGlobal("fetch", () => {
     throw new Error("tests must not call the network");
   });
+  vi.stubEnv("APP_ENV", "test");
+  vi.stubEnv("VERCEL_ENV", undefined);
   db = await testDb();
   jar = new FakeJar();
   clock = new FakeClock(1_800_000_000_000);
@@ -50,6 +52,15 @@ describe("testAuth fails closed", () => {
     expect(testAuthEnabled(env)).toBe(false);
     expect(() => testAuth(jar, env, db, clock)).toThrow(/test auth/i);
   });
+
+  it.each([undefined, "production", "preview", "development"])(
+    "refuses to load when the process APP_ENV is %s, whatever env it is given",
+    (appEnv) => {
+      vi.stubEnv("APP_ENV", appEnv);
+      expect(testAuthEnabled(enabled)).toBe(false);
+      expect(() => testAuth(jar, enabled, db, clock)).toThrow(/test auth/i);
+    },
+  );
 
   it("refuses to load when the process runs on Vercel production, whatever env it is given", () => {
     vi.stubEnv("VERCEL_ENV", "production");

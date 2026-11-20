@@ -1,4 +1,9 @@
-const PHONE_LIKE = /\+?\d(?:[\s.\-()]{0,2}\d){6,}/g;
+import { PHONE_SEPARATORS } from "@/lib/phone";
+
+const PHONE_LIKE = new RegExp(
+  `\\+?\\(?\\d(?:[${PHONE_SEPARATORS}]*\\d){6,}`,
+  "g",
+);
 
 export function redact(text: string): string {
   return text.replace(PHONE_LIKE, "[redacted]");
@@ -11,6 +16,11 @@ function redacting(_key: string, value: unknown): unknown {
   }
   if (value instanceof Error)
     return { name: value.name, message: value.message };
+  if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, field]) => [redact(key), field]),
+    );
+  }
   return value;
 }
 

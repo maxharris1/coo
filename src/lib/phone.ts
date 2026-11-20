@@ -1,7 +1,10 @@
 export type E164 = string & { readonly __brand: "E164" };
 
+export const PHONE_SEPARATORS = "\\s.\\-()";
+const SEPARATOR_RUNS = new RegExp(`[${PHONE_SEPARATORS}]+`, "g");
+
 export function toE164(raw: string, defaultCountry = "1"): E164 | null {
-  const compact = raw.replace(/[\s.\-()]/g, "");
+  const compact = raw.replace(SEPARATOR_RUNS, "");
   const match = /^(\+?)(\d+)$/.exec(compact);
   if (!match) return null;
   const [, plus, digits] = match;

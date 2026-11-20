@@ -26,6 +26,7 @@ export function testAuthEnabled(
 ): env is TestAuthEnv & { TEST_AUTH_SECRET: string } {
   return (
     env.APP_ENV === "test" &&
+    process.env.APP_ENV === "test" &&
     env.VERCEL_ENV !== "production" &&
     process.env.VERCEL_ENV !== "production" &&
     !!env.TEST_AUTH_SECRET
