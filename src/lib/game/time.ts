@@ -89,11 +89,16 @@ export function weekStart(ms: number, tz: string): LocalDate {
   );
 }
 
+const DAY_MS = 86_400_000;
+
 export function startOfLocalDayMs(ms: number, tz: string): number {
-  const p = partsAt(ms, tz);
-  const midnightAsUtc = Date.UTC(p.year, p.month - 1, p.day);
-  const midnightAtOffsetOfMs = midnightAsUtc - offsetMs(ms, tz);
-  return midnightAsUtc - offsetMs(midnightAtOffsetOfMs, tz);
+  const day = localDate(ms, tz);
+  const midnightAsUtc = Date.parse(day);
+  const candidates = [
+    midnightAsUtc - offsetMs(midnightAsUtc - DAY_MS, tz),
+    midnightAsUtc - offsetMs(midnightAsUtc + DAY_MS, tz),
+  ].filter((at) => localDate(at, tz) === day);
+  return Math.min(...candidates);
 }
 
 export function isTimeZone(tz: string): boolean {

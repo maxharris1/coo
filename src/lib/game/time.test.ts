@@ -42,6 +42,47 @@ describe("local day", () => {
     ).toBe(25 * HOUR);
   });
 
+  it("starts a day whose midnight repeats at the first midnight", () => {
+    const havana = "America/Havana";
+    const early = Date.parse("2026-11-01T04:30Z");
+    const late = Date.parse("2026-11-01T17:00Z");
+    expect(localDate(early, havana)).toBe(localDate(late, havana));
+    expect(startOfLocalDayMs(early, havana)).toBe(
+      Date.parse("2026-11-01T04:00Z"),
+    );
+    expect(startOfLocalDayMs(late, havana)).toBe(
+      Date.parse("2026-11-01T04:00Z"),
+    );
+  });
+
+  it("starts a day whose midnight is skipped at its first instant", () => {
+    const havana = "America/Havana";
+    const noon = Date.parse("2026-03-08T16:00Z");
+    expect(startOfLocalDayMs(noon, havana)).toBe(
+      Date.parse("2026-03-08T05:00Z"),
+    );
+  });
+
+  it("maps every instant of a local date to that date's first instant", () => {
+    const from = Date.UTC(2026, 0, 1);
+    for (const tz of [
+      NY,
+      "America/Havana",
+      "America/Santiago",
+      "Asia/Beirut",
+    ]) {
+      const starts = new Map<string, number>();
+      for (let at = from; at < from + 366 * 24 * HOUR; at += 30 * 60_000) {
+        const day = localDate(at, tz);
+        const start = startOfLocalDayMs(at, tz);
+        expect(starts.get(day) ?? start).toBe(start);
+        starts.set(day, start);
+        expect(localDate(start, tz)).toBe(day);
+        expect(localDate(start - 1, tz)).not.toBe(day);
+      }
+    }
+  });
+
   it("starts the week on the local Monday", () => {
     expect(weekStart(nyEdt(2026, 3, 8, 12), NY)).toBe("2026-03-02");
     expect(weekStart(nyEdt(2026, 3, 9, 0, 30), NY)).toBe("2026-03-09");
