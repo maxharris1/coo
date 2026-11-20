@@ -78,10 +78,6 @@ function render(f: Fixture, size: number) {
 
 describe("Bird matches the rig reference", () => {
   for (const f of fixtures) {
-    if (f.pose === "fly") {
-      it.todo(`${f.file} (flying pose, part 11b #75)`);
-      continue;
-    }
     it(f.file, () => {
       const expected = readFileSync(join(REF, f.file), "utf8");
       const width = Number(expected.match(/<svg[^>]*\swidth="(\d+)"/)![1]);
@@ -89,8 +85,9 @@ describe("Bird matches the rig reference", () => {
     });
   }
 
-  it("covers every non-fly fixture in the index", () => {
-    expect(fixtures.filter((f) => f.pose !== "fly")).toHaveLength(94);
+  it("covers every fixture in the index", () => {
+    expect(fixtures).toHaveLength(111);
+    expect(fixtures.filter((f) => f.pose === "fly")).toHaveLength(17);
   });
 });
 
@@ -158,6 +155,20 @@ describe("Bird props", () => {
     expect(renderToStaticMarkup(<Bird look="kevin" size={140} />)).toMatch(
       /width="140" height="132"/,
     );
+    expect(
+      renderToStaticMarkup(<Bird look="kevin" pose="fly" size={140} />),
+    ).toMatch(/width="140" height="102"/);
+  });
+
+  it("mirrors the bird with flip, in any pose", () => {
+    for (const pose of ["fly", "perched"] as const) {
+      expect(
+        renderToStaticMarkup(<Bird look="gerald" pose={pose} flip />),
+      ).toMatch(/^<svg[^>]*style="[^"]*transform:scaleX\(-1\)/);
+      expect(
+        renderToStaticMarkup(<Bird look="gerald" pose={pose} />),
+      ).not.toMatch(/^<svg[^>]*style="[^"]*transform/);
+    }
   });
 
   it("takes the shape from breed and the colours from look", () => {
