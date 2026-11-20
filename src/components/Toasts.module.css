@@ -1,0 +1,26 @@
+.stack {
+  position: fixed;
+  top: calc(var(--coo-safe-top) + 12px);
+  left: 50%;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(100%, 430px);
+  padding: 0 var(--coo-gutter);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.toast {
+  margin: 0;
+  padding: 12px 14px;
+  background: var(--coo-peach);
+  border: var(--coo-line);
+  border-radius: var(--coo-radius-tile);
+  box-shadow: var(--coo-shadow-1);
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.3;
+  pointer-events: auto;
+}
