@@ -52,7 +52,7 @@ export async function headersJar(): Promise<SessionJar> {
           store.set(name, value, options);
         }
       } catch {
-        // Server components cannot set cookies; the proxy's requestJar already wrote the refresh.
+        // Server components cannot set cookies; the proxy refreshes the session before they render.
       }
     },
   };

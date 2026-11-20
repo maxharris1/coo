@@ -30,7 +30,6 @@ const OUTCOMES: Record<Exclude<Op, "signOut">, (status: number) => Outcome | "re
         : "internal",
 };
 
-// Supabase echoes the phone back in error.message, so only status and code are logged.
 function logFailure(op: Op, error: AuthError, level: "warn" | "error") {
   log[level]("auth.supabase_failed", {
     adapter: "supabase",
@@ -68,7 +67,6 @@ export function supabaseAuth(
             headers,
           ),
       },
-      // @supabase/ssr defaults httpOnly to false; docs/12 requires HttpOnly session cookies.
       cookieOptions: { httpOnly: true, secure: true, sameSite: "lax", path: "/" },
       global: { fetch: fetchImpl },
     },
