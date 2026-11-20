@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createInstallReporter } from "./installReporter";
+import { createInstallReporter } from "./reportInstalled";
 
 type Call = { url: string; init?: RequestInit };
 

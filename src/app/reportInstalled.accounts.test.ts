@@ -8,7 +8,7 @@ import { makeTestDeps, type TestDeps } from "@/test/deps";
 import { FakeJar } from "@/test/fakes/jar";
 import { authRoutes } from "./api/auth/handlers";
 import { settingsPatch } from "./api/settings/patch";
-import { createInstallReporter } from "./installReporter";
+import { createInstallReporter } from "./reportInstalled";
 
 const A = "(555) 123-4567";
 const B = "(555) 765-4321";

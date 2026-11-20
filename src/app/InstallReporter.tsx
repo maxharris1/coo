@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
-import { createInstallReporter } from "./installReporter";
+import { createInstallReporter } from "./reportInstalled";
 
 const reportInstalled = createInstallReporter();
 
