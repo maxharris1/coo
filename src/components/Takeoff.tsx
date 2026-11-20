@@ -18,21 +18,20 @@ type FlightProps = {
 };
 
 const TAKEOFF_DURATION = "2.5s";
-const ITERATIONS_UNTIL_LOOP_RESET_FRAME = 0.94;
 
 const motionDuration = (name: string) =>
   motion.keyframes.find((k) => k.name === name)!.duration;
 
 const FLIGHTS = {
   takeoff: {
-    perch: "coo-takeoff-crouch",
+    perch: "coo-takeoff-crouch-held",
     fly: "coo-takeoff-fly",
     duration: TAKEOFF_DURATION,
     size: 160,
     perchOpacity: 0,
   },
   landing: {
-    perch: "coo-land-perch",
+    perch: "coo-land-perch-held",
     fly: "coo-land-fly",
     duration: motionDuration("coo-land-perch"),
     size: 150,
@@ -47,8 +46,7 @@ function FlightSprites({
   size = flight.size,
   title,
 }: FlightProps & { flight: Flight }) {
-  const play = (name: string) =>
-    `${name} ${flight.duration} linear ${ITERATIONS_UNTIL_LOOP_RESET_FRAME} forwards`;
+  const play = (name: string) => `${name} ${flight.duration} linear 1 forwards`;
   return (
     <div style={{ position: "relative", width: size }}>
       <div

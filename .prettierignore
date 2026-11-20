@@ -6,6 +6,7 @@ public/
 assets/
 reference/
 src/lib/flight/engine.ts
+src/components/flight.css
 supabase/
 docs/
 tickets/
