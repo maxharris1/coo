@@ -28,16 +28,30 @@ export const LETTER_CLASSES: Readonly<Record<string, string>> = {
 };
 
 const WORD_CHAR = "[\\p{L}\\p{N}]";
+const NON_WORD_RUN = "[^\\p{L}\\p{N}]*";
 const SYMBOL_GAP = "[^a-z\\s\\p{P}]*";
 const PUNCTUATION_GAP = "[^a-z\\s\\p{Pd}]*";
 const IN_WORD_GAP = `(?:${SYMBOL_GAP}|(?<!${WORD_CHAR}.)${PUNCTUATION_GAP}|${PUNCTUATION_GAP}(?=.(?!${WORD_CHAR})))`;
 const ANY_GAP = "[^a-z]*";
 const NORMALIZED_PUNCTUATION = "\u00a4";
 
+const JOIN_MIN_LETTERS = 2;
+const SPAN_EDGE_LETTERS = 1;
+
+function letterAt(term: string, index: number, edgeLetters: number): string {
+  const subs = [...(LETTER_CLASSES[term[index]] ?? term[index])];
+  const marks = subs.filter((sub) => /\p{P}/u.test(sub)).join("");
+  const inside = index >= edgeLetters && term.length - index > edgeLetters;
+  if (!marks || inside) return `[${subs.join("")}]`;
+  const others = subs.filter((sub) => !marks.includes(sub)).join("");
+  return `(?:[${others}]|(?<!${WORD_CHAR}${NON_WORD_RUN})[${marks}]|[${marks}](?!${NON_WORD_RUN}${WORD_CHAR}))`;
+}
+
 const BLOCKED_PATTERNS = BLOCKED_NAMES.map((term) => {
-  const letters = [...term].map((ch) => `[${LETTER_CLASSES[ch] ?? ch}]`);
-  const inWord = letters.join(IN_WORD_GAP);
-  const wholeSpan = `(?<!${WORD_CHAR})${letters.join(ANY_GAP)}(?!${WORD_CHAR})`;
+  const lettersWithEdges = (edgeLetters: number) =>
+    [...term].map((_, index) => letterAt(term, index, edgeLetters));
+  const inWord = lettersWithEdges(JOIN_MIN_LETTERS).join(IN_WORD_GAP);
+  const wholeSpan = `(?<!${WORD_CHAR})${lettersWithEdges(SPAN_EDGE_LETTERS).join(ANY_GAP)}(?!${WORD_CHAR})`;
   return new RegExp(`${inWord}|${wholeSpan}`, "su");
 });
 
