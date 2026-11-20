@@ -30,15 +30,31 @@ export function toErrorResponse(
   err: unknown,
   requestId: string,
 ): { status: number; body: { error: { code: ErrorCode; message: string } } } {
-  if (err instanceof AppError) {
+  if (isAppError(err)) {
     return {
       status: err.status,
       body: { error: { code: err.code, message: err.message } },
     };
   }
-  console.error(requestId, err instanceof Error ? err.message : String(err));
+  console.error(requestId, describe(err));
   return {
     status: ERROR_STATUS.internal,
     body: { error: { code: "internal", message: "Something went wrong" } },
   };
+}
+
+function isAppError(err: unknown): err is AppError {
+  try {
+    return err instanceof AppError;
+  } catch {
+    return false;
+  }
+}
+
+function describe(err: unknown): string {
+  try {
+    return err instanceof Error ? err.message : String(err);
+  } catch {
+    return "unprintable thrown value";
+  }
 }

@@ -64,4 +64,41 @@ describe("toErrorResponse", () => {
     expect(JSON.stringify(res)).not.toContain("boom");
     expect(log).toHaveBeenCalledWith("r3", "boom");
   });
+
+  it.each<[string, () => unknown]>([
+    ["an object with toString null", () => ({ toString: null })],
+    ["a null-prototype object", () => Object.create(null)],
+    [
+      "an object with a non-callable toString",
+      () => ({ toString: "upstream field", message: "private" }),
+    ],
+    [
+      "an Error whose message getter throws",
+      () =>
+        Object.defineProperty(new Error(), "message", {
+          get() {
+            throw new Error("getter");
+          },
+        }),
+    ],
+    [
+      "a proxy whose prototype lookup throws",
+      () =>
+        new Proxy(
+          {},
+          {
+            getPrototypeOf() {
+              throw new Error("trap");
+            },
+          },
+        ),
+    ],
+  ])("treats %s as internal", (_name, make) => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(toErrorResponse(make(), "r4")).toEqual({
+      status: 500,
+      body: { error: { code: "internal", message: "Something went wrong" } },
+    });
+    expect(log).toHaveBeenCalledWith("r4", expect.any(String));
+  });
 });

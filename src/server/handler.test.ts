@@ -88,6 +88,40 @@ describe("ac-1 error shape and serverNow", () => {
     }
   });
 
+  it.each<[string, () => unknown]>([
+    ["an object with toString null", () => ({ toString: null })],
+    ["a null-prototype object", () => Object.create(null)],
+    [
+      "an object with a non-callable toString",
+      () => ({ toString: "upstream field", message: "private" }),
+    ],
+    [
+      "a proxy whose prototype lookup throws",
+      () =>
+        new Proxy(
+          {},
+          {
+            getPrototypeOf() {
+              throw new Error("trap");
+            },
+          },
+        ),
+    ],
+  ])("responds generic internal when run throws %s", async (_name, make) => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const route = handler({}, async () => {
+      throw make();
+    });
+    const res = await route(post("{}"));
+    const text = await res.text();
+    expect(res.status).toBe(500);
+    expect(JSON.parse(text)).toEqual({
+      error: { code: "internal", message: GENERIC },
+      serverNow: clock.now(),
+    });
+    expect(text).not.toContain("private");
+  });
+
   it("names the failing field when the body fails the schema", async () => {
     const run = vi.fn(async () => ({}));
     const route = handler(
