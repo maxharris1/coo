@@ -79,8 +79,10 @@ function browser() {
   let held: Promise<void> | null = null;
   let heldPatch: Promise<void> | null = null;
   let skip = 0;
+  let heldFor: string | undefined;
   let release = () => {};
-  const holdNextSession = (after = 0) => {
+  const holdNextSession = (account?: string, after = 0) => {
+    heldFor = account;
     skip = after;
     held = new Promise((resolve) => (release = resolve));
   };
@@ -94,7 +96,15 @@ function browser() {
       await wait;
     }
     const res = await fetchImpl(path, init);
-    if (path === "/api/auth/session" && held && skip-- === 0) {
+    const names = async () =>
+      heldFor === undefined ||
+      ((await res.clone().json()) as { userId?: string }).userId === heldFor;
+    if (
+      path === "/api/auth/session" &&
+      held &&
+      (await names()) &&
+      skip-- === 0
+    ) {
       const wait = held;
       held = null;
       await wait;
@@ -258,7 +268,7 @@ describe("the installed reporter across accounts", () => {
       await signIn(B);
       await report(true, watchedFetch);
       await signIn(A);
-      holdNextSession(after);
+      holdNextSession(a, after);
       const stale = report(true, watchedFetch);
       await new Promise((resolve) => setTimeout(resolve, 0));
       await signIn(B);
