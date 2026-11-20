@@ -177,21 +177,41 @@ describe("ac-1 error shape and serverNow", () => {
 });
 
 describe("ac-2 cross-site write refusal", () => {
-  it.each(["POST", "PUT", "PATCH", "DELETE"])(
-    "%s from another origin is forbidden before run",
-    async (method) => {
+  it.each<[string, string, () => Promise<never>]>([
+    ["POST", "a rejecting", () => Promise.reject(new Error("db down"))],
+    ["PUT", "a rejecting", () => Promise.reject(new Error("db down"))],
+    ["PATCH", "a rejecting", () => Promise.reject(new Error("db down"))],
+    ["DELETE", "a rejecting", () => Promise.reject(new Error("db down"))],
+    [
+      "POST",
+      "a synchronously throwing",
+      () => {
+        throw new Error("dependency factory failed");
+      },
+    ],
+    [
+      "DELETE",
+      "a synchronously throwing",
+      () => {
+        throw new Error("dependency factory failed");
+      },
+    ],
+  ])(
+    "%s from another origin is forbidden before deps or run, with %s dependency factory",
+    async (method, _factory, fail) => {
+      const build = vi.fn(fail);
       const run = vi.fn(async () => ({ ok: true }));
-      const route = handler({}, run);
-      const res = await route(
+      const res = await createHandler(build)({}, run)(
         new Request(URL_X, {
           method,
           headers: { origin: "https://evil.example" },
         }),
       );
       expect(res.status).toBe(403);
-      const json = await res.json();
-      expect(json.error.code).toBe("forbidden");
-      expect(json.serverNow).toBe(clock.now());
+      expect(await res.json()).toEqual({
+        error: { code: "forbidden", message: "Cross-site request refused" },
+      });
+      expect(build).not.toHaveBeenCalled();
       expect(run).not.toHaveBeenCalled();
     },
   );
@@ -225,18 +245,29 @@ describe("ac-2 cross-site write refusal", () => {
     expect(res.status).toBe(200);
   });
 
-  it("responds internal without serverNow when deps cannot be built", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => {});
-    const build = vi.fn(() => Promise.reject(new Error("db down")));
-    const res = await createHandler(build)({}, async () => ({ ok: true }))(
-      new Request(URL_X, { method: "POST" }),
-    );
-    expect(build).toHaveBeenCalledTimes(1);
-    expect(res.status).toBe(500);
-    expect(await res.json()).toEqual({
-      error: { code: "internal", message: GENERIC },
-    });
-  });
+  it.each<[string, () => Promise<never>]>([
+    ["rejects", () => Promise.reject(new Error("db down"))],
+    [
+      "throws synchronously",
+      () => {
+        throw new Error("dependency factory failed");
+      },
+    ],
+  ])(
+    "responds internal without serverNow when the dependency factory %s",
+    async (_name, fail) => {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      const build = vi.fn(fail);
+      const res = await createHandler(build)({}, async () => ({ ok: true }))(
+        new Request(URL_X, { method: "POST" }),
+      );
+      expect(build).toHaveBeenCalledTimes(1);
+      expect(res.status).toBe(500);
+      expect(await res.json()).toEqual({
+        error: { code: "internal", message: GENERIC },
+      });
+    },
+  );
 });
 
 describe("input typing", () => {

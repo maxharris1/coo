@@ -39,17 +39,15 @@ export function createHandler(build: () => Promise<Deps>) {
     ) => Promise<R>,
   ): (req: Request) => Promise<Response> {
     return async (req) => {
-      let built: Promise<Deps> | undefined;
-      const deps = () => (built ??= build());
+      let d: Deps | undefined;
       try {
         checkOrigin(req);
-        const d = await deps();
+        d = await build();
         const input = opts.body ? await parseBody(req, opts.body) : undefined;
         const result = await run(d, input as Parameters<typeof run>[1], req);
         return Response.json({ ...result, serverNow: d.clock.now() });
       } catch (err) {
         const { status, body } = toErrorResponse(err, crypto.randomUUID());
-        const d = await deps().catch(() => undefined);
         if (!d) return Response.json(body, { status });
         return Response.json({ ...body, serverNow: d.clock.now() }, { status });
       }
