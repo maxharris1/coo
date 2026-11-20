@@ -1,5 +1,12 @@
 import { randomBytes } from "node:crypto";
+import { haversineMi } from "@/lib/flight/engine";
 import { fill } from "@/lib/format";
+import {
+  activeLoft,
+  endpointFor,
+  type Loft,
+  type LoftProfile,
+} from "@/lib/game/privacy";
 import type { Db } from "@/server/db";
 import type { Deps } from "@/server/deps";
 import { AppError } from "@/server/errors";
@@ -229,4 +236,137 @@ export async function block(
     await nudgeBoth(db, me, them, now);
     return {};
   });
+}
+
+type Place = Loft & { label: string; city: string };
+
+const LOFT_COLUMNS = [
+  "travel_on",
+  "home_lat",
+  "home_lon",
+  "home_label",
+  "home_city",
+  "home_city_lat",
+  "home_city_lon",
+  "travel_lat",
+  "travel_lon",
+  "travel_label",
+  "travel_city",
+  "travel_city_lat",
+  "travel_city_lon",
+] as const;
+
+type LoftColumns = Pick<Row<"profiles">, (typeof LOFT_COLUMNS)[number]>;
+
+function place(
+  lat: number | null,
+  lon: number | null,
+  label: string | null,
+  city: string | null,
+  cityLat: number | null,
+  cityLon: number | null,
+): Place | null {
+  if (lat === null || lon === null || label === null || city === null)
+    return null;
+  return {
+    roost: { lat, lon },
+    cityCentre:
+      cityLat === null || cityLon === null
+        ? null
+        : { lat: cityLat, lon: cityLon },
+    label,
+    city,
+  };
+}
+
+function loftsOf(r: LoftColumns): LoftProfile<Place> {
+  return {
+    travelOn: r.travel_on,
+    home: place(
+      r.home_lat,
+      r.home_lon,
+      r.home_label,
+      r.home_city,
+      r.home_city_lat,
+      r.home_city_lon,
+    ),
+    travel: place(
+      r.travel_lat,
+      r.travel_lon,
+      r.travel_label,
+      r.travel_city,
+      r.travel_city_lat,
+      r.travel_city_lon,
+    ),
+  };
+}
+
+export type FriendRow = {
+  id: UserId;
+  name: string;
+  handle: string;
+  shows: Shows;
+  theyShow: Shows;
+  where: string | null;
+  distanceMi: number | null;
+};
+
+export type WaitingGuestLink = { id: string; name: string; where: string };
+
+const LOFT_SELECT = LOFT_COLUMNS.map((c) => `p.${c}`).join(", ");
+
+export async function listFriends(
+  deps: Deps,
+  me: UserId,
+): Promise<{ friends: FriendRow[]; guestLinks: WaitingGuestLink[] }> {
+  const [mine] = await deps.db.query<LoftColumns>(
+    `select ${LOFT_SELECT} from profiles p where p.id = $1`,
+    [me],
+  );
+  const from = activeLoft(loftsOf(mine));
+
+  const rows = await deps.db.query<
+    LoftColumns &
+      Pick<Row<"profiles">, "id" | "name" | "handle"> & {
+        my_shows: Shows;
+        their_shows: Shows;
+      }
+  >(
+    `select p.id, p.name, p.handle, ${LOFT_SELECT},
+       case when f.a_id = $1 then f.a_shows else f.b_shows end as my_shows,
+       case when f.a_id = $1 then f.b_shows else f.a_shows end as their_shows
+     from friendships f
+     join profiles p on p.id = case when f.a_id = $1 then f.b_id else f.a_id end
+     where f.status = 'accepted' and $1 in (f.a_id, f.b_id)
+     order by p.name, p.id`,
+    [me],
+  );
+
+  const friends = rows.map((r): FriendRow => {
+    const lofts = loftsOf(r);
+    const loft = activeLoft(lofts);
+    const point = endpointFor(r.their_shows, lofts);
+    return {
+      id: r.id as UserId,
+      name: r.name,
+      handle: r.handle,
+      shows: r.my_shows,
+      theyShow: r.their_shows,
+      where: loft && (r.their_shows === "city" ? loft.city : loft.label),
+      distanceMi:
+        from && point
+          ? Math.round(haversineMi(from.roost, point) * 10) / 10
+          : null,
+    };
+  });
+
+  const guestLinks = await deps.db.query<WaitingGuestLink>(
+    `select id, recipient_name as name, dest_label as "where"
+     from guest_links
+     where sender_id = $1 and status = 'active'
+     order by created_at, id`,
+    [me],
+  );
+
+  return { friends, guestLinks };
 }

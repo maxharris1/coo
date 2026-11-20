@@ -75,8 +75,11 @@ type Ctx<A extends Access, S> = {
   jar: SessionJar;
   caller: CallerFor[A];
   input: S extends z.ZodType ? z.infer<S> : undefined;
+  params: Record<string, string>;
   req: NextRequest;
 };
+
+type RouteArg = { params: Promise<Record<string, string>> };
 
 export function createJsonRoute(build: () => Promise<Deps>) {
   return function jsonRoute<
@@ -87,8 +90,8 @@ export function createJsonRoute(build: () => Promise<Deps>) {
     access: A,
     opts: { body?: S },
     run: (ctx: Ctx<A, S>) => Promise<R>,
-  ): (req: NextRequest) => Promise<NextResponse> {
-    return async (req) => {
+  ): (req: NextRequest, route?: RouteArg) => Promise<NextResponse> {
+    return async (req, route) => {
       const { jar, commit } = requestJar(req);
       let deps: Deps | undefined;
       try {
@@ -98,12 +101,14 @@ export function createJsonRoute(build: () => Promise<Deps>) {
         const auth = deps.auth(jar);
         const caller = await CALLER[access]({ auth, db: deps.db });
         const input = opts.body ? await parseBody(req, opts.body) : undefined;
+        const params = (await route?.params) ?? {};
         const result = await run({
           deps,
           auth,
           jar,
           caller,
           input: input as Ctx<A, S>["input"],
+          params,
           req,
         });
         return commit(
