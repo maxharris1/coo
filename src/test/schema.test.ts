@@ -55,18 +55,20 @@ async function uuid(): Promise<string> {
   return (await one<{ id: string }>("select gen_random_uuid() as id")).id;
 }
 
-const OWNER_COLUMN = {
-  profiles: "id",
-  birds: "owner_id",
-  flights: "owner_id",
-  seed_ledger: "user_id",
-  eggs: "user_id",
-  events: "user_id",
+const OWNED_BY = {
+  profiles: "id = $1",
+  friendships: "a_id = $1 or b_id = $1",
+  birds: "owner_id = $1",
+  flights: "owner_id = $1",
+  notes: "sender_id = $1",
+  seed_ledger: "user_id = $1",
+  eggs: "user_id = $1",
+  events: "user_id = $1",
 };
 
-async function owned(table: string, column: string): Promise<number> {
+async function owned(table: string, where: string): Promise<number> {
   const row = await one<{ n: number }>(
-    `select count(*)::int as n from ${table} where ${column} = $1`,
+    `select count(*)::int as n from ${table} where ${where}`,
     [max],
   );
   return row.n;
@@ -197,8 +199,17 @@ describe("schema", () => {
   });
 
   it("deleting an account removes everything that belongs to it", async () => {
+    const [a, b] = [max, priya].sort();
+    await db.query("insert into friendships (a_id, b_id) values ($1, $2)", [
+      a,
+      b,
+    ]);
     const gerald = await bird(max);
     await fly(gerald, "flying");
+    await db.query(
+      "insert into notes (sender_id, recipient_id, body) values ($1, $2, 'coo')",
+      [max, priya],
+    );
     await seeds(max, 60, "welcome");
     await db.query(
       "insert into eggs (user_id, hatch_at_delivery) values ($1, 5)",
@@ -207,12 +218,12 @@ describe("schema", () => {
     await db.query("insert into events (user_id, kind) values ($1, 'flight')", [
       max,
     ]);
-    for (const [table, column] of Object.entries(OWNER_COLUMN)) {
-      expect(await owned(table, column), table).toBeGreaterThan(0);
+    for (const [table, where] of Object.entries(OWNED_BY)) {
+      expect(await owned(table, where), table).toBeGreaterThan(0);
     }
     await db.query("delete from auth.users where id = $1", [max]);
-    for (const [table, column] of Object.entries(OWNER_COLUMN)) {
-      expect(await owned(table, column), table).toBe(0);
+    for (const [table, where] of Object.entries(OWNED_BY)) {
+      expect(await owned(table, where), table).toBe(0);
     }
     const left = await one<{ n: number }>(
       "select count(*)::int as n from profiles",
