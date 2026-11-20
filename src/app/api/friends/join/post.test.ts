@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { UserId } from "@/server/ports/auth";
 import { pair } from "@/server/rows";
+import { friendshipBetween } from "@/server/services/friends";
 import { onboard } from "@/server/services/onboarding";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
 import { geoClient } from "@/test/geoRoute";
@@ -56,6 +57,21 @@ async function events(userId: string) {
     [userId],
   );
   return count;
+}
+
+async function befriendStrangers(userId: string, count: number) {
+  await deps.db.query(
+    `with users as (
+       insert into auth.users select from generate_series(1, $2) returning id
+     ), people as (
+       insert into profiles (id, name, handle, invite_code)
+       select id, 'Stranger', 's' || left(md5(id::text), 19), 'code-' || id from users
+       returning id
+     )
+     insert into friendships (a_id, b_id)
+     select least($1::uuid, id), greatest($1::uuid, id) from people`,
+    [userId, count],
+  );
 }
 
 describe("POST /api/friends/join", () => {
@@ -184,5 +200,52 @@ describe("POST /api/friends/join", () => {
     expect([rows[0].a_id, rows[0].b_id].sort()).toEqual(
       [max.id, priya.id].sort(),
     );
+  });
+
+  it("lets the 150th friend in and refuses the 151st as 429 rate_limited", async () => {
+    const priya = await onboarded("(555) 765-4321", "Priya");
+    const brenda = await onboarded("(555) 222-3333", "Brenda");
+    const max = await onboarded("(555) 123-4567", "Max");
+    await befriendStrangers(max.id, 149);
+
+    const last = await client.post({ code: priya.code }, max.jar);
+    const over = await client.post({ code: brenda.code }, max.jar);
+    const back = await client.post({ code: max.code }, brenda.jar);
+
+    expect(last.status).toBe(200);
+    expect(over.status).toBe(429);
+    expect(over.json.error.code).toBe("rate_limited");
+    expect(back.status).toBe(429);
+    expect(
+      await friendshipBetween(deps.db, max.id as UserId, brenda.id as UserId),
+    ).toBeNull();
+    expect(await notifications(brenda.id)).toEqual([]);
+    expect(await events(brenda.id)).toBe(0);
+  });
+
+  it("still answers a repeat join from an existing friend at the cap", async () => {
+    const priya = await onboarded("(555) 765-4321", "Priya");
+    const max = await onboarded("(555) 123-4567", "Max");
+    await befriendStrangers(max.id, 149);
+    await client.post({ code: priya.code }, max.jar);
+
+    const again = await client.post({ code: priya.code }, max.jar);
+
+    expect(again.status).toBe(200);
+    expect(again.json.friend.id).toBe(priya.id);
+  });
+
+  it("does not count blocked rows toward the cap", async () => {
+    const priya = await onboarded("(555) 765-4321", "Priya");
+    const max = await onboarded("(555) 123-4567", "Max");
+    await befriendStrangers(max.id, 150);
+    await deps.db.query(
+      "update friendships set status = 'blocked', blocked_by = $1 where ctid in (select ctid from friendships limit 1)",
+      [max.id],
+    );
+
+    const joined = await client.post({ code: priya.code }, max.jar);
+
+    expect(joined.status).toBe(200);
   });
 });
