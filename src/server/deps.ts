@@ -1,5 +1,6 @@
 import { getEnv, type Env } from "@/env";
 import { config, type Config } from "@/lib/config";
+import { photon } from "./adapters/photon";
 import { clockSource, type Clock } from "./clock";
 import { getDb, type Db } from "./db";
 import { AppError } from "./errors";
@@ -47,24 +48,22 @@ function notWired(port: string): Promise<never> {
 }
 
 const weather: Weather = { samples: () => notWired("weather") };
-const geocoder: Geocoder = {
-  search: () => notWired("geocoder"),
-  reverse: () => notWired("geocoder"),
-};
 const push: Push = { send: () => notWired("push") };
 const sms: Sms = { send: () => notWired("sms") };
 
 let source: ReturnType<typeof clockSource> | undefined;
+let photonFor: ReturnType<typeof photon> | undefined;
 
 export async function makeDeps(): Promise<Deps> {
   const db = getDb();
   source ??= clockSource(getEnv().APP_ENV);
   const clock = await source(db);
+  photonFor ??= photon({ baseUrl: getEnv().GEOCODER_URL });
   return {
     db,
     clock,
     weather,
-    geocoder,
+    geocoder: photonFor(db, clock),
     push,
     sms,
     config,
