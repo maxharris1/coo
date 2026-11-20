@@ -65,6 +65,7 @@ describe("local day", () => {
 
   it("maps every instant of a local date to that date's first instant", () => {
     const from = Date.UTC(2026, 0, 1);
+    const to = from + 366 * 24 * HOUR;
     for (const tz of [
       NY,
       "America/Havana",
@@ -72,13 +73,29 @@ describe("local day", () => {
       "Asia/Beirut",
     ]) {
       const starts = new Map<string, number>();
-      for (let at = from; at < from + 366 * 24 * HOUR; at += 30 * 60_000) {
+      const check = (at: number) => {
         const day = localDate(at, tz);
         const start = startOfLocalDayMs(at, tz);
         expect(starts.get(day) ?? start).toBe(start);
         starts.set(day, start);
         expect(localDate(start, tz)).toBe(day);
         expect(localDate(start - 1, tz)).not.toBe(day);
+      };
+      for (let at = from; at < to; at += 6 * HOUR) check(at);
+      const dayStarts = [...starts.values()].sort((a, b) => a - b);
+      const shifted = dayStarts.filter(
+        (start, i) =>
+          i < dayStarts.length - 1 && dayStarts[i + 1] - start !== 24 * HOUR,
+      );
+      expect(shifted).toHaveLength(2);
+      for (const start of shifted) {
+        for (
+          let at = start - 24 * HOUR;
+          at < start + 48 * HOUR;
+          at += 15 * 60_000
+        ) {
+          check(at);
+        }
       }
     }
   });
