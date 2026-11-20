@@ -8,7 +8,7 @@ import {
   type CareSnapshot,
 } from "@/lib/game/care";
 import type { GearId } from "@/lib/game/types";
-import type { Profile } from "@/server/auth";
+import type { OnboardedCaller, Profile } from "@/server/auth";
 import type { Db } from "@/server/db";
 import type { Deps } from "@/server/deps";
 import { AppError } from "@/server/errors";
@@ -159,4 +159,98 @@ export async function buy(
     );
     return { me: toMe(updated), closet: await closetOf(db, caller) };
   });
+}
+
+type GearItem = Deps["config"]["gear"]["items"][number];
+type LoftItem = Deps["config"]["game"]["loftItems"][number];
+type Perches = Deps["config"]["game"]["perches"];
+
+type ShopGear = Pick<GearItem, "id" | "name" | "slot" | "price" | "effect"> & {
+  forSale: boolean;
+  owned: boolean;
+  affordable: boolean;
+};
+type ShopLoftItem = Pick<LoftItem, "id" | "name" | "effect" | "price"> & {
+  owned: boolean;
+  affordable: boolean;
+};
+type NextPerch = {
+  number: number;
+  price: number;
+  toGo: number;
+  affordable: boolean;
+};
+export type Shop = {
+  seeds: number;
+  gear: ShopGear[];
+  loftItems: ShopLoftItem[];
+  nextPerch: NextPerch | null;
+};
+
+const loftOwned: Partial<Record<string, (profile: Profile) => boolean>> = {
+  birdbath: (profile) => profile.has_birdbath,
+};
+
+function shopGear(
+  item: GearItem,
+  seeds: number,
+  closet: readonly string[],
+): ShopGear {
+  const { id, name, slot, price, effect, available } = item;
+  return {
+    id,
+    name,
+    slot,
+    price,
+    effect,
+    forSale: available,
+    owned: closet.includes(id),
+    affordable: available && seeds >= price,
+  };
+}
+
+function shopLoftItem(item: LoftItem, profile: Profile): ShopLoftItem {
+  const { id, name, effect, price } = item;
+  return {
+    id,
+    name,
+    effect,
+    price,
+    owned: loftOwned[id]?.(profile) ?? false,
+    affordable: profile.seeds >= price,
+  };
+}
+
+function nextPerch(
+  perches: Perches,
+  owned: number,
+  seeds: number,
+): NextPerch | null {
+  if (owned >= perches.max) return null;
+  const number = owned + 1;
+  const prices: Record<string, number> = perches.prices;
+  const price = prices[String(number)];
+  return {
+    number,
+    price,
+    toGo: Math.max(0, price - seeds),
+    affordable: seeds >= price,
+  };
+}
+
+export async function listShop(
+  deps: Deps,
+  caller: OnboardedCaller,
+): Promise<Shop> {
+  const { profile } = caller;
+  const { seeds } = profile;
+  const closet = await closetOf(deps.db, caller.userId);
+  return {
+    seeds,
+    gear: deps.config.gear.items.map((item) => shopGear(item, seeds, closet)),
+    loftItems: deps.config.game.loftItems.map((item) =>
+      shopLoftItem(item, profile),
+    ),
+    nextPerch: nextPerch(deps.config.game.perches, profile.perches, seeds),
+  };
 }
