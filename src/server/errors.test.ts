@@ -37,10 +37,21 @@ describe("AppError", () => {
 describe("toErrorResponse", () => {
   afterEach(() => vi.restoreAllMocks());
 
+  const at = (requestId: string) => ({ requestId, path: "/api/x" });
+  const internal = (requestId: string) => ({
+    status: 500,
+    body: {
+      error: {
+        code: "internal",
+        message: `Something went wrong (ref ${requestId})`,
+      },
+    },
+  });
+
   it("passes an AppError through with its status and message", () => {
     const logged = vi.spyOn(log, "error").mockImplementation(() => {});
     expect(
-      toErrorResponse(new AppError("conflict", "bird not home"), "r1"),
+      toErrorResponse(new AppError("conflict", "bird not home"), at("r1")),
     ).toEqual({
       status: 409,
       body: { error: { code: "conflict", message: "bird not home" } },
@@ -48,28 +59,23 @@ describe("toErrorResponse", () => {
     expect(logged).not.toHaveBeenCalled();
   });
 
-  it("hides a plain Error behind a generic internal message and logs it", () => {
+  it("hides a plain Error behind a referenced internal message and logs only the request id and path", () => {
     const logged = vi.spyOn(log, "error").mockImplementation(() => {});
-    const res = toErrorResponse(new Error("secret detail"), "r2");
-    expect(res.status).toBe(500);
-    expect(res.body.error.code).toBe("internal");
-    expect(JSON.stringify(res)).not.toContain("secret detail");
-    expect(logged).toHaveBeenCalledWith("server.unhandled", {
+    const res = toErrorResponse(new Error("secret detail"), at("r2"));
+    expect(res).toEqual(internal("r2"));
+    expect(logged).toHaveBeenCalledOnce();
+    expect(logged).toHaveBeenCalledWith("http.internal", {
       requestId: "r2",
-      error: "secret detail",
+      path: "/api/x",
     });
+    expect(JSON.stringify(logged.mock.calls)).not.toContain("secret detail");
   });
 
-  it("treats a thrown string as internal", () => {
+  it("treats a thrown string as internal without logging it", () => {
     const logged = vi.spyOn(log, "error").mockImplementation(() => {});
-    const res = toErrorResponse("boom", "r3");
-    expect(res.status).toBe(500);
-    expect(res.body.error.code).toBe("internal");
-    expect(JSON.stringify(res)).not.toContain("boom");
-    expect(logged).toHaveBeenCalledWith("server.unhandled", {
-      requestId: "r3",
-      error: "boom",
-    });
+    const res = toErrorResponse("boom", at("r3"));
+    expect(res).toEqual(internal("r3"));
+    expect(JSON.stringify(logged.mock.calls)).not.toContain("boom");
   });
 
   it.each<[string, () => unknown]>([
@@ -102,13 +108,10 @@ describe("toErrorResponse", () => {
     ],
   ])("treats %s as internal", (_name, make) => {
     const logged = vi.spyOn(log, "error").mockImplementation(() => {});
-    expect(toErrorResponse(make(), "r4")).toEqual({
-      status: 500,
-      body: { error: { code: "internal", message: "Something went wrong" } },
-    });
-    expect(logged).toHaveBeenCalledWith("server.unhandled", {
+    expect(toErrorResponse(make(), at("r4"))).toEqual(internal("r4"));
+    expect(logged).toHaveBeenCalledWith("http.internal", {
       requestId: "r4",
-      error: expect.any(String),
+      path: "/api/x",
     });
   });
 });
