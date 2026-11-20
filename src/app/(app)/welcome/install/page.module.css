@@ -1,0 +1,232 @@
+.page {
+  box-sizing: border-box;
+  min-height: 100dvh;
+  max-width: 480px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: calc(28px + var(--coo-safe-top)) var(--coo-gutter)
+    calc(12px + var(--coo-safe-bottom));
+  background: var(--coo-sky);
+  color: var(--coo-ink);
+  font-family: var(--coo-font-body);
+}
+
+.page p {
+  margin: 0;
+}
+
+.pill {
+  align-self: flex-start;
+  padding: 4px 12px;
+  background: var(--coo-card);
+  border: var(--coo-line-thin);
+  border-radius: var(--coo-radius-pill);
+  font-weight: 900;
+  font-size: 13px;
+}
+
+.intro {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 4px;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--coo-font-display);
+  font-weight: 400;
+  font-size: 32px;
+  line-height: 1.03;
+}
+
+.subline {
+  font-weight: 800;
+  font-size: 14.5px;
+  line-height: 1.35;
+}
+
+.homeScreen {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px 12px;
+  padding: 18px 20px 12px;
+  background: #7cc3ea;
+  border: var(--coo-line);
+  border-radius: 28px;
+  box-shadow: var(--coo-shadow-2);
+}
+
+.fadedApp,
+.app {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.app {
+  gap: 3px;
+}
+
+.app svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.fadedIcon,
+.fadedLabel {
+  max-width: 100%;
+  background: var(--coo-card);
+  opacity: 0.55;
+}
+
+.fadedIcon {
+  width: 58px;
+  aspect-ratio: 1;
+  border-radius: 15px;
+}
+
+.fadedLabel {
+  height: 7px;
+  border-radius: 4px;
+}
+
+.appName {
+  font-weight: 900;
+  font-size: 13px;
+}
+
+.steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  box-sizing: border-box;
+  padding: 6px 12px 6px 8px;
+  background: var(--coo-card);
+  border: var(--coo-line);
+  border-radius: var(--coo-radius-row);
+}
+
+.step svg {
+  flex-shrink: 0;
+}
+
+.stepNumber {
+  box-sizing: content-box;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--coo-sun);
+  border: var(--coo-line-thin);
+  border-radius: 50%;
+  font-family: var(--coo-font-display);
+  font-size: 20px;
+}
+
+.stepText {
+  flex: 1;
+  min-width: 0;
+  font-weight: 900;
+  font-size: 15px;
+  line-height: 1.2;
+}
+
+.action {
+  min-height: 60px;
+  box-sizing: border-box;
+  padding: 0 12px;
+  background: var(--coo-tomato);
+  border: var(--coo-line);
+  border-radius: var(--coo-radius-button);
+  box-shadow: var(--coo-shadow-3);
+  color: var(--coo-ink);
+  font-family: var(--coo-font-display);
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.inApp {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.openIn {
+  padding: 0 4px;
+  font-weight: 900;
+  font-size: 15px;
+  text-align: center;
+}
+
+.copy {
+  min-height: var(--coo-touch);
+  padding: 0 16px;
+  background: var(--coo-sun);
+  border: var(--coo-line);
+  border-radius: var(--coo-radius-pill);
+  box-shadow: var(--coo-shadow-2);
+  color: var(--coo-ink);
+  font-family: var(--coo-font-body);
+  font-weight: 900;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.skip {
+  align-self: center;
+  min-height: var(--coo-touch);
+  display: flex;
+  align-items: center;
+  color: var(--coo-ink);
+  font-weight: 900;
+  font-size: 14.5px;
+  text-align: center;
+}
+
+.action:focus-visible,
+.copy:focus-visible,
+.skip:focus-visible {
+  outline: 3px solid var(--coo-tomato);
+  outline-offset: 2px;
+}
+
+.pointer {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.pointerLabel {
+  padding: 4px 14px;
+  background: var(--coo-sun);
+  border: var(--coo-line);
+  border-radius: var(--coo-radius-pill);
+  font-weight: 900;
+  font-size: 14px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hop,
+  .point {
+    animation: none !important;
+  }
+}
