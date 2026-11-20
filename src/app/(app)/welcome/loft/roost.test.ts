@@ -201,6 +201,20 @@ describe("townCentre", () => {
     });
   });
 
+  it("asks for the town centre of the place picked from search by its placeId", async () => {
+    const fetchImpl = vi.fn(async () =>
+      json(200, { loft: { ...LA_SOURCE, travelling: false } }),
+    );
+    const picked = await saveLoft({ placeId: "p" }, fetchImpl);
+    if (!picked.ok) throw new Error(picked.message);
+    await townCentre(picked.data, fetchImpl);
+    expect(fetchImpl).toHaveBeenLastCalledWith("/api/loft", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ placeId: "p", centre: true }),
+    });
+  });
+
   it("passes the loft's message through when the town has no centre", async () => {
     const fetchImpl = vi.fn(async () =>
       json(400, {

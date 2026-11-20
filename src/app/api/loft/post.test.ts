@@ -208,6 +208,37 @@ describe("POST /api/loft", () => {
     });
   });
 
+  it("stores the chosen Réunion town's centre when the reverse geocode leaves out the state", async () => {
+    const { id, jar } = await withProfile("(555) 123-4567", "Max");
+    const { state: _state, ...noState } = LA_SOURCE;
+    vi.spyOn(deps.geocoder, "reverse").mockResolvedValue(noState);
+    vi.spyOn(deps.geocoder, "search").mockImplementation(async (q) =>
+      q === "Saint-Denis, Réunion, France"
+        ? [REUNION_SAINT_DENIS, MAINLAND_SAINT_DENIS]
+        : [MAINLAND_SAINT_DENIS, REUNION_SAINT_DENIS],
+    );
+    const { results } = await searchPlaces(
+      deps,
+      id as UserId,
+      "Saint-Denis, Réunion",
+    );
+    const reunion = results.find((r) => r.sublabel === "Réunion, France")!;
+    const { status, json } = await client.post(
+      { placeId: reunion.placeId, centre: true },
+      jar,
+    );
+    expect(status).toBe(200);
+    expect(json.loft).toMatchObject({ lat: -20.8823, lon: 55.4504 });
+    expect(await homeOf(id)).toEqual({
+      lat: -20.8823,
+      lon: 55.4504,
+      label: "Saint-Denis",
+      city: "Saint-Denis, France",
+      cityLat: -20.8823,
+      cityLon: 55.4504,
+    });
+  });
+
   it("stores the town centre of a place chosen from search", async () => {
     const { id, jar } = await withProfile("(555) 123-4567", "Max");
     const { results } = await searchPlaces(deps, id as UserId, "Fishtown");
