@@ -99,7 +99,8 @@ function poolTarget(connectionString: string): PoolTarget {
   } catch {
     throw new Error("DATABASE_URL is not a valid URL");
   }
-  if (LOCAL_HOSTS.has(url.hostname)) return { kind: "local", connectionString };
+  if (LOCAL_HOSTS.has(url.hostname) && !url.searchParams.has("host"))
+    return { kind: "local", connectionString };
 
   for (const name of SSL_PARAMS) if (url.searchParams.has(name)) refuse(name);
   for (const mode of url.searchParams.getAll("sslmode")) {

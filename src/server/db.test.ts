@@ -268,6 +268,17 @@ describe("createPool TLS", () => {
     expect((error as Error).message).not.toContain("secretpw");
   });
 
+  it("verifies a localhost URL whose host param points elsewhere", async () => {
+    const pool = createPool(
+      "postgres://u:pw@localhost:5432/db?host=db.example.com",
+    );
+    expect(resolved(pool).ssl).toMatchObject({
+      ca: SUPABASE_ROOT_2021_CA,
+      rejectUnauthorized: true,
+    });
+    await pool.end();
+  });
+
   it.each([
     "postgres://user:pw@localhost:5432/db",
     "postgres://user:pw@127.0.0.1:5432/db",
