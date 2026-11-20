@@ -151,23 +151,34 @@ async function signedOutRequest(path: string, visitor: SignedOut) {
 
 describe("proxy for a signed-out visitor", () => {
   describe.each(SIGNED_OUT)("with $label", (visitor) => {
-    it.each(["/", "/flights"])("redirects %s to /welcome", async (path) => {
-      expectWelcomeRedirect(await signedOutRequest(path, visitor));
+    it.each(["/", "/flights", "/%66lights", "/api%E0"])(
+      "redirects %s to /welcome",
+      async (path) => {
+        expectWelcomeRedirect(await signedOutRequest(path, visitor));
+      },
+    );
+
+    it.each([
+      "/welcome",
+      "/sign-in/verify",
+      "/dev/birds",
+      "/join/k3x9",
+      "/%77elcome",
+      "/join/k3x%39",
+    ])("lets public page %s through", async (path) => {
+      expectPassThrough(await signedOutRequest(path, visitor));
     });
 
-    it.each(["/welcome", "/sign-in/verify", "/dev/birds", "/join/k3x9"])(
-      "lets public page %s through",
-      async (path) => {
-        expectPassThrough(await signedOutRequest(path, visitor));
-      },
-    );
-
-    it.each(["/api", "/api/sync", "/api/cron/tick"])(
-      "never redirects %s",
-      async (path) => {
-        expectPassThrough(await signedOutRequest(path, visitor));
-      },
-    );
+    it.each([
+      "/api",
+      "/api/sync",
+      "/api/cron/tick",
+      "/%61pi/onboarding",
+      "/api%2Fonboarding",
+      "/%61%70%69",
+    ])("never redirects %s", async (path) => {
+      expectPassThrough(await signedOutRequest(path, visitor));
+    });
   });
 
   it("redirects an expired Supabase session whose refresh fails and clears its cookies", async () => {

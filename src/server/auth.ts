@@ -62,7 +62,16 @@ const isSlugUnder = (path: string, parent: string) =>
   path.startsWith(`${parent}/`) &&
   /^[^/]+$/.test(path.slice(parent.length + 1));
 
-export function routeKind(path: string): RouteKind {
+function decodePath(path: string) {
+  try {
+    return decodeURIComponent(path);
+  } catch {
+    return path;
+  }
+}
+
+export function routeKind(rawPath: string): RouteKind {
+  const path = decodePath(rawPath);
   const route = ROUTES.find(
     ({ exact, prefixes, slugParents }) =>
       exact.includes(path) ||

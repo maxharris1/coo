@@ -157,6 +157,16 @@ describe("routeKind", () => {
     ["/b/amber-gull-42/claim", "app"],
     ["/dev/birds/extra", "app"],
     ["/join//k3x9", "app"],
+    ["/%61pi/onboarding", "api"],
+    ["/api%2Fonboarding", "api"],
+    ["/%61%70%69", "api"],
+    ["/%2561pi", "app"],
+    ["/api/%E0", "api"],
+    ["/api%E0", "app"],
+    ["/%77elcome", "public"],
+    ["/join/k3x%39", "public"],
+    ["/join%2Fk3x9", "public"],
+    ["/%66lights", "app"],
   ] as const)("%s is %s", (path, kind) => {
     expect(routeKind(path)).toBe(kind);
   });
