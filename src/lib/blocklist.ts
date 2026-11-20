@@ -13,19 +13,23 @@ export const BLOCKED_NAMES: readonly string[] = [
 ];
 
 export const LETTER_CLASSES: Readonly<Record<string, string>> = {
-  a: "a4@",
+  a: "a4@^",
   b: "b8",
-  e: "e3",
-  i: "i1",
-  l: "l1",
+  c: "c(<{¢",
+  e: "e3€",
+  g: "g96",
+  h: "h#",
+  i: "i1!|",
+  l: "l1!|",
   o: "o0",
-  s: "s5$",
-  t: "t7",
+  s: "s5$§",
+  t: "t7+",
+  z: "z2",
 };
 
 const IN_WORD_GAP = "[^a-z\\s\\p{Pd}]*";
 const ANY_GAP = "[^a-z]*";
-const WORD_EDGE = "[\\p{L}\\p{N}@$]";
+const WORD_EDGE = "[\\p{L}\\p{N}]";
 
 const BLOCKED_PATTERNS = BLOCKED_NAMES.map((term) => {
   const letters = [...term].map((ch) => `[${LETTER_CLASSES[ch] ?? ch}]`);
