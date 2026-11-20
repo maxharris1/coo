@@ -70,6 +70,11 @@ describe("FakeGeocoder", () => {
     expect(hits.length).toBeLessThanOrEqual(6);
   });
 
+  it("search matches on the first comma-separated term", async () => {
+    const [hit] = await geocoder.search("New York, New York, United States");
+    expect(hit).toMatchObject({ label: "New York", kind: "city" });
+  });
+
   it("search with no match is empty", async () => {
     expect(await geocoder.search("nowhere")).toEqual([]);
   });

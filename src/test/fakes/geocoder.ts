@@ -104,6 +104,24 @@ const PLACES: { hit: GeoHit; name: GeoName }[] = [
   },
   {
     hit: {
+      label: "New York",
+      sublabel: "NY, United States",
+      kind: "city",
+      lat: 40.7128,
+      lon: -74.006,
+      city: "New York",
+      region: "NY",
+      ...US,
+    },
+    name: {
+      city: "New York",
+      state: "New York",
+      stateCode: "NY",
+      ...US,
+    },
+  },
+  {
+    hit: {
       label: "Philadelphia",
       sublabel: "PA, United States",
       kind: "city",
@@ -173,7 +191,7 @@ const PLACES: { hit: GeoHit; name: GeoName }[] = [
 
 export class FakeGeocoder implements Geocoder {
   async search(q: string): Promise<GeoHit[]> {
-    const needle = q.toLowerCase();
+    const needle = q.split(",")[0].trim().toLowerCase();
     return PLACES.filter(({ hit }) => hit.label.toLowerCase().includes(needle))
       .slice(0, MAX_HITS)
       .map(({ hit }) => structuredClone(hit));
