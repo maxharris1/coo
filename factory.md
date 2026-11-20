@@ -18,6 +18,7 @@ hold:
     - .github/**
     - factory.md
     - src/middleware.ts
+    - src/proxy.ts
     - src/server/auth.ts
     - src/app/api/cron/**
 shared_paths:
@@ -54,7 +55,7 @@ Check every PR against `AGENTS.md` (the packet's rules for coding agents) and th
 - The service layer does authorization. Every endpoint and service gets a test that uses someone else's id and is refused.
 - CI commands: `npm run typecheck`, `npm run lint`, `npm test`, `npm run build` (and `npm run e2e` once T046 adds it). All must pass before a PR is ready. Until T001 lands `package.json`, CI only echoes a skip.
 - Never commit secrets. Name environment variables only (`.env.example` lists names with no values); Max sets real values in Vercel and Supabase himself. Never apply migrations, change config or set secrets on a hosted Supabase, Vercel or Twilio project from an agent session; that is ops, tracked in plain issues Max closes.
-- Risky areas: `supabase/migrations/`, auth and session middleware (`src/middleware.ts`, `src/server/auth.ts`), the cron tick (`src/app/api/cron/`), guest link tokens, account deletion.
+- Risky areas: `supabase/migrations/`, auth and session middleware (`src/middleware.ts`, `src/proxy.ts`, `src/server/auth.ts`), the cron tick (`src/app/api/cron/`), guest link tokens, account deletion.
 - If something in the packet is wrong or contradictory, stop and say so in the PR instead of guessing.
 - Builds for this project run on the PC only, never the Mac or the box (Max, 3:15 PM ET, 2026-11-19). The pin is set in the factory's own config, not here.
 - PRs target `main`.
