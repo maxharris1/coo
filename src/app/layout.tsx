@@ -9,12 +9,20 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: config.app.name,
   description: config.app.tagline,
+  appleWebApp: {
+    capable: true,
+    title: config.app.shortName,
+    statusBarStyle: "default",
+  },
+  icons: { apple: "/assets/app-icon/apple-touch-icon-180.png" },
+  other: { "apple-mobile-web-app-capable": "yes" },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  themeColor: config.app.themeColor,
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
