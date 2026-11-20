@@ -122,7 +122,7 @@ describe("authFor", () => {
 describe("makeDeps", () => {
   afterEach(() => vi.unstubAllEnvs());
 
-  it("wires ports that reject with an internal AppError", async () => {
+  it("wires the ports not built yet to reject with an internal AppError", async () => {
     const env = {
       NEXT_PUBLIC_SUPABASE_URL: "https://project.supabase.co",
       NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon",
@@ -145,8 +145,6 @@ describe("makeDeps", () => {
     const payload = { title: "t", body: "b", url: "/", tag: "x" };
     for (const call of [
       () => deps.weather.samples([]),
-      () => deps.geocoder.search("x"),
-      () => deps.geocoder.reverse(0, 0),
       () => deps.push.send(sub, payload),
       () => deps.sms.send("+15555550100", "hi"),
     ]) {
