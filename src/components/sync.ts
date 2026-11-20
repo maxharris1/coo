@@ -13,12 +13,14 @@ const UNREACHABLE = "We could not reach the loft. Try again.";
 async function load(
   fetchImpl: typeof fetch,
   timezone: string,
+  signal: AbortSignal,
 ): Promise<SyncResult> {
   try {
     const start = Date.now();
     const res = await fetchImpl("/api/sync", {
       headers: { "x-timezone": timezone },
       cache: "no-store",
+      signal,
     });
     const end = Date.now();
     const json: unknown = await res.json().catch(() => null);
@@ -57,14 +59,14 @@ export function startSync({
   onResult: (r: SyncResult) => void;
 }): { refresh(): void; stop(): void } {
   let inFlight = false;
-  let stopped = false;
+  const lifetime = new AbortController();
 
   const refresh = () => {
-    if (inFlight || stopped) return;
+    if (inFlight || lifetime.signal.aborted) return;
     inFlight = true;
-    void load(fetchImpl, timezone).then((result) => {
+    void load(fetchImpl, timezone, lifetime.signal).then((result) => {
       inFlight = false;
-      if (!stopped) onResult(result);
+      if (!lifetime.signal.aborted) onResult(result);
     });
   };
   const refreshIfVisible = () => {
@@ -72,16 +74,16 @@ export function startSync({
   };
 
   const timer = setInterval(refreshIfVisible, everyMs);
-  win.addEventListener("focus", refresh);
+  win.addEventListener("focus", refreshIfVisible);
   doc.addEventListener("visibilitychange", refreshIfVisible);
-  refresh();
+  refreshIfVisible();
 
   return {
     refresh,
     stop() {
-      stopped = true;
+      lifetime.abort();
       clearInterval(timer);
-      win.removeEventListener("focus", refresh);
+      win.removeEventListener("focus", refreshIfVisible);
       doc.removeEventListener("visibilitychange", refreshIfVisible);
     },
   };

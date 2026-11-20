@@ -86,6 +86,82 @@ describe("startSync", () => {
     s.sync.stop();
   });
 
+  it("never loads on focus while hidden", async () => {
+    const s = setup();
+    await s.respond(200, ok);
+    await vi.advanceTimersByTimeAsync(EVERY_MS);
+    await s.respond(200, ok);
+    s.focus();
+    await s.respond(200, ok);
+    expect(s.fetch, "visible poll and focus load").toHaveBeenCalledTimes(3);
+    s.setVisibility("hidden");
+    await vi.advanceTimersByTimeAsync(EVERY_MS);
+    s.focus();
+    await vi.advanceTimersByTimeAsync(EVERY_MS);
+    expect(s.fetch, "no load while hidden").toHaveBeenCalledTimes(3);
+    s.sync.stop();
+  });
+
+  it("waits for the tab to become visible before the first load", async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>(
+      () => new Promise<Response>(() => {}),
+    );
+    const win = new EventTarget();
+    const doc = Object.assign(new EventTarget(), {
+      visibilityState: "hidden" as DocumentVisibilityState,
+    });
+    const sync = startSync({
+      fetch,
+      win,
+      doc,
+      everyMs: EVERY_MS,
+      timezone: "Europe/London",
+      onResult: () => {},
+    });
+    win.dispatchEvent(new Event("focus"));
+    await vi.advanceTimersByTimeAsync(EVERY_MS);
+    expect(fetch, "no load while hidden").not.toHaveBeenCalled();
+    doc.visibilityState = "visible";
+    doc.dispatchEvent(new Event("visibilitychange"));
+    expect(fetch).toHaveBeenCalledTimes(1);
+    sync.stop();
+  });
+
+  it("keeps one request in flight across stop and restart", async () => {
+    let active = 0;
+    let maximum = 0;
+    const fetch = vi.fn<typeof globalThis.fetch>(
+      (_url, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          maximum = Math.max(maximum, ++active);
+          init!.signal!.addEventListener("abort", () => {
+            active--;
+            reject(init!.signal!.reason);
+          });
+        }),
+    );
+    const results: SyncResult[] = [];
+    const start = () =>
+      startSync({
+        fetch,
+        win: new EventTarget(),
+        doc: Object.assign(new EventTarget(), {
+          visibilityState: "visible" as DocumentVisibilityState,
+        }),
+        everyMs: EVERY_MS,
+        timezone: "Europe/London",
+        onResult: (r) => results.push(r),
+      });
+    start().stop();
+    const sync = start();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(maximum, "requests in flight at once").toBe(1);
+    expect(results, "the aborted load reports nothing").toEqual([]);
+    sync.stop();
+    expect(active, "stop cancels the pending request").toBe(0);
+  });
+
   it("keeps at most one request in flight", async () => {
     const s = setup();
     s.focus();
@@ -129,6 +205,7 @@ describe("startSync", () => {
     expect(s.fetch).toHaveBeenCalledWith("/api/sync", {
       headers: { "x-timezone": "Europe/London" },
       cache: "no-store",
+      signal: expect.any(AbortSignal),
     });
     s.sync.stop();
   });
