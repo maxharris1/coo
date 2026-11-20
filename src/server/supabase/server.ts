@@ -39,6 +39,38 @@ function logFailure(op: Op, error: AuthError, level: "warn" | "error") {
   });
 }
 
+const ERROR_CODE = /^[a-z0-9_]+$/;
+const API_VERSION = "x-supabase-api-version";
+
+async function errorCodes(response: Response): Promise<Record<string, string>> {
+  const body: unknown = await response.json().catch(() => null);
+  if (typeof body !== "object" || body === null) return {};
+  return Object.fromEntries(
+    Object.entries(body).filter(
+      ([key, value]) =>
+        (key === "code" || key === "error_code") &&
+        typeof value === "string" &&
+        ERROR_CODE.test(value),
+    ),
+  );
+}
+
+function withoutErrorText(fetchImpl: typeof fetch): typeof fetch {
+  return async (input, init) => {
+    const response = await fetchImpl(input, init);
+    if (response.ok) return response;
+    return Response.json(
+      { msg: `HTTP ${response.status}`, ...(await errorCodes(response)) },
+      {
+        status: response.status,
+        headers: Object.fromEntries(
+          [...response.headers].filter(([name]) => name === API_VERSION),
+        ),
+      },
+    );
+  };
+}
+
 function fail(op: Exclude<Op, "signOut">, error: AuthError) {
   const outcome = OUTCOMES[op](error.status ?? 0);
   logFailure(op, error, outcome === "internal" ? "error" : "warn");
@@ -68,7 +100,7 @@ export function supabaseAuth(
           ),
       },
       cookieOptions: { httpOnly: true, secure: true, sameSite: "lax", path: "/" },
-      global: { fetch: fetchImpl },
+      global: { fetch: withoutErrorText(fetchImpl) },
     },
   );
 
@@ -92,8 +124,12 @@ export function supabaseAuth(
     },
 
     async currentUserId() {
-      const { data, error } = await auth.getClaims();
-      return error || !data ? null : (data.claims.sub as UserId);
+      try {
+        const { data, error } = await auth.getClaims();
+        return error || !data ? null : (data.claims.sub as UserId);
+      } catch {
+        return null;
+      }
     },
 
     async signOut() {

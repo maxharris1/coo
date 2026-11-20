@@ -1,3 +1,4 @@
+import { format } from "node:util";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { toE164, type E164 } from "@/lib/phone";
 import { AppError } from "@/server/errors";
@@ -88,11 +89,7 @@ afterEach(() => {
 
 function loggedLines(): string[] {
   return consoleSpies.flatMap((spy) =>
-    spy.mock.calls.map((args) =>
-      args
-        .map((arg) => (typeof arg === "string" ? arg : JSON.stringify(arg)))
-        .join(" "),
-    ),
+    spy.mock.calls.map((args) => format(...args)),
   );
 }
 
@@ -233,6 +230,94 @@ describe("supabaseAuth sessions", () => {
       jar,
       env,
       fakeFetch({ logout: { status: 500, body: { msg: "down" } } }),
+    );
+    await auth.signOut();
+    expect(jar.getAll().some((c) => c.name.startsWith("sb-"))).toBe(false);
+  });
+});
+
+function sessionCookie(exp: number, header: string) {
+  const access = `${header}.${base64url({ ...session, sub: USER_ID, exp })}.c2ln`;
+  jar.setAll([
+    {
+      name: "sb-example-auth-token",
+      value: `base64-${base64url({ ...session, access_token: access, expires_at: exp })}`,
+      options: {},
+    },
+  ]);
+}
+
+const GOOD_HEADER = base64url({ alg: "HS256", typ: "JWT" });
+
+function textReply(status: number): typeof fetch {
+  return async () => new Response(`${phone} rejected`, { status });
+}
+
+describe("supabaseAuth SDK-owned logging never leaks the phone", () => {
+  for (const op of ["currentUserId", "signOut"] as const) {
+    it.each([429, 400, 403])(
+      `${op} with an expired session and a %s refresh logs no phone`,
+      async (status) => {
+        sessionCookie(1, GOOD_HEADER);
+        const auth = supabaseAuth(
+          jar,
+          env,
+          fakeFetch({
+            token: echoingError(status, "refresh_token_not_found"),
+            logout: echoingError(status, "refresh_token_not_found"),
+          }),
+        );
+        await auth[op]();
+        loggedLines().forEach(expectNoPhone);
+      },
+    );
+  }
+
+  it.each([400, 429])(
+    "a %s non-JSON refresh body echoing the phone never reaches a log",
+    async (status) => {
+      sessionCookie(1, GOOD_HEADER);
+      await supabaseAuth(jar, env, textReply(status)).currentUserId();
+      loggedLines().forEach(expectNoPhone);
+    },
+  );
+
+  it.each([400, 429, 503])(
+    "a %s non-JSON send-code body echoing the phone never reaches a log or error",
+    async (status) => {
+      const auth = supabaseAuth(jar, env, textReply(status));
+      const error = await caught(auth.sendCode(phone));
+      expectNoPhone(error.message);
+      loggedLines().forEach(expectNoPhone);
+    },
+  );
+
+  it("keeps the Supabase error code after redacting the body", async () => {
+    const auth = supabaseAuth(
+      jar,
+      env,
+      fakeFetch({ verify: echoingError(403, "otp_expired") }),
+    );
+    await auth.verifyCode(phone, "123456");
+    expect(JSON.parse(loggedLines()[0])).toMatchObject({ code: "otp_expired" });
+  });
+});
+
+describe("supabaseAuth with a corrupted session cookie", () => {
+  const BAD_HEADER = Buffer.from("{not json").toString("base64url");
+
+  it("has no current user", async () => {
+    sessionCookie(FAR_FUTURE, BAD_HEADER);
+    const auth = supabaseAuth(jar, env, fakeFetch({}));
+    await expect(auth.currentUserId()).resolves.toBeNull();
+  });
+
+  it("still clears the session cookies on sign-out", async () => {
+    sessionCookie(FAR_FUTURE, BAD_HEADER);
+    const auth = supabaseAuth(
+      jar,
+      env,
+      fakeFetch({ logout: { status: 204, body: {} } }),
     );
     await auth.signOut();
     expect(jar.getAll().some((c) => c.name.startsWith("sb-"))).toBe(false);
