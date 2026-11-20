@@ -12,7 +12,9 @@ function fakeFetch(...outcomes: (number | Error)[]) {
     calls.push({ url, init });
     const next = outcomes.shift() ?? 200;
     if (next instanceof Error) throw next;
-    return new Response("{}", { status: next });
+    return next === 200
+      ? Response.json({ me: { id: "u1" } })
+      : new Response("{}", { status: next });
   }) as typeof fetch;
   return { calls, impl };
 }
@@ -22,7 +24,7 @@ const INSTALLED = {
   init: {
     method: "PATCH",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ installed: true }),
+    body: JSON.stringify({ installed: true, account: "u1" }),
   },
 };
 

@@ -1,3 +1,5 @@
+type Session = { userId: string; onboarded: boolean };
+
 export function createInstallReporter() {
   const reported = new Set<string>();
   let pending = false;
@@ -7,20 +9,27 @@ export function createInstallReporter() {
   ): Promise<void> {
     if (!isStandalone || pending) return;
     pending = true;
+    const getSession = async (): Promise<Session | null> => {
+      const res = await fetchImpl("/api/auth/session");
+      return res.ok ? ((await res.json()) as Session) : null;
+    };
     try {
-      const session = await fetchImpl("/api/auth/session");
-      if (!session.ok) return;
-      const { userId, onboarded } = (await session.json()) as {
-        userId: string;
-        onboarded: boolean;
-      };
-      if (!onboarded || reported.has(userId)) return;
-      const res = await fetchImpl("/api/settings", {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ installed: true }),
-      });
-      if (res.ok) reported.add(userId);
+      let session = await getSession();
+      while (session?.onboarded && !reported.has(session.userId)) {
+        const res = await fetchImpl("/api/settings", {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ installed: true, account: session.userId }),
+        });
+        if (res.ok) {
+          reported.add(session.userId);
+          return;
+        }
+        if (res.status !== 409) return;
+        const current = await getSession();
+        if (current?.userId === session.userId) return;
+        session = current;
+      }
     } catch {
       return;
     } finally {

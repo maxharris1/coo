@@ -75,7 +75,63 @@ function browser() {
   const signOut = () => post("/api/auth/sign-out", {});
   const patches = () => requests.filter((r) => r === "PATCH /api/settings");
 
-  return { fetchImpl, signIn, signOut, patches };
+  const patched: string[] = [];
+  let held: Promise<void> | null = null;
+  let heldPatch: Promise<void> | null = null;
+  let skip = 0;
+  let heldFor: string | undefined;
+  let release = () => {};
+  const holdNextSession = (account?: string, after = 0) => {
+    heldFor = account;
+    skip = after;
+    held = new Promise((resolve) => (release = resolve));
+  };
+  const holdNextPatch = () => {
+    heldPatch = new Promise((resolve) => (release = resolve));
+  };
+  const watchedFetch = (async (path: string, init: RequestInit = {}) => {
+    if (init.method === "PATCH" && heldPatch) {
+      const wait = heldPatch;
+      heldPatch = null;
+      await wait;
+    }
+    const res = await fetchImpl(path, init);
+    const names = async () =>
+      heldFor === undefined ||
+      ((await res.clone().json()) as { userId?: string }).userId === heldFor;
+    if (
+      path === "/api/auth/session" &&
+      held &&
+      (await names()) &&
+      skip-- === 0
+    ) {
+      const wait = held;
+      held = null;
+      await wait;
+    }
+    if (init.method === "PATCH" && res.ok) {
+      const { me } = (await res.clone().json()) as { me: { id: string } };
+      patched.push(me.id);
+    }
+    return res;
+  }) as typeof fetch;
+  const patchesFor = (id: string) => patched.filter((p) => p === id).length;
+
+  return {
+    fetchImpl,
+    signIn,
+    signOut,
+    patches,
+    watchedFetch,
+    holdNextSession,
+    holdNextPatch,
+    release: () => {
+      held = null;
+      heldPatch = null;
+      release();
+    },
+    patchesFor,
+  };
 }
 
 async function onboarded(number: string) {
@@ -169,5 +225,94 @@ describe("the installed reporter across accounts", () => {
     await report(true, fetchImpl);
     expect(await installed(a)).toBe(true);
     expect(patches()).toHaveLength(sent);
+  });
+
+  it("reports the account that is signed in when a session answer arrives late", async () => {
+    const a = await onboarded(A);
+    const b = await onboarded(B);
+    const { watchedFetch, signIn, holdNextSession, release, patchesFor } =
+      browser();
+    const report = createInstallReporter();
+
+    await signIn(A);
+    holdNextSession();
+    const first = report(true, watchedFetch);
+    await signIn(B);
+    await report(true, watchedFetch);
+    release();
+    await first;
+    await report(true, watchedFetch);
+    await signIn(A);
+    await report(true, watchedFetch);
+
+    expect({
+      A: await installed(a),
+      B: await installed(b),
+      patchesA: patchesFor(a),
+      patchesB: patchesFor(b),
+    }).toEqual({ A: true, B: true, patchesA: 1, patchesB: 1 });
+  });
+
+  it.each([
+    ["first", 0],
+    ["second", 1],
+  ])(
+    "never PATCHes an already reported account when the %s session answer for another arrives after a switch back",
+    async (_, after) => {
+      const a = await onboarded(A);
+      const b = await onboarded(B);
+      const { watchedFetch, signIn, holdNextSession, release, patchesFor } =
+        browser();
+      const report = createInstallReporter();
+
+      await signIn(B);
+      await report(true, watchedFetch);
+      await signIn(A);
+      holdNextSession(a, after);
+      const stale = report(true, watchedFetch);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await signIn(B);
+      await report(true, watchedFetch);
+      release();
+      await stale;
+      await report(true, watchedFetch);
+      await signIn(A);
+      await report(true, watchedFetch);
+
+      expect({
+        A: await installed(a),
+        B: await installed(b),
+        patchesA: patchesFor(a),
+        patchesB: patchesFor(b),
+      }).toEqual({ A: true, B: true, patchesA: 1, patchesB: 1 });
+    },
+  );
+
+  it("never PATCHes an already reported account when the switch lands between the check and the write", async () => {
+    const a = await onboarded(A);
+    const b = await onboarded(B);
+    const { watchedFetch, signIn, holdNextPatch, release, patchesFor } =
+      browser();
+    const report = createInstallReporter();
+
+    await signIn(B);
+    await report(true, watchedFetch);
+    await signIn(A);
+    holdNextPatch();
+    const stale = report(true, watchedFetch);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await signIn(B);
+    release();
+    await stale;
+    await report(true, watchedFetch);
+    await signIn(A);
+    await report(true, watchedFetch);
+
+    expect({
+      A: await installed(a),
+      B: await installed(b),
+      patchesA: patchesFor(a),
+      patchesB: patchesFor(b),
+    }).toEqual({ A: true, B: true, patchesA: 1, patchesB: 1 });
   });
 });

@@ -104,4 +104,38 @@ describe("PATCH /api/settings", () => {
     expect((await columns(id)).installed).toBe(true);
     expect((await columns(other.id)).installed).toBe(false);
   });
+
+  it("refuses an install checked for another account as 409 conflict and writes nothing", async () => {
+    const other = await onboarded("(555) 765-4321", "Brenda");
+    const { id, jar } = await onboarded("(555) 123-4567", "Max");
+    const { status, json } = await client.patch(
+      { installed: true, account: other.id },
+      jar,
+    );
+    expect(status).toBe(409);
+    expect(json.error.code).toBe("conflict");
+    expect((await columns(id)).installed).toBe(false);
+    expect((await columns(other.id)).installed).toBe(false);
+  });
+
+  it("records the install when the checked account is the caller", async () => {
+    const { id, jar } = await onboarded("(555) 123-4567", "Max");
+    const { status, json } = await client.patch(
+      { installed: true, account: id },
+      jar,
+    );
+    expect(status).toBe(200);
+    expect(json.me).toMatchObject({ id, installed: true });
+    expect((await columns(id)).installed).toBe(true);
+  });
+
+  it("answers a checked account that is not an id with 400 invalid", async () => {
+    const { id, jar } = await onboarded("(555) 123-4567", "Max");
+    const { status } = await client.patch(
+      { installed: true, account: "me" },
+      jar,
+    );
+    expect(status).toBe(400);
+    expect((await columns(id)).installed).toBe(false);
+  });
 });
