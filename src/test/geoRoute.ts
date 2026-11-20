@@ -21,14 +21,31 @@ export function geoClient(
     return { id, jar };
   }
 
-  async function get(query: Record<string, string>, jar?: FakeJar) {
-    const cookie = (jar?.getAll() ?? [])
+  const cookieHeader = (jar?: FakeJar) =>
+    (jar?.getAll() ?? [])
       .map(({ name, value }) => `${name}=${value}`)
       .join("; ");
+
+  async function get(query: Record<string, string>, jar?: FakeJar) {
+    const cookie = cookieHeader(jar);
     const url = `https://coo.test${path}?${new URLSearchParams(query)}`;
     const res = await handler(new NextRequest(url, { headers: { cookie } }));
     return { status: res.status, json: await res.json() };
   }
 
-  return { signIn, get };
+  async function post(body: unknown, jar?: FakeJar) {
+    const res = await handler(
+      new NextRequest(`https://coo.test${path}`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie: cookieHeader(jar),
+        },
+        body: JSON.stringify(body),
+      }),
+    );
+    return { status: res.status, json: await res.json() };
+  }
+
+  return { signIn, get, post };
 }
