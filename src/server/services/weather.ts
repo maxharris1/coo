@@ -4,6 +4,39 @@ import { log } from "@/server/log";
 import type { WeatherQuery } from "@/server/ports/weather";
 
 const TIMEOUT_MS = 2000;
+const REASON_MAX_LENGTH = 200;
+const DECIMAL = /-?\d+\.\d+/g;
+
+type ErrorSummary = { errorType: string; reason: string };
+
+const UNDESCRIBABLE: ErrorSummary = {
+  errorType: "unknown",
+  reason: "undescribable error",
+};
+
+function sanitize(text: string): string {
+  return text.replace(DECIMAL, "[redacted]").slice(0, REASON_MAX_LENGTH);
+}
+
+function describeError(error: unknown): ErrorSummary {
+  try {
+    if (error instanceof Error) {
+      return {
+        errorType: sanitize(String(error.name)),
+        reason: sanitize(String(error.message)),
+      };
+    }
+    if (typeof error === "string") {
+      return { errorType: "string", reason: sanitize(error) };
+    }
+    return {
+      errorType: error === null ? "null" : typeof error,
+      reason: "non-error thrown",
+    };
+  } catch {
+    return UNDESCRIBABLE;
+  }
+}
 
 export async function sampleWeather(
   deps: Deps,
@@ -27,9 +60,7 @@ export async function sampleWeather(
     }
     return { samples, fallback: false };
   } catch (error) {
-    log.warn("weather.fallback", {
-      reason: error instanceof Error ? error.message : String(error),
-    });
+    log.warn("weather.fallback", describeError(error));
     return {
       samples: at.map(() => structuredClone(deps.config.game.weather.fallback)),
       fallback: true,

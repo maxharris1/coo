@@ -148,4 +148,50 @@ describe("sampleWeather (ac-3)", () => {
     });
     expect(line).not.toMatch(/40\.708|73\.957/);
   });
+
+  function throwing(): never {
+    throw new Error("boom");
+  }
+
+  it.each([
+    ["a null-prototype object", () => Object.create(null)],
+    ["null", () => null],
+    ["undefined", () => undefined],
+    ["an object whose toString throws", () => ({ toString: throwing })],
+    [
+      "an object whose Symbol.toPrimitive throws",
+      () => ({ [Symbol.toPrimitive]: throwing }),
+    ],
+    [
+      "an Error whose message getter throws",
+      () => Object.defineProperty(new Error(), "message", { get: throwing }),
+    ],
+    [
+      "a Proxy whose getPrototypeOf trap throws",
+      () => new Proxy({}, { getPrototypeOf: throwing }),
+    ],
+  ])("falls back when the port rejects with %s", async (_, rejection) => {
+    const broken = withPort(() => Promise.reject(rejection()));
+
+    await expect(sampleWeather(broken, QUERIES.slice(0, 1))).resolves.toEqual({
+      samples: fallbacks(1),
+      fallback: true,
+    });
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("redacts coordinates from the port's error message", async () => {
+    const broken = withPort(() =>
+      Promise.reject(new Error("no data at 40.7081,-73.9571")),
+    );
+
+    await sampleWeather(broken, QUERIES);
+
+    const line = String(warn.mock.calls[0][0]);
+    expect(JSON.parse(line)).toMatchObject({
+      event: "weather.fallback",
+      errorType: "Error",
+    });
+    expect(line).not.toMatch(/40\.708|73\.957/);
+  });
 });
