@@ -1,3 +1,5 @@
+import { log } from "./log";
+
 export const ERROR_STATUS = {
   unauthenticated: 401,
   not_onboarded: 409,
@@ -23,5 +25,38 @@ export class AppError extends Error {
     super(message);
     this.name = "AppError";
     this.status = ERROR_STATUS[code];
+  }
+}
+
+export function toErrorResponse(
+  err: unknown,
+  requestId: string,
+): { status: number; body: { error: { code: ErrorCode; message: string } } } {
+  if (isAppError(err)) {
+    return {
+      status: err.status,
+      body: { error: { code: err.code, message: err.message } },
+    };
+  }
+  log.error("server.unhandled", { requestId, error: describe(err) });
+  return {
+    status: ERROR_STATUS.internal,
+    body: { error: { code: "internal", message: "Something went wrong" } },
+  };
+}
+
+function isAppError(err: unknown): err is AppError {
+  try {
+    return err instanceof AppError;
+  } catch {
+    return false;
+  }
+}
+
+function describe(err: unknown): string {
+  try {
+    return err instanceof Error ? err.message : String(err);
+  } catch {
+    return "unprintable thrown value";
   }
 }
