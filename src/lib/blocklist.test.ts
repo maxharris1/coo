@@ -32,6 +32,9 @@ const variants = (word: string) => ({
   mixedPunctuation: [...word].join("-_*"),
   digits: swap(word, DIGITS),
   symbols: word.replace(/a/g, "@").replace(/s/g, "$"),
+  atSeparated: [...word].join("@"),
+  dollarSeparated: [...word].join("$"),
+  symbolsSeparated: [...word.replace(/a/g, "@").replace(/s/g, "$")].join("@"),
   embedded: `the ${word} bird`,
   everything: ` ${[...swap(word.toUpperCase(), { A: "4", E: "3", I: "1", O: "0" })].join(". ")}! `,
 });
@@ -66,6 +69,9 @@ describe("isBlocked", () => {
     "Spice",
     "Pigeon 42",
     "Sir Flaps-a-Lot",
+    "Margaret Arden",
+    "Bret Arden",
+    "Bret-Arden",
     "",
   ])("passes %j", (name) => {
     expect(isBlocked(name)).toBe(false);

@@ -12,26 +12,29 @@ export const BLOCKED_NAMES: readonly string[] = [
   "mongoloid",
 ];
 
-const LEET: Readonly<Record<string, string>> = {
-  "0": "o",
-  "3": "e",
-  "4": "a",
-  "5": "s",
-  "7": "t",
-  "8": "b",
-  "@": "a",
-  $: "s",
+const LETTER_CLASSES: Readonly<Record<string, string>> = {
+  a: "a4@",
+  b: "b8",
+  e: "e3",
+  i: "i1",
+  l: "l1",
+  o: "o0",
+  s: "s5$",
+  t: "t7",
 };
 
-const BLOCKED_PATTERNS = BLOCKED_NAMES.map(
-  (term) => new RegExp(term.replace(/[il]/g, (ch) => `[${ch}1]`)),
-);
+const IN_WORD_GAP = "[^a-z\\s\\p{Pd}]*";
+const ANY_GAP = "[^a-z]*";
+const WORD_EDGE = "[\\p{L}\\p{N}@$]";
+
+const BLOCKED_PATTERNS = BLOCKED_NAMES.map((term) => {
+  const letters = [...term].map((ch) => `[${LETTER_CLASSES[ch] ?? ch}]`);
+  const inWord = letters.join(IN_WORD_GAP);
+  const wholeSpan = `(?<!${WORD_EDGE})${letters.join(ANY_GAP)}(?!${WORD_EDGE})`;
+  return new RegExp(`${inWord}|${wholeSpan}`, "u");
+});
 
 export function isBlocked(name: string): boolean {
   const folded = name.normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase();
-  const collapsed = [...folded]
-    .map((ch) => LEET[ch] ?? ch)
-    .join("")
-    .replace(/[^a-z1]/g, "");
-  return BLOCKED_PATTERNS.some((pattern) => pattern.test(collapsed));
+  return BLOCKED_PATTERNS.some((pattern) => pattern.test(folded));
 }
