@@ -27,7 +27,11 @@ export const LETTER_CLASSES: Readonly<Record<string, string>> = {
   z: "z2",
 };
 
-const IN_WORD_GAP = "[^a-z\\s\\p{Pd}]*";
+const SUBSTITUTES = [...new Set(Object.values(LETTER_CLASSES).join(""))]
+  .filter((ch) => !/[a-z]/.test(ch))
+  .join("")
+  .replace(/[\\\]^-]/g, "\\$&");
+const IN_WORD_GAP = `(?:[^a-z\\s\\p{P}]|[${SUBSTITUTES}])*`;
 const ANY_GAP = "[^a-z]*";
 const WORD_EDGE = "[\\p{L}\\p{N}]";
 
