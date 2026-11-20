@@ -123,6 +123,40 @@ describe("ac-1 error shape and serverNow", () => {
     expect(text).not.toContain("private");
   });
 
+  it("responds generic internal through the real logger when an Error message throws under inspection", async () => {
+    const sink = vi.spyOn(console, "error").mockImplementation(() => {});
+    const message = {
+      get detail(): never {
+        throw new Error("getter");
+      },
+      toJSON(): never {
+        throw new Error("toJSON");
+      },
+      toString(): never {
+        throw new Error("toString");
+      },
+      [Symbol.for("nodejs.util.inspect.custom")](): never {
+        throw new Error("inspect");
+      },
+    };
+    const err = new Error();
+    Object.defineProperty(err, "message", { value: message });
+    const route = handler({}, async () => {
+      throw err;
+    });
+    const res = await route(post("{}"));
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({
+      error: { code: "internal", message: GENERIC },
+      serverNow: clock.now(),
+    });
+    expect(sink).toHaveBeenCalledOnce();
+    expect(JSON.parse(String(sink.mock.calls[0]![0]))).toMatchObject({
+      event: "server.unhandled",
+      error: "unprintable thrown value",
+    });
+  });
+
   it("names the failing field when the body fails the schema", async () => {
     const run = vi.fn(async () => ({}));
     const route = handler(
