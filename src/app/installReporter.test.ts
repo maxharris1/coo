@@ -6,6 +6,9 @@ type Call = { url: string; init?: RequestInit };
 function fakeFetch(...outcomes: (number | Error)[]) {
   const calls: Call[] = [];
   const impl = (async (url: string, init?: RequestInit) => {
+    if (url === "/api/auth/session" && !init?.method) {
+      return Response.json({ userId: "u1", onboarded: true });
+    }
     calls.push({ url, init });
     const next = outcomes.shift() ?? 200;
     if (next instanceof Error) throw next;

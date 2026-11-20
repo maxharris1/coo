@@ -1,22 +1,30 @@
-type State = "idle" | "pending" | "done";
-
 export function createInstallReporter() {
-  let state: State = "idle";
+  const reported = new Set<string>();
+  let pending = false;
   return async function reportInstalled(
     isStandalone: boolean,
     fetchImpl: typeof fetch = fetch,
   ): Promise<void> {
-    if (!isStandalone || state !== "idle") return;
-    state = "pending";
+    if (!isStandalone || pending) return;
+    pending = true;
     try {
+      const session = await fetchImpl("/api/auth/session");
+      if (!session.ok) return;
+      const { userId, onboarded } = (await session.json()) as {
+        userId: string;
+        onboarded: boolean;
+      };
+      if (!onboarded || reported.has(userId)) return;
       const res = await fetchImpl("/api/settings", {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ installed: true }),
       });
-      state = res.ok ? "done" : "idle";
+      if (res.ok) reported.add(userId);
     } catch {
-      state = "idle";
+      return;
+    } finally {
+      pending = false;
     }
   };
 }
