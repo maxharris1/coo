@@ -3,6 +3,7 @@ import { z } from "zod";
 import emptyStates from "../../../assets/copy/empty-states.json";
 import { snap, type Point } from "@/lib/game/privacy";
 import { cityLabel, roostLabel } from "@/lib/places";
+import type { Db } from "@/server/db";
 import type { Deps } from "@/server/deps";
 import { AppError } from "@/server/errors";
 import type { UserId } from "@/server/ports/auth";
@@ -107,12 +108,19 @@ export async function resolvePlace(
   if (!PLACE_ID.safeParse(placeId).success) throw unknown;
   const [row] = await deps.db.query<{ payload: Held }>(
     `select payload from geo_cache
-     where key = $1 and fetched_at >= to_timestamp($2 / 1000.0)`,
+     where key = $1
+       and (fetched_at >= to_timestamp($2 / 1000.0) or payload @> '{"saved": true}')`,
     [heldKey(placeId), deps.clock.now() - HOLD_MS],
   );
   if (!row || row.payload.userId !== userId) throw unknown;
   return row.payload.place;
 }
+
+export const keepPlace = (db: Db, placeId: string) =>
+  db.query(
+    `update geo_cache set payload = payload || '{"saved": true}' where key = $1`,
+    [heldKey(placeId)],
+  );
 
 export async function placeHere(
   deps: Deps,
