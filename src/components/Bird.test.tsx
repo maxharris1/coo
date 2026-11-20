@@ -11,6 +11,7 @@ import {
   type Look,
   type Pose,
 } from "./Bird";
+import { normaliseMarkup } from "./normaliseMarkup";
 
 const ROOT = join(__dirname, "..", "..");
 const REF = join(ROOT, "public", "assets", "rig-reference");
@@ -26,43 +27,7 @@ const fixtures: Fixture[] = JSON.parse(
   readFileSync(join(REF, "index.json"), "utf8"),
 ).files;
 
-const ROOT_ONLY = (name: string) =>
-  name === "role" || name === "style" || name.startsWith("aria-");
-
-function normalise(svg: string): string[] {
-  const body = svg.replace(/<style>[\s\S]*?<\/style>/g, "");
-  const out: string[] = [];
-  let first = true;
-  for (const [, text, close, name, attrs, selfClose] of body.matchAll(
-    /([^<]*)(?:<(\/?)([\w:-]+)((?:\s+[\w:-]+="[^"]*")*)\s*(\/?)>)?/g,
-  )) {
-    const t = text.replace(/\s+/g, " ").trim();
-    if (t) out.push(`#text ${t}`);
-    if (!name) continue;
-    if (close) {
-      out.push(`</${name}>`);
-      continue;
-    }
-    const pairs = [...attrs.matchAll(/([\w:-]+)="([^"]*)"/g)]
-      .filter(([, k]) => !(first && ROOT_ONLY(k)))
-      .map(([, k, v]) => {
-        const value =
-          k === "style"
-            ? v
-                .split(";")
-                .map((d) => d.replace(/\s+/g, " ").trim())
-                .filter(Boolean)
-                .join("; ")
-            : v.replace(/\s+/g, " ").trim();
-        return `${k}="${value}"`;
-      })
-      .sort();
-    first = false;
-    out.push(`<${name} ${pairs.join(" ")}>`);
-    if (selfClose) out.push(`</${name}>`);
-  }
-  return out;
-}
+const ROOTLESS = { skipRootPresentation: true };
 
 function render(f: Fixture, size: number) {
   return renderToStaticMarkup(
@@ -81,7 +46,9 @@ describe("Bird matches the rig reference", () => {
     it(f.file, () => {
       const expected = readFileSync(join(REF, f.file), "utf8");
       const width = Number(expected.match(/<svg[^>]*\swidth="(\d+)"/)![1]);
-      expect(normalise(render(f, width))).toEqual(normalise(expected));
+      expect(normaliseMarkup(render(f, width), ROOTLESS)).toEqual(
+        normaliseMarkup(expected, ROOTLESS),
+      );
     });
   }
 

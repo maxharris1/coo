@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { config } from "@/lib/config";
 import "../../public/assets/tokens.css";
 import "../../public/assets/motion.css";
+import "../components/flight.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
