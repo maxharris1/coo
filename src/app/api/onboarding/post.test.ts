@@ -54,9 +54,7 @@ describe("POST /api/onboarding (ac-4)", () => {
     const { status, json } = await call(BODY);
     expect(status).toBe(401);
     expect(json.error.code).toBe("unauthenticated");
-    expect(
-      (await deps.db.query("select 1 from profiles")).length,
-    ).toBe(0);
+    expect((await deps.db.query("select 1 from profiles")).length).toBe(0);
   });
 
   it.each([
@@ -64,21 +62,35 @@ describe("POST /api/onboarding (ac-4)", () => {
     ["a blocklisted name", { ...BODY, name: BLOCKED_NAMES[0] }, "name"],
     [
       "a blocklisted bird name",
-      { ...BODY, bird: { ...BODY.bird, name: BLOCKED_NAMES[9].replace("e", "3") } },
+      {
+        ...BODY,
+        bird: { ...BODY.bird, name: BLOCKED_NAMES[9].replace("e", "3") },
+      },
       "bird.name",
     ],
     [
       "a blocklisted roommate name",
-      { ...BODY, secondBird: { name: BLOCKED_NAMES[2].toUpperCase(), pronoun: "she" } },
+      {
+        ...BODY,
+        secondBird: { name: BLOCKED_NAMES[2].toUpperCase(), pronoun: "she" },
+      },
       "secondBird.name",
     ],
-  ])("answers %s with 400 invalid and writes nothing", async (_, body, field) => {
-    const id = await signIn("(555) 123-4567");
-    const { status, json } = await call(body);
-    expect(status).toBe(400);
-    expect(json.error).toEqual({ code: "invalid", message: field });
-    expect(await count("select count(*)::int as n from profiles where id = $1", id)).toBe(0);
-  });
+  ])(
+    "answers %s with 400 invalid and writes nothing",
+    async (_, body, field) => {
+      const id = await signIn("(555) 123-4567");
+      const { status, json } = await call(body);
+      expect(status).toBe(400);
+      expect(json.error).toEqual({ code: "invalid", message: field });
+      expect(
+        await count(
+          "select count(*)::int as n from profiles where id = $1",
+          id,
+        ),
+      ).toBe(0);
+    },
+  );
 
   it("answers a body that is not JSON with 400 invalid", async () => {
     await signIn("(555) 123-4567");
@@ -107,7 +119,17 @@ describe("POST /api/onboarding (ac-4)", () => {
     const { status, json } = await call({ ...BODY, id: other, userId: other });
     expect(status).toBe(200);
     expect(json.me.id).toBe(id);
-    expect(await count("select count(*)::int as n from profiles where id = $1", other)).toBe(0);
-    expect(await count("select count(*)::int as n from birds where owner_id = $1", other)).toBe(0);
+    expect(
+      await count(
+        "select count(*)::int as n from profiles where id = $1",
+        other,
+      ),
+    ).toBe(0);
+    expect(
+      await count(
+        "select count(*)::int as n from birds where owner_id = $1",
+        other,
+      ),
+    ).toBe(0);
   });
 });

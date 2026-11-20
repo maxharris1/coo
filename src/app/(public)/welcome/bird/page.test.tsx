@@ -68,7 +68,9 @@ describe("/welcome/bird roommate panel (ac-5)", () => {
     { type: "adopt" },
   );
   const render = (state: FirstBirdState) =>
-    renderToStaticMarkup(<Roommate state={state} dispatch={() => {}} onSubmit={() => {}} />);
+    renderToStaticMarkup(
+      <Roommate state={state} dispatch={() => {}} onSubmit={() => {}} />,
+    );
   const panel = render(adopted);
 
   it("says the first bird has a roommate and draws the second bird", () => {
@@ -91,7 +93,9 @@ describe("/welcome/bird roommate panel (ac-5)", () => {
     expect(panel).toMatch(/<label[^>]*for="your-name"[^>]*>Your name/);
     expect(panel).toMatch(/<input[^>]*id="your-name"[^>]*required/);
     expect(panel).toMatch(/<button[^>]*type="button"[^>]*>Back<\/button>/);
-    expect(panel).toMatch(/<button[^>]*type="submit"[^>]*>Adopt Brenda<\/button>/);
+    expect(panel).toMatch(
+      /<button[^>]*type="submit"[^>]*>Adopt Brenda<\/button>/,
+    );
   });
 
   it("shows the API's error in a toast and keeps what was typed", () => {

@@ -86,7 +86,11 @@ describe("roommate panel (ac-5)", () => {
     const next = adopted();
     expect(next.panel).toBe("roommate");
     expect(roommateLook(next)).toEqual({ look: "brenda", name: "Brenda" });
-    expect(next.roommate).toEqual({ name: "Brenda", pronoun: "they", named: false });
+    expect(next.roommate).toEqual({
+      name: "Brenda",
+      pronoun: "they",
+      named: false,
+    });
   });
 
   it("pairs the last look with the first, as the server does", () => {
