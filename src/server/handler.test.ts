@@ -15,6 +15,7 @@ import { testDb } from "@/test/testDb";
 import type { Db } from "./db";
 import { AppError, type ErrorCode } from "./errors";
 import { createHandler } from "./handler";
+import { log } from "./log";
 
 const START = Date.UTC(2026, 10, 19, 15);
 const URL_X = "https://coo.test/api/x";
@@ -66,7 +67,7 @@ describe("ac-1 error shape and serverNow", () => {
   });
 
   it("hides an unexpected error and logs only a request id and its message", async () => {
-    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const logged = vi.spyOn(log, "error").mockImplementation(() => {});
     const route = handler(
       { body: z.object({ note: z.string() }) },
       async () => {
@@ -81,11 +82,11 @@ describe("ac-1 error shape and serverNow", () => {
       serverNow: clock.now(),
     });
     expect(text).not.toContain("secret detail");
-    expect(log).toHaveBeenCalled();
-    for (const args of log.mock.calls) {
-      expect(args[0]).toMatch(UUID);
-      expect(JSON.stringify(args)).not.toContain("BODY-MARKER-77");
-    }
+    expect(logged).toHaveBeenCalledOnce();
+    expect(logged).toHaveBeenCalledWith("server.unhandled", {
+      requestId: expect.stringMatching(UUID),
+      error: "secret detail",
+    });
   });
 
   it.each<[string, () => unknown]>([

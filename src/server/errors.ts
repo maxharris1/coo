@@ -1,3 +1,5 @@
+import { log } from "./log";
+
 export const ERROR_STATUS = {
   unauthenticated: 401,
   not_onboarded: 409,
@@ -36,7 +38,7 @@ export function toErrorResponse(
       body: { error: { code: err.code, message: err.message } },
     };
   }
-  console.error(requestId, describe(err));
+  log.error("server.unhandled", { requestId, error: describe(err) });
   return {
     status: ERROR_STATUS.internal,
     body: { error: { code: "internal", message: "Something went wrong" } },
