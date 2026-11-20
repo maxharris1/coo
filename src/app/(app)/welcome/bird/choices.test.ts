@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { config } from "@/lib/config";
-import { FIRST_BIRD, firstBird, initialFirstBird, PRONOUNS } from "./choices";
+import {
+  FIRST_BIRD,
+  firstBird,
+  initialFirstBird,
+  onboardingBody,
+  PRONOUNS,
+  roommateLook,
+  submitOnboarding,
+} from "./choices";
 
 const start = initialFirstBird();
 
@@ -68,5 +76,108 @@ describe("firstBird reducer", () => {
     expect(firstBird(start, { type: "pronoun", pronoun: "she" }).pronoun).toBe(
       "she",
     );
+  });
+});
+
+const adopted = (state = start) => firstBird(state, { type: "adopt" });
+
+describe("roommate panel (ac-5)", () => {
+  it("opens after the first panel with the next look, prefilled with its name", () => {
+    const next = adopted();
+    expect(next.panel).toBe("roommate");
+    expect(roommateLook(next)).toEqual({ look: "brenda", name: "Brenda" });
+    expect(next.roommate).toEqual({
+      name: "Brenda",
+      pronoun: "they",
+      named: false,
+    });
+  });
+
+  it("pairs the last look with the first, as the server does", () => {
+    const onKevin = firstBird(start, { type: "step", by: -1 });
+    expect(roommateLook(adopted(onKevin)).look).toBe("gerald");
+    expect(adopted(onKevin).roommate.name).toBe("Gerald");
+  });
+
+  it("keeps a typed roommate name when going back and changing look", () => {
+    const typed = firstBird(adopted(), { type: "roommate", name: "Pidge" });
+    const back = firstBird(typed, { type: "back" });
+    expect(back.panel).toBe("bird");
+    const again = adopted(firstBird(back, { type: "step", by: 1 }));
+    expect(again.roommate.name).toBe("Pidge");
+  });
+
+  it("builds the onboarding body from both panels", () => {
+    let s = firstBird(start, { type: "rename", name: "  Gerry " });
+    s = firstBird(s, { type: "pronoun", pronoun: "he" });
+    s = adopted(s);
+    s = firstBird(s, { type: "roommate", name: "Bren" });
+    s = firstBird(s, { type: "roommatePronoun", pronoun: "she" });
+    s = firstBird(s, { type: "yourName", name: " Max " });
+    expect(onboardingBody(s, "America/New_York")).toEqual({
+      name: "Max",
+      timezone: "America/New_York",
+      bird: { name: "Gerry", look: "gerald", pronoun: "he" },
+      secondBird: { name: "Bren", pronoun: "she" },
+    });
+  });
+
+  it("keeps everything typed when the request fails, and shows the error", () => {
+    let s = adopted(firstBird(start, { type: "rename", name: "Gerry" }));
+    s = firstBird(s, { type: "yourName", name: "Max" });
+    s = firstBird(s, { type: "send" });
+    expect(s.sending).toBe(true);
+    const failed = firstBird(s, { type: "failed", message: "name" });
+    expect(failed).toMatchObject({
+      panel: "roommate",
+      name: "Gerry",
+      yourName: "Max",
+      roommate: { name: "Brenda" },
+      sending: false,
+      error: "name",
+    });
+    expect(firstBird(failed, { type: "yourName", name: "Maxi" }).error).toBe(
+      "name",
+    );
+    expect(firstBird(failed, { type: "dismiss" }).error).toBeNull();
+  });
+});
+
+describe("submitOnboarding (ac-5)", () => {
+  const body = onboardingBody(adopted(), "UTC");
+
+  it("posts the body as JSON to /api/onboarding", async () => {
+    const calls: [string, RequestInit][] = [];
+    const result = await submitOnboarding(body, async (url, init) => {
+      calls.push([String(url), init ?? {}]);
+      return Response.json({ me: {}, birds: [] });
+    });
+    expect(result).toEqual({ ok: true });
+    expect(calls).toHaveLength(1);
+    const [url, init] = calls[0];
+    expect(url).toBe("/api/onboarding");
+    expect(init.method).toBe("POST");
+    expect(new Headers(init.headers).get("content-type")).toBe(
+      "application/json",
+    );
+    expect(JSON.parse(String(init.body))).toEqual(body);
+  });
+
+  it("returns the API's error message", async () => {
+    const result = await submitOnboarding(body, async () =>
+      Response.json(
+        { error: { code: "invalid", message: "name" } },
+        { status: 400 },
+      ),
+    );
+    expect(result).toEqual({ ok: false, message: "name" });
+  });
+
+  it("returns a fallback message when the request cannot be made", async () => {
+    const result = await submitOnboarding(body, async () => {
+      throw new TypeError("Failed to fetch");
+    });
+    expect(result.ok).toBe(false);
+    expect(result.ok || result.message).toMatch(/\S/);
   });
 });
