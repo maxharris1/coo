@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { beforeEach, describe, expect, it } from "vitest";
+import type { Db } from "@/server/db";
 import type { UserId } from "@/server/ports/auth";
 import { pair } from "@/server/rows";
 import { onboard } from "@/server/services/onboarding";
@@ -71,6 +72,44 @@ async function reports() {
   }>(
     "select reporter_id, target_user_id, guest_link_id, reason, created_at from reports order by created_at, id",
   );
+}
+
+async function quotaUsed(userId: string) {
+  const rows = await deps.db.query<{ count: number }>(
+    "select count from rate_limits where key = $1",
+    [`reports:${userId}`],
+  );
+  return rows.reduce((sum, { count }) => sum + count, 0);
+}
+
+function losesFirstReportAck(db: Db): Db {
+  let lost = false;
+  let filedInTx = false;
+  const loseAck = () => {
+    lost = true;
+    throw new Error("connection reset before the reply");
+  };
+  const inTx = (t: Db): Db => ({
+    async query<T>(sql: string, params?: unknown[]) {
+      const rows = await t.query<T>(sql, params);
+      if (sql.includes("insert into reports")) filedInTx = true;
+      return rows;
+    },
+    tx: (fn) => t.tx((inner) => fn(inTx(inner))),
+  });
+  return {
+    async query<T>(sql: string, params?: unknown[]) {
+      const rows = await db.query<T>(sql, params);
+      if (!lost && sql.includes("insert into reports")) loseAck();
+      return rows;
+    },
+    async tx(fn) {
+      filedInTx = false;
+      const out = await db.tx((t) => fn(inTx(t)));
+      if (!lost && filedInTx) loseAck();
+      return out;
+    },
+  };
 }
 
 describe("POST /api/reports", () => {
@@ -229,19 +268,19 @@ describe("POST /api/reports", () => {
     const priya = await onboarded("(555) 765-4321", "Priya");
     const max = await onboarded("(555) 123-4567", "Max");
     await befriend(max.id, priya.id);
-    const body = { userId: priya.id, reason: "Spam" };
+    const body = (i: number) => ({ userId: priya.id, reason: `Spam ${i}` });
 
     for (let i = 0; i < 10; i++) {
-      expect((await client.post(body, max.jar)).status).toBe(200);
+      expect((await client.post(body(i), max.jar)).status).toBe(200);
     }
-    const eleventh = await client.post(body, max.jar);
+    const eleventh = await client.post(body(10), max.jar);
 
     expect(eleventh.status).toBe(429);
     expect(eleventh.json.error.code).toBe("rate_limited");
     expect(await reports()).toHaveLength(10);
 
     deps.clock.advance(DAY_MS);
-    expect((await client.post(body, max.jar)).status).toBe(200);
+    expect((await client.post(body(10), max.jar)).status).toBe(200);
     expect(await reports()).toHaveLength(11);
   });
 
@@ -264,5 +303,70 @@ describe("POST /api/reports", () => {
 
     expect(real.status).toBe(429);
     expect(await reports()).toEqual([]);
+  });
+
+  describe.each([
+    [
+      "a friend",
+      async (reporter: string, target: string) => {
+        await befriend(reporter, target);
+        return { userId: target, reason: "Spam" };
+      },
+    ],
+    [
+      "a guest link",
+      async (_: string, target: string) => {
+        await guestLink(target, TOKEN);
+        return { guestLinkToken: TOKEN, reason: "Spam" };
+      },
+    ],
+  ])("a repeated report about %s", (_, setup) => {
+    it("files one report and charges the quota once when the reply is lost and the client retries", async () => {
+      const priya = await onboarded("(555) 765-4321", "Priya");
+      const max = await onboarded("(555) 123-4567", "Max");
+      const body = await setup(max.id, priya.id);
+      deps.db = losesFirstReportAck(deps.db);
+
+      const first = await client.post(body, max.jar);
+      const retry = await client.post(body, max.jar);
+
+      expect(first.status).toBe(500);
+      expect(retry.status).toBe(200);
+      expect(retry.json).toEqual({ serverNow: deps.clock.now() });
+      expect(await reports()).toHaveLength(1);
+      expect(await quotaUsed(max.id)).toBe(1);
+    });
+
+    it("files one report and charges the quota once when sent twice", async () => {
+      const priya = await onboarded("(555) 765-4321", "Priya");
+      const max = await onboarded("(555) 123-4567", "Max");
+      const body = await setup(max.id, priya.id);
+
+      const replies = await Promise.all([
+        client.post(body, max.jar),
+        client.post(body, max.jar),
+      ]);
+
+      expect(replies.map(({ status }) => status)).toEqual([200, 200]);
+      expect(await reports()).toHaveLength(1);
+      expect(await quotaUsed(max.id)).toBe(1);
+    });
+
+    it("files a second report when the reason differs", async () => {
+      const priya = await onboarded("(555) 765-4321", "Priya");
+      const max = await onboarded("(555) 123-4567", "Max");
+      const body = await setup(max.id, priya.id);
+
+      await client.post(body, max.jar);
+      deps.clock.advance(1000);
+      const other = await client.post({ ...body, reason: "Rude" }, max.jar);
+
+      expect(other.status).toBe(200);
+      expect((await reports()).map(({ reason }) => reason)).toEqual([
+        "Spam",
+        "Rude",
+      ]);
+      expect(await quotaUsed(max.id)).toBe(2);
+    });
   });
 });

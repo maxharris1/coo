@@ -330,34 +330,64 @@ export async function report(
   reason: string,
   pepper: string,
 ): Promise<Record<string, never>> {
-  await rateLimit(
-    deps.db,
-    deps.clock,
-    `reports:${me}`,
-    deps.config.game.limits.reportsPerDay,
-    86400,
-  );
   const now = new Date(deps.clock.now()).toISOString();
+  const filed = await deps.db.tx(async (db) => {
+    await db.query("select 1 from profiles where id = $1 for update", [me]);
+    const subject = await reportSubject(db, me, target, pepper);
 
-  if ("userId" in target) {
-    if (!(await friendshipBetween(deps.db, me, target.userId)))
-      throw new AppError("not_found", "No one to report");
-    await deps.db.query(
-      "insert into reports (reporter_id, target_user_id, reason, created_at) values ($1, $2, $3, $4)",
-      [me, target.userId, reason, now],
+    if (subject) {
+      const [prior] = await db.query(
+        `select 1 from reports where reporter_id = $1 and ${subject.column} = $2 and reason = $3`,
+        [me, subject.id, reason],
+      );
+      if (prior) return "filed";
+    }
+
+    await rateLimit(
+      db,
+      deps.clock,
+      `reports:${me}`,
+      deps.config.game.limits.reportsPerDay,
+      86400,
     );
-    return {};
-  }
+    if (!subject) return "missing";
 
+    await db.query(
+      `insert into reports (reporter_id, ${subject.column}, reason, created_at) values ($1, $2, $3, $4)`,
+      [me, subject.id, reason, now],
+    );
+    return "filed";
+  });
+
+  if (filed === "missing")
+    throw new AppError(
+      "not_found",
+      "userId" in target ? "No one to report" : "No such link",
+    );
+  return {};
+}
+
+type ReportSubject = {
+  column: "target_user_id" | "guest_link_id";
+  id: string;
+};
+
+async function reportSubject(
+  db: Db,
+  me: UserId,
+  target: ReportTarget,
+  pepper: string,
+): Promise<ReportSubject | null> {
+  if ("userId" in target) {
+    if (!(await friendshipBetween(db, me, target.userId))) return null;
+    return { column: "target_user_id", id: target.userId };
+  }
   const tokenHash = createHash("sha256")
     .update(pepper + target.guestLinkToken)
     .digest("hex");
-  const filed = await deps.db.query(
-    `insert into reports (reporter_id, guest_link_id, reason, created_at)
-     select $1, id, $3, $4 from guest_links where token_hash = $2
-     returning id`,
-    [me, tokenHash, reason, now],
+  const [link] = await db.query<{ id: string }>(
+    "select id from guest_links where token_hash = $1",
+    [tokenHash],
   );
-  if (filed.length === 0) throw new AppError("not_found", "No such link");
-  return {};
+  return link ? { column: "guest_link_id", id: link.id } : null;
 }
