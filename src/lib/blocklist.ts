@@ -27,22 +27,33 @@ export const LETTER_CLASSES: Readonly<Record<string, string>> = {
   z: "z2",
 };
 
-const SUBSTITUTES = [...new Set(Object.values(LETTER_CLASSES).join(""))]
-  .filter((ch) => !/[a-z]/.test(ch))
-  .join("")
-  .replace(/[\\\]^-]/g, "\\$&");
-const IN_WORD_GAP = `(?:[^a-z\\s\\p{P}]|[${SUBSTITUTES}])*`;
+const WORD_CHAR = "[\\p{L}\\p{N}]";
+const SYMBOL_GAP = "[^a-z\\s\\p{P}]*";
+const PUNCTUATION_GAP = "[^a-z\\s\\p{Pd}]*";
+const IN_WORD_GAP = `(?:${SYMBOL_GAP}|(?<!${WORD_CHAR}.)${PUNCTUATION_GAP}|${PUNCTUATION_GAP}(?=.(?!${WORD_CHAR})))`;
 const ANY_GAP = "[^a-z]*";
-const WORD_EDGE = "[\\p{L}\\p{N}]";
+const NORMALIZED_PUNCTUATION = "\u00a4";
 
 const BLOCKED_PATTERNS = BLOCKED_NAMES.map((term) => {
   const letters = [...term].map((ch) => `[${LETTER_CLASSES[ch] ?? ch}]`);
   const inWord = letters.join(IN_WORD_GAP);
-  const wholeSpan = `(?<!${WORD_EDGE})${letters.join(ANY_GAP)}(?!${WORD_EDGE})`;
-  return new RegExp(`${inWord}|${wholeSpan}`, "u");
+  const wholeSpan = `(?<!${WORD_CHAR})${letters.join(ANY_GAP)}(?!${WORD_CHAR})`;
+  return new RegExp(`${inWord}|${wholeSpan}`, "su");
 });
 
+function fold(name: string): string {
+  return [...name]
+    .map((ch) => {
+      const plain = ch.normalize("NFKD").replace(/\p{M}/gu, "");
+      return /\p{P}/u.test(ch)
+        ? plain
+        : plain.replace(/\p{P}/gu, NORMALIZED_PUNCTUATION);
+    })
+    .join("")
+    .toLowerCase();
+}
+
 export function isBlocked(name: string): boolean {
-  const folded = name.normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase();
+  const folded = fold(name);
   return BLOCKED_PATTERNS.some((pattern) => pattern.test(folded));
 }
