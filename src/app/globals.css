@@ -54,6 +54,13 @@
   src: url("/assets/fonts/nunito-latin-900-normal.woff2") format("woff2");
 }
 
+:root {
+  --coo-safe-top: env(safe-area-inset-top, 0px);
+  --coo-safe-right: env(safe-area-inset-right, 0px);
+  --coo-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --coo-safe-left: env(safe-area-inset-left, 0px);
+}
+
 *,
 *::before,
 *::after {
@@ -64,8 +71,8 @@ body {
   max-width: 430px;
   min-height: 100dvh;
   margin: 0 auto;
-  padding: env(safe-area-inset-top) env(safe-area-inset-right)
-    env(safe-area-inset-bottom) env(safe-area-inset-left);
+  padding: var(--coo-safe-top) var(--coo-safe-right) var(--coo-safe-bottom)
+    var(--coo-safe-left);
   background: var(--coo-paper);
   color: var(--coo-ink);
   font-family: var(--coo-font-body);
