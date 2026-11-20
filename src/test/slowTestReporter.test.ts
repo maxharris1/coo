@@ -2,10 +2,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { TestModule } from "vitest/node";
 import { slowTestReporter } from "./slowTestReporter.mjs";
 
+type FakeAttempt = { startTime: number; duration: number };
+
 type FakeTest = {
   name: string;
   state: "pass" | "fail" | "skip";
   durationMs: number;
+  attempts?: FakeAttempt[];
 };
 
 function fakeModule(file: string, tests: FakeTest[]): TestModule {
@@ -16,7 +19,8 @@ function fakeModule(file: string, tests: FakeTest[]): TestModule {
         for (const t of tests) {
           yield {
             fullName: t.name,
-            attempts: () => [{ state: t.state, duration: t.durationMs }],
+            attempts: () =>
+              t.attempts ?? [{ startTime: 0, duration: t.durationMs }],
             diagnostic: () =>
               t.state === "skip" ? undefined : { duration: t.durationMs },
           };
@@ -61,6 +65,26 @@ describe("slowTestReporter", () => {
     expect(lines).toEqual([
       "Tests slower than 2000ms (slowest first):",
       "  2300ms  b.test.ts > slow then skip",
+    ]);
+  });
+
+  it("counts the retry delay for a test that was retried and then skipped itself", () => {
+    const lines = report([
+      fakeModule("d.test.ts", [
+        {
+          name: "retry delay then runtime skip",
+          state: "skip",
+          durationMs: 2205.83,
+          attempts: [
+            { startTime: 1000, duration: 1.2 },
+            { startTime: 3204.88, duration: 0.75 },
+          ],
+        },
+      ]),
+    ]);
+    expect(lines).toEqual([
+      "Tests slower than 2000ms (slowest first):",
+      "  2206ms  d.test.ts > retry delay then runtime skip",
     ]);
   });
 
