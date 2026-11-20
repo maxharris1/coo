@@ -25,3 +25,20 @@ export class AppError extends Error {
     this.status = ERROR_STATUS[code];
   }
 }
+
+export function toErrorResponse(
+  err: unknown,
+  requestId: string,
+): { status: number; body: { error: { code: ErrorCode; message: string } } } {
+  if (err instanceof AppError) {
+    return {
+      status: err.status,
+      body: { error: { code: err.code, message: err.message } },
+    };
+  }
+  console.error(requestId, err instanceof Error ? err.message : String(err));
+  return {
+    status: ERROR_STATUS.internal,
+    body: { error: { code: "internal", message: "Something went wrong" } },
+  };
+}
