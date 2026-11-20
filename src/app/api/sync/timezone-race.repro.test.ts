@@ -8,6 +8,26 @@ import { FakeJar } from "@/test/fakes/jar";
 import { seedWorld } from "@/test/seedWorld";
 import { syncGet } from "./get";
 
+function holdProfileReadsUntilBothRequestsRead(inner: Db): Db {
+  let profileReads = 0;
+  let releaseReads: () => void = () => {};
+  const bothRead = new Promise<void>((resolve) => {
+    releaseReads = resolve;
+  });
+  return {
+    async query<T>(sql: string, params?: unknown[]) {
+      const rows = await inner.query<T>(sql, params);
+      if (/^select \* from profiles where id/.test(sql)) {
+        profileReads += 1;
+        if (profileReads === 2) releaseReads();
+        await bothRead;
+      }
+      return rows;
+    },
+    tx: (fn) => inner.tx(fn),
+  };
+}
+
 it("overlapping syncs using the same new timezone both return its current week", async () => {
   const deps = await makeTestDeps();
   const world = await seedWorld(deps.db, deps.clock.now());
@@ -25,24 +45,7 @@ it("overlapping syncs using the same new timezone both return its current week",
     .map(({ name, value }) => `${name}=${value}`)
     .join("; ");
 
-  let profileReads = 0;
-  let releaseReads: () => void = () => {};
-  const bothRead = new Promise<void>((resolve) => {
-    releaseReads = resolve;
-  });
-  const db: Db = {
-    async query<T>(sql: string, params?: unknown[]) {
-      const rows = await deps.db.query<T>(sql, params);
-      // Both requests have read the original caller profile before either update.
-      if (/^select \* from profiles where id/.test(sql)) {
-        profileReads += 1;
-        if (profileReads === 2) releaseReads();
-        await bothRead;
-      }
-      return rows;
-    },
-    tx: (fn) => deps.db.tx(fn),
-  };
+  const db = holdProfileReadsUntilBothRequestsRead(deps.db);
   const handler = syncGet(createJsonRoute(async () => ({ ...deps, db })));
   const request = () =>
     handler(
