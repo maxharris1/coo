@@ -27,7 +27,6 @@ export type CareReading = {
 
 const care = config.game.care;
 const HOUR_MS = 3_600_000;
-const FULL = 100;
 
 const energyPerHour: Record<BirdStatus, number> = {
   home: care.energyHomePerHour,
@@ -37,8 +36,12 @@ const energyPerHour: Record<BirdStatus, number> = {
   visiting: 0,
 };
 
+function clamp(v: number): number {
+  return Math.min(care.full, Math.max(0, v));
+}
+
 function toScale(v: number): number {
-  return Math.round(Math.min(FULL, Math.max(0, v)) * 10) / 10;
+  return Math.round(clamp(v) * 10) / 10;
 }
 
 function clamped(bird: CareSnapshot): CareSnapshot {
@@ -112,7 +115,7 @@ export function bathDone(
   atMs: number,
   owner: CareOwner,
 ): CareSnapshot {
-  return { ...projectCare(bird, atMs, owner), feathers: FULL };
+  return { ...projectCare(bird, atMs, owner), feathers: care.full };
 }
 
 export function napDone(
@@ -139,19 +142,19 @@ export function settleFlight(
     delay: flyPerHour,
     roost: care.energyRoostPerHour,
   };
-  const flightEnergy = plan.segments.reduce(
-    (sum, s) =>
-      sum + segmentPerHour[s.kind] * ((s.endMs - s.startMs) / HOUR_MS),
-    0,
-  );
   const rained = input.weather.some(
     (w) => w.precipMmH >= config.game.engine.rainMmH,
   );
   const soaked = rained && !input.gear.includes("booties");
   const landed = projectCare(bird, plan.arriveAtMs, owner);
+  const energy = plan.segments.reduce(
+    (e, s) =>
+      clamp(e + segmentPerHour[s.kind] * ((s.endMs - s.startMs) / HOUR_MS)),
+    landed.energy,
+  );
   return clamped({
     ...landed,
-    energy: landed.energy + flightEnergy,
+    energy,
     feathers: landed.feathers + (soaked ? care.rainFlightFeathers : 0),
   });
 }
