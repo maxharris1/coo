@@ -1,12 +1,20 @@
 import { validateOutfit, type GearProblem } from "@/lib/game/gear";
-import type { GearId } from "@/lib/game/types";
+import { gearIds, type GearId } from "@/lib/game/types";
 import type { OnboardedCaller } from "@/server/auth";
+import type { Db } from "@/server/db";
 import type { Deps } from "@/server/deps";
 import { AppError } from "@/server/errors";
-import { toBirdRecord, type Row } from "@/server/rows";
+import { toBirdRecord, toOutfit, type Outfit, type Row } from "@/server/rows";
 import { toBirdView, type BirdView } from "./sync";
 
-export type GearInput = { items: string[] };
+export type GearInput = { items: string[] } | { outfitId: string };
+
+export type OutfitsInput = {
+  outfits: { id?: string; name: string; items: string[] }[];
+};
+
+// docs/06-api.md: PUT /api/outfits keeps at most 6.
+export const MAX_OUTFITS = 6;
 
 type Bird = Row<"birds">;
 
@@ -44,12 +52,33 @@ function problemMessage(
   }
 }
 
+async function pickFromOutfit(
+  db: Db,
+  userId: string,
+  outfitId: string,
+  closet: readonly GearId[],
+  otherBirds: readonly Bird[],
+): Promise<{ items: string[]; skipped: string[] }> {
+  const [outfit] = await db.query<Row<"outfits">>(
+    "select * from outfits where id = $1 and user_id = $2",
+    [outfitId, userId],
+  );
+  if (!outfit) throw new AppError("not_found", "Could not find that outfit.");
+  const items = [...new Set(outfit.items)];
+  const result = validateOutfit(items, closet, otherBirds);
+  const blocked = new Set(result.ok ? [] : result.problems.map((p) => p.item));
+  return {
+    items: items.filter((i) => !blocked.has(i)),
+    skipped: items.filter((i) => blocked.has(i)),
+  };
+}
+
 export async function putGear(
   deps: Deps,
   caller: OnboardedCaller,
   birdId: string,
   input: GearInput,
-): Promise<{ bird: BirdView }> {
+): Promise<{ bird: BirdView; skipped: string[] }> {
   const now = deps.clock.now();
   return deps.db.tx(async (db) => {
     const birds = await db.query<Bird>(
@@ -66,12 +95,20 @@ export async function putGear(
       "select gear_id from gear_owned where user_id = $1",
       [caller.userId],
     );
-    const away = birds.filter((b) => b.id !== birdId && !isHome(b, now));
-    const result = validateOutfit(
-      input.items,
-      owned.map((r) => r.gear_id),
-      away,
-    );
+    const closet = owned.map((r) => r.gear_id);
+    const others = birds.filter((b) => b.id !== birdId);
+    const { items, skipped } =
+      "outfitId" in input
+        ? await pickFromOutfit(
+            db,
+            caller.userId,
+            input.outfitId,
+            closet,
+            others,
+          )
+        : { items: input.items, skipped: [] };
+    const away = others.filter((b) => !isHome(b, now));
+    const result = validateOutfit(items, closet, away);
     if (!result.ok) {
       const worn = result.problems.find((p) => p.kind === "worn_elsewhere");
       throw new AppError(
@@ -97,6 +134,57 @@ export async function putGear(
       bird: toBirdView(toBirdRecord(row), now, {
         hasBirdbath: caller.profile.has_birdbath,
       }),
+      skipped,
     };
+  });
+}
+
+const SHAPE_PROBLEMS = new Set<GearProblem["kind"]>([
+  "unknown",
+  "duplicate",
+  "slot_taken",
+]);
+
+export async function saveOutfits(
+  deps: Deps,
+  caller: OnboardedCaller,
+  input: OutfitsInput,
+): Promise<{ outfits: Outfit[] }> {
+  if (input.outfits.length > MAX_OUTFITS) {
+    throw new AppError("invalid", `Save at most ${MAX_OUTFITS} outfits.`);
+  }
+  const ids = input.outfits.flatMap((o) => (o.id ? [o.id] : []));
+  if (new Set(ids).size !== ids.length) {
+    throw new AppError("invalid", "An outfit is in the list twice.");
+  }
+  for (const { items } of input.outfits) {
+    const result = validateOutfit(items, gearIds, []);
+    const problem = result.ok
+      ? undefined
+      : result.problems.find((p) => SHAPE_PROBLEMS.has(p.kind));
+    if (problem)
+      throw new AppError("invalid", problemMessage(deps, problem, []));
+  }
+
+  return deps.db.tx(async (db) => {
+    const rows: Row<"outfits">[] = [];
+    for (const [position, { id, name, items }] of input.outfits.entries()) {
+      const [row] = await db.query<Row<"outfits">>(
+        `insert into outfits (id, user_id, name, items, position)
+         values (coalesce($1::uuid, gen_random_uuid()), $2, $3, $4, $5)
+         on conflict (id) do update
+           set name = excluded.name, items = excluded.items, position = excluded.position
+           where outfits.user_id = excluded.user_id
+         returning *`,
+        [id ?? null, caller.userId, name, items, position],
+      );
+      if (!row) throw new AppError("not_found", "Could not find that outfit.");
+      rows.push(row);
+    }
+    await db.query(
+      "delete from outfits where user_id = $1 and id <> all($2::uuid[])",
+      [caller.userId, rows.map((r) => r.id)],
+    );
+    return { outfits: rows.map(toOutfit) };
   });
 }
