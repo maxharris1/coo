@@ -17,6 +17,26 @@ const PARK_SLOPE = {
   country: "United States",
   countryCode: "US",
 };
+const LA_SOURCE = {
+  suburb: "La Source",
+  city: "Saint-Denis",
+  state: "Réunion",
+  country: "France",
+  countryCode: "FR",
+};
+const saintDenis = (lat: number, lon: number, region: string) => ({
+  label: "Saint-Denis",
+  sublabel: `${region}, France`,
+  kind: "city" as const,
+  lat,
+  lon,
+  city: "Saint-Denis",
+  region,
+  country: "France",
+  countryCode: "FR",
+});
+const MAINLAND_SAINT_DENIS = saintDenis(48.936, 2.3575, "Île-de-France");
+const REUNION_SAINT_DENIS = saintDenis(-20.8823, 55.4504, "Réunion");
 const SETUP = {
   timezone: "America/New_York",
   bird: { name: "Gerald", look: "gerald", pronoun: "he" },
@@ -86,6 +106,7 @@ describe("POST /api/loft", () => {
     [{ lat: 0, lon: -181 }],
     [{ lat: "40.7", lon: "-73.9" }],
     [{ placeId: 7 }],
+    [{ lat: 40.7, lon: -73.9, centre: "yes" }],
   ])("answers %j with 400 invalid", async (body) => {
     const { jar } = await withProfile("(555) 123-4567", "Max");
     const { status, json } = await client.post(body, jar);
@@ -155,6 +176,67 @@ describe("POST /api/loft", () => {
       cityLat: 39.9526,
       cityLon: -75.1652,
     });
+  });
+
+  it("stores the selected town's centre as the roost, not a same-named town's", async () => {
+    const { id, jar } = await withProfile("(555) 123-4567", "Max");
+    vi.spyOn(deps.geocoder, "reverse").mockResolvedValue(LA_SOURCE);
+    vi.spyOn(deps.geocoder, "search").mockImplementation(async (q) =>
+      q === "Saint-Denis, Réunion, France"
+        ? [REUNION_SAINT_DENIS, MAINLAND_SAINT_DENIS]
+        : [MAINLAND_SAINT_DENIS, REUNION_SAINT_DENIS],
+    );
+    const { status, json } = await client.post(
+      { lat: -20.9013, lon: 55.4791, centre: true },
+      jar,
+    );
+    expect(status).toBe(200);
+    expect(json.loft).toEqual({
+      lat: -20.8823,
+      lon: 55.4504,
+      label: "Saint-Denis",
+      city: "Saint-Denis, France",
+      travelling: false,
+    });
+    expect(await homeOf(id)).toEqual({
+      lat: -20.8823,
+      lon: 55.4504,
+      label: "Saint-Denis",
+      city: "Saint-Denis, France",
+      cityLat: -20.8823,
+      cityLon: 55.4504,
+    });
+  });
+
+  it("stores the town centre of a place chosen from search", async () => {
+    const { id, jar } = await withProfile("(555) 123-4567", "Max");
+    const { results } = await searchPlaces(deps, id as UserId, "Fishtown");
+    const { status } = await client.post(
+      { placeId: results[0].placeId, centre: true },
+      jar,
+    );
+    expect(status).toBe(200);
+    expect(await homeOf(id)).toEqual({
+      lat: 39.9526,
+      lon: -75.1652,
+      label: "Philadelphia",
+      city: "Philadelphia, PA",
+      cityLat: 39.9526,
+      cityLon: -75.1652,
+    });
+  });
+
+  it("refuses the town centre when the city has no centre and stores nothing", async () => {
+    const { id, jar } = await withProfile("(555) 123-4567", "Max");
+    vi.spyOn(deps.geocoder, "search").mockResolvedValue([]);
+    const { status, json } = await client.post(
+      { lat: 40.71427, lon: -73.96143, centre: true },
+      jar,
+    );
+    expect(status).toBe(400);
+    expect(json.error).toEqual({ code: "invalid", message: NOT_FOUND });
+    expect((await profile(id)).home_lat).toBeNull();
+    expect((await profile(id)).onboarded_at).toBeNull();
   });
 
   it("refuses an unknown placeId as 400 invalid and stores nothing", async () => {

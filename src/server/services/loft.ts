@@ -15,7 +15,9 @@ type LoftPlace = {
   cityCentre: Point | null;
 };
 
-type LoftInput = { roost: Point } | { placeId: string };
+type LoftInput = ({ roost: Point } | { placeId: string }) & {
+  centre?: boolean;
+};
 export type TravelInput = { on: true; roost: Point } | { on: false };
 type LoftResult = { loft: Me["loft"] };
 
@@ -32,7 +34,7 @@ async function cityCentre(deps: Deps, name: GeoName): Promise<Point | null> {
 async function describeRoost(
   deps: Deps,
   roost: Point,
-  label?: string,
+  { label, centre = false }: { label?: string; centre?: boolean } = {},
 ): Promise<LoftPlace> {
   const name = await deps.geocoder
     .reverse(roost.lat, roost.lon)
@@ -42,12 +44,10 @@ async function describeRoost(
   if (!name || !roostName || !city) {
     throw new AppError("invalid", PLACE_NOT_FOUND);
   }
-  return {
-    roost,
-    label: roostName,
-    city,
-    cityCentre: await cityCentre(deps, name),
-  };
+  const town = await cityCentre(deps, name);
+  if (!centre) return { roost, label: roostName, city, cityCentre: town };
+  if (!town || !name.city) throw new AppError("invalid", PLACE_NOT_FOUND);
+  return { roost: town, label: name.city, city, cityCentre: town };
 }
 
 async function locate(
@@ -55,9 +55,10 @@ async function locate(
   userId: UserId,
   input: LoftInput,
 ): Promise<LoftPlace> {
-  if ("roost" in input) return describeRoost(deps, input.roost);
+  const { centre } = input;
+  if ("roost" in input) return describeRoost(deps, input.roost, { centre });
   const held = await resolvePlace(deps, userId, input.placeId);
-  return describeRoost(deps, held.roost, held.label);
+  return describeRoost(deps, held.roost, { label: held.label, centre });
 }
 
 const placeColumns = ({ roost, label, city, cityCentre }: LoftPlace) => [

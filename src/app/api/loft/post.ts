@@ -8,11 +8,13 @@ export const COORDINATES = {
   lon: z.number().min(-180).max(180),
 };
 
+const CENTRE = { centre: z.boolean().optional() };
+
 const BODY = z.union([
   z
-    .object(COORDINATES)
-    .transform(({ lat, lon }) => ({ roost: snap(lat, lon) })),
-  z.object({ placeId: z.string() }),
+    .object({ ...COORDINATES, ...CENTRE })
+    .transform(({ lat, lon, centre }) => ({ roost: snap(lat, lon), centre })),
+  z.object({ placeId: z.string(), ...CENTRE }),
 ]);
 
 export function loftPost(jsonRoute: ReturnType<typeof createJsonRoute>) {

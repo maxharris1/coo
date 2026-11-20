@@ -67,7 +67,7 @@ Also updates `profiles.timezone` if the request header `X-Timezone` differs.
 | Endpoint | Body | Does |
 |---|---|---|
 | `POST /api/onboarding` | `{ name, handle?, timezone, bird: { name, look, pronoun }, secondBird?: { name, pronoun } }` | Creates the profile (handle generated from the name if missing, made unique), the two birds, starter gear, three default outfits, the first egg, and pays the welcome seeds. Safe to repeat |
-| `POST /api/loft` | `{ lat, lon }` or `{ placeId }` | Snaps, looks up the neighbourhood and city, saves the home loft, sets `onboarded_at` |
+| `POST /api/loft` | `{ lat, lon }` or `{ placeId }`, optional `centre: true` | Snaps, looks up the neighbourhood and city, saves the home loft, sets `onboarded_at`. With `centre: true` it saves that place's city centre as the roost ("Use my town centre instead") |
 | `POST /api/loft/travel` | `{ on: true, lat, lon }` or `{ on: false }` | Travel switch. `conflict` if changed in the last 12 hours |
 | `PATCH /api/settings` | Any of: `name`, `units`, notification switches, quiet hours, `smsFallback`, `installed` | Updates the profile |
 | `DELETE /api/account` | `{ confirm: handle }` | See `docs/03-data-model.md` |
