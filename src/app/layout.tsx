@@ -5,6 +5,7 @@ import "../../public/assets/tokens.css";
 import "../../public/assets/motion.css";
 import "../components/flight.css";
 import "./globals.css";
+import { InstallReporter } from "./InstallReporter";
 
 export const metadata: Metadata = {
   title: config.app.name,
@@ -28,7 +29,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang={config.app.defaultLocale}>
-      <body>{children}</body>
+      <body>
+        {children}
+        <InstallReporter />
+      </body>
     </html>
   );
 }
