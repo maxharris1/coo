@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { clockSource, offsetClock } from "./clock";
 import { FakeClock } from "@/test/fakes/clock";
 import { testDb } from "@/test/testDb";
@@ -6,12 +6,6 @@ import type { Db } from "./db";
 
 const T0 = 1_800_000_000_000;
 const HOUR = 3_600_000;
-
-async function dbWithOffset(offsetMs: number): Promise<Db> {
-  const db = await testDb();
-  await db.query("update dev_clock set offset_ms = $1", [offsetMs]);
-  return db;
-}
 
 describe("FakeClock", () => {
   it("advance moves now()", () => {
@@ -29,11 +23,21 @@ describe("FakeClock", () => {
 });
 
 describe("clockSource", () => {
+  let db: Db;
+
+  async function dbWithOffset(offsetMs: number): Promise<Db> {
+    await db.query("update dev_clock set offset_ms = $1", [offsetMs]);
+    return db;
+  }
+
+  beforeAll(async () => {
+    db = await testDb();
+  });
   afterEach(() => vi.restoreAllMocks());
 
   it("production ignores a non-zero dev_clock offset and never reads it", async () => {
     vi.spyOn(Date, "now").mockReturnValue(T0);
-    const db = await dbWithOffset(HOUR);
+    await dbWithOffset(HOUR);
     const query = vi.spyOn(db, "query");
     const clock = await clockSource("production")(db);
     expect(clock.now()).toBe(T0);
@@ -51,7 +55,7 @@ describe("clockSource", () => {
 
   it("caches the offset for 5 seconds", async () => {
     const now = vi.spyOn(Date, "now").mockReturnValue(T0);
-    const db = await dbWithOffset(HOUR);
+    await dbWithOffset(HOUR);
     const source = clockSource("development");
     expect((await source(db)).now()).toBe(T0 + HOUR);
 
