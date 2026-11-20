@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { useSync } from "./SyncProvider";
-import { createToasts } from "./toasts";
+import { createToasts } from "./toastStore";
 import styles from "./Toasts.module.css";
 
 const TOAST_MS = 4000;

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { createToasts } from "./toasts";
+import { createToasts } from "./toastStore";
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
