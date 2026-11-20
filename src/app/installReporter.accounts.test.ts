@@ -77,13 +77,24 @@ function browser() {
 
   const patched: string[] = [];
   let held: Promise<void> | null = null;
+  let heldPatch: Promise<void> | null = null;
+  let skip = 0;
   let release = () => {};
-  const holdNextSession = () => {
+  const holdNextSession = (after = 0) => {
+    skip = after;
     held = new Promise((resolve) => (release = resolve));
   };
+  const holdNextPatch = () => {
+    heldPatch = new Promise((resolve) => (release = resolve));
+  };
   const watchedFetch = (async (path: string, init: RequestInit = {}) => {
+    if (init.method === "PATCH" && heldPatch) {
+      const wait = heldPatch;
+      heldPatch = null;
+      await wait;
+    }
     const res = await fetchImpl(path, init);
-    if (path === "/api/auth/session" && held) {
+    if (path === "/api/auth/session" && held && skip-- === 0) {
       const wait = held;
       held = null;
       await wait;
@@ -103,7 +114,12 @@ function browser() {
     patches,
     watchedFetch,
     holdNextSession,
-    release: () => release(),
+    holdNextPatch,
+    release: () => {
+      held = null;
+      heldPatch = null;
+      release();
+    },
     patchesFor,
   };
 }
@@ -215,6 +231,69 @@ describe("the installed reporter across accounts", () => {
     await report(true, watchedFetch);
     release();
     await first;
+    await report(true, watchedFetch);
+    await signIn(A);
+    await report(true, watchedFetch);
+
+    expect({
+      A: await installed(a),
+      B: await installed(b),
+      patchesA: patchesFor(a),
+      patchesB: patchesFor(b),
+    }).toEqual({ A: true, B: true, patchesA: 1, patchesB: 1 });
+  });
+
+  it.each([
+    ["first", 0],
+    ["second", 1],
+  ])(
+    "never PATCHes an already reported account when the %s session answer for another arrives after a switch back",
+    async (_, after) => {
+      const a = await onboarded(A);
+      const b = await onboarded(B);
+      const { watchedFetch, signIn, holdNextSession, release, patchesFor } =
+        browser();
+      const report = createInstallReporter();
+
+      await signIn(B);
+      await report(true, watchedFetch);
+      await signIn(A);
+      holdNextSession(after);
+      const stale = report(true, watchedFetch);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await signIn(B);
+      await report(true, watchedFetch);
+      release();
+      await stale;
+      await report(true, watchedFetch);
+      await signIn(A);
+      await report(true, watchedFetch);
+
+      expect({
+        A: await installed(a),
+        B: await installed(b),
+        patchesA: patchesFor(a),
+        patchesB: patchesFor(b),
+      }).toEqual({ A: true, B: true, patchesA: 1, patchesB: 1 });
+    },
+  );
+
+  it("never PATCHes an already reported account when the switch lands between the check and the write", async () => {
+    const a = await onboarded(A);
+    const b = await onboarded(B);
+    const { watchedFetch, signIn, holdNextPatch, release, patchesFor } =
+      browser();
+    const report = createInstallReporter();
+
+    await signIn(B);
+    await report(true, watchedFetch);
+    await signIn(A);
+    holdNextPatch();
+    const stale = report(true, watchedFetch);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await signIn(B);
+    release();
+    await stale;
     await report(true, watchedFetch);
     await signIn(A);
     await report(true, watchedFetch);

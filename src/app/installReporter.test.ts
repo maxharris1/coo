@@ -24,7 +24,7 @@ const INSTALLED = {
   init: {
     method: "PATCH",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ installed: true }),
+    body: JSON.stringify({ installed: true, account: "u1" }),
   },
 };
 

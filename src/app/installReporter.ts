@@ -16,21 +16,19 @@ export function createInstallReporter() {
     try {
       let session = await getSession();
       while (session?.onboarded && !reported.has(session.userId)) {
-        const current = await getSession();
-        if (current?.userId !== session.userId) {
-          session = current;
-          continue;
-        }
         const res = await fetchImpl("/api/settings", {
           method: "PATCH",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ installed: true }),
+          body: JSON.stringify({ installed: true, account: session.userId }),
         });
         if (res.ok) {
-          const { me } = (await res.json()) as { me: { id: string } };
-          reported.add(me.id);
+          reported.add(session.userId);
+          return;
         }
-        return;
+        if (res.status !== 409) return;
+        const current = await getSession();
+        if (current?.userId === session.userId) return;
+        session = current;
       }
     } catch {
       return;
