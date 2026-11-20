@@ -1,0 +1,34 @@
+import { NextRequest } from "next/server";
+import { toE164, type E164 } from "@/lib/phone";
+import { createJsonRoute } from "@/server/http";
+import type { TestDeps } from "./deps";
+import { FakeJar } from "./fakes/jar";
+
+type Handler = (req: NextRequest) => Promise<Response>;
+
+export function geoClient(
+  deps: TestDeps,
+  build: (jsonRoute: ReturnType<typeof createJsonRoute>) => Handler,
+  path: string,
+) {
+  const handler = build(createJsonRoute(async () => deps));
+
+  async function signIn(number: string, jar = new FakeJar()) {
+    const id = await deps
+      .auth(jar)
+      .verifyCode(toE164(number) as E164, "000000");
+    if (!id) throw new Error("test sign-in failed");
+    return { id, jar };
+  }
+
+  async function get(query: Record<string, string>, jar?: FakeJar) {
+    const cookie = (jar?.getAll() ?? [])
+      .map(({ name, value }) => `${name}=${value}`)
+      .join("; ");
+    const url = `https://coo.test${path}?${new URLSearchParams(query)}`;
+    const res = await handler(new NextRequest(url, { headers: { cookie } }));
+    return { status: res.status, json: await res.json() };
+  }
+
+  return { signIn, get };
+}
