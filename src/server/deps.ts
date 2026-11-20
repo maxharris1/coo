@@ -1,5 +1,6 @@
 import { getEnv, type Env } from "@/env";
 import { config, type Config } from "@/lib/config";
+import { openMeteo } from "./adapters/openMeteo";
 import { photon } from "./adapters/photon";
 import { clockSource, type Clock } from "./clock";
 import { getDb, type Db } from "./db";
@@ -47,22 +48,23 @@ function notWired(port: string): Promise<never> {
   return Promise.reject(new AppError("internal", `${port} is not wired yet`));
 }
 
-const weather: Weather = { samples: () => notWired("weather") };
 const push: Push = { send: () => notWired("push") };
 const sms: Sms = { send: () => notWired("sms") };
 
 let source: ReturnType<typeof clockSource> | undefined;
 let photonFor: ReturnType<typeof photon> | undefined;
+let openMeteoFor: ReturnType<typeof openMeteo> | undefined;
 
 export async function makeDeps(): Promise<Deps> {
   const db = getDb();
   source ??= clockSource(getEnv().APP_ENV);
   const clock = await source(db);
   photonFor ??= photon({ baseUrl: getEnv().GEOCODER_URL });
+  openMeteoFor ??= openMeteo({ baseUrl: getEnv().WEATHER_URL });
   return {
     db,
     clock,
-    weather,
+    weather: openMeteoFor(db, clock),
     geocoder: photonFor(db, clock),
     push,
     sms,
