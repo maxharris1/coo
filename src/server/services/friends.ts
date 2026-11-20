@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { fill } from "@/lib/format";
 import type { Db } from "@/server/db";
 import type { Deps } from "@/server/deps";
@@ -33,6 +34,30 @@ export async function friendshipBetween(
     myShows: mine as Shows,
     theirShows: theirs as Shows,
   };
+}
+
+export async function inviterFor(
+  db: Db,
+  code: string,
+): Promise<{ name: string }> {
+  const [row] = await db.query<Pick<Row<"profiles">, "name">>(
+    "select name from profiles where invite_code = $1",
+    [code],
+  );
+  if (!row) throw new AppError("not_found", "No one has that code");
+  return { name: row.name };
+}
+
+export async function resetInvite(
+  deps: Deps,
+  me: UserId,
+): Promise<{ inviteCode: string }> {
+  const [row] = await deps.db.query<Pick<Row<"profiles">, "invite_code">>(
+    "update profiles set invite_code = handle || '-' || $2 where id = $1 returning invite_code",
+    [me, randomBytes(9).toString("base64url")],
+  );
+  if (!row) throw new AppError("not_found", "No profile");
+  return { inviteCode: row.invite_code };
 }
 
 export async function joinByCode(
