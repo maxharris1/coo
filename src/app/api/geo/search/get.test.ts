@@ -59,6 +59,36 @@ describe("GET /api/geo/search", () => {
     expect(JSON.stringify(json)).not.toMatch(/"(lat|lon|latitude|longitude)"/);
   });
 
+  it("answers an address search with the neighbourhood only (f-1)", async () => {
+    vi.spyOn(deps.geocoder, "search").mockResolvedValue([
+      {
+        label: "123 Bedford Avenue",
+        sublabel: "Apartment 4B, Brooklyn, New York, NY 11211",
+        kind: "address",
+        lat: 40.7178,
+        lon: -73.9574,
+        city: "New York",
+        region: "NY",
+        countryCode: "US",
+      },
+    ]);
+    const { jar } = await client.signIn("(555) 123-4567");
+    const { status, json } = await client.get({ q: "123 Bedford Avenue" }, jar);
+    expect(status).toBe(200);
+    expect(json.results).toEqual([
+      {
+        placeId: expect.any(String),
+        label: "Williamsburg",
+        sublabel: "New York, NY",
+        kind: "neighbourhood",
+      },
+    ]);
+    const stored = await deps.db.query("select payload from geo_cache");
+    expect(JSON.stringify({ json, stored })).not.toMatch(
+      /Bedford|123|Apartment|4B|11211/,
+    );
+  });
+
   it("answers 200 with an empty list and the not-found message when the geocoder fails (ac-4)", async () => {
     vi.spyOn(deps.geocoder, "search").mockRejectedValue(
       new Error("photon down"),

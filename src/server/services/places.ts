@@ -26,6 +26,36 @@ type Held = { userId: UserId; place: HeldPlace };
 
 const heldKey = (placeId: string) => `place:${placeId}`;
 
+async function heldPlace(
+  deps: Deps,
+  {
+    lat,
+    lon,
+    label,
+    sublabel,
+    kind,
+    city,
+    region,
+    country,
+    countryCode,
+  }: GeoHit,
+): Promise<HeldPlace | null> {
+  const roost = snap(lat, lon);
+  const area = { city, region, country, countryCode, roost };
+  if (kind !== "address") return { label, sublabel, kind, ...area };
+  const name = await deps.geocoder
+    .reverse(roost.lat, roost.lon)
+    .catch(() => null);
+  const neighbourhood = name && roostLabel(name);
+  if (!name || !neighbourhood) return null;
+  return {
+    label: neighbourhood,
+    sublabel: cityLabel(name) ?? "",
+    kind: "neighbourhood",
+    ...area,
+  };
+}
+
 export async function searchPlaces(
   deps: Deps,
   userId: UserId,
@@ -39,25 +69,31 @@ export async function searchPlaces(
     60,
   );
   const hits = await deps.geocoder.search(q).catch(() => []);
-  if (hits.length === 0) return { results: [], message: PLACE_NOT_FOUND };
+  const places = await Promise.all(
+    hits.slice(0, MAX_RESULTS).map((hit) => heldPlace(deps, hit)),
+  );
+  const held = places
+    .filter((place) => place !== null)
+    .map((place) => ({ placeId: randomUUID(), place }));
+  if (held.length === 0) return { results: [], message: PLACE_NOT_FOUND };
 
-  const results: PlaceResult[] = [];
-  for (const { lat, lon, ...hit } of hits.slice(0, MAX_RESULTS)) {
-    const placeId = randomUUID();
-    const held: Held = { userId, place: { ...hit, roost: snap(lat, lon) } };
-    await deps.db.query(
-      `insert into geo_cache (key, payload, fetched_at)
-       values ($1, $2, to_timestamp($3 / 1000.0))`,
-      [heldKey(placeId), held, deps.clock.now()],
-    );
-    results.push({
+  await deps.db.tx(async (db) => {
+    for (const { placeId, place } of held) {
+      await db.query(
+        `insert into geo_cache (key, payload, fetched_at)
+         values ($1, $2, to_timestamp($3 / 1000.0))`,
+        [heldKey(placeId), { userId, place } satisfies Held, deps.clock.now()],
+      );
+    }
+  });
+  return {
+    results: held.map(({ placeId, place }) => ({
       placeId,
-      label: hit.label,
-      sublabel: hit.sublabel,
-      kind: hit.kind,
-    });
-  }
-  return { results };
+      label: place.label,
+      sublabel: place.sublabel,
+      kind: place.kind,
+    })),
+  };
 }
 
 const PLACE_ID = z.uuid();
