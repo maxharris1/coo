@@ -7,6 +7,7 @@ import "../../public/assets/tokens.css";
 import "../../public/assets/motion.css";
 import "../components/flight.css";
 import "./globals.css";
+import { InstallReporter } from "./InstallReporter";
 
 export const metadata: Metadata = {
   title: config.app.name,
@@ -34,6 +35,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <OfflineBanner />
         {children}
         <RegisterServiceWorker />
+        <InstallReporter />
       </body>
     </html>
   );

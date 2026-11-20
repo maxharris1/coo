@@ -33,19 +33,20 @@ export function geoClient(
     return { status: res.status, json: await res.json() };
   }
 
-  async function post(body: unknown, jar?: FakeJar) {
-    const res = await handler(
-      new NextRequest(`https://coo.test${path}`, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          cookie: cookieHeader(jar),
-        },
-        body: JSON.stringify(body),
-      }),
-    );
-    return { status: res.status, json: await res.json() };
-  }
+  const send = (method: "POST" | "PATCH") =>
+    async function (body: unknown, jar?: FakeJar) {
+      const res = await handler(
+        new NextRequest(`https://coo.test${path}`, {
+          method,
+          headers: {
+            "content-type": "application/json",
+            cookie: cookieHeader(jar),
+          },
+          body: JSON.stringify(body),
+        }),
+      );
+      return { status: res.status, json: await res.json() };
+    };
 
-  return { signIn, get, post };
+  return { signIn, get, post: send("POST"), patch: send("PATCH") };
 }
