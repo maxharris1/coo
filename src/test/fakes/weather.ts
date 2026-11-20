@@ -11,11 +11,11 @@ export class FakeWeather implements Weather {
       this.failing = false;
       throw new Error("weather unavailable");
     }
-    return at.map(() => this.sample);
+    return at.map(() => structuredClone(this.sample));
   }
 
   set(sample: WeatherSample): void {
-    this.sample = sample;
+    this.sample = structuredClone(sample);
   }
 
   failNext(): void {

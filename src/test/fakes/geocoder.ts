@@ -176,7 +176,7 @@ export class FakeGeocoder implements Geocoder {
     const needle = q.toLowerCase();
     return PLACES.filter(({ hit }) => hit.label.toLowerCase().includes(needle))
       .slice(0, MAX_HITS)
-      .map(({ hit }) => hit);
+      .map(({ hit }) => structuredClone(hit));
   }
 
   async reverse(lat: number, lon: number): Promise<GeoName | null> {
@@ -190,6 +190,6 @@ export class FakeGeocoder implements Geocoder {
         nearest = { name, distance };
       }
     }
-    return nearest?.name ?? null;
+    return nearest ? structuredClone(nearest.name) : null;
   }
 }

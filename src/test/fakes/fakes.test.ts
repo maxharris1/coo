@@ -43,6 +43,22 @@ describe("FakeWeather", () => {
     await expect(weather.samples(queries)).rejects.toThrow();
     expect(await weather.samples(queries)).toHaveLength(2);
   });
+
+  it("changing a returned sample leaves fresh fakes and config calm", async () => {
+    const calm = structuredClone(config.game.weather.fallback);
+    const [sample] = await new FakeWeather().samples(queries);
+    sample.windMph = 99;
+    expect(config.game.weather.fallback).toEqual(calm);
+    expect(await new FakeWeather().samples(queries)).toEqual([calm, calm]);
+  });
+
+  it("changing a returned sample leaves the set sample", async () => {
+    const weather = new FakeWeather();
+    weather.set(structuredClone(windy));
+    const [first] = await weather.samples(queries);
+    first.windMph = 99;
+    expect(await weather.samples(queries)).toEqual([windy, windy]);
+  });
 });
 
 describe("FakeGeocoder", () => {
@@ -66,6 +82,23 @@ describe("FakeGeocoder", () => {
 
   it("reverse far from every place is null", async () => {
     expect(await geocoder.reverse(38, -50)).toBeNull();
+  });
+
+  it("changing a returned hit leaves the table", async () => {
+    const [hit] = await new FakeGeocoder().search("Philadelphia");
+    const original = structuredClone(hit);
+    hit.label = "changed";
+    expect(await new FakeGeocoder().search("Philadelphia")).toEqual([original]);
+  });
+
+  it("changing a returned name leaves the table", async () => {
+    const name = await new FakeGeocoder().reverse(39.9526, -75.1652);
+    if (!name) throw new Error("no place at Philadelphia");
+    const original = structuredClone(name);
+    name.city = "changed";
+    expect(await new FakeGeocoder().reverse(39.9526, -75.1652)).toEqual(
+      original,
+    );
   });
 });
 
