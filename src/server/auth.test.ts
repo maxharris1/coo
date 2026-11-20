@@ -132,6 +132,8 @@ describe("routeKind", () => {
     ["/api/cron/tick", "api"],
     ["/apiary", "app"],
     ["/welcome", "public"],
+    ["/offline", "public"],
+    ["/offline/x", "app"],
     ["/sign-in", "public"],
     ["/sign-in/verify", "public"],
     ["/dev/birds", "public"],
