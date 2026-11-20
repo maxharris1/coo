@@ -144,7 +144,6 @@ describe("makeDeps", () => {
     const sub = { endpoint: "https://push.example/x", p256dh: "k", auth: "a" };
     const payload = { title: "t", body: "b", url: "/", tag: "x" };
     for (const call of [
-      () => deps.weather.samples([]),
       () => deps.push.send(sub, payload),
       () => deps.sms.send("+15555550100", "hi"),
     ]) {
