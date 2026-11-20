@@ -10,6 +10,13 @@ import { geoClient } from "@/test/geoRoute";
 import { loftPost } from "./post";
 
 const NOT_FOUND = "Could not find that place. Try a neighborhood or a city.";
+const PARK_SLOPE = {
+  suburb: "Park Slope",
+  state: "New York",
+  stateCode: "NY",
+  country: "United States",
+  countryCode: "US",
+};
 const SETUP = {
   timezone: "America/New_York",
   bird: { name: "Gerald", look: "gerald", pronoun: "he" },
@@ -167,6 +174,44 @@ describe("POST /api/loft", () => {
     const { status, json } = await client.post({ lat: 0, lon: 0 }, jar);
     expect(status).toBe(400);
     expect(json.error).toEqual({ code: "invalid", message: NOT_FOUND });
+    expect((await profile(id)).onboarded_at).toBeNull();
+  });
+
+  it("refuses a point the geocoder names without a city and stores nothing", async () => {
+    const { id, jar } = await withProfile("(555) 123-4567", "Max");
+    vi.spyOn(deps.geocoder, "reverse").mockResolvedValueOnce(PARK_SLOPE);
+    const { status, json } = await client.post(
+      { lat: 40.67127, lon: -73.98143 },
+      jar,
+    );
+    expect(status).toBe(400);
+    expect(json.error).toEqual({ code: "invalid", message: NOT_FOUND });
+    expect((await profile(id)).home_lat).toBeNull();
+    expect((await profile(id)).onboarded_at).toBeNull();
+  });
+
+  it("keeps a usable home loft when a move lands on a point without a city", async () => {
+    const { id, jar } = await withProfile("(555) 123-4567", "Max");
+    const set = await client.post({ lat: 40.71427, lon: -73.96143 }, jar);
+    const before = await homeOf(id);
+    vi.spyOn(deps.geocoder, "reverse").mockResolvedValueOnce(PARK_SLOPE);
+    const moved = await client.post({ lat: 40.67127, lon: -73.98143 }, jar);
+    expect(moved.status).toBe(400);
+    expect(await homeOf(id)).toEqual(before);
+    expect(set.json.loft).not.toBeNull();
+  });
+
+  it("refuses a held place whose point has no city and stores nothing", async () => {
+    const { id, jar } = await withProfile("(555) 123-4567", "Max");
+    const { results } = await searchPlaces(deps, id as UserId, "Fishtown");
+    vi.spyOn(deps.geocoder, "reverse").mockResolvedValueOnce(PARK_SLOPE);
+    const { status, json } = await client.post(
+      { placeId: results[0].placeId },
+      jar,
+    );
+    expect(status).toBe(400);
+    expect(json.error).toEqual({ code: "invalid", message: NOT_FOUND });
+    expect((await profile(id)).home_lat).toBeNull();
     expect((await profile(id)).onboarded_at).toBeNull();
   });
 

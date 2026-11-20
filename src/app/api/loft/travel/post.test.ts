@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Profile } from "@/server/auth";
 import type { UserId } from "@/server/ports/auth";
 import { onboard } from "@/server/services/onboarding";
@@ -9,6 +9,14 @@ import { loftPost } from "../post";
 import { loftTravelPost } from "./post";
 
 const HOUR = 3_600_000;
+const NOT_FOUND = "Could not find that place. Try a neighborhood or a city.";
+const PARK_SLOPE = {
+  suburb: "Park Slope",
+  state: "New York",
+  stateCode: "NY",
+  country: "United States",
+  countryCode: "US",
+};
 const SETUP = {
   timezone: "America/New_York",
   bird: { name: "Gerald", look: "gerald", pronoun: "he" },
@@ -171,6 +179,22 @@ describe("POST /api/loft/travel", () => {
     expect(status).toBe(400);
     expect(json.error.code).toBe("invalid");
     expect(await travelOf(id)).toMatchObject({ on: false, changedAt: null });
+  });
+
+  it("refuses a point the geocoder names without a city, keeping the loft and the cooldown", async () => {
+    const { id, jar } = await onboarded("(555) 123-4567", "Max");
+    vi.spyOn(deps.geocoder, "reverse").mockResolvedValueOnce(PARK_SLOPE);
+    const before = await travelOf(id);
+    const { status, json } = await turnOn(jar, {
+      lat: 40.67127,
+      lon: -73.98143,
+    });
+    expect(status).toBe(400);
+    expect(json.error).toEqual({ code: "invalid", message: NOT_FOUND });
+    expect(await travelOf(id)).toEqual(before);
+    const next = await turnOn(jar);
+    expect(next.status).toBe(200);
+    expect(next.json.loft).toEqual(BACK_BAY_LOFT);
   });
 
   it("changes only the caller's switch, and another user's change does not hold mine", async () => {

@@ -11,7 +11,7 @@ import { PLACE_NOT_FOUND, resolvePlace } from "./places";
 type LoftPlace = {
   roost: Point;
   label: string;
-  city: string | null;
+  city: string;
   cityCentre: Point | null;
 };
 
@@ -39,11 +39,14 @@ async function describeRoost(
     .reverse(roost.lat, roost.lon)
     .catch(() => null);
   const roostName = name && (label ?? roostLabel(name));
-  if (!name || !roostName) throw new AppError("invalid", PLACE_NOT_FOUND);
+  const city = name && cityLabel(name);
+  if (!name || !roostName || !city) {
+    throw new AppError("invalid", PLACE_NOT_FOUND);
+  }
   return {
     roost,
     label: roostName,
-    city: cityLabel(name),
+    city,
     cityCentre: await cityCentre(deps, name),
   };
 }
