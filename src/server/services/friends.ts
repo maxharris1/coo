@@ -60,6 +60,20 @@ export async function resetInvite(
   return { inviteCode: row.invite_code };
 }
 
+function lockPair(db: Db, me: UserId, them: UserId) {
+  return db.query<Pick<Row<"profiles">, "id" | "name">>(
+    "select id, name from profiles where id = any($1::uuid[]) order by id for update",
+    [[me, them]],
+  );
+}
+
+async function nudgeBoth(db: Db, me: UserId, them: UserId, now: string) {
+  await db.query(
+    "insert into events (user_id, kind, created_at) select unnest($1::uuid[]), 'friends', $2",
+    [[me, them], now],
+  );
+}
+
 export async function joinByCode(
   deps: Deps,
   me: UserId,
@@ -79,10 +93,7 @@ export async function joinByCode(
     if (friend.id === me)
       throw new AppError("invalid", "That is your own code");
 
-    const locked = await db.query<Pick<Row<"profiles">, "id" | "name">>(
-      "select id, name from profiles where id = any($1::uuid[]) order by id for update",
-      [[me, friend.id]],
-    );
+    const locked = await lockPair(db, me, friend.id);
 
     const existing = await friendshipBetween(db, me, friend.id);
     if (existing?.status === "blocked")
@@ -125,10 +136,7 @@ export async function joinByCode(
         now,
       ],
     );
-    await db.query(
-      "insert into events (user_id, kind, created_at) select unnest($1::uuid[]), 'friends', $2",
-      [[me, friend.id], now],
-    );
+    await nudgeBoth(db, me, friend.id, now);
     return { friend };
   });
 }
@@ -177,5 +185,48 @@ export async function setShows(
         theyShow: existing.theirShows,
       },
     };
+  });
+}
+
+export async function unfriend(
+  deps: Deps,
+  me: UserId,
+  them: UserId,
+): Promise<object> {
+  const now = new Date(deps.clock.now()).toISOString();
+  return deps.db.tx(async (db) => {
+    await lockPair(db, me, them);
+    const existing = await friendshipBetween(db, me, them);
+    if (existing?.status !== "accepted")
+      throw new AppError("not_found", "No such friend");
+
+    await db.query(
+      "delete from friendships where a_id = $1 and b_id = $2",
+      pair(me, them),
+    );
+    await nudgeBoth(db, me, them, now);
+    return {};
+  });
+}
+
+export async function block(
+  deps: Deps,
+  me: UserId,
+  them: UserId,
+): Promise<object> {
+  const now = new Date(deps.clock.now()).toISOString();
+  return deps.db.tx(async (db) => {
+    await lockPair(db, me, them);
+    const existing = await friendshipBetween(db, me, them);
+    if (existing?.status === "blocked" && existing.blockedBy === me) return {};
+    if (existing?.status !== "accepted")
+      throw new AppError("not_found", "No such friend");
+
+    await db.query(
+      "update friendships set status = 'blocked', blocked_by = $3 where a_id = $1 and b_id = $2",
+      [...pair(me, them), me],
+    );
+    await nudgeBoth(db, me, them, now);
+    return {};
   });
 }
