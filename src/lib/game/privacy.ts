@@ -2,10 +2,10 @@ import { config } from "@/lib/config";
 
 export type Point = { lat: number; lon: number };
 export type Loft = { roost: Point; cityCentre: Point | null };
-export type LoftProfile = {
+export type LoftProfile<L extends Loft = Loft> = {
   travelOn: boolean;
-  home: Loft | null;
-  travel: Loft | null;
+  home: L | null;
+  travel: L | null;
 };
 export type Shows = "block" | "city";
 
@@ -20,7 +20,7 @@ export function snap(lat: number, lon: number): Point {
   return { lat: toGrid(lat, gridLatDeg), lon: toGrid(lon, gridLonDeg) };
 }
 
-export function activeLoft(profile: LoftProfile): Loft | null {
+export function activeLoft<L extends Loft>(profile: LoftProfile<L>): L | null {
   return (profile.travelOn && profile.travel) || profile.home;
 }
 
