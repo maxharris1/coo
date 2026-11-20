@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { config } from "@/lib/config";
 import type { Platform } from "@/lib/platform";
 import { InstallView, installStep, type InstallScreen } from "./Install";
 
@@ -29,28 +30,28 @@ describe("/welcome/install on iOS Safari (ac-4)", () => {
 
   it("shows the Install mock's heading and subline", () => {
     expect(html).toContain(">Step 1 of 3<");
-    expect(html).toMatch(/<h1[^>]*>Put Coo on your home screen<\/h1>/);
+    expect(html).toMatch(
+      new RegExp(`<h1[^>]*>Put ${config.app.name} on your home screen</h1>`),
+    );
     expect(html).toContain(
       "It opens full screen like any other app, and it is how your phone tells you a bird has landed.",
     );
   });
 
-  it("draws the home screen with the Coo icon as one labelled picture", () => {
+  it("draws the home screen with the app icon as one labelled picture", () => {
     expect(html).toContain(
-      'role="img" aria-label="The Coo icon sitting on a phone home screen among other apps"',
+      `role="img" aria-label="The ${config.app.name} icon sitting on a phone home screen among other apps"`,
     );
-    expect(html).toMatch(/>Coo<\/[a-z]+>/);
+    expect(html).toMatch(new RegExp(`>${config.app.name}</[a-z]+>`));
   });
 
   it("lists the three iPhone steps in order with their icons", () => {
-    const steps = [
-      ...html.matchAll(/<li[^>]*>.*?<\/li>/gs),
-    ].map((m) => m[0]);
+    const steps = [...html.matchAll(/<li[^>]*>.*?<\/li>/gs)].map((m) => m[0]);
     expect(steps).toHaveLength(3);
     expect(steps[0]).toContain("Tap Share in your browser's toolbar");
     expect(steps[1]).toContain("Choose Add to Home Screen");
     expect(steps[2]).toContain(
-      "Open Coo from the new icon and say yes to notifications",
+      `Open ${config.app.name} from the new icon and say yes to notifications`,
     );
     for (const step of steps) expect(step).toContain("<svg");
   });
@@ -100,7 +101,9 @@ describe("/welcome/install on other platforms", () => {
 
   it("renders the heading alone while it detects the platform", () => {
     const html = render({ kind: "detecting" });
-    expect(html).toMatch(/<h1[^>]*>Put Coo on your home screen<\/h1>/);
+    expect(html).toMatch(
+      new RegExp(`<h1[^>]*>Put ${config.app.name} on your home screen</h1>`),
+    );
     expect(html).not.toContain("<li");
     expect(html).not.toContain("<button");
     expect(html).not.toContain("Share is down here");
@@ -145,7 +148,7 @@ describe("/welcome/install page", () => {
     const { default: InstallPage } = await import("./page");
     const html = renderToStaticMarkup(await InstallPage());
     expect(redirect).not.toHaveBeenCalled();
-    expect(html).toContain("Put Coo on your home screen");
+    expect(html).toContain(`Put ${config.app.name} on your home screen`);
   });
 });
 

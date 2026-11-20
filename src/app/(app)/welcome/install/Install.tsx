@@ -45,7 +45,7 @@ export function installStep(platform: Platform): InstallStep {
   }
 }
 
-function CooIcon() {
+function AppIcon() {
   return (
     <svg width="62" height="62" viewBox="0 0 62 62" aria-hidden="true">
       <rect
@@ -101,13 +101,13 @@ function HomeScreen() {
   return (
     <div
       role="img"
-      aria-label="The Coo icon sitting on a phone home screen among other apps"
+      aria-label={`The ${config.app.name} icon sitting on a phone home screen among other apps`}
       className={styles.homeScreen}
     >
       {FADED_LABEL_WIDTHS.map((width, i) =>
         width === null ? (
           <div key={i} className={`${styles.app} ${styles.hop}`} style={HOP}>
-            <CooIcon />
+            <AppIcon />
             <div className={styles.appName}>{config.app.name}</div>
           </div>
         ) : (
