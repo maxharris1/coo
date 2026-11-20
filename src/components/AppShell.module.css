@@ -1,0 +1,9 @@
+.column {
+  min-height: 100dvh;
+  background: var(--coo-paper);
+}
+
+.withTabs {
+  composes: column;
+  padding-bottom: 96px;
+}
