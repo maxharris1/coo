@@ -25,6 +25,13 @@ export default defineConfig([
       ],
     },
   },
+  {
+    files: ["src/**/*.{ts,tsx}"],
+    ignores: ["src/server/log.ts", "src/**/*.test.{ts,tsx}", "src/test/**"],
+    rules: {
+      "no-console": "error",
+    },
+  },
   globalIgnores([
     ".next/**",
     "out/**",

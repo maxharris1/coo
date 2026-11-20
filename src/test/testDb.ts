@@ -1,25 +1,9 @@
-import { readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync } from "node:fs";
 import { PGlite, type Transaction } from "@electric-sql/pglite";
+import { inject } from "vitest";
 import { TYPE_PARSERS, type Db } from "@/server/db";
 
-const SUPABASE_ONLY = ["0002_cron.sql"];
-const supabase = join(process.cwd(), "supabase");
-
-async function buildTemplate(): Promise<Blob> {
-  const pg = await PGlite.create();
-  await pg.exec(readFileSync(join(supabase, "test/auth-stub.sql"), "utf8"));
-  const migrations = join(supabase, "migrations");
-  for (const file of readdirSync(migrations).sort()) {
-    if (!file.endsWith(".sql") || SUPABASE_ONLY.includes(file)) continue;
-    await pg.exec(readFileSync(join(migrations, file), "utf8"));
-  }
-  const dump = await pg.dumpDataDir("none");
-  await pg.close();
-  return dump;
-}
-
-let template: Promise<Blob> | undefined;
+let template: Blob | undefined;
 
 function txDb(t: Transaction): Db {
   const db: Db = {
@@ -32,9 +16,9 @@ function txDb(t: Transaction): Db {
 }
 
 export async function testDb(): Promise<Db> {
-  template ??= buildTemplate();
+  template ??= new Blob([readFileSync(inject("pgTemplate"))]);
   const pg = await PGlite.create({
-    loadDataDir: await template,
+    loadDataDir: template,
     parsers: TYPE_PARSERS,
   });
   return {

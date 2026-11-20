@@ -51,9 +51,17 @@ async function one<T extends Table>(
   return row;
 }
 
+let db: Db;
+let world: World;
+
+beforeAll(async () => {
+  db = await testDb();
+  world = await seedWorld(db, NOW);
+});
+
 describe("COLUMNS", () => {
   it("matches the live schema of the five seeded tables", async () => {
-    expect(await liveColumns(await testDb())).toEqual(COLUMNS);
+    expect(await liveColumns(db)).toEqual(COLUMNS);
   });
 
   it.each([
@@ -61,9 +69,9 @@ describe("COLUMNS", () => {
     ["a dropped column", "alter table gear_owned drop column acquired_at"],
     ["a retyped column", "alter table birds alter column focus type integer"],
   ])("no longer matches after %s", async (_, ddl) => {
-    const db = await testDb();
-    await db.query(ddl);
-    expect(await liveColumns(db)).not.toEqual(COLUMNS);
+    const fresh = await testDb();
+    await fresh.query(ddl);
+    expect(await liveColumns(fresh)).not.toEqual(COLUMNS);
   });
 
   it("types each column from its spec", () => {
@@ -77,14 +85,6 @@ describe("COLUMNS", () => {
 });
 
 describe("mappers", () => {
-  let db: Db;
-  let world: World;
-
-  beforeAll(async () => {
-    db = await testDb();
-    world = await seedWorld(db, NOW);
-  });
-
   it("toMe reads the home loft and the settings", async () => {
     const { max } = world;
     expect(toMe(await one(db, "profiles", max.id))).toEqual({

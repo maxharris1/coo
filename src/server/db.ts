@@ -1,5 +1,6 @@
 import pg, { type Pool, type PoolClient } from "pg";
 import { getEnv } from "@/env";
+import { log } from "./log";
 
 export interface Db {
   query<T>(sql: string, params?: unknown[]): Promise<T[]>;
@@ -82,9 +83,7 @@ let db: Db | undefined;
 export function getDb(): Db {
   if (!db) {
     const pool = createPool(getEnv().DATABASE_URL);
-    pool.on("error", (err) =>
-      console.error("idle database client failed", err.message),
-    );
+    pool.on("error", (err) => log.error("db.idle_client_failed", { err }));
     db = poolDb(pool);
   }
   return db;
