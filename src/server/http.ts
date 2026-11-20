@@ -7,6 +7,7 @@ import {
   type OnboardedCaller,
   type Session,
 } from "./auth";
+import { systemClock } from "./clock";
 import { makeDeps, type Deps } from "./deps";
 import { AppError, toErrorResponse } from "./errors";
 import type { AuthPort, SessionJar } from "./ports/auth";
@@ -110,8 +111,10 @@ export function createJsonRoute(build: () => Promise<Deps>) {
         );
       } catch (err) {
         const { status, body } = toErrorResponse(err, digitFreeRequestId());
-        const payload = deps ? { ...body, serverNow: deps.clock.now() } : body;
-        return commit(NextResponse.json(payload, { status }));
+        const clock = deps?.clock ?? systemClock;
+        return commit(
+          NextResponse.json({ ...body, serverNow: clock.now() }, { status }),
+        );
       }
     };
   };

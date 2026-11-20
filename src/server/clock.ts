@@ -11,12 +11,13 @@ export function offsetClock(offsetMs: number): Clock {
   return { now: () => Date.now() + offsetMs };
 }
 
+export const systemClock: Clock = offsetClock(0);
+
 export function clockSource(
   appEnv: Env["APP_ENV"],
 ): (db: Db) => Promise<Clock> {
   if (appEnv === "production") {
-    const clock = offsetClock(0);
-    return async () => clock;
+    return async () => systemClock;
   }
   let cached: { offsetMs: number; readAt: number } | undefined;
   return async (db) => {

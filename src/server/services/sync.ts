@@ -83,7 +83,12 @@ async function syncTimezone(
     "update profiles set timezone = $2 where id = $1 and timezone <> $2 returning *",
     [caller.userId, timezone],
   );
-  return updated ?? profile;
+  if (updated) return updated;
+  const [current] = await deps.db.query<Profile>(
+    "select * from profiles where id = $1",
+    [caller.userId],
+  );
+  return current;
 }
 
 export async function sync(
