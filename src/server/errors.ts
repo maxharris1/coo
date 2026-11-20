@@ -38,7 +38,9 @@ export function toErrorResponse(
       body: { error: { code: err.code, message: err.message } },
     };
   }
-  log.error("server.unhandled", { requestId, error: describe(err) });
+  try {
+    log.error("server.unhandled", { requestId, error: describe(err) });
+  } catch {}
   return {
     status: ERROR_STATUS.internal,
     body: { error: { code: "internal", message: "Something went wrong" } },
@@ -55,7 +57,7 @@ function isAppError(err: unknown): err is AppError {
 
 function describe(err: unknown): string {
   try {
-    return err instanceof Error ? err.message : String(err);
+    return String(err instanceof Error ? err.message : err);
   } catch {
     return "unprintable thrown value";
   }
