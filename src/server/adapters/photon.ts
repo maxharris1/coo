@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { z } from "zod";
 import { snap } from "@/lib/game/privacy";
 import type { Clock } from "../clock";
@@ -22,8 +23,6 @@ const featureSchema = z.object({
     name: text,
     type: text,
     osm_value: text,
-    housenumber: text,
-    street: text,
     locality: text,
     district: text,
     city: text,
@@ -37,20 +36,28 @@ type Feature = z.infer<typeof featureSchema>;
 
 const collectionSchema = z.object({ features: z.array(z.unknown()) });
 
-const KIND_BY_TYPE = new Map<string, GeoHit["kind"]>([
+type Place = "city" | "district" | "locality";
+
+const PLACE_BY_TYPE = new Map<string, Place>([
   ["city", "city"],
-  ["district", "neighbourhood"],
-  ["locality", "neighbourhood"],
+  ["district", "district"],
+  ["locality", "locality"],
 ]);
 
-const KIND_BY_OSM_VALUE = new Map<string, GeoHit["kind"]>([
+const PLACE_BY_OSM_VALUE = new Map<string, Place>([
   ["city", "city"],
   ["town", "city"],
   ["village", "city"],
-  ["suburb", "neighbourhood"],
-  ["neighbourhood", "neighbourhood"],
-  ["quarter", "neighbourhood"],
+  ["suburb", "district"],
+  ["neighbourhood", "locality"],
+  ["quarter", "locality"],
 ]);
+
+const KIND_BY_PLACE: Record<Place, GeoHit["kind"]> = {
+  city: "city",
+  district: "neighbourhood",
+  locality: "neighbourhood",
+};
 
 const US_STATE_CODES = new Map<string, string>([
   ["Alabama", "AL"],
@@ -118,14 +125,18 @@ function stateCode(p: Feature["properties"]): string | undefined {
     : undefined;
 }
 
+function placeOf(p: Feature["properties"]): Place | undefined {
+  return (
+    PLACE_BY_TYPE.get(p.type ?? "") ?? PLACE_BY_OSM_VALUE.get(p.osm_value ?? "")
+  );
+}
+
 function toHit({ geometry, properties: p }: Feature): GeoHit | null {
-  const kind =
-    KIND_BY_TYPE.get(p.type ?? "") ??
-    KIND_BY_OSM_VALUE.get(p.osm_value ?? "") ??
-    "address";
-  const label = p.name ?? [p.housenumber, p.street].filter(Boolean).join(" ");
+  const place = placeOf(p);
+  const kind = place ? KIND_BY_PLACE[place] : "address";
+  const label = place ? p.name : (p.locality ?? p.district ?? p.city);
   if (!label) return null;
-  const city = p.city ?? (kind === "city" ? p.name : undefined);
+  const city = p.city ?? (place === "city" ? p.name : undefined);
   const region = stateCode(p) ?? p.state;
   const foreignCountry = p.countrycode === "US" ? undefined : p.country;
   const sublabel = [p.district, city, region, foreignCountry]
@@ -147,7 +158,8 @@ function toHit({ geometry, properties: p }: Feature): GeoHit | null {
 }
 
 function toName({ properties: p }: Feature): GeoName {
-  const own = (type: string) => (p.type === type ? p.name : undefined);
+  const place = placeOf(p);
+  const own = (kind: Place) => (place === kind ? p.name : undefined);
   return defined({
     neighbourhood: p.locality ?? own("locality"),
     suburb: p.district ?? own("district"),
@@ -183,8 +195,12 @@ function limiter(max: number) {
   };
 }
 
-function searchKey(q: string): string {
+function normalizeQuery(q: string): string {
   return q.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function searchKey(query: string): string {
+  return `search:${createHash("sha256").update(query).digest("hex")}`;
 }
 
 function reverseCell(deg: number): string {
@@ -237,7 +253,10 @@ export function photon(opts: {
         const res = await doFetch(`${base}${path}?${query}`, {
           signal: controller.signal,
         });
-        if (!res.ok) throw new Error(`photon ${path} answered ${res.status}`);
+        if (!res.ok) {
+          await res.body?.cancel();
+          throw new Error(`photon ${path} answered ${res.status}`);
+        }
         return parseFeatures(await res.json());
       } finally {
         clearTimeout(timer);
@@ -246,11 +265,11 @@ export function photon(opts: {
 
   return (db, clock) => ({
     async search(q) {
-      const query = searchKey(q);
+      const query = normalizeQuery(q);
       const { hits } = await cached(
         db,
         clock,
-        `search:${query}`,
+        searchKey(query),
         SEARCH_TTL_MS,
         async () => ({
           hits: (await features("/api", { q: query, limit: "6" })).flatMap(

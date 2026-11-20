@@ -143,7 +143,7 @@ describe("photon search", () => {
       },
       {
         kind: "address",
-        label: "200 Bedford Avenue",
+        label: "Williamsburg",
         sublabel: "Brooklyn, New York, NY",
         lat: 40.714,
         lon: -73.9625,
@@ -229,6 +229,30 @@ describe("photon reverse", () => {
     });
   });
 
+  it("names a city that Photon marks only with osm_value", async () => {
+    const { fetch } = stubFetch(
+      collection({
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [13.3888599, 52.5170365] },
+        properties: {
+          name: "Berlin",
+          state: "Berlin",
+          country: "Germany",
+          countrycode: "DE",
+          osm_key: "place",
+          osm_value: "city",
+          osm_type: "N",
+          osm_id: 240109189,
+        },
+      }),
+    );
+    const name = await photon({ baseUrl: BASE, fetch })(db, clock).reverse(
+      52.517,
+      13.389,
+    );
+    expect(name?.city).toBe("Berlin");
+  });
+
   it("returns null when nothing is there", async () => {
     const { fetch } = stubFetch(collection());
     const geocoder = photon({ baseUrl: BASE, fetch })(db, clock);
@@ -244,12 +268,46 @@ describe("photon geo_cache", () => {
     const rows = await db.query<{ key: string; payload: unknown }>(
       "select key, payload from geo_cache",
     );
-    expect(rows.map((r) => r.key)).toEqual(["search:williamsburg"]);
+    expect(rows.map((r) => r.key)).toEqual([
+      expect.not.stringContaining("williamsburg"),
+    ]);
     const stored = JSON.stringify(rows[0].payload);
     for (const raw of ["71427", "96143", "9527237", "1635262"]) {
       expect(stored).not.toContain(raw);
     }
     expect(stored).toContain("40.714");
+  });
+
+  it("keeps a searched address out of the cache and the hits", async () => {
+    const { fetch } = stubFetch(
+      collection({
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [-73.9618, 40.7135] },
+        properties: {
+          type: "house",
+          housenumber: "200",
+          street: "Bedford Avenue",
+          locality: "Williamsburg",
+          city: "New York",
+        },
+      }),
+    );
+    const hits = await photon({ baseUrl: BASE, fetch })(db, clock).search(
+      "200 Bedford Avenue",
+    );
+
+    const rows = await db.query<{ key: string; payload: unknown }>(
+      "select key, payload from geo_cache",
+    );
+    expect(rows).toHaveLength(1);
+    const stored = JSON.stringify(rows).toLowerCase();
+    expect(stored).not.toContain("200 bedford avenue");
+    expect(stored).not.toContain("bedford");
+    expect(stored).not.toContain('"200 ');
+    expect(JSON.stringify(hits)).not.toContain("Bedford");
+    expect(hits).toEqual([
+      expect.objectContaining({ kind: "address", label: "Williamsburg" }),
+    ]);
   });
 
   it("serves a repeated search from the cache for a day", async () => {
@@ -359,6 +417,41 @@ describe("photon limits", () => {
     expect(await Promise.all([...first, ...later])).toHaveLength(6);
     expect(fetch).toHaveBeenCalledTimes(6);
     expect(maxInFlight).toBe(3);
+  });
+
+  it("closes a failed response before freeing its slot", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    let live = 0;
+    let peak = 0;
+    const fetch: typeof globalThis.fetch = async (_, init) => {
+      const signal = init!.signal!;
+      let ended = false;
+      const end = () => {
+        if (!ended) live--;
+        ended = true;
+      };
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          peak = Math.max(peak, ++live);
+          controller.enqueue(new TextEncoder().encode("upstream failed"));
+          signal.addEventListener("abort", () => {
+            end();
+            controller.error(signal.reason);
+          });
+        },
+        cancel: end,
+      });
+      return new Response(body, { status: 503 });
+    };
+    const geocoder = photon({ baseUrl: BASE, fetch })(db, clock);
+
+    await Promise.allSettled(
+      Array.from({ length: 6 }, (_, i) => geocoder.search(String(i))),
+    );
+    await vi.advanceTimersByTimeAsync(1001);
+
+    expect(live).toBe(0);
+    expect(peak).toBeLessThanOrEqual(3);
   });
 
   it("gives up on a request after one second", async () => {
