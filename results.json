@@ -1,0 +1,436 @@
+[
+ {
+  "mode": "day",
+  "place": "new-york",
+  "zoom": 3,
+  "errors": "Map errors: 0",
+  "logs": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "counts": null
+ },
+ {
+  "mode": "day",
+  "place": "new-york",
+  "zoom": 6,
+  "errors": "Map errors: 0",
+  "logs": [],
+  "counts": null
+ },
+ {
+  "mode": "day",
+  "place": "new-york",
+  "zoom": 9,
+  "errors": "Map errors: 0",
+  "logs": [],
+  "counts": null
+ },
+ {
+  "mode": "day",
+  "place": "new-york",
+  "zoom": 12,
+  "errors": "Map errors: 0",
+  "logs": [],
+  "counts": null
+ },
+ {
+  "mode": "day",
+  "place": "new-york",
+  "zoom": 15,
+  "errors": "Map errors: 0",
+  "logs": [],
+  "counts": null
+ },
+ {
+  "mode": "day",
+  "place": "new-york",
+  "zoom": 17,
+  "errors": "Map errors: 0",
+  "logs": [],
+  "counts": null
+ },
+ {
+  "mode": "day",
+  "place": "rural-pa",
+  "zoom": 3,
+  "errors": "Map errors: 0",
+  "logs": [],
+  "counts": null
+ },
+ {
+  "mode": "day",
+  "place": "rural-pa",
+  "zoom": 6,
+  "errors": "Map errors: 0",
+  "logs": [],
+  "counts": null
+ },
+ {
+  "mode": "day",
+  "place": "rural-pa",
+  "zoom": 9,
+  "errors": "Map errors: 0",
+  "logs": [],
+  "counts": null
+ },
+ {
+  "mode": "day",
+  "place": "rural-pa",
+  "zoom": 12,
+  "errors": "Map errors: 0",
+  "logs": [],
+  "counts": null
+ },
+ {
+  "mode": "day",
+  "place": "rural-pa",
+  "zoom": 15,
+  "errors": "Map errors: 0",
+  "logs": [],
+  "counts": null
+ },
+ {
+  "mode": "day",
+  "place": "rural-pa",
+  "zoom": 17,
+  "errors": "Map errors: 0",
+  "logs": [],
+  "counts": null
+ },
+ {
+  "mode": "day",
+  "place": "cape-cod",
+  "zoom": 3,
+  "errors": "Map errors: 0",
+  "logs": [],
+  "counts": null
+ },
+ {
+  "mode": "day",
+  "place": "cape-cod",
+  "zoom": 6,
+  "errors": "Map errors: 0",
+  "logs": [],
+  "counts": null
+ },
+ {
+  "mode": "day",
+  "place": "cape-cod",
+  "zoom": 9,
+  "errors": "Map errors: 0",
+  "logs": [],
+  "counts": null
+ },
+ {
+  "mode": "day",
+  "place": "cape-cod",
+  "zoom": 12,
+  "errors": "Map errors: 0",
+  "logs": [],
+  "counts": null
+ },
+ {
+  "mode": "day",
+  "place": "cape-cod",
+  "zoom": 15,
+  "errors": "Map errors: 0",
+  "logs": [],
+  "counts": null
+ },
+ {
+  "mode": "day",
+  "place": "cape-cod",
+  "zoom": 17,
+  "errors": "Map errors: 0",
+  "logs": [],
+  "counts": null
+ },
+ {
+  "mode": "night",
+  "place": "new-york",
+  "zoom": 3,
+  "errors": "Map errors: 0",
+  "logs": [],
+  "counts": {
+   "land": 135148,
+   "urban": 28,
+   "water": 140616,
+   "building": 0,
+   "road": 0,
+   "pale": 1053,
+   "park": 0
+  }
+ },
+ {
+  "mode": "night",
+  "place": "new-york",
+  "zoom": 6,
+  "errors": "Map errors: 0",
+  "logs": [],
+  "counts": {
+   "land": 110040,
+   "urban": 2485,
+   "water": 107076,
+   "building": 2736,
+   "road": 6749,
+   "pale": 1726,
+   "park": 22120
+  }
+ },
+ {
+  "mode": "night",
+  "place": "new-york",
+  "zoom": 9,
+  "errors": "Map errors: 0",
+  "logs": [],
+  "counts": {
+   "land": 69453,
+   "urban": 41096,
+   "water": 46242,
+   "building": 3169,
+   "road": 30334,
+   "pale": 7669,
+   "park": 28190
+  }
+ },
+ {
+  "mode": "night",
+  "place": "new-york",
+  "zoom": 12,
+  "errors": "Map errors: 0",
+  "logs": [],
+  "counts": {
+   "land": 143494,
+   "urban": 25467,
+   "water": 60367,
+   "building": 1378,
+   "road": 30164,
+   "pale": 3124,
+   "park": 11448
+  }
+ },
+ {
+  "mode": "night",
+  "place": "new-york",
+  "zoom": 15,
+  "errors": "Map errors: 0",
+  "logs": [],
+  "counts": {
+   "land": 33845,
+   "urban": 29726,
+   "water": 1107,
+   "building": 137563,
+   "road": 24747,
+   "pale": 205,
+   "park": 3072
+  }
+ },
+ {
+  "mode": "night",
+  "place": "new-york",
+  "zoom": 17,
+  "errors": "Map errors: 0",
+  "logs": [],
+  "counts": {
+   "land": 2147,
+   "urban": 81796,
+   "water": 4,
+   "building": 182313,
+   "road": 15871,
+   "pale": 157,
+   "park": 40
+  }
+ },
+ {
+  "mode": "night",
+  "place": "rural-pa",
+  "zoom": 3,
+  "errors": "Map errors: 0",
+  "logs": [],
+  "counts": {
+   "land": 153710,
+   "urban": 27,
+   "water": 120835,
+   "building": 0,
+   "road": 0,
+   "pale": 1201,
+   "park": 0
+  }
+ },
+ {
+  "mode": "night",
+  "place": "rural-pa",
+  "zoom": 6,
+  "errors": "Map errors: 0",
+  "logs": [],
+  "counts": {
+   "land": 175207,
+   "urban": 2442,
+   "water": 30863,
+   "building": 2748,
+   "road": 6595,
+   "pale": 1498,
+   "park": 30547
+  }
+ },
+ {
+  "mode": "night",
+  "place": "rural-pa",
+  "zoom": 9,
+  "errors": "Map errors: 0",
+  "logs": [],
+  "counts": {
+   "land": 194762,
+   "urban": 287,
+   "water": 1135,
+   "building": 305,
+   "road": 1819,
+   "pale": 301,
+   "park": 83198
+  }
+ },
+ {
+  "mode": "night",
+  "place": "rural-pa",
+  "zoom": 12,
+  "errors": "Map errors: 0",
+  "logs": [],
+  "counts": {
+   "land": 284486,
+   "urban": 799,
+   "water": 3934,
+   "building": 149,
+   "road": 2417,
+   "pale": 657,
+   "park": 3574
+  }
+ },
+ {
+  "mode": "night",
+  "place": "rural-pa",
+  "zoom": 15,
+  "errors": "Map errors: 0",
+  "logs": [],
+  "counts": {
+   "land": 212184,
+   "urban": 1352,
+   "water": 4838,
+   "building": 24940,
+   "road": 18590,
+   "pale": 638,
+   "park": 4296
+  }
+ },
+ {
+  "mode": "night",
+  "place": "rural-pa",
+  "zoom": 17,
+  "errors": "Map errors: 0",
+  "logs": [],
+  "counts": {
+   "land": 170397,
+   "urban": 656,
+   "water": 2372,
+   "building": 63455,
+   "road": 25928,
+   "pale": 491,
+   "park": 24630
+  }
+ },
+ {
+  "mode": "night",
+  "place": "cape-cod",
+  "zoom": 3,
+  "errors": "Map errors: 0",
+  "logs": [],
+  "counts": {
+   "land": 125968,
+   "urban": 22,
+   "water": 150778,
+   "building": 0,
+   "road": 0,
+   "pale": 1198,
+   "park": 0
+  }
+ },
+ {
+  "mode": "night",
+  "place": "cape-cod",
+  "zoom": 6,
+  "errors": "Map errors: 0",
+  "logs": [],
+  "counts": {
+   "land": 62440,
+   "urban": 1480,
+   "water": 191392,
+   "building": 1530,
+   "road": 3655,
+   "pale": 1245,
+   "park": 10184
+  }
+ },
+ {
+  "mode": "night",
+  "place": "cape-cod",
+  "zoom": 9,
+  "errors": "Map errors: 0",
+  "logs": [],
+  "counts": {
+   "land": 10557,
+   "urban": 185,
+   "water": 271655,
+   "building": 104,
+   "road": 750,
+   "pale": 1896,
+   "park": 8579
+  }
+ },
+ {
+  "mode": "night",
+  "place": "cape-cod",
+  "zoom": 12,
+  "errors": "Map errors: 0",
+  "logs": [],
+  "counts": {
+   "land": 16469,
+   "urban": 1525,
+   "water": 172664,
+   "building": 105,
+   "road": 2750,
+   "pale": 2607,
+   "park": 98150
+  }
+ },
+ {
+  "mode": "night",
+  "place": "cape-cod",
+  "zoom": 15,
+  "errors": "Map errors: 0",
+  "logs": [],
+  "counts": {
+   "land": 40259,
+   "urban": 13967,
+   "water": 171054,
+   "building": 21169,
+   "road": 14270,
+   "pale": 590,
+   "park": 13768
+  }
+ },
+ {
+  "mode": "night",
+  "place": "cape-cod",
+  "zoom": 17,
+  "errors": "Map errors: 0",
+  "logs": [],
+  "counts": {
+   "land": 35075,
+   "urban": 2401,
+   "water": 225292,
+   "building": 2860,
+   "road": 10189,
+   "pale": 507,
+   "park": 20020
+  }
+ }
+]
