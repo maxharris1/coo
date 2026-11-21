@@ -209,6 +209,7 @@ const APP_DIR = join(import.meta.dirname, "app");
 
 const OUTSIDE_GROUPS: Record<string, RouteKind> = {
   "/": "app",
+  "/dev": "public",
   "/dev/birds": "public",
   "/dev/components": "public",
   "/dev/map": "public",
