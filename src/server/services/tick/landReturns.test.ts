@@ -348,7 +348,10 @@ describe("landing a return", () => {
     ]);
     deps.clock.set(r.arriveAtMs + HOUR_MS);
 
-    await buy(deps, world.max.id as UserId, { itemId: "birdbath" });
+    await buy(deps, world.max.id as UserId, {
+      itemId: "birdbath",
+      price: config.game.loftItems.find((i) => i.id === "birdbath")!.price,
+    });
     await tick(deps);
 
     const [bird] = await rows<{ status: string; energy: number }>(

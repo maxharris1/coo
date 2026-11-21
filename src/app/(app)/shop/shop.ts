@@ -16,6 +16,36 @@ export type ShopRow<A extends RowAction = RowAction> = {
 
 export type ShopRows = { seeds: number; gear: ShopRow[]; loft: ShopRow[] };
 
+export type BuyRow = ShopRow<Extract<RowAction, { kind: "buy" }>>;
+
+export type Purchase =
+  | { kind: "idle" }
+  | { kind: "confirming"; row: BuyRow }
+  | { kind: "buying"; row: BuyRow };
+
+export type PurchaseEvent =
+  | { type: "tap"; row: BuyRow }
+  | { type: "cancel" }
+  | { type: "confirm" }
+  | { type: "settled" };
+
+export function purchase(state: Purchase, event: PurchaseEvent): Purchase {
+  switch (event.type) {
+    case "tap":
+      return state.kind === "idle"
+        ? { kind: "confirming", row: event.row }
+        : state;
+    case "cancel":
+      return state.kind === "confirming" ? { kind: "idle" } : state;
+    case "confirm":
+      return state.kind === "confirming"
+        ? { kind: "buying", row: state.row }
+        : state;
+    case "settled":
+      return state.kind === "buying" ? { kind: "idle" } : state;
+  }
+}
+
 const ORDINALS = [
   "First",
   "Second",
@@ -78,16 +108,14 @@ export function shopRows(shop: Shop): ShopRows {
   };
 }
 
-export function confirmLine({
-  name,
-  action,
-}: ShopRow<Extract<RowAction, { kind: "buy" }>>): string {
+export function confirmLine({ name, action }: BuyRow): string {
   return `Buy the ${name.toLowerCase()} for ${action.price} seeds?`;
 }
 
 const UNREACHABLE = "We could not reach the loft. Try again.";
 
-type Result<T> = { ok: true; data: T } | { ok: false; message: string };
+type Result<T> =
+  { ok: true; data: T } | { ok: false; message: string; code?: string };
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
 
 async function call<T>(
@@ -99,11 +127,14 @@ async function call<T>(
     const res = init ? await fetchImpl(url, init) : await fetchImpl(url);
     const json: unknown = await res.json().catch(() => null);
     if (res.ok && json !== null) return { ok: true, data: json as T };
-    const message = (json as { error?: { message?: unknown } } | null)?.error
-      ?.message;
+    const error = (
+      json as { error?: { code?: unknown; message?: unknown } } | null
+    )?.error;
+    const message = error?.message;
     return {
       ok: false,
       message: typeof message === "string" && message ? message : UNREACHABLE,
+      ...(typeof error?.code === "string" && { code: error.code }),
     };
   } catch {
     return { ok: false, message: UNREACHABLE };
@@ -113,11 +144,11 @@ async function call<T>(
 export const loadShop = (fetchImpl: Fetch = fetch) =>
   call<Shop>(fetchImpl, "/api/shop");
 
-export const buyItem = (itemId: string, fetchImpl: Fetch = fetch) =>
+export const buyItem = ({ itemId, action }: BuyRow, fetchImpl: Fetch = fetch) =>
   call<{ me: Me; closet: GearId[] }>(fetchImpl, "/api/shop/buy", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ itemId }),
+    body: JSON.stringify({ itemId, price: action.price }),
   });
 
 export async function openShop(
@@ -128,4 +159,46 @@ export async function openShop(
   if (result.ok) return shopRows(result.data);
   toast(result.message);
   return null;
+}
+
+export function settle(rows: ShopRows, bought: BuyRow): ShopRows {
+  const seeds = rows.seeds - bought.action.price;
+  const reprice =
+    (label: "In the closet" | "In the loft") =>
+    (row: ShopRow): ShopRow[] => {
+      if (row.itemId === bought.itemId)
+        return row.itemId === "perch"
+          ? []
+          : [{ ...row, action: { kind: "owned", label } }];
+      if (row.action.kind === "owned") return [row];
+      const { price } = row.action;
+      return [{ ...row, action: priced(price, seeds >= price, price - seeds) }];
+    };
+  return {
+    seeds,
+    gear: rows.gear.flatMap(reprice("In the closet")),
+    loft: rows.loft.flatMap(reprice("In the loft")),
+  };
+}
+
+export async function completeBuy(
+  bought: BuyRow,
+  rows: ShopRows,
+  deps: {
+    buy(row: BuyRow): Promise<Result<unknown>>;
+    load(): Promise<Result<Shop>>;
+    toast(message: string): void;
+    refresh(): void;
+    burst(itemId: string): void;
+  },
+): Promise<ShopRows> {
+  const result = await deps.buy(bought);
+  if (!result.ok) {
+    deps.toast(result.message);
+    if (result.code !== "conflict") return rows;
+    return (await openShop(deps.load, deps.toast)) ?? rows;
+  }
+  deps.burst(bought.itemId);
+  deps.refresh();
+  return (await openShop(deps.load, deps.toast)) ?? settle(rows, bought);
 }
