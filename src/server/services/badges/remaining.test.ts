@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { config } from "@/lib/config";
-import { sunTimes } from "@/lib/flight/engine";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
 import { addNote } from "@/test/fixtures/notes";
 import {
@@ -169,51 +168,30 @@ describe("rfc-1149", () => {
 });
 
 describe("early-bird", () => {
-  const JULY_0630_NEW_YORK = Date.UTC(2026, 6, 15, 10, 30);
-  const JULY_0700_NEW_YORK = Date.UTC(2026, 6, 15, 11, 0);
-  const DECEMBER_0630_NEW_YORK = Date.UTC(2025, 11, 15, 11, 30);
-
-  it("early-bird: earned by a release before 7 am local and after sunrise at the loft", async () => {
-    const flight = await landDelivery({ releaseMs: JULY_0630_NEW_YORK });
-    expect(await badge(world.max.id, "early-bird")).toEqual({
-      progress: 1,
-      earned_at: new Date(flight.arriveAtMs),
-    });
-  });
-
-  it("early-bird: not earned at 7 am exactly", async () => {
-    await landDelivery({ releaseMs: JULY_0700_NEW_YORK });
-    expect(await badge(world.max.id, "early-bird")).toBeNull();
-  });
-
-  it("early-bird: not earned by a release before sunrise", async () => {
-    await landDelivery({ releaseMs: DECEMBER_0630_NEW_YORK });
-    expect(await badge(world.max.id, "early-bird")).toBeNull();
-  });
-
-  it("early-bird: not earned when the owner's time zone puts the release after 7 am", async () => {
-    await setTimezone(world.max, "Europe/London");
-    await landDelivery({ releaseMs: JULY_0630_NEW_YORK });
-    expect(await badge(world.max.id, "early-bird")).toBeNull();
-  });
-
-  it("does not earn at midnight", async () => {
-    await landDelivery({ releaseMs: Date.UTC(2026, 6, 15, 4, 30) });
-    expect(await badge(world.max.id, "early-bird")).toBeNull();
-  });
-
-  it("early-bird: earned by a release just after that day's sunrise at the loft", async () => {
-    const [loft] = await deps.db.query<{ lat: number; lon: number }>(
-      "select home_lat as lat, home_lon as lon from profiles where id = $1",
-      [world.max.id],
-    );
-    const { sunriseMs } = sunTimes(Date.UTC(2026, 6, 15, 16), loft);
-    const flight = await landDelivery({ releaseMs: sunriseMs + MINUTE_MS });
-    expect(await badge(world.max.id, "early-bird")).toEqual({
-      progress: 1,
-      earned_at: new Date(flight.arriveAtMs),
-    });
-  });
+  it.each([
+    [
+      "a release before 7 am local after sunrise",
+      "America/New_York",
+      Date.UTC(2026, 6, 15, 10, 30),
+    ],
+    [
+      "a release at local midnight",
+      "America/New_York",
+      Date.UTC(2026, 6, 15, 4, 30),
+    ],
+    [
+      "a release with the owner in another time zone",
+      "Asia/Bangkok",
+      Date.UTC(2026, 6, 15, 23),
+    ],
+  ])(
+    "early-bird: the awarding hook is disabled, so %s does not earn it",
+    async (_, tz, releaseMs) => {
+      await setTimezone(world.max, tz);
+      await landDelivery({ releaseMs });
+      expect(await badge(world.max.id, "early-bird")).toBeNull();
+    },
+  );
 });
 
 describe("search-and-rescue", () => {

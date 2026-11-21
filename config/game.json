@@ -179,8 +179,7 @@
   "badges": {
     "aroundTheBlockUnderMi": 1,
     "centuryMi": 100,
-    "longHaulMi": 500,
-    "earlyBirdBeforeHour": 7
+    "longHaulMi": 500
   },
   "roost": {
     "gridLatDeg": 0.002,
