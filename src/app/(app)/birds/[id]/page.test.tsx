@@ -5,7 +5,8 @@ import { Bird, type Pose } from "@/components/Bird";
 import type { SyncState } from "@/components/SyncProvider";
 import type { SyncPayload } from "@/components/sync";
 import PigeonPage from "./page";
-import { poseFor } from "./pigeon";
+import type { BirdPosition } from "@/lib/flight/engine";
+import { moodLine, poseFor } from "./pigeon";
 
 const sync = vi.hoisted(() => ({ current: null as unknown }));
 const toasts = vi.hoisted(() => [] as string[]);
@@ -249,6 +250,21 @@ describe("Pigeon mood (ac-1)", () => {
     ];
     for (const [over, pose] of cases) {
       expect(poseFor(gerald(over)), JSON.stringify(over)).toBe(pose);
+    }
+  });
+
+  it("flies only while the trip is moving along a segment", () => {
+    const flying = gerald({ status: "flying" });
+    const cases: [BirdPosition["state"], Pose, string][] = [
+      ["waiting", "perched", "Packed and waiting to leave."],
+      ["flying", "fly", "Out on a delivery."],
+      ["roosting", "sleep", "Roosting for the night."],
+      ["delayed", "perched", "Running late."],
+      ["landed", "landed", "Landed."],
+    ];
+    for (const [trip, pose, mood] of cases) {
+      expect(poseFor(flying, trip), trip).toBe(pose);
+      expect(moodLine(flying, trip), trip).toContain(mood);
     }
   });
 

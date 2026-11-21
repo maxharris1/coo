@@ -32,15 +32,25 @@ type Mood =
   | "working"
   | "flying"
   | "roosting"
+  | "delayed"
+  | "landed"
   | "visiting"
   | "scheduled";
 
 const BUSY_MOOD: Record<string, Mood> = { nap: "napping", bath: "bathing" };
 
+const TRIP_MOOD: Record<BirdPosition["state"], Mood> = {
+  waiting: "scheduled",
+  flying: "flying",
+  roosting: "roosting",
+  delayed: "delayed",
+  landed: "landed",
+};
+
 function moodOf(bird: PigeonBird, trip: Trip): Mood {
   switch (bird.status) {
     case "flying":
-      return trip === "roosting" ? "roosting" : "flying";
+      return trip ? TRIP_MOOD[trip] : "flying";
     case "visiting":
     case "scheduled":
       return bird.status;
@@ -67,6 +77,8 @@ const POSE: Record<Mood, Pose> = {
   working: "perched",
   flying: "fly",
   roosting: "sleep",
+  delayed: "perched",
+  landed: "landed",
   visiting: "landed",
   scheduled: "perched",
 };
@@ -83,6 +95,9 @@ const MOOD_LINE: Record<Mood, string> = {
   working: "On an odd job. Very professional about it.",
   flying: "Out on a delivery. Taking it very seriously.",
   roosting: "Roosting for the night. Back in the air at first light.",
+  delayed:
+    "Running late. Got distracted on the way. The note is still attached.",
+  landed: "Landed. Would like a snack and some respect.",
   visiting: "On a friend's sill. Being polite about the crumbs.",
   scheduled: "Packed and waiting to leave. Pretending not to be excited.",
 };
