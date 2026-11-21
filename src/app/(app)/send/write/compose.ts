@@ -3,6 +3,9 @@ import { clockTime, distance, duration, type Units } from "@/lib/format";
 import { noteLimit } from "@/lib/game/notes";
 import type { Wearer } from "@/lib/game/seeds";
 import type { RecipientQuote } from "@/server/services/flights/quote";
+import type { FriendRow } from "@/server/services/friends";
+import { friendLine } from "../../friends/friendsApi";
+import { fastestReady } from "../recipients";
 
 export type SyncBird = SyncPayload["birds"][number];
 
@@ -122,4 +125,25 @@ export function stats(
     odds: `${Math.round(quote.odds * 100)}%`,
     forecast: lead ? `${lands} ${lead.text}.` : lands,
   };
+}
+
+export function recipientLine(friend: FriendRow, units: Units): string {
+  const { where, distanceMi } = friend;
+  if (distanceMi === null) return friendLine(friend, units);
+  const far = `${distance(distanceMi, units)} as the pigeon flies`;
+  return where ? `${where}, ${far}` : far;
+}
+
+export function releaseBird(birds: readonly SyncBird[]): SyncBird | null {
+  const fastest = fastestReady(birds);
+  return birds.find((b) => b === fastest) ?? null;
+}
+
+export function canRelease(
+  note: string,
+  count: Counter,
+  birdName: string | null,
+  sending: boolean,
+): boolean {
+  return note.trim() !== "" && !count.over && birdName !== null && !sending;
 }
