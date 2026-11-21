@@ -5,6 +5,7 @@ import type { UserId } from "@/server/ports/auth";
 type BadgeId = Config["badges"]["badges"][number]["id"];
 
 export type Collection = {
+  account: string;
   postmarks: {
     city: string;
     region: string | null;
@@ -51,6 +52,7 @@ export async function getCollection(
 
   const rows = new Map(badgeRows.map((r) => [r.badge_id, r]));
   return {
+    account: userId,
     postmarks: postmarks.map((p) => ({
       city: p.city,
       region: p.region,

@@ -37,6 +37,7 @@ const MOCK = badges({
 });
 
 const collection = (list: Badge[]): Collection => ({
+  account: "account-a",
   postmarks: [],
   badges: list,
   birdsMet: 0,
@@ -233,13 +234,19 @@ describe("openCollection", () => {
   it("hands back the postmarks and badges views when the load succeeds", async () => {
     const body = { ...collection(MOCK), postmarks: MOCK_POSTMARKS };
     const seen = at("2026-11-10T00:00:00Z");
+    const asked: string[] = [];
     const result = await openCollection(
       () => loadCollection(async () => json(200, body)),
-      seen,
+      (account) => {
+        asked.push(account);
+        return seen;
+      },
       TZ,
     );
+    expect(asked).toEqual(["account-a"]);
     expect(result).toEqual({
       ok: true,
+      account: "account-a",
       postmarks: postmarksView(MOCK_POSTMARKS, seen, TZ),
       badges: badgesView(MOCK),
     });
@@ -253,7 +260,7 @@ describe("openCollection", () => {
             error: { code: "unauthorized", message: "Sign in first." },
           }),
         ),
-      null,
+      () => null,
       TZ,
     );
     expect(result).toEqual({ ok: false, message: "Sign in first." });
@@ -264,7 +271,11 @@ describe("openCollection", () => {
       throw new TypeError("offline");
     };
     await expect(
-      openCollection(() => loadCollection(offline), null, TZ),
+      openCollection(
+        () => loadCollection(offline),
+        () => null,
+        TZ,
+      ),
     ).resolves.toEqual({
       ok: false,
       message: "We could not reach the post office. Try again.",
@@ -273,7 +284,7 @@ describe("openCollection", () => {
       openCollection(
         () =>
           loadCollection(async () => new Response("<html>", { status: 502 })),
-        null,
+        () => null,
         TZ,
       ),
     ).resolves.toEqual({

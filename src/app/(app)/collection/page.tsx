@@ -1,15 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { loadCollection, openCollection } from "./collection";
+import { loadCollection, openCollection, seenStore } from "./collection";
 import { CollectionView, type State } from "./CollectionView";
 
-const SEEN_KEY = "coo.postmarks-seen";
-
-function seenUpTo(): number | null {
-  const stored = Number(localStorage.getItem(SEEN_KEY) ?? Number.NaN);
-  return Number.isFinite(stored) ? stored : null;
-}
+const seen = seenStore(() => localStorage);
 
 export default function CollectionPage() {
   const [attempt, setAttempt] = useState(0);
@@ -19,7 +14,7 @@ export default function CollectionPage() {
     let live = true;
     void openCollection(
       loadCollection,
-      seenUpTo(),
+      seen.read,
       Intl.DateTimeFormat().resolvedOptions().timeZone,
     ).then((result) => {
       if (!live) return;
@@ -27,7 +22,7 @@ export default function CollectionPage() {
         setState({ kind: "error", message: result.message });
         return;
       }
-      localStorage.setItem(SEEN_KEY, String(result.postmarks.seen));
+      seen.write(result.account, result.postmarks.seen);
       setState({
         kind: "ready",
         postmarks: result.postmarks,

@@ -133,19 +133,57 @@ export async function loadCollection(
   }
 }
 
+type SeenStore = {
+  read(account: string): number | null;
+  write(account: string, seen: number): void;
+};
+
+const seenKey = (account: string) => `coo.postmarks-seen:${account}`;
+
+export function seenStore(
+  storage: () => Pick<Storage, "getItem" | "setItem">,
+): SeenStore {
+  return {
+    read(account) {
+      try {
+        const raw = storage().getItem(seenKey(account));
+        const seen = raw === null ? Number.NaN : Number(raw);
+        return Number.isFinite(seen) ? seen : null;
+      } catch {
+        return 0;
+      }
+    },
+    write(account, seen) {
+      try {
+        storage().setItem(seenKey(account), String(seen));
+      } catch {}
+    },
+  };
+}
+
 export async function openCollection(
   load: () => Promise<Result<Collection>>,
-  seenUpTo: number | null,
+  seenUpTo: (account: string) => number | null,
   timeZone: string,
 ): Promise<
-  | { ok: true; postmarks: PostmarksView; badges: BadgesView }
+  | {
+      ok: true;
+      account: string;
+      postmarks: PostmarksView;
+      badges: BadgesView;
+    }
   | { ok: false; message: string }
 > {
   const result = await load();
   return result.ok
     ? {
         ok: true,
-        postmarks: postmarksView(result.data.postmarks, seenUpTo, timeZone),
+        account: result.data.account,
+        postmarks: postmarksView(
+          result.data.postmarks,
+          seenUpTo(result.data.account),
+          timeZone,
+        ),
         badges: badgesView(result.data.badges),
       }
     : result;
