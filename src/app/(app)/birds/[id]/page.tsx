@@ -20,6 +20,7 @@ import {
   moodLine,
   poseFor,
   pronounLines,
+  tripOf,
 } from "./pigeon";
 
 function BackLink() {
@@ -41,9 +42,22 @@ function BackLink() {
 
 export default function PigeonPage() {
   const { id } = useParams<{ id: string }>();
-  const { data, refresh } = useSync();
+  const { data, error, refresh } = useSync();
   const toast = useToast();
-  if (!data) return <Loader />;
+  if (!data) {
+    if (!error) return <Loader />;
+    return (
+      <main className={styles.missing}>
+        <BackLink />
+        <p role="alert" className={styles.mood}>
+          {error}
+        </p>
+        <button type="button" className={styles.retry} onClick={refresh}>
+          Try again
+        </button>
+      </main>
+    );
+  }
 
   const bird = data.birds.find((b) => b.id === id);
   if (!bird) {
@@ -56,6 +70,7 @@ export default function PigeonPage() {
   }
 
   const lines = pronounLines(bird);
+  const trip = tripOf(bird, data);
   const away =
     bird.status === "home"
       ? null
@@ -76,7 +91,7 @@ export default function PigeonPage() {
         <div className={styles.heroBody}>
           <div className={styles.intro}>
             <h1 className={styles.name}>{bird.name}</h1>
-            <p className={styles.mood}>{moodLine(bird)}</p>
+            <p className={styles.mood}>{moodLine(bird, trip)}</p>
             <Link href={`/birds/${bird.id}/closet`} className={styles.closet}>
               {lines.closet}
             </Link>
@@ -86,7 +101,7 @@ export default function PigeonPage() {
               look={bird.look as Look}
               breed={bird.breed}
               gear={bird.gear as GearId[]}
-              pose={poseFor(bird)}
+              pose={poseFor(bird, trip)}
               size={168}
               title={bird.name}
             />

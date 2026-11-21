@@ -1,10 +1,24 @@
 import type { Pose } from "@/components/Bird";
 import type { SyncPayload } from "@/components/sync";
 import { config } from "@/lib/config";
+import { positionAt, type BirdPosition } from "@/lib/flight/engine";
 import { fill, type Pronoun } from "@/lib/format";
 import type { CareAction } from "@/server/services/care";
 
 type PigeonBird = SyncPayload["birds"][number];
+
+type Trip = BirdPosition["state"] | null;
+
+export function tripOf(
+  bird: PigeonBird,
+  data: Pick<SyncPayload, "flights" | "serverNow">,
+): Trip {
+  const flight = data.flights.find(
+    (f) => f.bird.id === bird.id && f.status === "flying",
+  );
+  if (!flight?.plan) return null;
+  return positionAt(flight.plan, flight.from, flight.to, data.serverNow).state;
+}
 
 type Mood =
   | "fine"
@@ -12,18 +26,21 @@ type Mood =
   | "sulking"
   | "scruffy"
   | "tired"
+  | "grounded"
   | "napping"
   | "bathing"
   | "working"
   | "flying"
+  | "roosting"
   | "visiting"
   | "scheduled";
 
 const BUSY_MOOD: Record<string, Mood> = { nap: "napping", bath: "bathing" };
 
-function moodOf(bird: PigeonBird): Mood {
+function moodOf(bird: PigeonBird, trip: Trip): Mood {
   switch (bird.status) {
     case "flying":
+      return trip === "roosting" ? "roosting" : "flying";
     case "visiting":
     case "scheduled":
       return bird.status;
@@ -33,7 +50,7 @@ function moodOf(bird: PigeonBird): Mood {
       if (bird.sulking) return "sulking";
       if (bird.hungry) return "hungry";
       if (bird.scruffy) return "scruffy";
-      if (bird.tired) return "tired";
+      if (bird.tired) return bird.canFly ? "tired" : "grounded";
       return "fine";
   }
 }
@@ -44,10 +61,12 @@ const POSE: Record<Mood, Pose> = {
   sulking: "sulk",
   scruffy: "perched",
   tired: "perched",
+  grounded: "perched",
   napping: "sleep",
   bathing: "perched",
   working: "perched",
   flying: "fly",
+  roosting: "sleep",
   visiting: "landed",
   scheduled: "perched",
 };
@@ -58,20 +77,23 @@ const MOOD_LINE: Record<Mood, string> = {
   sulking: "Sulking. Has not been fed in days and is keeping count.",
   scruffy: "A bit scruffy. A bath would help {his} dignity.",
   tired: "A bit tired. {He} can still fly, but a nap would help.",
+  grounded: "Too tired to fly. {He} needs a nap first.",
   napping: "Asleep. Snoring, but with dignity.",
   bathing: "In the bath. Splashing more than strictly necessary.",
   working: "On an odd job. Very professional about it.",
   flying: "Out on a delivery. Taking it very seriously.",
+  roosting: "Roosting for the night. Back in the air at first light.",
   visiting: "On a friend's sill. Being polite about the crumbs.",
   scheduled: "Packed and waiting to leave. Pretending not to be excited.",
 };
 
 const pronounOf = (bird: PigeonBird) => bird.pronoun as Pronoun;
 
-export const poseFor = (bird: PigeonBird): Pose => POSE[moodOf(bird)];
+export const poseFor = (bird: PigeonBird, trip: Trip = null): Pose =>
+  POSE[moodOf(bird, trip)];
 
-export const moodLine = (bird: PigeonBird): string =>
-  fill(MOOD_LINE[moodOf(bird)], {}, pronounOf(bird));
+export const moodLine = (bird: PigeonBird, trip: Trip = null): string =>
+  fill(MOOD_LINE[moodOf(bird, trip)], {}, pronounOf(bird));
 
 const PRONOUN_LINES: Record<
   Pronoun,

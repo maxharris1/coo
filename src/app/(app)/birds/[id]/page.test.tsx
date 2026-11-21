@@ -32,6 +32,7 @@ const gerald = (over: Record<string, unknown> = {}) =>
     hungry: false,
     scruffy: false,
     tired: false,
+    canFly: true,
     sulking: false,
     status: "home",
     busyKind: null,
@@ -56,10 +57,14 @@ const payload = (
     ...extra,
   }) as unknown as SyncPayload;
 
-const syncWith = (data: SyncPayload | null, refresh: () => void = () => {}) => {
+const syncWith = (
+  data: SyncPayload | null,
+  refresh: () => void = () => {},
+  error: string | null = null,
+) => {
   sync.current = {
     data,
-    error: null,
+    error,
     offsetMs: 0,
     refresh,
   } satisfies SyncState;
@@ -82,6 +87,64 @@ const elements = (node: ReactNode): ReactElement<Props>[] => {
   const el = node as ReactElement<Props>;
   return [el, ...elements(el.props.children)];
 };
+
+const portrait = (pose: Pose) =>
+  renderToStaticMarkup(
+    <Bird
+      look="gerald"
+      breed="city"
+      gear={["goggles"]}
+      pose={pose}
+      size={168}
+      title="Gerald"
+    />,
+  );
+
+const tripFrom = { lat: 40.7, lon: -74, label: "Brooklyn" };
+const tripTo = { lat: 34.05, lon: -118.24, label: "Los Angeles" };
+const HOUR = 3_600_000;
+
+const tripPlan = (segments: [string, number, number][]) => ({
+  distanceMi: 2450,
+  bearingDeg: 270,
+  onTimeOdds: 0.9,
+  delayed: false,
+  delayKind: null,
+  arriveAtMs: NOW + segments[segments.length - 1][2] * HOUR,
+  segments: segments.map(([kind, from, to], i) => ({
+    kind,
+    startMs: NOW + from * HOUR,
+    endMs: NOW + to * HOUR,
+    fromFrac: i / segments.length,
+    toFrac: (i + 1) / segments.length,
+  })),
+  events: [],
+});
+
+const onTrip = (atHour: number) =>
+  payload([gerald({ status: "flying" })], {
+    serverNow: NOW + atHour * HOUR,
+    flights: [
+      {
+        id: "f1",
+        kind: "delivery",
+        status: "flying",
+        role: "mine",
+        bird: { id: "g", name: "Gerald" },
+        owner: { id: "u", name: "Me" },
+        counterpart: { id: "m", name: "Maya" },
+        from: tripFrom,
+        to: tripTo,
+        releaseAt: NOW,
+        arriveAt: NOW + 30 * HOUR,
+        plan: tripPlan([
+          ["fly", 0, 10],
+          ["roost", 10, 20],
+          ["fly", 20, 30],
+        ]),
+      },
+    ],
+  });
 
 const button = (label: string) =>
   elements(PigeonPage()).find(
@@ -182,6 +245,7 @@ describe("Pigeon mood (ac-1)", () => {
       [{ status: "scheduled" }, "perched"],
       [{ scruffy: true }, "perched"],
       [{ tired: true }, "perched"],
+      [{ tired: true, canFly: false }, "perched"],
     ];
     for (const [over, pose] of cases) {
       expect(poseFor(gerald(over)), JSON.stringify(over)).toBe(pose);
@@ -211,6 +275,7 @@ describe("Pigeon mood (ac-1)", () => {
       { sulking: true },
       { scruffy: true },
       { tired: true },
+      { tired: true, canFly: false },
       { status: "busy", busyKind: "nap" },
       { status: "busy", busyKind: "bath" },
       { status: "flying" },
@@ -332,9 +397,57 @@ describe("Pigeon away (ac-1)", () => {
   });
 });
 
+describe("Pigeon on a trip (ac-1, docs/08-design-system.md:92)", () => {
+  const mood = (html: string) =>
+    /<h1[^>]*>Gerald<\/h1><p[^>]*>([^<]+)<\/p>/.exec(html)?.[1];
+
+  it("sleeps while the current segment is a roost", () => {
+    const html = render(onTrip(15));
+    expect(html).toContain(portrait("sleep"));
+    expect(html).not.toContain(portrait("fly"));
+    expect(mood(html)).toBe(
+      "Roosting for the night. Back in the air at first light.",
+    );
+  });
+
+  it("flies on either side of the roost", () => {
+    for (const hour of [5, 25]) {
+      const html = render(onTrip(hour));
+      expect(html, `hour ${hour}`).toContain(portrait("fly"));
+      expect(mood(html)).toBe("Out on a delivery. Taking it very seriously.");
+    }
+  });
+
+  it("ignores another bird's roosting flight", () => {
+    const data = onTrip(15);
+    const flight = (data.flights as unknown as { bird: { id: string } }[])[0];
+    flight.bird = { id: "other" };
+    expect(render(data)).toContain(portrait("fly"));
+  });
+});
+
 describe("Pigeon states", () => {
   it("shows the loader until the first sync lands", () => {
     expect(render(null)).toContain('aria-busy="true"');
+  });
+
+  it("explains a failed first sync and offers a retry", () => {
+    let retried = 0;
+    syncWith(null, () => retried++, "We could not reach the loft. Try again.");
+    const html = renderToStaticMarkup(<PigeonPage />);
+    expect(html).toMatch(
+      /role="alert"[^>]*>We could not reach the loft. Try again.</,
+    );
+    expect(html).not.toContain('aria-busy="true"');
+    button("Try again")!.props.onClick!();
+    expect(retried).toBe(1);
+  });
+
+  it("keeps showing the bird when a later sync fails", () => {
+    syncWith(payload([gerald()]), () => {}, "We could not reach the loft.");
+    const html = renderToStaticMarkup(<PigeonPage />);
+    expect(html).toMatch(/<h1[^>]*>Gerald<\/h1>/);
+    expect(html).not.toContain('role="alert"');
   });
 
   it("says so when the bird is not in the flock", () => {
