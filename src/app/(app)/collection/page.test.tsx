@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { config } from "@/lib/config";
@@ -106,6 +106,18 @@ describe("/collection badges", () => {
     expect(html).toMatch(
       /mask-image:url\(\/assets\/svg\/icons\/feather\.svg\)/,
     );
+  });
+
+  it("masks every badge with an icon asset that exists", () => {
+    const urls = [
+      ...html.matchAll(/"mask-image:url\((\/assets\/svg\/icons\/[^)]+)\)/g),
+    ].map((m) => m[1]);
+    expect(urls).toHaveLength(config.badges.badges.length);
+    const missing = urls.filter(
+      (url) =>
+        !existsSync(new URL(`../../../../public${url}`, import.meta.url)),
+    );
+    expect(missing).toEqual([]);
   });
 
   it("tints the icon disc by token", () => {
