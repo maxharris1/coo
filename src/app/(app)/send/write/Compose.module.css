@@ -1,0 +1,232 @@
+.screen {
+  min-height: calc(100dvh - 96px);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: var(--coo-gutter) var(--coo-gutter) 20px;
+  background: var(--coo-paper);
+  color: var(--coo-ink);
+  font-family: var(--coo-font-body);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.back {
+  width: var(--coo-touch);
+  height: var(--coo-touch);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--coo-card);
+  border: var(--coo-line);
+  border-radius: 50%;
+  box-shadow: var(--coo-shadow-1);
+}
+
+.back path {
+  fill: none;
+  stroke: var(--coo-ink);
+  stroke-width: 2.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-family: var(--coo-font-display);
+  font-weight: 400;
+  font-size: 28px;
+  line-height: 1;
+  overflow-wrap: anywhere;
+}
+
+.card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--coo-card);
+  border: var(--coo-line);
+  border-radius: var(--coo-radius-card);
+}
+
+.avatar {
+  width: var(--coo-touch);
+  height: var(--coo-touch);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f59c8e;
+  border: var(--coo-line-thin);
+  border-radius: 50%;
+  font-family: var(--coo-font-display);
+  font-size: 22px;
+}
+
+.who {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.name {
+  font-weight: 900;
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+
+.line {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--coo-muted);
+}
+
+.change {
+  min-height: var(--coo-touch);
+  display: flex;
+  align-items: center;
+  padding: 0 6px;
+  font-weight: 900;
+  font-size: 14px;
+  color: var(--coo-ink);
+}
+
+.missing {
+  flex: 1;
+  margin: 0;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.note {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-weight: 900;
+  font-size: 15px;
+}
+
+.paper {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 14px 8px;
+  background: var(--coo-card);
+  border: var(--coo-line);
+  border-radius: var(--coo-radius-paper);
+  box-shadow: var(--coo-shadow-2);
+  transform: rotate(-0.8deg);
+}
+
+.field {
+  width: 100%;
+  height: 170px;
+  box-sizing: border-box;
+  padding: 0;
+  border: none;
+  resize: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 32px,
+    #d9d3e6 32px,
+    #d9d3e6 34px
+  );
+  font-family: var(--coo-font-hand);
+  font-weight: 700;
+  font-size: 27px;
+  line-height: 34px;
+  color: var(--coo-ink);
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+  padding-top: 6px;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--coo-muted);
+}
+
+.count {
+  font-variant-numeric: tabular-nums;
+}
+
+.over {
+  font-variant-numeric: tabular-nums;
+  color: var(--coo-stamp);
+}
+
+.footer {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.release {
+  width: 100%;
+  min-height: 60px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--coo-tomato);
+  border: var(--coo-line);
+  border-radius: var(--coo-radius-button);
+  box-shadow: var(--coo-shadow-3);
+  font-family: var(--coo-font-display);
+  font-size: 24px;
+  color: var(--coo-ink);
+  cursor: pointer;
+}
+
+.release path {
+  fill: var(--coo-card);
+  stroke: var(--coo-ink);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.release:disabled {
+  background: var(--coo-sand);
+  color: var(--coo-muted);
+  box-shadow: none;
+  cursor: default;
+}
+
+.hint {
+  margin: 0;
+  font-weight: 800;
+  font-size: 12.5px;
+  color: var(--coo-muted);
+  text-align: center;
+}
+
+.back:focus-visible,
+.change:focus-visible,
+.field:focus-visible,
+.release:focus-visible {
+  outline: 3px solid var(--coo-tomato);
+  outline-offset: 2px;
+}
+
+.field:focus-visible {
+  outline-offset: 4px;
+}
