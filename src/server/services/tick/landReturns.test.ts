@@ -378,7 +378,12 @@ describe("landing a return", () => {
   });
 
   it("keeps home recovery from arrival when a birdbath purchase settles the return before the tick", async () => {
-    const r = await insertReturn({ withNote: false, id: NO_FIND_ID });
+    const r = await insertReturn({ withNote: false, id: ON_TIME_ID });
+    const [{ plan }] = await rows<{ plan: { delayKind: string } }>(
+      "select plan from flights where id = $1",
+      [r.flightId],
+    );
+    expect(plan.delayKind).toBe("none");
     await rows("update birds set energy = 70, care_at = $2 where id = $1", [
       r.birdId,
       iso(deps.clock.now()),
