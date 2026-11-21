@@ -1,0 +1,128 @@
+.screen {
+  position: relative;
+  box-sizing: border-box;
+  min-height: 100dvh;
+  overflow: hidden;
+  background: var(--coo-sky);
+  color: var(--coo-ink);
+  font-family: var(--coo-font-body);
+}
+
+.scene {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 304px;
+}
+
+.city {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: visible;
+}
+
+.buildings {
+  fill: #8ccdee;
+}
+
+.ledge {
+  fill: #f08a6b;
+  stroke: var(--coo-ink);
+  stroke-width: 2.5;
+}
+
+.bricks {
+  fill: none;
+  stroke: var(--coo-ink);
+  stroke-width: 1.6;
+  opacity: 0.4;
+}
+
+.art {
+  position: absolute;
+  display: block;
+  flex-shrink: 0;
+}
+
+.bird {
+  position: absolute;
+  left: 50px;
+  top: 19px;
+}
+
+.copy {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 36px 20px 0;
+}
+
+.released {
+  align-self: flex-start;
+  padding: 4px 10px;
+  background: var(--coo-card);
+  border: var(--coo-line-thin);
+  border-radius: var(--coo-radius-pill);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.headline {
+  margin: 0;
+  font-family: var(--coo-font-display);
+  font-weight: 400;
+  font-size: 52px;
+  line-height: 0.98;
+}
+
+.note {
+  margin: 0;
+  font-weight: 800;
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+.actions {
+  position: absolute;
+  left: var(--coo-gutter);
+  right: var(--coo-gutter);
+  bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.watch,
+.watch:hover {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 60px;
+  padding: 0 12px;
+  background: var(--coo-sun);
+  border: var(--coo-line);
+  border-radius: var(--coo-radius-button);
+  box-shadow: var(--coo-shadow-3);
+  color: var(--coo-ink);
+  font-family: var(--coo-font-display);
+  font-size: 22px;
+  line-height: 1.1;
+  text-align: center;
+  text-decoration: none;
+}
+
+.watch:focus-visible {
+  outline: 3px solid var(--coo-tomato);
+  outline-offset: 2px;
+}
+
+.hint {
+  font-weight: 800;
+  font-size: 12.5px;
+}
