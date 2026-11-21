@@ -111,11 +111,18 @@ async function storeMajorDelay(flightId: string): Promise<FlightPlan> {
   return plan;
 }
 
-async function refreshSync() {
-  const payload: SyncPayload = wire({
+async function readSync(): Promise<SyncPayload> {
+  return wire({
     ...(await sync(deps, caller, TZ)),
     serverNow: deps.clock.now(),
   });
+}
+
+async function refreshSync() {
+  deliverSync(await readSync());
+}
+
+function deliverSync(payload: SyncPayload) {
   hooks.sync = {
     data: payload,
     error: null,
@@ -201,4 +208,64 @@ it("keeps a fetched flight that is newer than the last sync", async () => {
   const server = await getFlight(deps, caller.userId, hooks.id);
   expect(flight.arriveAt, "tracker arrival").toBe(server.arriveAt);
   expect(fetches).toBe(1);
+});
+
+function stubSlowFetch(flight: Flight): () => void {
+  let release = () => {};
+  const arrived = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  vi.stubGlobal("fetch", async () => {
+    await arrived;
+    return new Response(
+      JSON.stringify({ flight: wire(flight), serverNow: deps.clock.now() }),
+    );
+  });
+  return release;
+}
+
+it("keeps the synced search-party plan over a slower GET that read the old plan", async () => {
+  await refreshSync();
+  const oldRead = await getFlight(deps, caller.userId, hooks.id);
+  const releaseGet = stubSlowFetch(oldRead);
+  expect(trackerFlight(), "still loading").toBeUndefined();
+
+  deps.clock.set(deps.clock.now() + SECOND);
+  const party = await sendSearchParty(deps, caller, hooks.id);
+  expect(party.outcome).toBe("found");
+  await refreshSync();
+  const syncStamp = (hooks.sync as SyncState).data!.serverNow;
+
+  deps.clock.set(deps.clock.now() + SECOND);
+  releaseGet();
+  const flight = await mounted();
+
+  const server = await getFlight(deps, caller.userId, hooks.id);
+  expect(server.arriveAt).toBeLessThan(oldRead.arriveAt!);
+  expect(syncStamp, "GET stamped after the sync").toBeLessThan(
+    deps.clock.now(),
+  );
+  expect(flight.arriveAt, "tracker arrival").toBe(server.arriveAt);
+  const oneSecondLate = server.arriveAt! + SECOND;
+  expect(trackerView(flight, oneSecondLate, TZ).state).toBe("landed");
+});
+
+it("keeps a fetched search-party plan over a slower sync that read the old plan", async () => {
+  await refreshSync();
+  const oldSync = await readSync();
+
+  deps.clock.set(deps.clock.now() + SECOND);
+  const party = await sendSearchParty(deps, caller, hooks.id);
+  expect(party.outcome).toBe("found");
+  const fetched = await mounted();
+
+  deps.clock.set(deps.clock.now() + SECOND);
+  deliverSync({ ...oldSync, serverNow: deps.clock.now() });
+  const flight = trackerFlight()!;
+
+  const server = await getFlight(deps, caller.userId, hooks.id);
+  expect(fetched.arriveAt).toBe(server.arriveAt);
+  expect(flight.arriveAt, "tracker arrival").toBe(server.arriveAt);
+  const oneSecondLate = server.arriveAt! + SECOND;
+  expect(trackerView(flight, oneSecondLate, TZ).state).toBe("landed");
 });

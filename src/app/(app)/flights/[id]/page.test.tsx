@@ -17,11 +17,7 @@ function respond(status: number, body: unknown): typeof fetch {
 describe("loadFlight", () => {
   it("asks the API for the flight by id and returns it", async () => {
     const fetchFn = respond(200, { flight, serverNow: 42 });
-    expect(await loadFlight(fetchFn, "f1")).toEqual({
-      ok: true,
-      flight,
-      serverNow: 42,
-    });
+    expect(await loadFlight(fetchFn, "f1")).toEqual({ ok: true, flight });
     expect(fetchFn).toHaveBeenCalledWith(
       "/api/flights/f1",
       expect.objectContaining({ cache: "no-store" }),
