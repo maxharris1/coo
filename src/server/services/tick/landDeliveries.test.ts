@@ -519,6 +519,7 @@ describe("landing a delivery", () => {
 
     const HOUR = 60 * MINUTE_MS;
     const NY_MIDNIGHT = Date.UTC(2026, 10, 19, 5);
+    const NEXT_NY_MIDNIGHT = NY_MIDNIGHT + 24 * HOUR;
 
     it("the 11th delivery of the local day pays 2", async () => {
       await landedEarlier(
@@ -552,14 +553,15 @@ describe("landing a delivery", () => {
       const later = await insertPlannedDelivery(
         deps.db,
         world,
-        flight.arriveAtMs + 30 * MINUTE_MS,
-        { to: world.rosa, birdId: world.max.birds[1].id },
+        Date.UTC(2026, 10, 19, 17, 20),
+        {
+          to: world.rosa,
+          birdId: world.max.birds[1].id,
+          id: "00000000-0000-4000-f001-000000000001",
+        },
       );
-      later.arriveAtMs = flight.arriveAtMs + 30 * MINUTE_MS;
-      await deps.db.query("update flights set arrive_at = $2 where id = $1", [
-        later.flightId,
-        iso(later.arriveAtMs),
-      ]);
+      expect(later.arriveAtMs).toBeGreaterThan(flight.arriveAtMs);
+      expect(later.arriveAtMs).toBeLessThan(NEXT_NY_MIDNIGHT);
       await landedEarlier(
         Array.from(
           { length: 9 },
