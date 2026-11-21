@@ -13,6 +13,14 @@ import { FakePush } from "./fakes/push";
 import { FakeSms } from "./fakes/sms";
 import { FakeWeather } from "./fakes/weather";
 
+const sendNotification = vi.hoisted(() =>
+  vi.fn(async () => ({ statusCode: 201, body: "", headers: {} })),
+);
+vi.mock("web-push", async (actual) => ({
+  ...(await actual<typeof import("web-push")>()),
+  sendNotification,
+}));
+
 const KEYS = [
   "auth",
   "clock",
@@ -122,7 +130,7 @@ describe("authFor", () => {
 describe("makeDeps", () => {
   afterEach(() => vi.unstubAllEnvs());
 
-  it("wires the ports not built yet to reject with an internal AppError", async () => {
+  it("sends push through web-push with the VAPID details from env and leaves sms unwired", async () => {
     const env = {
       NEXT_PUBLIC_SUPABASE_URL: "https://project.supabase.co",
       NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon",
@@ -143,14 +151,24 @@ describe("makeDeps", () => {
     expect(Object.keys(deps).sort()).toEqual(KEYS);
     const sub = { endpoint: "https://push.example/x", p256dh: "k", auth: "a" };
     const payload = { title: "t", body: "b", url: "/", tag: "x" };
-    for (const call of [
-      () => deps.push.send(sub, payload),
-      () => deps.sms.send("+15555550100", "hi"),
-    ]) {
-      const err = await call().catch((e: unknown) => e);
-      expect(err).toBeInstanceOf(AppError);
-      expect((err as AppError).code).toBe("internal");
-    }
+    await deps.push.send(sub, payload);
+    expect(sendNotification).toHaveBeenCalledWith(
+      { endpoint: sub.endpoint, keys: { p256dh: "k", auth: "a" } },
+      JSON.stringify(payload),
+      {
+        vapidDetails: {
+          subject: "mailto:ops@example.com",
+          publicKey: "vapid-public",
+          privateKey: "vapid-private",
+        },
+      },
+    );
+
+    const err = await deps.sms
+      .send("+15555550100", "hi")
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(AppError);
+    expect((err as AppError).code).toBe("internal");
   });
 });
 
