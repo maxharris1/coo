@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { config } from "@/lib/config";
 import type { FriendRow } from "@/server/services/friends";
 import { FriendsView, type FriendsViewProps } from "./FriendsView";
 
@@ -58,7 +59,7 @@ describe("Friends screen (ac-1)", () => {
     expect(html).toContain("<span>Copy</span>");
     expect(html).toContain("<span>Text it</span>");
     expect(html).toContain(
-      `href="sms:?&amp;body=${encodeURIComponent("Trade pigeons with me on Coo: https://coo.example/join/max")}"`,
+      `href="sms:?&amp;body=${encodeURIComponent(`Trade pigeons with me on ${config.app.name}: https://coo.example/join/max`)}"`,
     );
   });
 
