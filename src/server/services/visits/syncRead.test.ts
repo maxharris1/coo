@@ -1,0 +1,141 @@
+import { NextRequest } from "next/server";
+import { beforeEach, describe, expect, it } from "vitest";
+import { config } from "@/lib/config";
+import { toE164, type E164 } from "@/lib/phone";
+import { syncGet } from "@/app/api/sync/get";
+import { createJsonRoute } from "@/server/http";
+import { makeTestDeps, type TestDeps } from "@/test/deps";
+import { FakeJar } from "@/test/fakes/jar";
+import { HOUR_MS } from "@/test/fixtures/flights";
+import { insertWaitingVisit } from "@/test/fixtures/visits";
+import { seedWorld, type World } from "@/test/seedWorld";
+import { syncVisits } from "./syncRead";
+
+const WAIT_MS = config.game.visits.waitMinutes * 60_000;
+
+let deps: TestDeps;
+let world: World;
+let now: number;
+let visit: Awaited<ReturnType<typeof insertWaitingVisit>>;
+
+beforeEach(async () => {
+  deps = await makeTestDeps();
+  now = deps.clock.now();
+  world = await seedWorld(deps.db, now);
+  visit = await insertWaitingVisit(deps.db, world, now);
+  await deps.db.query(
+    "update flights set distance_mi = 81.37, delay_kind = 'minor' where id = $1",
+    [visit.flightId],
+  );
+});
+
+const brenda = () => world.max.birds[1];
+
+describe("syncVisits", () => {
+  it("gives the host the waiting visit with its note, bird, owner and trip", async () => {
+    const { visits, myVisiting } = await syncVisits(deps, world.priya.id);
+
+    expect(myVisiting).toEqual([]);
+    expect(visits).toEqual([
+      {
+        id: visit.visitId,
+        bird: {
+          id: brenda().id,
+          name: brenda().name,
+          breed: expect.any(String),
+          look: expect.any(String),
+          gear: expect.any(Array),
+        },
+        owner: {
+          id: world.max.id,
+          name: world.max.name,
+          handle: world.max.handle,
+        },
+        note: { id: visit.noteId, body: "Test note from Max", createdAt: now },
+        arrivedAt: now,
+        leavesAt: now + WAIT_MS,
+        status: "waiting",
+        snackGiven: false,
+        flight: { distanceMi: 81.37, durationMs: HOUR_MS, delayKind: "minor" },
+      },
+    ]);
+  });
+
+  it("never lists the visit or its note for the bird's owner or a stranger", async () => {
+    for (const person of [world.max, world.rosa]) {
+      const { visits } = await syncVisits(deps, person.id);
+      expect(visits).toEqual([]);
+    }
+  });
+
+  it("tells the owner where their bird is waiting, without the note", async () => {
+    const result = await syncVisits(deps, world.max.id);
+    expect(result.myVisiting).toEqual([
+      {
+        birdId: brenda().id,
+        hostName: world.priya.name,
+        leavesAt: now + WAIT_MS,
+      },
+    ]);
+    expect(JSON.stringify(result)).not.toContain("Test note");
+    expect((await syncVisits(deps, world.rosa.id)).myVisiting).toEqual([]);
+  });
+
+  it("drops the visit for both sides once leaves_at has passed", async () => {
+    deps.clock.advance(WAIT_MS);
+    expect(await syncVisits(deps, world.priya.id)).toEqual({
+      visits: [],
+      myVisiting: [],
+    });
+    expect(await syncVisits(deps, world.max.id)).toEqual({
+      visits: [],
+      myVisiting: [],
+    });
+  });
+
+  it("drops a visit that is no longer waiting", async () => {
+    await deps.db.query("update visits set status = 'replied' where id = $1", [
+      visit.visitId,
+    ]);
+    expect(await syncVisits(deps, world.priya.id)).toEqual({
+      visits: [],
+      myVisiting: [],
+    });
+    expect(await syncVisits(deps, world.max.id)).toEqual({
+      visits: [],
+      myVisiting: [],
+    });
+  });
+});
+
+describe("GET /api/sync visits", () => {
+  async function syncAs(phone: string) {
+    const jar = new FakeJar();
+    await deps.auth(jar).verifyCode(toE164(phone) as E164, "000000");
+    const cookie = jar
+      .getAll()
+      .map(({ name, value }) => `${name}=${value}`)
+      .join("; ");
+    const res = await syncGet(createJsonRoute(async () => deps))(
+      new NextRequest("https://coo.test/api/sync", { headers: { cookie } }),
+    );
+    return { status: res.status, json: await res.json() };
+  }
+
+  it("shows the note to the host and to nobody else", async () => {
+    const host = await syncAs("+15550000002");
+    expect(host.status).toBe(200);
+    expect(host.json.visits).toHaveLength(1);
+    expect(host.json.visits[0]).toMatchObject({
+      id: visit.visitId,
+      note: { body: "Test note from Max" },
+    });
+
+    for (const phone of ["+15550000001", "+15550000003"]) {
+      const other = await syncAs(phone);
+      expect(other.status).toBe(200);
+      expect(other.json.visits).toEqual([]);
+      expect(JSON.stringify(other.json)).not.toContain("Test note");
+    }
+  });
+});
