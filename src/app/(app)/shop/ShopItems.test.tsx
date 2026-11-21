@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { ShopRow, ShopRows } from "./shop";
-import { ShopItems } from "./ShopItems";
+import { ShopItems, type SeedBurst } from "./ShopItems";
 
 const css = readFileSync(
   new URL("./ShopItems.module.css", import.meta.url),
@@ -63,7 +63,7 @@ const MOCK: ShopRows = {
 
 const render = (
   rows: Pick<ShopRows, "gear" | "loft">,
-  burst: string | null = null,
+  burst: SeedBurst | null = null,
 ) =>
   renderToStaticMarkup(
     <ShopItems
@@ -286,7 +286,7 @@ describe("/shop price buttons (ac-2)", () => {
 });
 
 describe("/shop seed burst (part 4 ac-2)", () => {
-  const burstCard = (burst: string | null) =>
+  const burstCard = (burst: SeedBurst | null) =>
     cards(render(MOCK, burst)).filter((card) => card.includes("burst"));
 
   it("draws no burst until an item is bought", () => {
@@ -294,7 +294,7 @@ describe("/shop seed burst (part 4 ac-2)", () => {
   });
 
   it("plays three seeds from the bought item's row only", () => {
-    const [card, ...rest] = burstCard("rainhat");
+    const [card, ...rest] = burstCard({ itemId: "rainhat", seq: 1 });
     expect(rest).toEqual([]);
     expect(card).toContain("Rain hat");
     const seeds = card.match(/<span class="[^"]*seed[^"]*"/g) ?? [];
