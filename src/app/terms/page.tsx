@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { config } from "@/lib/config";
-import { LegalPage } from "../LegalPage";
-import legal from "../legal.module.css";
+import { LegalPage } from "../(public)/LegalPage";
+import legal from "../(public)/legal.module.css";
 
 export const metadata: Metadata = { title: "Terms" };
 

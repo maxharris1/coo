@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { config } from "@/lib/config";
-import { LegalPage } from "../LegalPage";
+import { LegalPage } from "../(public)/LegalPage";
 
 export const metadata: Metadata = { title: "Privacy" };
 
