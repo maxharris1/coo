@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { config } from "@/lib/config";
-import { computeFlightPlan, type FlightInput } from "@/lib/flight/engine";
+import {
+  computeFlightPlan,
+  type FlightInput,
+  type FlightPlan,
+} from "@/lib/flight/engine";
 import { foundObjectFor } from "@/lib/game/jobs";
 import type { UserId } from "@/server/ports/auth";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
@@ -34,6 +38,8 @@ function idWhere(test: (id: string) => boolean) {
 const finds = (id: string) => foundObjectFor(id, CHANCE) !== null;
 const NO_FIND_ID = idWhere((id) => !finds(id));
 const FIND_ID = idWhere(finds);
+const ON_TIME_ID = uuidFor(1);
+const MAJOR_DELAY_ID = "df71e406-35d1-4014-816c-32b7b7c4e388";
 
 type Return = {
   flightId: string;
@@ -41,6 +47,7 @@ type Return = {
   birdId: string;
   arriveAtMs: number;
   distanceMi: number;
+  delayKind: FlightPlan["delayKind"];
 };
 
 async function insertReturn(
@@ -126,6 +133,7 @@ async function insertReturn(
       birdId,
       arriveAtMs: plan.arriveAtMs,
       distanceMi: plan.distanceMi,
+      delayKind: plan.delayKind,
     };
   });
 }
@@ -147,10 +155,23 @@ const SNAPSHOT_TABLES = [
 ];
 
 async function snapshot() {
-  const out: Record<string, unknown[]> = {};
+  const out: Record<string, Record<string, unknown>[]> = {};
   for (const table of SNAPSHOT_TABLES)
-    out[table] = await rows(`select * from ${table} order by 1, 2`);
+    out[table] = await rows<Record<string, unknown>>(
+      `select * from ${table} order by 1, 2`,
+    );
   return out;
+}
+
+function withoutDelayNotice(s: Awaited<ReturnType<typeof snapshot>>) {
+  return {
+    ...s,
+    flights: s.flights.map((f) => ({ ...f, delay_notified: false })),
+    notifications: s.notifications.filter(
+      (n) => n.kind !== "delayed" && n.kind !== "delayed-in",
+    ),
+    events: s.events.filter((e) => e.kind !== "notification"),
+  };
 }
 
 async function notifications() {
@@ -168,7 +189,8 @@ async function notifications() {
 
 describe("landing a return", () => {
   it("does nothing before the arrival time", async () => {
-    const r = await insertReturn();
+    const r = await insertReturn({ withNote: true, id: ON_TIME_ID });
+    expect(r.delayKind).toBe("none");
     deps.clock.set(r.arriveAtMs - MINUTE_MS);
     const before = await snapshot();
 
@@ -176,6 +198,25 @@ describe("landing a return", () => {
 
     expect(result.counts.landReturns).toBe(0);
     expect(await snapshot()).toEqual(before);
+  });
+
+  it("does not land a badly delayed return before the arrival time, and only tells of the delay", async () => {
+    const r = await insertReturn({ withNote: true, id: MAJOR_DELAY_ID });
+    expect(r.delayKind).toBe("major");
+    deps.clock.set(r.arriveAtMs - MINUTE_MS);
+    const before = await snapshot();
+
+    const result = await tick(deps);
+
+    expect(result.counts.landReturns).toBe(0);
+    expect(result.counts.delayNotices).toBe(1);
+    expect((await notifications()).map((n) => n.kind)).toEqual([
+      "delayed",
+      "delayed-in",
+    ]);
+    expect(withoutDelayNotice(await snapshot())).toEqual(
+      withoutDelayNotice(before),
+    );
   });
 
   it("scenario 1: Gerald is home, Max has the reply and 5 more seeds, and both are told once", async () => {

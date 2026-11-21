@@ -1,5 +1,9 @@
 import { config } from "@/lib/config";
-import { computeFlightPlan, type FlightInput } from "@/lib/flight/engine";
+import {
+  computeFlightPlan,
+  type FlightInput,
+  type FlightPlan,
+} from "@/lib/flight/engine";
 import type { Db } from "@/server/db";
 import type { World } from "../seedWorld";
 import { insertFlyingDelivery, type DeliveryOpts } from "./flights";
@@ -10,6 +14,7 @@ export type PlannedDelivery = {
   birdId: string;
   arriveAtMs: number;
   distanceMi: number;
+  delayKind: FlightPlan["delayKind"];
 };
 
 export async function insertPlannedDelivery(
@@ -88,5 +93,6 @@ export async function insertPlannedDelivery(
     birdId,
     arriveAtMs: plan.arriveAtMs,
     distanceMi: plan.distanceMi,
+    delayKind: plan.delayKind,
   };
 }
