@@ -2,9 +2,10 @@ import { z } from "zod";
 import type { createJsonRoute } from "@/server/http";
 import { putGear } from "@/server/services/gear";
 
-const BODY = z
-  .object({ items: z.array(z.string().min(1).max(100)).max(20) })
-  .strict();
+const BODY = z.union([
+  z.object({ items: z.array(z.string().min(1).max(100)).max(20) }).strict(),
+  z.object({ outfitId: z.string().uuid() }).strict(),
+]);
 
 export function birdGearPut(jsonRoute: ReturnType<typeof createJsonRoute>) {
   return jsonRoute(

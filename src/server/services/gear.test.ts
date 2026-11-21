@@ -4,7 +4,7 @@ import type { UserId } from "@/server/ports/auth";
 import { toBirdRecord, type Row } from "@/server/rows";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
 import { seedWorld, type World } from "@/test/seedWorld";
-import { putGear } from "./gear";
+import { putGear, saveOutfits } from "./gear";
 
 const HOUR = 3_600_000;
 
@@ -31,6 +31,26 @@ async function own(userId: string, ...items: string[]) {
 
 async function setBird(id: string, set: string, params: unknown[] = []) {
   await deps.db.query(`update birds set ${set} where id = $1`, [id, ...params]);
+}
+
+async function addOutfit(userId: string, name: string, items: string[]) {
+  const [row] = await deps.db.query<{ id: string }>(
+    "insert into outfits (user_id, name, items) values ($1, $2, $3) returning id",
+    [userId, name, items],
+  );
+  return row.id;
+}
+
+async function outfitsOf(userId: string) {
+  return deps.db.query<{
+    id: string;
+    name: string;
+    items: string[];
+    position: number;
+  }>(
+    "select id, name, items, position from outfits where user_id = $1 order by position, id",
+    [userId],
+  );
 }
 
 async function gearOf(id: string): Promise<string[]> {
@@ -192,5 +212,184 @@ describe("putGear: someone else's bird", () => {
 
     expect(await gearOf(world.priya.birds[0].id)).toEqual(["bow"]);
     expect(await gearOf(gerald)).toEqual(["bow"]);
+  });
+});
+
+describe("putGear: applying a saved outfit (ac-3)", () => {
+  it("puts on the owned and free items and skips the rest", async () => {
+    await putGear(deps, max, brenda, { items: ["bow"] });
+    await putGear(deps, max, gerald, { items: ["goggles", "bell"] });
+    const outfitId = await addOutfit(world.max.id, "Rainy", [
+      "goggles",
+      "bow",
+      "band",
+      "backpack",
+    ]);
+
+    const { bird, skipped } = await putGear(deps, max, gerald, { outfitId });
+
+    expect(bird.gear).toEqual(["goggles"]);
+    expect(skipped).toEqual(["bow", "band", "backpack"]);
+    expect(await gearOf(gerald)).toEqual(["goggles"]);
+    expect(await gearOf(brenda)).toEqual(["bow"]);
+  });
+
+  it("skips an item worn by an away bird instead of refusing", async () => {
+    await putGear(deps, max, brenda, { items: ["scarf"] });
+    await setBird(brenda, "status = 'flying'");
+    const outfitId = await addOutfit(world.max.id, "Cosy", ["beanie", "scarf"]);
+
+    const { bird, skipped } = await putGear(deps, max, gerald, { outfitId });
+
+    expect(bird.gear).toEqual(["beanie"]);
+    expect(skipped).toEqual(["scarf"]);
+    expect(await gearOf(brenda)).toEqual(["scarf"]);
+  });
+
+  it("gives the same rows when the same outfit is applied twice", async () => {
+    const outfitId = await addOutfit(world.max.id, "Cosy", ["beanie", "bow"]);
+    await putGear(deps, max, gerald, { outfitId });
+    const { skipped } = await putGear(deps, max, gerald, { outfitId });
+
+    expect(skipped).toEqual([]);
+    expect(await gearOf(gerald)).toEqual(["beanie", "bow"]);
+  });
+
+  it("returns no skipped items for a plain list of items", async () => {
+    const { skipped } = await putGear(deps, max, gerald, {
+      items: ["goggles"],
+    });
+    expect(skipped).toEqual([]);
+  });
+
+  it("answers not_found for another user's outfit and changes nothing", async () => {
+    await putGear(deps, max, gerald, { items: ["beanie"] });
+    const outfitId = await addOutfit(world.priya.id, "Hers", ["goggles"]);
+
+    await expect(
+      putGear(deps, max, gerald, { outfitId }),
+    ).rejects.toMatchObject({ code: "not_found" });
+    expect(await gearOf(gerald)).toEqual(["beanie"]);
+  });
+
+  it("refuses to dress a bird that is away", async () => {
+    const outfitId = await addOutfit(world.max.id, "Cosy", ["beanie"]);
+    await setBird(gerald, "status = 'flying'");
+
+    await expect(
+      putGear(deps, max, gerald, { outfitId }),
+    ).rejects.toMatchObject({ code: "conflict" });
+    expect(await gearOf(gerald)).toEqual([]);
+  });
+});
+
+describe("saveOutfits", () => {
+  const outfit = (name: string, items: string[], id?: string) =>
+    id ? { id, name, items } : { name, items };
+
+  it("replaces the saved outfits, in the order given", async () => {
+    const { outfits } = await saveOutfits(deps, max, {
+      outfits: [outfit("Rainy", ["rainhat", "bell"]), outfit("Plain", [])],
+    });
+
+    expect(outfits.map((o) => [o.name, o.items])).toEqual([
+      ["Rainy", ["rainhat", "bell"]],
+      ["Plain", []],
+    ]);
+    const rows = await outfitsOf(world.max.id);
+    expect(rows.map((r) => [r.id, r.name, r.position])).toEqual([
+      [outfits[0].id, "Rainy", 0],
+      [outfits[1].id, "Plain", 1],
+    ]);
+  });
+
+  it("keeps the id of an outfit that is saved again and drops the ones left out", async () => {
+    const [everyday] = await outfitsOf(world.max.id);
+    const { outfits } = await saveOutfits(deps, max, {
+      outfits: [
+        outfit("New", ["goggles"]),
+        outfit("Daily", ["bow"], everyday.id),
+      ],
+    });
+
+    expect(outfits[1]).toEqual({
+      id: everyday.id,
+      name: "Daily",
+      items: ["bow"],
+    });
+    expect((await outfitsOf(world.max.id)).map((r) => r.id)).toEqual(
+      outfits.map((o) => o.id),
+    );
+  });
+
+  it("gives the same rows when the same save runs twice", async () => {
+    const [everyday] = await outfitsOf(world.max.id);
+    const input = {
+      outfits: [outfit("Daily", ["bow"], everyday.id), outfit("Cap", ["cap"])],
+    };
+    const first = await saveOutfits(deps, max, input);
+    const again = {
+      outfits: first.outfits.map((o) => outfit(o.name, o.items, o.id)),
+    };
+    const second = await saveOutfits(deps, max, again);
+
+    expect(second.outfits).toEqual(first.outfits);
+    expect(await outfitsOf(world.max.id)).toHaveLength(2);
+  });
+
+  it("allows items the user does not own yet", async () => {
+    const { outfits } = await saveOutfits(deps, max, {
+      outfits: [outfit("Wish", ["party", "bandana", "booties"])],
+    });
+    expect(outfits[0].items).toEqual(["party", "bandana", "booties"]);
+  });
+
+  it("refuses a seventh outfit and leaves the saved ones as they were", async () => {
+    const before = await outfitsOf(world.max.id);
+    await expect(
+      saveOutfits(deps, max, {
+        outfits: Array.from({ length: 7 }, (_, i) => outfit(`O${i}`, [])),
+      }),
+    ).rejects.toMatchObject({ code: "invalid" });
+    expect(await outfitsOf(world.max.id)).toEqual(before);
+  });
+
+  it.each([
+    ["two items on one slot", ["goggles", "beanie"]],
+    ["an unknown item", ["jetpack"]],
+    ["the same item twice", ["bow", "bow"]],
+  ])("refuses %s", async (_, items) => {
+    const before = await outfitsOf(world.max.id);
+    await expect(
+      saveOutfits(deps, max, { outfits: [outfit("Bad", items)] }),
+    ).rejects.toMatchObject({ code: "invalid" });
+    expect(await outfitsOf(world.max.id)).toEqual(before);
+  });
+
+  it("refuses the same outfit id twice in one list", async () => {
+    const before = await outfitsOf(world.max.id);
+    const [everyday] = before;
+    await expect(
+      saveOutfits(deps, max, {
+        outfits: [
+          outfit("A", [], everyday.id),
+          outfit("B", ["bow"], everyday.id),
+        ],
+      }),
+    ).rejects.toMatchObject({ code: "invalid" });
+    expect(await outfitsOf(world.max.id)).toEqual(before);
+  });
+
+  it("answers not_found for another user's outfit id and leaves theirs unchanged", async () => {
+    const before = await outfitsOf(world.max.id);
+    const [theirs] = await outfitsOf(world.priya.id);
+
+    await expect(
+      saveOutfits(deps, max, {
+        outfits: [outfit("Mine now", ["goggles"], theirs.id)],
+      }),
+    ).rejects.toMatchObject({ code: "not_found" });
+    expect(await outfitsOf(world.priya.id)).toEqual([theirs]);
+    expect(await outfitsOf(world.max.id)).toEqual(before);
   });
 });

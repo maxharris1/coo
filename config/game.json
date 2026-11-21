@@ -197,6 +197,7 @@
     "flightsPerDay": 40,
     "recipientsPerSend": 5,
     "friendsMax": 150,
+    "outfitsMax": 6,
     "geoSearchPerMinute": 30,
     "reportsPerDay": 10,
     "smsPerUserPer15Min": 1,

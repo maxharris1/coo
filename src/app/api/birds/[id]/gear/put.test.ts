@@ -56,6 +56,14 @@ async function gearOf(id: string): Promise<string[]> {
   return row.gear;
 }
 
+async function addOutfit(userId: string, items: string[]) {
+  const [row] = await deps.db.query<{ id: string }>(
+    "insert into outfits (user_id, name, items) values ($1, 'Test', $2) returning id",
+    [userId, items],
+  );
+  return row.id;
+}
+
 async function setBird(id: string, set: string, params: unknown[] = []) {
   await deps.db.query(`update birds set ${set} where id = $1`, [id, ...params]);
 }
@@ -145,8 +153,38 @@ describe("PUT /api/birds/[id]/gear", () => {
     expect(await gearOf(kevin.id)).toEqual(["bow"]);
   });
 
+  it("applies a saved outfit and lists the items it skipped (ac-3)", async () => {
+    const jar = await signIn(MAX_PHONE);
+    await put(brenda, { items: ["bow"] }, jar);
+    const outfitId = await addOutfit(world.max.id, ["goggles", "bow", "band"]);
+
+    const { status, json } = await put(gerald, { outfitId }, jar);
+
+    expect(status).toBe(200);
+    expect(json.bird.gear).toEqual(["goggles"]);
+    expect(json.skipped).toEqual(["bow", "band"]);
+    expect(await gearOf(gerald)).toEqual(["goggles"]);
+    expect(await gearOf(brenda)).toEqual(["bow"]);
+  });
+
+  it("answers someone else's outfit with 404 and changes nothing", async () => {
+    const jar = await signIn(MAX_PHONE);
+    const outfitId = await addOutfit(world.priya.id, ["goggles"]);
+
+    const { status, json } = await put(gerald, { outfitId }, jar);
+
+    expect(status).toBe(404);
+    expect(json.error.code).toBe("not_found");
+    expect(await gearOf(gerald)).toEqual([]);
+  });
+
   it.each([
     ["an empty body", {}],
+    ["an outfit id that is not a uuid", { outfitId: "everyday" }],
+    [
+      "both items and an outfit id",
+      { items: [], outfitId: "00000000-0000-4000-b000-000000000001" },
+    ],
     ["items that is not a list", { items: "goggles" }],
     ["an item that is not text", { items: [7] }],
     ["an unknown key", { items: [], birdId: "x" }],
