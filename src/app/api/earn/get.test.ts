@@ -326,42 +326,57 @@ describe("GET /api/earn jobs", () => {
     return json.jobs.offers.map((o) => o.id);
   }
 
-  it("offers the same two jobs all local day and a different pair the next day", async () => {
-    const world = await seedWorld(deps.db, deps.clock.now());
-    const id = world.max.id;
-    await deps.db.query("update profiles set timezone = $2 where id = $1", [
-      id,
-      TZ,
-    ]);
-    const { jar } = await client.signIn("(555) 000-0001");
-    const early = Date.UTC(2026, 10, 21, 5, 5);
-    const late = Date.UTC(2026, 10, 22, 4, 55);
-    const nextDay = Date.UTC(2026, 10, 22, 5, 5);
-    const expected = (date: string) => offersFor(id, date as LocalDate);
+  it.each([
+    {
+      early: Date.UTC(2026, 10, 21, 5, 5),
+      late: Date.UTC(2026, 10, 22, 4, 55),
+      nextDay: Date.UTC(2026, 10, 22, 5, 5),
+      today: "2026-11-21",
+      tomorrow: "2026-11-22",
+    },
+    {
+      early: Date.UTC(2026, 3, 6, 4, 5),
+      late: Date.UTC(2026, 3, 7, 3, 55),
+      nextDay: Date.UTC(2026, 3, 7, 4, 5),
+      today: "2026-04-06",
+      tomorrow: "2026-04-07",
+    },
+  ])(
+    "offers the same two jobs all local day $today and a different pair on $tomorrow",
+    async ({ early, late, nextDay, today, tomorrow }) => {
+      const world = await seedWorld(deps.db, deps.clock.now());
+      const id = world.max.id;
+      await deps.db.query("update profiles set timezone = $2 where id = $1", [
+        id,
+        TZ,
+      ]);
+      const { jar } = await client.signIn("(555) 000-0001");
+      const expected = (date: string) => offersFor(id, date as LocalDate);
 
-    deps.clock.set(early);
-    const morning = await client.get({}, jar);
-    expect(morning.status).toBe(200);
-    expect(morning.json.jobs.offers).toHaveLength(config.game.jobs.offered);
-    expect(pair(morning.json)).toEqual(expected("2026-11-21").map((j) => j.id));
-    expect(morning.json.jobs.offers[0]).toEqual({
-      id: expected("2026-11-21")[0].id,
-      text: expected("2026-11-21")[0].text,
-      minutes: expected("2026-11-21")[0].minutes,
-      pay: expected("2026-11-21")[0].pay,
-    });
+      deps.clock.set(early);
+      const morning = await client.get({}, jar);
+      expect(morning.status).toBe(200);
+      expect(morning.json.jobs.offers).toHaveLength(config.game.jobs.offered);
+      expect(pair(morning.json)).toEqual(expected(today).map((j) => j.id));
+      expect(morning.json.jobs.offers[0]).toEqual({
+        id: expected(today)[0].id,
+        text: expected(today)[0].text,
+        minutes: expected(today)[0].minutes,
+        pay: expected(today)[0].pay,
+      });
 
-    deps.clock.set(late);
-    const night = await client.get({}, jar);
-    expect(pair(night.json)).toEqual(pair(morning.json));
+      deps.clock.set(late);
+      const night = await client.get({}, jar);
+      expect(pair(night.json)).toEqual(pair(morning.json));
 
-    deps.clock.set(nextDay);
-    const tomorrow = await client.get({}, jar);
-    expect(pair(tomorrow.json)).toEqual(
-      expected("2026-11-22").map((j) => j.id),
-    );
-    expect(pair(tomorrow.json)).not.toEqual(pair(morning.json));
-  });
+      deps.clock.set(nextDay);
+      const nextMorning = await client.get({}, jar);
+      expect(pair(nextMorning.json)).toEqual(
+        expected(tomorrow).map((j) => j.id),
+      );
+      expect(pair(nextMorning.json)).not.toEqual(pair(morning.json));
+    },
+  );
 
   it("follows the caller's own local day, not UTC", async () => {
     const { id, jar } = await onboarded("(555) 123-4567", "Max", "Asia/Tokyo");
