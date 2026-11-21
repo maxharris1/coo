@@ -1,3 +1,4 @@
+import { log } from "@/server/log";
 import type { Row } from "@/server/rows";
 import { pushNotification, type Setting, settings } from "../notify/deliver";
 import type { Step } from "../tick";
@@ -39,9 +40,19 @@ export const flushQuietHours: Step = async ({
     .slice(0, limit);
 
   let count = 0;
+  let failed = 0;
   for (const { id } of held) {
     if (timeUp()) break;
-    if ((await pushNotification(deps, id)).pushed) count++;
+    try {
+      if ((await pushNotification(deps, id)).pushed) count++;
+    } catch (error) {
+      failed++;
+      log.error("tick.row_failed", {
+        step: "flushQuietHours",
+        rowId: id,
+        error,
+      });
+    }
   }
-  return { count };
+  return { count, failed };
 };
