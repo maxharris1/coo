@@ -253,6 +253,69 @@ describe("buy", () => {
     },
   );
 
+  it("sells perch 4 for 250 and perch 5 for 400", async () => {
+    await grant(max, 650);
+    const before = await wallet(max);
+    expect(before.perches).toBe(3);
+    const fourth = await buy(deps, max, { itemId: "perch" });
+    expect(fourth.me).toMatchObject({
+      perches: 4,
+      seeds: before.seeds - 250,
+    });
+    const fifth = await buy(deps, max, { itemId: "perch" });
+    expect(fifth.me).toMatchObject({
+      perches: 5,
+      seeds: before.seeds - 650,
+    });
+    expect(await shopRows(max)).toEqual([{ delta: -250 }, { delta: -400 }]);
+    const after = await wallet(max);
+    expect(after.ledgerSum).toBe(after.seeds);
+  });
+
+  it("refuses a sixth perch as conflict and changes nothing", async () => {
+    await grant(max, 2000);
+    await buy(deps, max, { itemId: "perch" });
+    await buy(deps, max, { itemId: "perch" });
+    const before = await wallet(max);
+    expect(before.perches).toBe(5);
+    expect(await refusal(buy(deps, max, { itemId: "perch" }))).toBe(
+      "conflict",
+    );
+    const after = await wallet(max);
+    expect(after).toEqual(before);
+    expect(after.ledgerSum).toBe(after.seeds);
+  });
+
+  it("refuses a perch the caller cannot afford as insufficient_seeds", async () => {
+    await grant(max, 200);
+    await buy(deps, max, { itemId: "birdbath" });
+    const before = await wallet(max);
+    expect(before.seeds).toBeLessThan(250);
+    expect(await refusal(buy(deps, max, { itemId: "perch" }))).toBe(
+      "insufficient_seeds",
+    );
+    expect(await wallet(max)).toEqual(before);
+  });
+
+  it("prices two perch buys at once as perch 4 then perch 5", async () => {
+    await grant(max, 650);
+    await Promise.all([
+      buy(deps, max, { itemId: "perch" }),
+      buy(deps, max, { itemId: "perch" }),
+    ]);
+    expect(await shopRows(max)).toEqual([{ delta: -250 }, { delta: -400 }]);
+    const after = await wallet(max);
+    expect(after.perches).toBe(5);
+    expect(after.ledgerSum).toBe(after.seeds);
+  });
+
+  it("leaves another player's perches alone", async () => {
+    await grant(max, 650);
+    const before = await wallet(world.priya.id);
+    await buy(deps, max, { itemId: "perch" });
+    expect(await wallet(world.priya.id)).toEqual(before);
+  });
+
   it("finishes a bath that ended before the purchase at its end time, then drains at the full rate", async () => {
     await grant(max, 200);
     const gerald = world.max.birds[0].id;

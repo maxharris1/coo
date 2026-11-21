@@ -101,6 +101,30 @@ describe("POST /api/shop/buy", () => {
     expect(json.error.code).toBe("conflict");
   });
 
+  it("sells perch 4 for 250 and perch 5 for 400, then answers a sixth with 409 conflict", async () => {
+    const { id, jar } = await onboarded("(555) 123-4567", "Max", 1000);
+    const before = await balance(id);
+    const fourth = await client.post({ itemId: "perch" }, jar);
+    expect(fourth.status).toBe(200);
+    expect(fourth.json.me).toMatchObject({
+      perches: 4,
+      seeds: before.seeds - 250,
+    });
+    const fifth = await client.post({ itemId: "perch" }, jar);
+    expect(fifth.status).toBe(200);
+    expect(fifth.json.me).toMatchObject({
+      perches: 5,
+      seeds: before.seeds - 650,
+    });
+    const full = await balance(id);
+    const sixth = await client.post({ itemId: "perch" }, jar);
+    expect(sixth.status).toBe(409);
+    expect(sixth.json.error.code).toBe("conflict");
+    const after = await balance(id);
+    expect(after).toEqual(full);
+    expect(after.ledger).toBe(after.seeds);
+  });
+
   it("charges once for two requests at once", async () => {
     const { id, jar } = await onboarded("(555) 123-4567", "Max", 1000);
     const before = await balance(id);

@@ -23,12 +23,20 @@ import {
 
 type Purchase =
   | { kind: "gear"; id: GearId; price: number }
-  | { kind: "birdbath"; price: number };
+  | { kind: "birdbath"; price: number }
+  | { kind: "perch"; price: number };
 
-type Owner = { seeds: number; hasBirdbath: boolean; closet: readonly string[] };
+type Owner = {
+  seeds: number;
+  hasBirdbath: boolean;
+  perches: number;
+  closet: readonly string[];
+};
 
 const GEAR = new Map(config.gear.items.map((item) => [item.id, item]));
 const BIRDBATH = config.game.loftItems.find((item) => item.id === "birdbath");
+const PERCHES = config.game.perches;
+const PERCH_PRICES: Partial<Record<string, number>> = PERCHES.prices;
 
 function resolvePurchase(itemId: string, owner: Owner): Purchase {
   const purchase = choose(itemId, owner);
@@ -39,6 +47,16 @@ function resolvePurchase(itemId: string, owner: Owner): Purchase {
 }
 
 function choose(itemId: string, owner: Owner): Purchase {
+  if (itemId === "perch") {
+    const price =
+      owner.perches < PERCHES.max
+        ? PERCH_PRICES[String(owner.perches + 1)]
+        : undefined;
+    if (price === undefined) {
+      throw new AppError("conflict", "The loft has no room for another perch.");
+    }
+    return { kind: "perch", price };
+  }
   if (itemId === "birdbath" && BIRDBATH) {
     if (owner.hasBirdbath) {
       throw new AppError("conflict", "The loft already has a birdbath.");
@@ -136,18 +154,29 @@ export async function buy(
     const purchase = resolvePurchase(input.itemId, {
       seeds: profile.seeds,
       hasBirdbath: profile.has_birdbath,
+      perches: profile.perches,
       closet: await closetOf(db, caller),
     });
-    if (purchase.kind === "gear") {
-      await db.query(
-        "insert into gear_owned (user_id, gear_id, acquired_at) values ($1, $2, to_timestamp($3 / 1000.0))",
-        [caller, purchase.id, now],
-      );
-    } else {
-      await settleCareWithoutBirdbath(db, caller, now);
-      await db.query("update profiles set has_birdbath = true where id = $1", [
-        caller,
-      ]);
+    switch (purchase.kind) {
+      case "gear":
+        await db.query(
+          "insert into gear_owned (user_id, gear_id, acquired_at) values ($1, $2, to_timestamp($3 / 1000.0))",
+          [caller, purchase.id, now],
+        );
+        break;
+      case "birdbath":
+        await settleCareWithoutBirdbath(db, caller, now);
+        await db.query(
+          "update profiles set has_birdbath = true where id = $1",
+          [caller],
+        );
+        break;
+      case "perch":
+        await db.query(
+          "update profiles set perches = perches + 1 where id = $1",
+          [caller],
+        );
+        break;
     }
     await db.query("select apply_seeds($1, $2, 'shop', null)", [
       caller,
