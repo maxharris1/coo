@@ -177,6 +177,20 @@ describe("startSync", () => {
     s.sync.stop();
   });
 
+  it("loads again when refreshed mid-flight and drops the reply that started before the refresh", async () => {
+    const s = setup();
+    s.sync.refresh();
+    expect(s.fetch).toHaveBeenCalledTimes(1);
+    await s.respond(200, { serverNow: 0, unread: 3 });
+    expect(s.results, "the stale reply is dropped").toEqual([]);
+    expect(s.fetch, "a fresh load follows").toHaveBeenCalledTimes(2);
+    await s.respond(200, { serverNow: 0, unread: 0 });
+    expect(s.results).toEqual([
+      { ok: true, payload: { serverNow: 0, unread: 0 }, offsetMs: 0 },
+    ]);
+    s.sync.stop();
+  });
+
   it("stops loading and drops a late response after stop", async () => {
     const s = setup();
     s.sync.stop();

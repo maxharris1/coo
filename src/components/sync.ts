@@ -59,18 +59,29 @@ export function startSync({
   onResult: (r: SyncResult) => void;
 }): { refresh(): void; stop(): void } {
   let inFlight = false;
+  let stale = false;
   const lifetime = new AbortController();
 
-  const refresh = () => {
-    if (inFlight || lifetime.signal.aborted) return;
+  const run = () => {
     inFlight = true;
+    stale = false;
     void load(fetchImpl, timezone, lifetime.signal).then((result) => {
       inFlight = false;
-      if (!lifetime.signal.aborted) onResult(result);
+      if (lifetime.signal.aborted) return;
+      if (stale) run();
+      else onResult(result);
     });
   };
+  const poll = () => {
+    if (!inFlight && !lifetime.signal.aborted) run();
+  };
+  const refresh = () => {
+    if (lifetime.signal.aborted) return;
+    if (inFlight) stale = true;
+    else run();
+  };
   const refreshIfVisible = () => {
-    if (doc.visibilityState === "visible") refresh();
+    if (doc.visibilityState === "visible") poll();
   };
 
   const timer = setInterval(refreshIfVisible, everyMs);

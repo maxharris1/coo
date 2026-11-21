@@ -146,6 +146,27 @@ describe("/notifications (ac-3)", () => {
     expect(view.toasts).toEqual(["Try again."]);
   });
 
+  it("still resyncs when marking read lands after leaving the page", async () => {
+    let land: () => void = () => {};
+    readResponse = () => Response.json({ unread: 0 });
+    vi.mocked(fetch).mockImplementation((url, init) =>
+      String(url) === "/api/notifications/read"
+        ? new Promise<Response>((resolve) => {
+            events.push("POST /api/notifications/read");
+            land = () => resolve(readResponse());
+          })
+        : fakeFetch(url, init),
+    );
+    await mount();
+    await act(async () => root.unmount());
+    await act(async () => land());
+    expect(events).toEqual([
+      "GET /api/notifications",
+      "POST /api/notifications/read",
+      "refresh",
+    ]);
+  });
+
   it("passes the reader's timezone to the view", async () => {
     await mount();
     expect(view.props?.timezone).toBe("UTC");

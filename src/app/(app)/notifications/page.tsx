@@ -47,9 +47,8 @@ export default function NotificationsPage() {
       };
       setState({ kind: "ready", items: notifications });
       const read = await call("/api/notifications/read", { method: "POST" });
-      if (!live) return;
       if (read.ok) refresh();
-      else toast(read.message);
+      else if (live) toast(read.message);
     })();
     return () => {
       live = false;
