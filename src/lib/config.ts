@@ -2,6 +2,7 @@ import app from "../../config/app.json";
 import badges from "../../config/badges.json";
 import breeds from "../../config/breeds.json";
 import flightLog from "../../config/copy/flight-log.json";
+import legal from "../../config/copy/legal.json";
 import notifications from "../../config/copy/notifications.json";
 import sms from "../../config/copy/sms.json";
 import foundObjects from "../../config/found-objects.json";
@@ -19,7 +20,7 @@ export const config = {
   gear,
   jobs,
   quirks,
-  copy: { flightLog, notifications, sms },
+  copy: { flightLog, legal, notifications, sms },
 } as const;
 
 export type Config = typeof config;
