@@ -92,13 +92,26 @@ export async function getGuestLink(
 ): Promise<GuestView> {
   await guestIpLimit(deps, ip);
   const now = deps.clock.now();
-  const link = await findLiveLink(deps, deps.db, pepper, token, now);
+  const view = await deps.db.tx(async (db) => {
+    await db.query("set transaction isolation level repeatable read");
+    return readGuestView(deps, db, pepper, token, now);
+  });
   await deps.db.query(
     "update guest_links set opened_at = $2 where id = $1 and opened_at is null",
-    [link.id, new Date(now).toISOString()],
+    [view.linkId, new Date(now).toISOString()],
   );
+  return view.guest;
+}
 
-  const [row] = await deps.db.query<FlightRow>(
+async function readGuestView(
+  deps: Deps,
+  db: Db,
+  pepper: string,
+  token: string,
+  now: number,
+): Promise<{ linkId: string; guest: GuestView }> {
+  const link = await findLiveLink(deps, db, pepper, token, now);
+  const [row] = await db.query<FlightRow>(
     `${FLIGHT_SELECT} where f.guest_link_id = $1 and f.kind = 'delivery'`,
     [link.id],
   );
@@ -124,17 +137,20 @@ export async function getGuestLink(
       placeNames: flight.placeNames,
     },
   };
-  if (flight.status !== "landed") return view;
+  if (flight.status !== "landed") return { linkId: link.id, guest: view };
 
-  const [note] = await deps.db.query<{ body: string; created_at: Date }>(
+  const [note] = await db.query<{ body: string; created_at: Date }>(
     `select n.body, n.created_at from flights f join notes n on n.id = f.note_id
      where f.id = $1`,
     [flight.id],
   );
-  return note
-    ? {
-        ...view,
-        note: { body: note.body, createdAt: note.created_at.getTime() },
-      }
-    : view;
+  return {
+    linkId: link.id,
+    guest: note
+      ? {
+          ...view,
+          note: { body: note.body, createdAt: note.created_at.getTime() },
+        }
+      : view,
+  };
 }
