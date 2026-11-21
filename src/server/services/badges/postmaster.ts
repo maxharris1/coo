@@ -1,3 +1,12 @@
-import type { BadgeRule } from "../badges";
+import { landingBadge } from "./award";
 
-export const postmaster: BadgeRule = { async apply() {} };
+export const postmaster = landingBadge(
+  "postmaster",
+  async ({ ownerId }, db) => {
+    const [{ n }] = await db.query<{ n: number }>(
+      "select count(*)::int as n from postmarks where user_id = $1",
+      [ownerId],
+    );
+    return n;
+  },
+);

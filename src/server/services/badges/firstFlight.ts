@@ -1,3 +1,3 @@
-import type { BadgeRule } from "../badges";
+import { landingBadge } from "./award";
 
-export const firstFlight: BadgeRule = { async apply() {} };
+export const firstFlight = landingBadge("first-flight", () => true);
