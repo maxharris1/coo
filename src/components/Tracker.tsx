@@ -8,7 +8,9 @@ import {
   positionAt,
 } from "@/lib/flight/engine";
 import { clockTime, duration } from "@/lib/format";
+import Link from "next/link";
 import type { Flight } from "@/server/services/flights/shape";
+import { Bird, type GearId, type Look } from "./Bird";
 import { MapView } from "./MapView";
 import styles from "./Tracker.module.css";
 import { TrackerDelay } from "./TrackerDelay";
@@ -27,6 +29,9 @@ export type TrackerView = {
   stats: [Stat, Stat, Stat];
   night: boolean;
   tickMs: number;
+  toName: string;
+  loftLabel: string;
+  sillLabel: string;
 };
 
 type Copy = { bird: string; place: string; from: string; to: string };
@@ -52,6 +57,7 @@ const ALTITUDES = ["Rooftop", "Lowish", "Quite high"];
 const ROOSTS = ["A barn", "A water tower", "A ledge"];
 const COUNTS = ["one", "two", "three", "four", "five", "six", "seven"];
 const SHORT_FLIGHT_MS = 10 * 60_000;
+const CARD_PX = 260;
 
 function position(
   flight: Flight,
@@ -128,6 +134,22 @@ function seconds(ms: number): string {
 
 function recipient(flight: Flight): string | undefined {
   return flight.counterpart?.name ?? flight.guestName;
+}
+
+function pins(flight: Flight) {
+  if (flight.role === "incoming") {
+    return {
+      toName: "You",
+      loftLabel: `${flight.owner.name}, ${flight.from.label}`,
+      sillLabel: "Your sill",
+    };
+  }
+  const to = recipient(flight);
+  return {
+    toName: to ?? flight.to.label,
+    loftLabel: "Your loft",
+    sillLabel: to ? `${to}, ${flight.to.label}` : flight.to.label,
+  };
 }
 
 function subLine(flight: Flight, roost: ReturnType<typeof roostAt>): string {
@@ -217,6 +239,7 @@ export function trackerView(
       : flyingStats(flight, left, short),
     night,
     tickMs: short ? 1000 : 10_000,
+    ...pins(flight),
   };
 }
 
@@ -248,25 +271,72 @@ export function Tracker({
       data-state={view.state}
       data-night={view.night ? "true" : "false"}
     >
-      {flight.plan && (
-        <MapView
-          flightId={flight.id}
-          from={flight.from}
-          to={flight.to}
-          plan={flight.plan}
-          distanceMi={totalMi(flight)}
-          bird={flight.bird}
-          offsetMs={offsetMs}
-          bottomPadding={280}
-          night={view.night}
-        />
-      )}
+      <div className={styles.map}>
+        {flight.plan && (
+          <MapView
+            flightId={flight.id}
+            from={flight.from}
+            to={flight.to}
+            plan={flight.plan}
+            distanceMi={totalMi(flight)}
+            bird={flight.bird}
+            offsetMs={offsetMs}
+            bottomPadding={CARD_PX}
+            night={view.night}
+            loftLabel={view.loftLabel}
+            sillLabel={view.sillLabel}
+          />
+        )}
+      </div>
+      <header className={styles.top}>
+        <Link
+          href="/flights"
+          aria-label="Back to flights"
+          className={styles.back}
+        >
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+            <path
+              d="M15 5l-7 7 7 7"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </Link>
+        <div className={styles.title}>
+          <p className={styles.route}>
+            <span>{flight.bird.name}</span>
+            <span aria-label="to">→</span>
+            <span>{view.toName}</span>
+          </p>
+          <span className={styles.chip}>
+            {view.state === "flying" && (
+              <span className={styles.pulse} aria-hidden="true" />
+            )}
+            {view.chip}
+          </span>
+        </div>
+      </header>
       <div className={styles.card}>
-        <span className={styles.chip}>{view.chip}</span>
-        <h1 className={styles.headline}>{view.headline}</h1>
-        <p className={styles.sub}>{view.sub}</p>
+        <div className={styles.handle} aria-hidden="true" />
+        <div className={styles.who}>
+          <span className={styles.avatar}>
+            <Bird
+              look={flight.bird.look as Look}
+              gear={flight.bird.gear as GearId[]}
+              pose={view.state === "roosting" ? "sleep" : "perched"}
+              animated={false}
+              size={44}
+            />
+          </span>
+          <div className={styles.words}>
+            <h1 className={styles.headline}>{view.headline}</h1>
+            <p className={styles.sub}>{view.sub}</p>
+          </div>
+        </div>
         <div className={styles.progress}>
-          <span>{view.fromLabel}</span>
           <div
             className={styles.track}
             role="progressbar"
@@ -278,8 +348,11 @@ export function Tracker({
           >
             <div className={styles.fill} style={{ width: `${percent}%` }} />
           </div>
-          <span className={styles.miles}>{view.progress.text}</span>
-          <span>{view.toLabel}</span>
+          <div className={styles.ends}>
+            <span>{view.fromLabel}</span>
+            <span className={styles.miles}>{view.progress.text}</span>
+            <span>{view.toLabel}</span>
+          </div>
         </div>
         <div className={styles.stats}>
           {view.stats.map((s) => (

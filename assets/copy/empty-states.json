@@ -22,5 +22,9 @@
   {
     "state": "Place not found",
     "text": "Could not find that place. Try a neighborhood or a city."
+  },
+  {
+    "state": "No notifications",
+    "text": "No news from the loft yet. Birds will tell you when they land."
   }
 ]
