@@ -130,7 +130,8 @@
     "minEnergyToFly": 15,
     "hungryBelow": 30,
     "dirtyBelow": 30,
-    "tiredBelow": 40
+    "tiredBelow": 40,
+    "meterLowBelow": 50
   },
   "levels": {
     "milesPerLevelSquared": 25,
