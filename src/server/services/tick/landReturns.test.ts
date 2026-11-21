@@ -2,12 +2,15 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { config } from "@/lib/config";
 import { computeFlightPlan, type FlightInput } from "@/lib/flight/engine";
 import { foundObjectFor } from "@/lib/game/jobs";
+import type { UserId } from "@/server/ports/auth";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
 import { addNote } from "@/test/fixtures/notes";
 import { seedWorld, type World } from "@/test/seedWorld";
+import { buy } from "../shop";
 import { tick } from "../tick";
 
 const MINUTE_MS = 60_000;
+const HOUR_MS = 60 * MINUTE_MS;
 const CHANCE = config.game.foundOnReturn.chance;
 
 let deps: TestDeps;
@@ -331,6 +334,29 @@ describe("landing a return", () => {
     expect(found.n).toBe(1);
     expect(await notifications()).toHaveLength(2);
     expect(deps.push.sent.length).toBe(pushes);
+  });
+
+  it("keeps home recovery from arrival when a birdbath purchase settles the return before the tick", async () => {
+    const r = await insertReturn({ withNote: false });
+    await rows("update birds set energy = 70, care_at = $2 where id = $1", [
+      r.birdId,
+      iso(deps.clock.now()),
+    ]);
+    await rows("select apply_seeds($1, $2, 'test', null)", [
+      world.max.id,
+      config.game.loftItems.find((i) => i.id === "birdbath")!.price,
+    ]);
+    deps.clock.set(r.arriveAtMs + HOUR_MS);
+
+    await buy(deps, world.max.id as UserId, { itemId: "birdbath" });
+    await tick(deps);
+
+    const [bird] = await rows<{ status: string; energy: number }>(
+      "select status, energy from birds where id = $1",
+      [r.birdId],
+    );
+    expect(bird.status).toBe("home");
+    expect(Number(bird.energy)).toBe(65.4);
   });
 
   it("leaves another user's return alone in a scoped tick", async () => {

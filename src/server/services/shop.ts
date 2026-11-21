@@ -7,7 +7,7 @@ import {
   settleFlight,
   type CareSnapshot,
 } from "@/lib/game/care";
-import type { GearId } from "@/lib/game/types";
+import type { BirdStatus, GearId } from "@/lib/game/types";
 import type { OnboardedCaller, Profile } from "@/server/auth";
 import type { Db } from "@/server/db";
 import type { Deps } from "@/server/deps";
@@ -72,7 +72,19 @@ function choose(itemId: string, owner: Owner): Purchase {
   return { kind: "gear", id: gear.id as GearId, price: gear.price };
 }
 
-type DueFlight = { bird_id: string; input: FlightInput; plan: FlightPlan };
+type FlightKind = "delivery" | "return";
+
+type DueFlight = {
+  bird_id: string;
+  kind: FlightKind;
+  input: FlightInput;
+  plan: FlightPlan;
+};
+
+const statusAfterLanding: Record<FlightKind, BirdStatus> = {
+  delivery: "visiting",
+  return: "home",
+};
 
 const NO_BIRDBATH = { hasBirdbath: false };
 const wakeEffect: Partial<Record<string, typeof bathDone>> = {
@@ -98,7 +110,11 @@ function careBeforeBirdbath(
   const wakeAt = bird.busyUntil;
   const woke = wake !== undefined && wakeAt !== null && wakeAt <= nowMs;
   if (woke) care = { ...wake(care, wakeAt, NO_BIRDBATH), status: "home" };
-  if (flight) care = settleFlight(care, flight.plan, flight.input, NO_BIRDBATH);
+  if (flight)
+    care = {
+      ...settleFlight(care, flight.plan, flight.input, NO_BIRDBATH),
+      status: statusAfterLanding[flight.kind],
+    };
   return { care: projectCare(care, nowMs, NO_BIRDBATH), woke };
 }
 
@@ -108,7 +124,7 @@ async function settleCareWithoutBirdbath(db: Db, owner: UserId, nowMs: number) {
     [owner],
   );
   const due = await db.query<DueFlight>(
-    `select bird_id, input, plan from flights
+    `select bird_id, kind, input, plan from flights
      where owner_id = $1 and status = 'flying' and arrive_at <= to_timestamp($2 / 1000.0)`,
     [owner, nowMs],
   );
