@@ -86,6 +86,13 @@ describe("aviaryTop", () => {
   it("draws no egg card when there is no open egg", () => {
     expect(aviaryTop(aviary(null)).egg).toBeNull();
   });
+
+  it("lists only hatchable breeds, marking the ones in the loft", () => {
+    expect(aviaryTop(aviary(null)).breeds).toEqual([
+      { id: "fantail", name: "Fantail", note: "", trait: "", owned: false },
+      { id: "pouter", name: "Pouter", note: "", trait: "", owned: true },
+    ]);
+  });
 });
 
 describe("loadAviary", () => {

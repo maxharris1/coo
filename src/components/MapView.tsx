@@ -31,6 +31,8 @@ export type MapViewProps = {
   offsetMs: number;
   bottomPadding: number;
   night: boolean;
+  loftLabel: string;
+  sillLabel: string;
 };
 
 export const ZOOM_BANDS: readonly { underMi: number; zoom: number }[] = [
@@ -52,6 +54,20 @@ const FOLLOW_EVERY_MS = 5000;
 const EDGE_MARGIN = 0.2;
 const LEAD_PX = 60;
 const BIRD_PX = 56;
+const PIN_LABEL = {
+  position: "absolute",
+  top: "100%",
+  left: "50%",
+  transform: "translateX(-50%)",
+  marginTop: 4,
+  padding: "2px 8px",
+  background: "var(--coo-card)",
+  border: "var(--coo-line-thin)",
+  borderRadius: "var(--coo-radius-pill)",
+  color: "var(--coo-ink)",
+  font: "800 12px var(--coo-font-body)",
+  whiteSpace: "nowrap",
+} as const;
 
 export function zoomForDistance(milesLeft: number): number {
   return ZOOM_BANDS.find((b) => milesLeft < b.underMi)?.zoom ?? FAR_ZOOM;
@@ -107,6 +123,8 @@ export function MapView({
   offsetMs,
   bottomPadding,
   night,
+  loftLabel,
+  sillLabel,
 }: MapViewProps) {
   const container = useRef<HTMLDivElement>(null);
   const birdEl = useRef<HTMLDivElement>(null);
@@ -277,23 +295,31 @@ export function MapView({
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
       <div ref={container} style={{ position: "absolute", inset: 0 }} />
       <div style={{ display: "none" }}>
-        <div ref={loftEl} aria-label={from.label}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/assets/svg/map/pin-loft.svg"
-            alt=""
-            width={32}
-            height={40}
-          />
+        <div ref={loftEl}>
+          <div style={{ position: "relative" }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/assets/svg/map/pin-loft.svg"
+              alt=""
+              width={32}
+              height={40}
+              style={{ display: "block" }}
+            />
+            <span style={PIN_LABEL}>{loftLabel}</span>
+          </div>
         </div>
-        <div ref={sillEl} aria-label={to.label}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/assets/svg/map/pin-sill.svg"
-            alt=""
-            width={32}
-            height={40}
-          />
+        <div ref={sillEl}>
+          <div style={{ position: "relative" }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/assets/svg/map/pin-sill.svg"
+              alt=""
+              width={32}
+              height={40}
+              style={{ display: "block" }}
+            />
+            <span style={PIN_LABEL}>{sillLabel}</span>
+          </div>
         </div>
         <div ref={birdEl}>
           <Bird

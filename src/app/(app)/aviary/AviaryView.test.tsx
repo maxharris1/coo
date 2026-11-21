@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { SyncContext } from "@/components/SyncProvider";
 import { ToastProvider } from "@/components/Toasts";
-import type { EggCard } from "./aviary";
+import type { BreedCard, EggCard } from "./aviary";
 import AviaryPage from "./page";
 import { AviaryView } from "./AviaryView";
 
@@ -12,13 +12,40 @@ const css = readFileSync(
   "utf8",
 );
 
-const ready = (egg: EggCard | null) =>
+const ready = (egg: EggCard | null, breeds: BreedCard[] = []) =>
   renderToStaticMarkup(
     <AviaryView
-      state={{ kind: "ready", top: { perches: "4 of 5 perches", egg } }}
+      state={{
+        kind: "ready",
+        top: { perches: "4 of 5 perches", egg, breeds },
+      }}
       onRetry={() => {}}
     />,
   );
+
+const BREEDS: BreedCard[] = [
+  {
+    id: "fantail",
+    name: "Fantail",
+    note: "Slow, gorgeous, knows it.",
+    trait: "Friends tip double",
+    owned: false,
+  },
+  {
+    id: "pouter",
+    name: "Pouter",
+    note: "Mostly air.",
+    trait: "Carries two notes",
+    owned: true,
+  },
+  {
+    id: "tumbler",
+    name: "Tumbler",
+    note: "Does a backflip on arrival.",
+    trait: "Lands with style",
+    owned: false,
+  },
+];
 
 describe("/aviary header (ac-2)", () => {
   const html = ready(null);
@@ -86,6 +113,46 @@ describe("/aviary egg card (ac-2)", () => {
     expect(css).toMatch(/\.egg\s*{[^}]*border:\s*var\(--coo-line\)/);
     expect(css).toMatch(/\.egg\s*{[^}]*box-shadow:\s*var\(--coo-shadow-2\)/);
     expect(css).toMatch(/\.fill\s*{[^}]*background:\s*var\(--coo-mint\)/);
+  });
+});
+
+describe("/aviary who might hatch (ac-1)", () => {
+  const html = ready(null, BREEDS);
+  const cards = html.split("<li").slice(1);
+
+  it("heads the section with the breed count", () => {
+    expect(html).toMatch(/<h2[^>]*>Who might hatch<\/h2>/);
+    expect(html).toContain(">3 breeds<");
+  });
+
+  it("draws one card per breed with its bird, name, note and trait chip", () => {
+    expect(cards).toHaveLength(3);
+    expect(cards[0]).toMatch(/role="img"[^>]*aria-label="Fantail pigeon"/);
+    expect(cards[0]).toContain(">Fantail<");
+    expect(cards[0]).toContain(">Slow, gorgeous, knows it.<");
+    expect(cards[0]).toContain(">Friends tip double<");
+  });
+
+  it("marks only the breeds already in the loft", () => {
+    expect(cards[0]).not.toContain("In the loft");
+    expect(cards[1]).toContain(">In the loft<");
+    expect(cards[2]).not.toContain("In the loft");
+  });
+
+  it("turns the tumbler upside down as drawn", () => {
+    expect(cards[2]).toContain("transform:rotate(180deg)");
+    expect(cards[0]).not.toContain("rotate(180deg)");
+  });
+
+  it("lays the cards out two across in shrinking columns", () => {
+    expect(css).toMatch(
+      /\.breeds\s*{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/,
+    );
+    expect(css).toMatch(/\.breed\s*{[^}]*min-width:\s*0/);
+  });
+
+  it("draws no section when no breed can hatch", () => {
+    expect(ready(null)).not.toContain("Who might hatch");
   });
 });
 

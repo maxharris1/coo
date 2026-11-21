@@ -149,7 +149,7 @@ Weather and place names are fetched before the transaction opens, never inside i
 | `PUT /api/birds/[id]/gear` | `{ items: string[] }` | Home only. Validates ownership, one per slot, not worn by another bird (taking an item from another home bird is allowed and removes it there) |
 | `PUT /api/outfits` | `{ outfits: [{ id?, name, items }] }` | Replaces the saved outfits (at most 6) |
 | `GET /api/shop` | | Items with `owned`, `affordable`, plus loft items and the next perch |
-| `POST /api/shop/buy` | `{ itemId }` | Gear id, `birdbath` or `perch`. One transaction |
+| `POST /api/shop/buy` | `{ itemId, price }` | Gear id, `birdbath` or `perch`. `price` is the price the buyer confirmed. If the current price differs, the answer is `conflict` and nothing is charged. One transaction |
 | `GET /api/earn` | | Punch card, pay table, two job offers with jobs left today and current pay, found objects |
 | `POST /api/jobs` | `{ jobId, birdId }` | Starts an offered job |
 | `POST /api/found/trade` | | Trades all found objects |

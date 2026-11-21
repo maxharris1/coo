@@ -8,6 +8,7 @@ import {
 } from "@/test/fixtures/plannedFlight";
 import { seedWorld, type World } from "@/test/seedWorld";
 import { tick } from "../tick";
+import { landDeliveries } from "../tick/landDeliveries";
 
 const MINUTE_MS = 60_000;
 const DOWNPOUR = config.game.engine.downpourMmH;
@@ -59,8 +60,12 @@ async function setSegments(flightId: string, kinds: SegmentKind[]) {
 
 async function land(flight: PlannedDelivery) {
   deps.clock.set(Math.max(deps.clock.now(), flight.arriveAtMs) + MINUTE_MS);
-  const result = await tick(deps);
-  expect(result.counts.landDeliveries).toBe(1);
+  const result = await landDeliveries({
+    deps,
+    limit: 50,
+    timeUp: () => false,
+  });
+  expect(result.count).toBe(1);
 }
 
 async function delivery(

@@ -197,6 +197,29 @@ describe("POST /api/loft/travel", () => {
     expect(next.json.loft).toEqual(BACK_BAY_LOFT);
   });
 
+  it("retries a city centre lookup that comes back empty once", async () => {
+    const { id, jar } = await onboarded("(555) 123-4567", "Max");
+    vi.spyOn(deps.geocoder, "search").mockResolvedValueOnce([]);
+    const { status, json } = await turnOn(jar);
+    expect(status).toBe(200);
+    expect(json.loft).toEqual(BACK_BAY_LOFT);
+    expect(await travelOf(id)).toMatchObject({
+      on: true,
+      cityLat: 42.3601,
+      cityLon: -71.0589,
+    });
+  });
+
+  it("refuses a travel loft whose city centre cannot be found and changes nothing", async () => {
+    const { id, jar } = await onboarded("(555) 123-4567", "Max");
+    vi.spyOn(deps.geocoder, "search").mockResolvedValue([]);
+    const before = await travelOf(id);
+    const { status, json } = await turnOn(jar);
+    expect(status).toBe(400);
+    expect(json.error).toEqual({ code: "invalid", message: NOT_FOUND });
+    expect(await travelOf(id)).toEqual(before);
+  });
+
   it("changes only the caller's switch, and another user's change does not hold mine", async () => {
     const other = await onboarded("(555) 765-4321", "Ana");
     const me = await onboarded("(555) 123-4567", "Max");

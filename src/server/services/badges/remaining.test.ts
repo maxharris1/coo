@@ -7,7 +7,7 @@ import {
   type PlannedDelivery,
 } from "@/test/fixtures/plannedFlight";
 import { seedWorld, type Person, type World } from "@/test/seedWorld";
-import { tick } from "../tick";
+import { landDeliveries } from "../tick/landDeliveries";
 import { rfc1149 } from "./rfc1149";
 
 const MINUTE_MS = 60_000;
@@ -34,8 +34,12 @@ async function badge(userId: string, badgeId: string) {
 
 async function land(flight: PlannedDelivery) {
   deps.clock.set(Math.max(deps.clock.now(), flight.arriveAtMs) + MINUTE_MS);
-  const result = await tick(deps);
-  expect(result.counts.landDeliveries).toBe(1);
+  const result = await landDeliveries({
+    deps,
+    limit: 50,
+    timeUp: () => false,
+  });
+  expect(result.count).toBe(1);
 }
 
 async function landDelivery(

@@ -1,3 +1,5 @@
+export const SMS_UNSUBSCRIBED = 21610;
+
 export class SmsError extends Error {
   constructor(readonly code: number) {
     super(`sms send failed with code ${code}`);

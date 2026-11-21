@@ -1,0 +1,75 @@
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.back {
+  box-sizing: content-box;
+  width: var(--coo-touch);
+  height: var(--coo-touch);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--coo-card);
+  border: var(--coo-line);
+  border-radius: 50%;
+  box-shadow: var(--coo-shadow-1);
+}
+
+.title {
+  flex: 1;
+  margin: 0;
+  font-family: var(--coo-font-display);
+  font-weight: 400;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.count {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 4px 10px;
+  background: var(--coo-card);
+  border: var(--coo-line-thin);
+  border-radius: var(--coo-radius-pill);
+  font-weight: 900;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.chips {
+  display: flex;
+  gap: 8px;
+  margin: -6px;
+  padding: 6px;
+  overflow-x: auto;
+}
+
+.chip {
+  flex-shrink: 0;
+  min-height: var(--coo-touch);
+  min-width: var(--coo-touch);
+  padding: 0 16px;
+  background: var(--coo-card);
+  border: var(--coo-line);
+  border-radius: var(--coo-radius-pill);
+  font-family: inherit;
+  font-weight: 900;
+  font-size: 14px;
+  color: var(--coo-ink);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.chip[aria-pressed="true"] {
+  background: var(--coo-sun);
+  box-shadow: var(--coo-shadow-1);
+}
+
+.back:focus-visible,
+.chip:focus-visible {
+  outline: 3px solid var(--coo-ink);
+  outline-offset: 3px;
+}

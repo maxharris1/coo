@@ -3,6 +3,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { config } from "@/lib/config";
 import type { Platform } from "@/lib/platform";
+import type { UserId } from "@/server/ports/auth";
+import { onboard } from "@/server/services/onboarding";
+import { makeTestDeps } from "@/test/deps";
 import { InstallView, installStep, type InstallScreen } from "./Install";
 
 const { requireUser, redirect } = vi.hoisted(() => ({
@@ -107,6 +110,50 @@ describe("/welcome/install on other platforms", () => {
     expect(html).not.toContain("<li");
     expect(html).not.toContain("<button");
     expect(html).not.toContain("Share is down here");
+  });
+});
+
+describe("'Not now. Text me when birds land instead.' (ac-3)", () => {
+  const SKIP =
+    /<a[^>]*href="\/welcome\/bird"[^>]*>Not now. Text me when birds land instead.<\/a>/;
+  const screens: InstallScreen[] = [
+    { kind: "detecting" },
+    { kind: "ios" },
+    { kind: "prompt" },
+    { kind: "in-app", openIn: "Safari" },
+  ];
+
+  it.each(screens)("skips install from the %o screen", (screen) => {
+    let installs = 0;
+    const html = renderToStaticMarkup(
+      <InstallView
+        screen={screen}
+        copied={false}
+        onInstall={() => installs++}
+        onCopy={() => {}}
+      />,
+    );
+    expect(html).toMatch(SKIP);
+    expect(installs).toBe(0);
+  });
+
+  it("leaves sms_fallback on for the person who skips", async () => {
+    const deps = await makeTestDeps();
+    const [{ id }] = await deps.db.query<{ id: UserId }>(
+      "insert into auth.users default values returning id",
+    );
+
+    await onboard(deps, id, {
+      name: "Max",
+      timezone: "America/New_York",
+      bird: { name: "Gerald", look: "gerald", pronoun: "he" },
+    });
+
+    const [{ sms_fallback }] = await deps.db.query<{ sms_fallback: boolean }>(
+      "select sms_fallback from profiles where id = $1",
+      [id],
+    );
+    expect(sms_fallback).toBe(true);
   });
 });
 
