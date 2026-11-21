@@ -1,18 +1,29 @@
+import type { CareAction } from "@/server/services/care";
+
 const UNREACHABLE = "We could not reach the loft. Try again.";
 
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
 
-export async function feedBird(
+const request = (action: CareAction): RequestInit =>
+  action === "feed"
+    ? {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ actionId: crypto.randomUUID() }),
+      }
+    : { method: "POST" };
+
+export async function postCare(
   birdId: string,
+  action: CareAction,
   fetchImpl: Fetch = fetch,
 ): Promise<void> {
   let res: Response;
   try {
-    res = await fetchImpl(`/api/birds/${encodeURIComponent(birdId)}/feed`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ actionId: crypto.randomUUID() }),
-    });
+    res = await fetchImpl(
+      `/api/birds/${encodeURIComponent(birdId)}/${action}`,
+      request(action),
+    );
   } catch {
     throw new Error(UNREACHABLE);
   }
@@ -23,4 +34,8 @@ export async function feedBird(
   throw new Error(
     typeof message === "string" && message ? message : UNREACHABLE,
   );
+}
+
+export function feedBird(birdId: string, fetchImpl: Fetch = fetch) {
+  return postCare(birdId, "feed", fetchImpl);
 }
