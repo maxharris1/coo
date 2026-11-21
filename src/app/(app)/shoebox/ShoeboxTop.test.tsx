@@ -128,6 +128,7 @@ describe("ShoeboxTop (ac-1)", () => {
     expect(rule(".back")).toMatch(/width: var\(--coo-touch\)/);
     expect(rule(".back")).toMatch(/height: var\(--coo-touch\)/);
     expect(rule(".chip")).toMatch(/min-height: var\(--coo-touch\)/);
+    expect(rule(".chip")).toMatch(/min-width: var\(--coo-touch\)/);
     expect(rule(".chip")).toMatch(/flex-shrink: 0/);
   });
 

@@ -50,6 +50,7 @@
 .chip {
   flex-shrink: 0;
   min-height: var(--coo-touch);
+  min-width: var(--coo-touch);
   padding: 0 16px;
   background: var(--coo-card);
   border: var(--coo-line);
