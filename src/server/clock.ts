@@ -3,10 +3,11 @@ import type { Db } from "./db";
 
 export interface Clock {
   now(): number;
+  offsetMs: number;
 }
 
 export function offsetClock(offsetMs: number): Clock {
-  return { now: () => Date.now() + offsetMs };
+  return { now: () => Date.now() + offsetMs, offsetMs };
 }
 
 export const systemClock: Clock = offsetClock(0);

@@ -6,7 +6,10 @@ export function devClockBuild(deps: TestDeps) {
     const [{ offset_ms }] = await deps.db.query<{ offset_ms: number }>(
       "select offset_ms from dev_clock",
     );
-    return { ...deps, clock: { now: () => deps.clock.now() + offset_ms } };
+    return {
+      ...deps,
+      clock: { now: () => deps.clock.now() + offset_ms, offsetMs: offset_ms },
+    };
   };
 }
 

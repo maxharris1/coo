@@ -166,7 +166,6 @@ describe("startSync", () => {
     const s = setup();
     s.focus();
     await vi.advanceTimersByTimeAsync(EVERY_MS);
-    s.sync.refresh();
     expect(s.fetch).toHaveBeenCalledTimes(1);
     await s.respond(200, ok);
     s.focus();
@@ -177,17 +176,17 @@ describe("startSync", () => {
     s.sync.stop();
   });
 
-  it("loads again when refreshed mid-flight and drops the reply that started before the refresh", async () => {
+  it("drops a load that a refresh outdated and loads again once it lands", async () => {
     const s = setup();
     s.sync.refresh();
-    expect(s.fetch).toHaveBeenCalledTimes(1);
-    await s.respond(200, { serverNow: 0, unread: 3 });
-    expect(s.results, "the stale reply is dropped").toEqual([]);
-    expect(s.fetch, "a fresh load follows").toHaveBeenCalledTimes(2);
-    await s.respond(200, { serverNow: 0, unread: 0 });
-    expect(s.results).toEqual([
-      { ok: true, payload: { serverNow: 0, unread: 0 }, offsetMs: 0 },
-    ]);
+    s.sync.refresh();
+    expect(s.fetch, "one request in flight").toHaveBeenCalledTimes(1);
+    await s.respond(200, { serverNow: 1 });
+    expect(s.results, "the outdated load reports nothing").toEqual([]);
+    expect(s.fetch, "one more load after the refresh").toHaveBeenCalledTimes(2);
+    await s.respond(200, { serverNow: 2 });
+    expect(s.results.map((r) => r.ok && r.payload.serverNow)).toEqual([2]);
+    expect(s.fetch).toHaveBeenCalledTimes(2);
     s.sync.stop();
   });
 
