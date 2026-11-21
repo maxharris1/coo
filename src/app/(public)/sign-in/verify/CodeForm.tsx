@@ -13,6 +13,7 @@ import {
 import { flushSync } from "react-dom";
 import type { E164 } from "@/lib/phone";
 import styles from "../../auth.module.css";
+import { afterSignIn } from "../../join/returnTo";
 import { useSignInPhone } from "../phone";
 import { postAuth } from "../postAuth";
 import {
@@ -49,7 +50,7 @@ export function CodeForm({ initial }: { initial?: CodeState }) {
       code: digits.join(""),
     });
     if (result.ok) {
-      router.push(result.next);
+      router.push(afterSignIn(result.next));
       return;
     }
     flushSync(() => dispatch({ type: "failed", message: result.message }));

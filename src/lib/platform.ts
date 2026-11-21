@@ -25,12 +25,14 @@ const IN_APP = [
 ];
 const IOS_OTHER_BROWSER = /CriOS|FxiOS|EdgiOS/;
 
+type DeviceSnapshot = Pick<PlatformSnapshot, "userAgent" | "maxTouchPoints">;
+
 const isIpadAskingForDesktopSite = ({
   userAgent,
   maxTouchPoints,
-}: PlatformSnapshot) => /Macintosh/.test(userAgent) && maxTouchPoints > 1;
+}: DeviceSnapshot) => /Macintosh/.test(userAgent) && maxTouchPoints > 1;
 
-const isIos = (s: PlatformSnapshot) =>
+export const isIos = (s: DeviceSnapshot) =>
   /iPhone|iPad|iPod/.test(s.userAgent) || isIpadAskingForDesktopSite(s);
 
 export function detectPlatform(s: PlatformSnapshot): Platform {

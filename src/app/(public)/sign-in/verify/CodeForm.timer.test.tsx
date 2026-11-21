@@ -89,6 +89,7 @@ const hooks = vi.hoisted(() => {
 });
 
 const postAuth = vi.hoisted(() => vi.fn());
+const push = vi.hoisted(() => vi.fn());
 
 vi.mock("react", async (actual) => ({
   ...(await actual<typeof import("react")>()),
@@ -98,7 +99,7 @@ vi.mock("react", async (actual) => ({
   useEffect: hooks.useEffect,
 }));
 vi.mock("react-dom", () => ({ flushSync: (fn: () => void) => fn() }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 vi.mock("../phone", () => ({
   useSignInPhone: () => ({ phone: "+15555550100", setPhone: () => {} }),
 }));
@@ -172,5 +173,39 @@ describe("CodeForm resend deadline", () => {
     expect(resendButton()).toBeUndefined();
     await at(45_000 + RESEND_AFTER_MS);
     expect(resendButton(), "resend offered 30 s after resending").toBeDefined();
+  });
+});
+
+describe("CodeForm after a correct code", () => {
+  const CODE = "priya-AbCdEfGhIj_-";
+  let document: { cookie: string };
+
+  beforeEach(() => {
+    vi.useFakeTimers({ now: 0 });
+    postAuth.mockReset();
+    push.mockReset();
+    document = { cookie: `coo_return=${CODE}` };
+    vi.stubGlobal("document", document);
+    hooks.mount(() => {
+      tree = CodeForm({});
+    });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it("sends a returning user back to the invite they came from", async () => {
+    postAuth.mockResolvedValue({ ok: true, next: "/" });
+    await type(0, "123456");
+    expect(push).toHaveBeenCalledWith(`/join/${CODE}`);
+  });
+
+  it("sends a new user to onboarding and keeps the invite", async () => {
+    postAuth.mockResolvedValue({ ok: true, next: "/welcome/install" });
+    await type(0, "123456");
+    expect(push).toHaveBeenCalledWith("/welcome/install");
+    expect(document.cookie).toBe(`coo_return=${CODE}`);
   });
 });
