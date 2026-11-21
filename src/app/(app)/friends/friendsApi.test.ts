@@ -138,4 +138,42 @@ describe("friend actions", () => {
       message: "No such friend",
     });
   });
+
+  it("fails a City/Block save whose response body is cut off", async () => {
+    const cut = (async () =>
+      new Response(
+        new ReadableStream({
+          start: (c) => c.error(new TypeError("network error")),
+        }),
+        { status: 200 },
+      )) as unknown as typeof fetch;
+    expect(await saveShows("u1", "block", cut)).toEqual({
+      ok: false,
+      message: "We could not reach the loft. Try again.",
+    });
+  });
+
+  it("fails a City/Block save whose response has no friend", async () => {
+    const { fetchImpl } = recorder(200, {});
+    expect(await saveShows("u1", "block", fetchImpl)).toEqual({
+      ok: false,
+      message: "We could not reach the loft. Try again.",
+    });
+  });
+});
+
+describe("loadFriends with a broken body", () => {
+  it("fails instead of throwing when the body is cut off", async () => {
+    const cut = (async () =>
+      new Response(
+        new ReadableStream({
+          start: (c) => c.error(new TypeError("network error")),
+        }),
+        { status: 200 },
+      )) as unknown as typeof fetch;
+    expect(await loadFriends(cut)).toEqual({
+      ok: false,
+      message: "We could not reach the loft. Try again.",
+    });
+  });
 });

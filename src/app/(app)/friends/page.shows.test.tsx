@@ -36,13 +36,16 @@ const friend = (id: string, shows: Shows): FriendRow =>
   }) as FriendRow;
 
 let server: Map<string, Shows>;
-let root: Root;
+let root: Root | null;
+let heldLoads: (() => Promise<void>)[] | null;
 
 type Patch = {
   id: string;
   shows: Shows;
   succeed: () => Promise<void>;
   fail: () => Promise<void>;
+  cut: () => Promise<void>;
+  settled: boolean;
 };
 let patches: Patch[];
 let inFlight: Map<string, number>;
@@ -52,7 +55,12 @@ function fakeFetch(url: RequestInfo | URL, init?: RequestInit) {
   const path = String(url);
   if (path === "/api/friends" && !init?.method) {
     const friends = [...server].map(([id, shows]) => friend(id, shows));
-    return Promise.resolve(Response.json({ friends, guestLinks: [] }));
+    const body = () => Response.json({ friends, guestLinks: [] });
+    if (!heldLoads) return Promise.resolve(body());
+    const loads = heldLoads;
+    return new Promise<Response>((resolve) => {
+      loads.push(() => act(async () => resolve(body())));
+    });
   }
   const match = /^\/api\/friends\/([^/]+)$/.exec(path);
   if (match && init?.method === "PATCH") {
@@ -62,12 +70,14 @@ function fakeFetch(url: RequestInfo | URL, init?: RequestInit) {
     maxInFlight = Math.max(maxInFlight, inFlight.get(id)!);
     return new Promise<Response>((resolve) => {
       const settle = async (res: () => Response) => {
+        patch.settled = true;
         inFlight.set(id, inFlight.get(id)! - 1);
         await act(async () => resolve(res()));
       };
-      patches.push({
+      const patch: Patch = {
         id,
         shows,
+        settled: false,
         succeed: () =>
           settle(() => {
             server.set(id, shows);
@@ -80,7 +90,19 @@ function fakeFetch(url: RequestInfo | URL, init?: RequestInit) {
               { status: 429 },
             ),
           ),
-      });
+        cut: () =>
+          settle(() => {
+            server.set(id, shows);
+            const body = new ReadableStream({
+              start: (c) => c.error(new TypeError("network error")),
+            });
+            return new Response(body, {
+              status: 200,
+              headers: { "content-type": "application/json" },
+            });
+          }),
+      };
+      patches.push(patch);
     });
   }
   return Promise.reject(new Error(`unexpected request ${path}`));
@@ -114,6 +136,11 @@ beforeEach(async () => {
     }),
   );
   vi.stubGlobal("fetch", vi.fn(fakeFetch));
+  heldLoads = null;
+  await mount();
+});
+
+async function mount() {
   const container = Object.assign(new EventTarget(), {
     nodeType: 1,
     tagName: "DIV",
@@ -126,17 +153,28 @@ beforeEach(async () => {
     offsetMs: 0,
     refresh: () => {},
   } satisfies SyncState;
+  const r = root;
   await act(async () => {
-    root.render(
+    r.render(
       <SyncContext.Provider value={sync}>
         <FriendsPage />
       </SyncContext.Provider>,
     );
   });
-});
+}
+
+async function unmount() {
+  const r = root;
+  root = null;
+  view.props = null;
+  if (r) await act(async () => r.unmount());
+}
+
+const pending = () => patches.filter((p) => !p.settled);
 
 afterEach(async () => {
-  await act(async () => root.unmount());
+  await unmount();
+  expect(pending()).toEqual([]);
   vi.unstubAllGlobals();
 });
 
@@ -207,5 +245,62 @@ describe("/friends City/Block setting", () => {
     await patches[1].succeed();
     await patches[0].succeed();
     expect(shown()).toEqual({ priya: "block", theo: "city" });
+  });
+
+  it("keeps one save in flight per friend and shows the server's value across leaving and returning (f-1)", async () => {
+    await pick("priya", "block");
+    await pick("priya", "city");
+    await unmount();
+    await mount();
+    await pick("priya", "block");
+    while (pending().length > 0) await pending().at(-1)!.succeed();
+    expect(maxInFlight).toBe(1);
+    expect(shown().priya).toBe(server.get("priya"));
+  });
+
+  it("dispatches a choice queued before leaving and shows its result on return", async () => {
+    await pick("priya", "block");
+    await pick("priya", "city");
+    await unmount();
+    await mount();
+    await patches[0].succeed();
+    expect(patches.map((p) => p.shows)).toEqual(["block", "city"]);
+    await patches[1].succeed();
+    expect(server.get("priya")).toBe("city");
+    expect(shown().priya).toBe("city");
+    expect(maxInFlight).toBe(1);
+  });
+
+  it("shows a save that settles while the returning page is still loading", async () => {
+    await pick("priya", "block");
+    await unmount();
+    heldLoads = [];
+    await mount();
+    await patches[0].succeed();
+    await heldLoads[0]();
+    expect(server.get("priya")).toBe("block");
+    expect(shown().priya).toBe("block");
+  });
+
+  it("treats a cut-off response body as a failed save and sends the retry (f-2)", async () => {
+    await pick("priya", "block");
+    await patches[0].cut();
+    expect(shown().priya).toBe("city");
+    expect(view.toasts).toEqual(["We could not reach the loft. Try again."]);
+    await pick("priya", "block");
+    expect(patches).toHaveLength(2);
+    await patches[1].succeed();
+    expect(shown().priya).toBe("block");
+    expect(server.get("priya")).toBe("block");
+  });
+
+  it("still sends the queued choice after a cut-off response body", async () => {
+    await pick("priya", "block");
+    await pick("priya", "city");
+    await patches[0].cut();
+    expect(patches.map((p) => p.shows)).toEqual(["block", "city"]);
+    await patches[1].succeed();
+    expect(shown().priya).toBe("city");
+    expect(server.get("priya")).toBe("city");
   });
 });
