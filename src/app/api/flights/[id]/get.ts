@@ -6,7 +6,7 @@ import { getFlight } from "@/server/services/flights/get";
 
 const FLIGHT_ID = z.uuid();
 
-function flightIdFrom(req: NextRequest): string {
+export function flightIdFrom(req: NextRequest): string {
   const segments = req.nextUrl.pathname.split("/");
   const parsed = FLIGHT_ID.safeParse(segments[segments.indexOf("flights") + 1]);
   if (!parsed.success) throw new AppError("not_found", "No such flight");
