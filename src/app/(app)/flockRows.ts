@@ -140,7 +140,10 @@ export function incomingCards(
   nowMs: number,
 ): IncomingCard[] {
   return flights
-    .filter((f) => f.role === "incoming" && f.status === "flying")
+    .filter(
+      (f) =>
+        f.kind === "delivery" && f.role === "incoming" && f.status === "flying",
+    )
     .map((f) => ({
       id: f.id,
       title: `Incoming from ${f.owner.name}`,
