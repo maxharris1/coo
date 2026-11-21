@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { Loader } from "@/components/Loader";
 import { useSync } from "@/components/SyncProvider";
 import { useToast } from "@/components/Toasts";
+import { asUnits } from "@/lib/format";
 import type { FriendRow } from "@/server/services/friends";
 import { loadFriends } from "../friends/friendsApi";
 import {
@@ -59,7 +60,7 @@ export default function SendPage() {
       loft: data.me.loft,
       bird: fastestReady(data.birds),
       nowMs: data.serverNow,
-      units: data.me.units === "km" ? ("km" as const) : ("mi" as const),
+      units: asUnits(data.me.units),
     };
     return friends.friends.map((f) => friendCard(f, from));
   }, [friends, data]);

@@ -1,5 +1,5 @@
 import { Bird, type Look } from "@/components/Bird";
-import { distance, duration } from "@/lib/format";
+import { duration, shortDistance, type Units } from "@/lib/format";
 import type { ShoeboxNote } from "@/server/services/notes";
 import { postmark, postmarkLabel } from "../sill/landedModel";
 import { Postmark } from "../sill/Postmark";
@@ -7,7 +7,6 @@ import styles from "./NoteCard.module.css";
 
 const TILTS = [0.8, -0.9, 0.5, -0.6];
 const MINUTE_MS = 60_000;
-const SMALL_MI = 0.5;
 const AVATAR_BIRD = 63;
 
 const HEADS: Record<ShoeboxNote["direction"], string> = {
@@ -21,25 +20,26 @@ const STATES: Record<ShoeboxNote["state"], string | null> = {
   returned: "Came back home",
 };
 
-function tripDistance(miles: number): string {
-  return miles < SMALL_MI ? distance(miles, "mi") : `${Math.round(miles)} mi`;
-}
-
 function tripDuration(ms: number): string {
   if (ms >= MINUTE_MS) return duration(ms);
   const s = Math.round(ms / 1000);
   return `${s} ${s === 1 ? "second" : "seconds"}`;
 }
 
-function tripLine({ bird, trip }: ShoeboxNote): string | null {
+function tripLine({ bird, trip }: ShoeboxNote, units: Units): string | null {
   if (!bird) return null;
   if (trip?.distanceMi == null || trip.durationMs == null) return bird.name;
-  return `${bird.name}, ${tripDistance(trip.distanceMi)} in ${tripDuration(trip.durationMs)}`;
+  return `${bird.name}, ${shortDistance(trip.distanceMi, units)} in ${tripDuration(trip.durationMs)}`;
 }
 
-type NoteCardProps = { note: ShoeboxNote; index: number; timeZone: string };
+type NoteCardProps = {
+  note: ShoeboxNote;
+  index: number;
+  timeZone: string;
+  units: Units;
+};
 
-export function NoteCard({ note, index, timeZone }: NoteCardProps) {
+export function NoteCard({ note, index, timeZone, units }: NoteCardProps) {
   const stamp = postmark(note.createdAt, null, timeZone);
   const state = STATES[note.state];
   return (
@@ -69,7 +69,7 @@ export function NoteCard({ note, index, timeZone }: NoteCardProps) {
               />
             </span>
           </span>
-          <span>{state ? note.bird.name : tripLine(note)}</span>
+          <span>{state ? note.bird.name : tripLine(note, units)}</span>
           {state && <span className={styles.state}>{state}</span>}
         </div>
       )}

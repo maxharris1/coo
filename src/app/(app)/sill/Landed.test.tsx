@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { config } from "@/lib/config";
+import type { Units } from "@/lib/format";
 import type { SyncVisit } from "@/server/services/visits/syncRead";
 import { GoneHome, Landed } from "./Landed";
 import type { LandedState } from "./landedModel";
@@ -39,7 +40,7 @@ const philly = { name: "Philadelphia", region: "PA" };
 
 function render(
   over: Partial<SyncVisit> = {},
-  opts: { state?: LandedState; snacking?: boolean } = {},
+  opts: { state?: LandedState; snacking?: boolean; units?: Units } = {},
 ) {
   return renderToStaticMarkup(
     <Landed
@@ -48,6 +49,7 @@ function render(
       city={philly}
       nowMs={now}
       timeZone="America/New_York"
+      units={opts.units ?? "mi"}
       animate={false}
       snacking={opts.snacking ?? false}
       onSnack={() => {}}
@@ -82,6 +84,12 @@ describe("Landed, waiting (ac-2)", () => {
     expect(html).toMatch(/<h1[^>]*>Dumpling has landed<\/h1>/);
     expect(words).toContain(
       "From Priya in Philadelphia. 81 miles in 1h 52m, with one snack stop nobody will discuss.",
+    );
+  });
+
+  it("writes the trip distance in the user's units", () => {
+    expect(text(render({}, { units: "km" }))).toContain(
+      "From Priya in Philadelphia. 130 kilometres in 1h 52m",
     );
   });
 
@@ -135,6 +143,7 @@ describe("Landed, waiting (ac-2)", () => {
         city={philly}
         nowMs={now}
         timeZone="America/New_York"
+        units="mi"
         animate
         snacking={false}
         onSnack={() => {}}

@@ -5,6 +5,7 @@ import { Suspense, useEffect, useState } from "react";
 import { Loader } from "@/components/Loader";
 import { useSync } from "@/components/SyncProvider";
 import { useToast } from "@/components/Toasts";
+import { asUnits } from "@/lib/format";
 import type { Wearer } from "@/lib/game/seeds";
 import type { RecipientQuote } from "@/server/services/flights/quote";
 import type { FriendRow } from "@/server/services/friends";
@@ -89,7 +90,7 @@ function Compose() {
     return <NoRecipient message={friends.message} />;
   if (!friend) return <NoRecipient message={NOT_A_FRIEND} />;
 
-  const units = data.me.units === "km" ? "km" : "mi";
+  const units = asUnits(data.me.units);
 
   const onRelease = async () => {
     if (!bird) return;

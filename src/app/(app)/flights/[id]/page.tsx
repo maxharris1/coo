@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Loader } from "@/components/Loader";
 import { useSync } from "@/components/SyncProvider";
 import { Tracker } from "@/components/Tracker";
+import { asUnits } from "@/lib/format";
 import type { Flight } from "@/server/services/flights/shape";
 import { FlightError } from "./FlightError";
 import { type FlightResult, loadFlight } from "./flightApi";
@@ -47,6 +48,7 @@ export default function FlightPage() {
       flight={flight}
       offsetMs={offsetMs}
       timeZone={Intl.DateTimeFormat().resolvedOptions().timeZone}
+      units={asUnits(data?.me.units)}
     />
   );
 }

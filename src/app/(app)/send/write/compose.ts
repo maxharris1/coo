@@ -1,6 +1,12 @@
 import type { Breed, GearId, Look } from "@/components/Bird";
 import type { SyncPayload } from "@/components/sync";
-import { clockTime, distance, duration, type Units } from "@/lib/format";
+import {
+  clockTime,
+  distance,
+  duration,
+  shortDistance,
+  type Units,
+} from "@/lib/format";
 import { noteLimit } from "@/lib/game/notes";
 import type { Wearer } from "@/lib/game/seeds";
 import type { RecipientQuote } from "@/server/services/flights/quote";
@@ -74,9 +80,6 @@ const BUSY: Partial<Record<string, Situation>> = {
   job: "job",
 };
 
-const KM_PER_MILE = 1.609344;
-const CLOSE_BELOW = 0.5;
-
 function situationOf(bird: SyncBird): Situation {
   switch (bird.status) {
     case "home":
@@ -110,12 +113,6 @@ export function counter(body: string, bird: Wearer): Counter {
   };
 }
 
-function tripDistance(miles: number, units: Units): string {
-  const local = units === "km" ? miles * KM_PER_MILE : miles;
-  if (local < CLOSE_BELOW) return distance(miles, units);
-  return `${Math.round(local)} ${units}`;
-}
-
 export function stats(
   leg: RecipientQuote,
   birdId: string,
@@ -127,7 +124,7 @@ export function stats(
   const lands = `Lands around ${clockTime(new Date(quote.arriveAt), timezone)}.`;
   const lead = quote.factors[0];
   return {
-    distance: tripDistance(leg.distanceMi, units),
+    distance: shortDistance(leg.distanceMi, units),
     flightTime: duration(quote.durationMs),
     odds: `${Math.round(quote.odds * 100)}%`,
     forecast: lead ? `${lands} ${lead.text}.` : lands,
