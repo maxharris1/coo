@@ -1,12 +1,13 @@
 "use client";
 
-import { useContext, useEffect, useRef } from "react";
+import { useContext, useEffect } from "react";
 import type { NotificationItem } from "@/server/services/notifications";
 import { browserSupabase } from "@/server/supabase/browser";
 import { SyncContext } from "./SyncProvider";
 import { useToast } from "./Toasts";
 
 const LANDED = new Set(["landed-in", "landed-out"]);
+const toasted = new Map<string, Set<string>>();
 
 async function fetchRealtimeToken(): Promise<string | null> {
   try {
@@ -35,15 +36,17 @@ export function RealtimeNudge() {
   const meId = sync?.data?.me.id;
   const refresh = sync?.refresh;
   const toast = useToast();
-  const toasted = useRef(new Set<string>());
 
   useEffect(() => {
     if (!meId || !refresh) return;
+    let active = true;
+    const seen = toasted.get(meId) ?? new Set<string>();
+    toasted.set(meId, seen);
     const toastLanding = async () => {
       const item = await fetchNewestUnread();
-      if (!item || !LANDED.has(item.kind) || toasted.current.has(item.id))
+      if (!active || !item || !LANDED.has(item.kind) || seen.has(item.id))
         return;
-      toasted.current.add(item.id);
+      seen.add(item.id);
       toast(item.title);
     };
     const supabase = browserSupabase(fetchRealtimeToken);
@@ -64,6 +67,7 @@ export function RealtimeNudge() {
       )
       .subscribe();
     return () => {
+      active = false;
       void supabase.removeChannel(channel);
     };
   }, [meId, refresh, toast]);
