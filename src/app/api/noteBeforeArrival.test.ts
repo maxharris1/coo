@@ -21,6 +21,7 @@ import { friendsGet } from "./friends/get";
 import { geoHereGet } from "./geo/here/get";
 import { geoSearchGet } from "./geo/search/get";
 import { inviteGet } from "./invite/[code]/get";
+import { notesGet } from "./notes/get";
 import { notificationsGet } from "./notifications/get";
 import { shopGet } from "./shop/get";
 import { syncGet } from "./sync/get";
@@ -62,6 +63,7 @@ const GET_ENDPOINTS: Record<
     build: inviteGet,
     url: "/api/invite/seed-max",
   },
+  "src/app/api/notes/route.ts": { build: notesGet, url: "/api/notes" },
   "src/app/api/notifications/route.ts": {
     build: notificationsGet,
     url: "/api/notifications",
