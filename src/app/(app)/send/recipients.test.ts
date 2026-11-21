@@ -145,6 +145,24 @@ describe("fastest ready bird", () => {
     expect(readyBirds([slow, tiredFast, fast])).toEqual([slow, fast]);
   });
 
+  it("picks by flying speed after level", () => {
+    const base54 = bird({ speedMph: 54 });
+    const level10 = bird({ speedMph: 52, level: 10 });
+    expect(fastestReady([base54, level10])).toBe(level10);
+    expect(
+      lineFor(friend("theo", "Boston", 190), fastestReady([base54, level10])),
+    ).toBe("Boston, 190 mi. About 3h 21m.");
+  });
+
+  it("passes over a sulking bird for a slower fed one", () => {
+    const sulking54 = bird({ speedMph: 54, sulking: true });
+    const fed52 = bird({ speedMph: 52 });
+    expect(fastestReady([sulking54, fed52])).toBe(fed52);
+    expect(
+      lineFor(friend("theo", "Boston", 190), fastestReady([sulking54, fed52])),
+    ).toBe("Boston, 190 mi. About 3h 39m.");
+  });
+
   it("changes the estimate when the fast bird cannot fly", () => {
     const theo = friend("theo", "Boston", 190);
     expect(lineFor(theo, fastestReady([slow, fast]))).not.toBe(

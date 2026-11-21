@@ -1,7 +1,12 @@
 import type { SyncPayload } from "@/components/sync";
 import emptyStates from "../../../../assets/copy/empty-states.json";
 import { config } from "@/lib/config";
-import { computeFlightPlan, type LatLon } from "@/lib/flight/engine";
+import {
+  computeFlightPlan,
+  groundSpeedMph,
+  type FlightInput,
+  type LatLon,
+} from "@/lib/flight/engine";
 import { duration, type Units } from "@/lib/format";
 import type { FriendRow } from "@/server/services/friends";
 import { friendLine } from "../friends/friendsApi";
@@ -59,11 +64,39 @@ export function readyBirds(birds: readonly FlockBird[]): FlockBird[] {
   return birds.filter((b) => b.canFly);
 }
 
+function calmFlight(
+  id: string,
+  from: LatLon,
+  to: LatLon,
+  bird: FlockBird,
+  nowMs: number,
+): FlightInput {
+  const calm = config.game.weather.fallback;
+  return {
+    flightId: `estimate:${id}`,
+    from,
+    to,
+    departAtMs: nowMs,
+    bird,
+    gear: bird.gear,
+    weather: [calm, calm, calm],
+    // Ends any drawn delay the moment it starts, so the estimate is the calm, on-time trip.
+    delayEndOverrideMs: nowMs,
+  };
+}
+
+const ORIGIN = { lat: 0, lon: 0 };
+const calmSpeed = (bird: FlockBird) =>
+  groundSpeedMph(calmFlight("speed", ORIGIN, ORIGIN, bird, 0), 0, EAST / RAD);
+
 export function fastestReady(birds: readonly FlockBird[]): FlockBird | null {
-  return readyBirds(birds).reduce<FlockBird | null>(
-    (best, b) => (best && best.speedMph >= b.speedMph ? best : b),
-    null,
-  );
+  let best: FlockBird | null = null;
+  let bestSpeed = -Infinity;
+  for (const b of readyBirds(birds)) {
+    const speed = calmSpeed(b);
+    if (speed > bestSpeed) [best, bestSpeed] = [b, speed];
+  }
+  return best;
 }
 
 function eastOf(from: LatLon, miles: number): LatLon {
@@ -87,18 +120,9 @@ function estimate(
   miles: number,
   { loft, bird, nowMs }: { loft: LatLon; bird: FlockBird; nowMs: number },
 ): string {
-  const calm = config.game.weather.fallback;
-  const plan = computeFlightPlan({
-    flightId: `estimate:${id}`,
-    from: loft,
-    to: eastOf(loft, miles),
-    departAtMs: nowMs,
-    bird,
-    gear: bird.gear,
-    weather: [calm, calm, calm],
-    // Ends any drawn delay the moment it starts, so the estimate is the calm, on-time trip.
-    delayEndOverrideMs: nowMs,
-  });
+  const plan = computeFlightPlan(
+    calmFlight(id, loft, eastOf(loft, miles), bird, nowMs),
+  );
   const barns = plan.segments.filter(
     (s) => s.kind === "roost" && s.fromFrac > 0,
   ).length;
