@@ -7,6 +7,8 @@ import { INK, SUN, SeedIcon } from "./ShopTop";
 
 const CARD = "#FFFBF0";
 
+export type SeedBurst = { itemId: string; seq: number };
+
 type Tint = "sky" | "lilac" | "sun" | "peach";
 
 const TINTS: Partial<Record<string, Tint>> = {
@@ -155,8 +157,8 @@ function Rows({
   onBuy,
 }: {
   rows: ShopRow[];
-  burst: string | null;
-  orphan?: string | null;
+  burst: SeedBurst | null;
+  orphan?: SeedBurst | null;
   onBuy: (row: BuyRow) => void;
 }) {
   const items = rows.map((row) => (
@@ -173,13 +175,13 @@ function Rows({
         <div className={styles.effect}>{row.effect}</div>
       </div>
       <Action row={row} onBuy={onBuy} />
-      {burst === row.itemId && <Burst key="burst" />}
+      {burst?.itemId === row.itemId && <Burst key={burst.seq} />}
     </li>
   ));
   if (orphan)
     items.push(
-      <li key={orphan} aria-hidden="true" className={styles.vacated}>
-        <Burst key="burst" />
+      <li key={orphan.itemId} aria-hidden="true" className={styles.vacated}>
+        <Burst key={orphan.seq} />
       </li>,
     );
   return <ul className={styles.rows}>{items}</ul>;
@@ -193,11 +195,11 @@ export function ShopItems({
 }: {
   gear: ShopRow[];
   loft: ShopRow[];
-  burst: string | null;
+  burst: SeedBurst | null;
   onBuy: (row: BuyRow) => void;
 }) {
   const orphan =
-    burst && ![...gear, ...loft].some((row) => row.itemId === burst)
+    burst && ![...gear, ...loft].some((row) => row.itemId === burst.itemId)
       ? burst
       : null;
   return (

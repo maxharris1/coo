@@ -13,7 +13,7 @@ import {
   purchase,
   type ShopRows,
 } from "./shop";
-import { ShopItems } from "./ShopItems";
+import { ShopItems, type SeedBurst } from "./ShopItems";
 import { ShopTop } from "./ShopTop";
 
 export default function ShopPage() {
@@ -21,7 +21,8 @@ export default function ShopPage() {
   const { refresh } = useSync();
   const [rows, setRows] = useState<ShopRows | null>(null);
   const [state, dispatch] = useReducer(purchase, { kind: "idle" });
-  const [burst, setBurst] = useState<string | null>(null);
+  const [burst, setBurst] = useState<SeedBurst | null>(null);
+  const bursts = useRef(0);
   const live = useRef(true);
 
   useEffect(() => {
@@ -48,7 +49,8 @@ export default function ShopPage() {
       load: () => loadShop(),
       toast: (message) => live.current && toast(message),
       refresh,
-      burst: (id) => live.current && setBurst(id),
+      burst: (itemId) =>
+        live.current && setBurst({ itemId, seq: ++bursts.current }),
     });
     if (!live.current) return;
     setRows(next);

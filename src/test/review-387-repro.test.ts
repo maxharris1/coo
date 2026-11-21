@@ -8,7 +8,7 @@ import {
   type BuyRow,
   type ShopRows,
 } from "@/app/(app)/shop/shop";
-import { ShopItems } from "@/app/(app)/shop/ShopItems";
+import { ShopItems, type SeedBurst } from "@/app/(app)/shop/ShopItems";
 import { startSync, type SyncResult } from "@/components/sync";
 import { toE164 } from "@/lib/phone";
 import { requireOnboarded } from "@/server/auth";
@@ -157,7 +157,7 @@ const SHOP: Shop = {
 describe("f-2: the bought item's burst outlives its offer row (ac-2)", () => {
   it("keeps three burst seeds when the refetch removes the bought perch", async () => {
     const rows = shopRows(SHOP);
-    let burst: string | null = null;
+    let burst: SeedBurst | null = null;
     const next = await completeBuy(perchOffer(rows)!, rows, {
       buy: async () => ({ ok: true, data: {} }),
       load: async () => ({
@@ -167,7 +167,7 @@ describe("f-2: the bought item's burst outlives its offer row (ac-2)", () => {
       toast: noop,
       refresh: noop,
       burst: (itemId) => {
-        burst = itemId;
+        burst = { itemId, seq: 1 };
       },
     });
 
