@@ -6,7 +6,7 @@ export type DeliveryOpts = {
   from?: Person;
   to?: Person;
   birdId?: string;
-  flightId?: string;
+  id?: string;
 };
 
 export const HOUR_MS = 60 * 60_000;
@@ -20,10 +20,10 @@ export async function addDelivery(
   status: "flying" | "landed",
   releaseMs: number,
   arriveMs: number,
-  flightId?: string,
+  id?: string,
 ): Promise<string> {
   const arrive = new Date(arriveMs).toISOString();
-  const [{ id }] = await t.query<{ id: string }>(
+  const [row] = await t.query<{ id: string }>(
     `insert into flights (id, kind, bird_id, owner_id, counterpart_id, note_id,
        from_lat, from_lon, from_label, to_lat, to_lon, to_label,
        status, release_at, arrive_at, landed_at, created_at)
@@ -42,10 +42,10 @@ export async function addDelivery(
       status === "landed" ? arrive : null,
       from.id,
       to.id,
-      flightId ?? null,
+      id ?? null,
     ],
   );
-  return id;
+  return row.id;
 }
 
 export async function insertFlyingDelivery(
@@ -56,7 +56,7 @@ export async function insertFlyingDelivery(
     from = world.max,
     to = world.priya,
     birdId = from.birds[0].id,
-    flightId: pinnedId,
+    id,
   }: DeliveryOpts = {},
 ): Promise<{ flightId: string; noteId: string; birdId: string }> {
   return db.tx(async (t) => {
@@ -70,7 +70,7 @@ export async function insertFlyingDelivery(
       "flying",
       nowMs,
       nowMs + HOUR_MS,
-      pinnedId,
+      id,
     );
     await t.query("update birds set status = 'flying' where id = $1", [birdId]);
     return { flightId, noteId, birdId };

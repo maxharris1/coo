@@ -11,19 +11,22 @@ import { tick } from "../tick";
 import { landDeliveries } from "./landDeliveries";
 
 const MINUTE_MS = 60_000;
-const FLIGHT_ID = "00000000-0000-4000-f000-000000000001";
+const ON_TIME_ID = "00000000-0000-4000-9000-000000000001";
+const MAJOR_DELAY_ID = "00000000-0000-4000-9000-000000000022";
 
 let deps: TestDeps;
 let world: World;
 let flight: PlannedDelivery;
 
-beforeEach(async () => {
+async function setUp(id: string) {
   deps = await makeTestDeps();
   world = await seedWorld(deps.db, deps.clock.now());
   flight = await insertPlannedDelivery(deps.db, world, deps.clock.now(), {
-    flightId: FLIGHT_ID,
+    id,
   });
-});
+}
+
+beforeEach(() => setUp(ON_TIME_ID));
 
 const iso = (ms: number) => new Date(ms).toISOString();
 
@@ -48,11 +51,24 @@ const SNAPSHOT_TABLES = [
 ];
 
 async function snapshot() {
-  const out: Record<string, unknown[]> = {};
+  const out: Record<string, Record<string, unknown>[]> = {};
   for (const table of SNAPSHOT_TABLES) {
-    out[table] = await rows(`select * from ${table} order by 1, 2`);
+    out[table] = await rows<Record<string, unknown>>(
+      `select * from ${table} order by 1, 2`,
+    );
   }
   return out;
+}
+
+function withoutDelayNotice(s: Awaited<ReturnType<typeof snapshot>>) {
+  return {
+    ...s,
+    flights: s.flights.map((f) => ({ ...f, delay_notified: false })),
+    notifications: s.notifications.filter(
+      (n) => n.kind !== "delayed" && n.kind !== "delayed-in",
+    ),
+    events: s.events.filter((e) => e.kind !== "notification"),
+  };
 }
 
 async function counts() {
@@ -76,6 +92,7 @@ async function counts() {
 
 describe("landing a delivery", () => {
   it("does nothing before the arrival time", async () => {
+    expect(flight.delayKind).toBe("none");
     deps.clock.set(flight.arriveAtMs - MINUTE_MS);
     const before = await snapshot();
 
@@ -83,6 +100,28 @@ describe("landing a delivery", () => {
 
     expect(result.counts.landDeliveries).toBe(0);
     expect(await snapshot()).toEqual(before);
+  });
+
+  it("does not land a badly delayed delivery before the arrival time, and only tells of the delay", async () => {
+    await setUp(MAJOR_DELAY_ID);
+    expect(flight.delayKind).toBe("major");
+    deps.clock.set(flight.arriveAtMs - MINUTE_MS);
+    const before = await snapshot();
+
+    const result = await tick(deps);
+
+    expect(result.counts.landDeliveries).toBe(0);
+    expect(result.counts.delayNotices).toBe(1);
+    expect(
+      (
+        await rows<{ kind: string }>(
+          "select kind from notifications order by kind",
+        )
+      ).map((n) => n.kind),
+    ).toEqual(["delayed", "delayed-in"]);
+    expect(withoutDelayNotice(await snapshot())).toEqual(
+      withoutDelayNotice(before),
+    );
   });
 
   it("scenario 1: delivers the note, starts the visit, pays Max 13 + 25 and notifies both once", async () => {
@@ -518,7 +557,7 @@ describe("landing a delivery", () => {
         {
           to: world.rosa,
           birdId: world.max.birds[1].id,
-          flightId: "00000000-0000-4000-f001-000000000001",
+          id: "00000000-0000-4000-f001-000000000001",
         },
       );
       expect(later.arriveAtMs).toBeGreaterThan(flight.arriveAtMs);

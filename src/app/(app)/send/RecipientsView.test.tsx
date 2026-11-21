@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import type { Card } from "./recipients";
+import { config } from "@/lib/config";
+import type { Card, SillCard } from "./recipients";
 import { RecipientsView, type RecipientList } from "./RecipientsView";
 
 const cards: Card[] = [
@@ -19,22 +20,46 @@ const cards: Card[] = [
   { kind: "unreachable", id: "sam", name: "Sam", reason: "No loft yet." },
 ];
 
+const sill: SillCard[] = [
+  {
+    visitId: "v1",
+    name: "Priya",
+    line: "Dumpling is waiting. A reply rides home free.",
+  },
+];
+
+type Extra = {
+  sill?: SillCard[];
+  contacts?: { supported: boolean; names: string[] };
+};
+
 const render = (
   picked: string[],
   readyCount = 2,
   list: RecipientList = { kind: "ready", cards },
   query = "",
+  extra: Extra = {},
 ) =>
   renderToStaticMarkup(
     <RecipientsView
       list={list}
+      sill={extra.sill ?? []}
+      contacts={extra.contacts ?? { supported: false, names: [] }}
       picked={new Set(picked)}
       readyCount={readyCount}
       query={query}
       onQuery={() => {}}
       onToggle={() => {}}
+      onPickContacts={() => {}}
+      onOpenContact={() => {}}
     />,
   ).replaceAll("&#x27;", "'");
+
+const linkFor = (html: string, name: string) => {
+  const link = html.split("<a ").find((chunk) => chunk.includes(`>${name}<`));
+  if (!link) throw new Error(`no link for ${name}`);
+  return link.slice(0, link.indexOf("</a>"));
+};
 
 const rowFor = (html: string, name: string) => {
   const row = html
@@ -116,5 +141,70 @@ describe("RecipientsView (ac-1)", () => {
     expect(render([], 2, { kind: "ready", cards }, "zz")).toContain(
       "Nobody by that name.",
     );
+  });
+});
+
+describe("RecipientsView sill, contacts and search (ac-1)", () => {
+  const contacts = { supported: true, names: ["Maya Okafor", "Jordan Bell"] };
+
+  it("puts sill birds first, as free rides that link to Reply", () => {
+    const html = render([], 2, { kind: "ready", cards }, "", { sill });
+    const sillAt = html.indexOf("A bird of theirs is on your sill");
+    expect(sillAt).toBeGreaterThan(-1);
+    expect(sillAt).toBeLessThan(html.indexOf(">Friends<"));
+    const row = linkFor(html, "Priya");
+    expect(row).toContain('href="/sill/v1/reply"');
+    expect(row).toContain("Dumpling is waiting. A reply rides home free.");
+    expect(row).toContain("Free ride");
+  });
+
+  it("hides the sill section when nothing is on the sill", () => {
+    expect(render([])).not.toContain("A bird of theirs is on your sill");
+  });
+
+  it("offers From your contacts only where the picker exists", () => {
+    const button = /<button [^>]*>From your contacts<\/button>/;
+    expect(render([])).not.toMatch(button);
+    expect(
+      render([], 2, { kind: "ready", cards }, "", {
+        contacts: { supported: true, names: [] },
+      }),
+    ).toMatch(button);
+  });
+
+  it("shows picked contacts as By link rows that open NewRecipient", () => {
+    const html = render([], 2, { kind: "ready", cards }, "", { contacts });
+    expect(html).toContain(">From your contacts<");
+    expect(html).toContain("Goes by text link");
+    for (const name of contacts.names) {
+      const row = linkFor(html, name);
+      expect(row).toContain('href="/send/new"');
+      expect(row).toContain(
+        `Not on ${config.app.name} yet. Add where the bird should fly.`,
+      );
+      expect(row).toContain("By link");
+    }
+    expect(html.indexOf(">Friends<")).toBeLessThan(
+      html.indexOf(">From your contacts<"),
+    );
+  });
+
+  it("filters sill, friend and contact rows by the search", () => {
+    const html = render([], 2, { kind: "ready", cards }, "a", {
+      sill,
+      contacts,
+    });
+    for (const name of ["Priya", "Rosa", "Sam", "Maya Okafor", "Jordan Bell"])
+      expect(html).toContain(`>${name}<`);
+    expect(html).not.toContain(">Theo<");
+
+    const narrow = render([], 2, { kind: "ready", cards }, "maya", {
+      sill,
+      contacts,
+    });
+    expect(narrow).toContain(">Maya Okafor<");
+    expect(narrow).not.toContain(">Jordan Bell<");
+    expect(narrow).not.toContain(">Priya<");
+    expect(narrow).not.toContain("A bird of theirs is on your sill");
   });
 });

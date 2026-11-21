@@ -9,6 +9,7 @@ import {
 } from "@/lib/flight/engine";
 import { duration, type Units } from "@/lib/format";
 import type { FriendRow } from "@/server/services/friends";
+import type { SyncVisit } from "@/server/services/visits/syncRead";
 import { friendLine } from "../friends/friendsApi";
 
 export type FlockBird = Pick<
@@ -29,6 +30,15 @@ export type FlockBird = Pick<
 export type Card =
   | { kind: "friend"; id: string; name: string; line: string }
   | { kind: "unreachable"; id: string; name: string; reason: string };
+
+export type SillCard = { visitId: string; name: string; line: string };
+
+type ContactPicker = {
+  select(
+    properties: string[],
+    options: { multiple: boolean },
+  ): Promise<{ name?: string[] }[]>;
+};
 
 type From = {
   loft: LatLon | null;
@@ -172,4 +182,49 @@ export function canGoNext(picked: number, ready: number): boolean {
 
 export function nextHref(ids: readonly string[]): string {
   return `/send/write?${new URLSearchParams(ids.map((id) => ["to", id]))}`;
+}
+
+export const PREFILL_NAME_KEY = "coo:prefill-name";
+
+export function sillCard(
+  visit: Pick<SyncVisit, "id" | "owner"> & { bird: { name: string } },
+): SillCard {
+  return {
+    visitId: visit.id,
+    name: visit.owner.name,
+    line: `${visit.bird.name} is waiting. A reply rides home free.`,
+  };
+}
+
+export function matches(name: string, query: string): boolean {
+  return name.toLowerCase().includes(query.trim().toLowerCase());
+}
+
+export function canPickContacts(nav: object): boolean {
+  if (!("contacts" in nav)) return false;
+  const contacts = nav.contacts as Partial<ContactPicker> | null | undefined;
+  return typeof contacts?.select === "function";
+}
+
+export async function pickContacts(nav: object): Promise<string[]> {
+  if (!canPickContacts(nav)) return [];
+  try {
+    const { contacts } = nav as { contacts: ContactPicker };
+    const picked = await contacts.select(["name"], {
+      multiple: true,
+    });
+    return picked.flatMap((c) => {
+      const name = c.name?.find((n) => n.trim())?.trim();
+      return name ? [name] : [];
+    });
+  } catch {
+    return [];
+  }
+}
+
+export function handOffName(
+  storage: Pick<Storage, "setItem">,
+  name: string,
+): void {
+  storage.setItem(PREFILL_NAME_KEY, name);
 }

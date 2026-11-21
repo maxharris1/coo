@@ -14,8 +14,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   if (chrome === "bare") return children;
   return (
     <SyncProvider>
-      <RealtimeNudge />
       <ToastProvider>
+        <RealtimeNudge />
         <div className={chrome === "tabs" ? styles.withTabs : styles.column}>
           {children}
         </div>
