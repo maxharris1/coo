@@ -32,10 +32,14 @@ describe("/join/[code]", () => {
   });
 
   it("styles with tokens only", () => {
-    for (const file of ["./JoinView.tsx", "./AddFriend.tsx"]) {
-      expect(
-        readFileSync(new URL(file, import.meta.url), "utf8"),
-      ).not.toMatch(/#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i);
+    for (const file of [
+      "./JoinView.tsx",
+      "./AddFriend.tsx",
+      "./GetAPigeon.tsx",
+    ]) {
+      expect(readFileSync(new URL(file, import.meta.url), "utf8")).not.toMatch(
+        /#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i,
+      );
     }
   });
 });

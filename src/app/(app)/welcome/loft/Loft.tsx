@@ -4,6 +4,7 @@ import { useReducer } from "react";
 import type { Dispatch, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { Point } from "@/lib/game/privacy";
+import { takeReturn } from "@/app/(public)/join/returnTo";
 import {
   initialLoft,
   loft,
@@ -86,7 +87,7 @@ function useActions(state: LoftState, dispatch: Dispatch<LoftAction>): Actions {
         const saved = await saveLoft(state.pending);
         if (!saved.ok) return fail(saved.message);
       }
-      router.push("/");
+      router.push(takeReturn() ?? "/");
     },
   };
 }

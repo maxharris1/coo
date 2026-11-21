@@ -1,9 +1,9 @@
-import Link from "next/link";
 import { Bird } from "@/components/Bird";
 import { HatchScene } from "@/components/HatchScene";
 import { config } from "@/lib/config";
 import styles from "../../auth.module.css";
 import { AddFriend } from "./AddFriend";
+import { GetAPigeon } from "./GetAPigeon";
 
 export function JoinView({
   name,
@@ -35,9 +35,7 @@ export function JoinView({
         {signedIn ? (
           <AddFriend code={code} name={name} />
         ) : (
-          <Link href="/sign-in" className={styles.primary}>
-            Get a pigeon
-          </Link>
+          <GetAPigeon code={code} />
         )}
       </div>
     </main>
