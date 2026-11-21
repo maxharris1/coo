@@ -1,14 +1,19 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { haversineMi } from "@/lib/flight/engine";
+import { haversineMi, hazardsFor } from "@/lib/flight/engine";
+import { isWeekend } from "@/lib/game/time";
 import type { UserId } from "@/server/ports/auth";
 import { setShows } from "@/server/services/friends";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
+import { FakeClock } from "@/test/fakes/clock";
 import { seedWorld, type World } from "@/test/seedWorld";
 import { quote } from "./quote";
 
 const MINUTE_MS = 60_000;
 const NEW_YORK_CENTRE = { lat: 40.712, lon: -74.005 };
 const MAX_ROOST = { lat: 40.73, lon: -73.9875 };
+const PRIYA_ROOST = { lat: 39.952, lon: -75.165 };
+const DAY_MS = 24 * 60 * MINUTE_MS;
+const CALM = { windMph: 0, windFromDeg: 0, tempF: 55, precipMmH: 0, snow: false };
 
 let deps: TestDeps;
 let world: World;
@@ -231,5 +236,54 @@ describe("quote", () => {
     });
 
     expect(asked).toEqual([2 * 2 * 3]);
+  });
+
+  it("names a headwind and the minutes it costs", async () => {
+    deps.weather.set({ ...CALM, windMph: 14, windFromDeg: 225 });
+
+    const { recipients } = await quote(deps, max, {
+      recipients: [{ friendId: world.priya.id as UserId }],
+      birdIds: [gerald],
+    });
+
+    const [q] = recipients[0].quotes;
+    const headwind = q.factors.find((f) => f.kind === "headwind");
+    expect(headwind?.text).toBe("14 mph from the southwest");
+    expect(headwind?.effect).toMatch(/^\+1[7-9] min$/);
+  });
+
+  it("lists no factors in calm weather on a quiet day", async () => {
+    const { recipients } = await quote(deps, max, {
+      recipients: [{ friendId: world.priya.id as UserId }],
+      birdIds: [gerald],
+    });
+
+    expect(recipients[0].quotes[0].factors).toEqual([]);
+  });
+
+  it("splits the odds lost to rain, a hawk and a fair into one entry each", async () => {
+    let day = Date.UTC(2026, 10, 19, 15);
+    while (
+      !isWeekend(day, "America/New_York") ||
+      !Object.values(hazardsFor(day, MAX_ROOST, PRIYA_ROOST, true)).every(
+        Boolean,
+      )
+    )
+      day += DAY_MS;
+    deps = await makeTestDeps({ clock: new FakeClock(day) });
+    world = await seedWorld(deps.db, day);
+    deps.weather.set({ ...CALM, precipMmH: 1 });
+
+    const { recipients } = await quote(deps, world.max.id as UserId, {
+      recipients: [{ friendId: world.priya.id as UserId }],
+      birdIds: [world.max.birds[0].id],
+    });
+
+    const [q] = recipients[0].quotes;
+    const odds = q.factors.filter((f) => f.effect.endsWith("% off"));
+    expect(odds.map((f) => f.kind).sort()).toEqual(["fair", "hawk", "rain"]);
+    const lost = odds.reduce((sum, f) => sum + parseInt(f.effect, 10), 0);
+    expect(lost).toBe(Math.round((0.91 - q.odds) * 100));
+    expect(lost).toBe(13);
   });
 });

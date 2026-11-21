@@ -4,6 +4,7 @@ import {
   hazardsFor,
   interpolate,
   sunTimes,
+  type FlightInput,
   type LatLon,
   type WeatherSample,
 } from "@/lib/flight/engine";
@@ -21,6 +22,7 @@ import {
   loftsOf,
   type LoftColumns,
 } from "@/server/services/friends";
+import { factorsFor, type Factor } from "./factors";
 import { resolvePlace } from "@/server/services/places";
 import { sampleWeather } from "@/server/services/weather";
 
@@ -40,6 +42,7 @@ export type BirdQuote = {
   arriveAt: number;
   odds: number;
   roostsOvernight: boolean;
+  factors: Factor[];
   sunsetAt: number;
 };
 
@@ -211,7 +214,7 @@ function quoteOne(
   hazards: { hawk: boolean; fair: boolean },
 ): BirdQuote {
   const care = careAt(snapshotOf(bird), releaseAt, owner);
-  const plan = computeFlightPlan({
+  const input: FlightInput = {
     flightId: `quote:${bird.id}:${releaseAt}`,
     from,
     to,
@@ -231,7 +234,8 @@ function quoteOne(
     weather,
     hazards,
     delayEndOverrideMs: releaseAt,
-  });
+  };
+  const plan = computeFlightPlan(input);
   return {
     birdId: bird.id,
     releaseAt,
@@ -239,6 +243,7 @@ function quoteOne(
     arriveAt: plan.arriveAtMs,
     odds: plan.onTimeOdds,
     roostsOvernight: plan.segments.some((s) => s.kind === "roost"),
+    factors: factorsFor(input, plan),
     sunsetAt: sunTimes(releaseAt, from).sunsetMs,
   };
 }
