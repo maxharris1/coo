@@ -11,7 +11,7 @@ import type { UserId } from "@/server/ports/auth";
 import { toBirdRecord, type Row } from "@/server/rows";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
 import { seedWorld, type World } from "@/test/seedWorld";
-import { hatch } from "./eggs";
+import { aviary, hatch } from "./eggs";
 import { quoteInput } from "./flights/quote";
 
 let deps: TestDeps;
@@ -260,6 +260,87 @@ describe("hatch", () => {
       });
     }
     expect(await birdsOf(world.max.id)).toHaveLength(2);
+  });
+});
+
+describe("aviary", () => {
+  it("returns the perches, the open egg and every breed with owned", async () => {
+    await deps.db.query(
+      "update profiles set deliveries_count = 2 where id = $1",
+      [world.max.id],
+    );
+    await setBreeds(world.max.id, ["city", "pouter"]);
+    const eggId = await layEgg(world.max.id, { status: "incubating" });
+    const [gerald, brenda] = world.max.birds;
+    const { looks } = config.game.start;
+
+    const result = await aviary(deps, max);
+
+    expect(result.perches).toEqual({
+      total: 3,
+      free: 1,
+      birds: [
+        { id: gerald.id, name: "Gerald", breed: "city", look: looks[0] },
+        { id: brenda.id, name: "Brenda", breed: "pouter", look: looks[1] },
+      ],
+    });
+    expect(result.egg).toEqual({
+      id: eggId,
+      status: "incubating",
+      deliveriesToGo: config.game.eggs.firstAtDeliveries - 2,
+      waitingForPerch: false,
+    });
+    expect(result.breeds).toEqual(
+      config.breeds.breeds.map((b) => ({
+        id: b.id,
+        name: b.name,
+        note: b.note,
+        trait: b.trait,
+        hatchable: b.hatchable,
+        owned: b.id === "city" || b.id === "pouter",
+      })),
+    );
+  });
+
+  it("marks a ready egg as waiting when every perch is taken", async () => {
+    await addBird(world.max.id, "city");
+    await layEgg(world.max.id);
+
+    const result = await aviary(deps, max);
+
+    expect(result.perches).toMatchObject({ total: 3, free: 0 });
+    expect(result.egg).toMatchObject({
+      status: "ready",
+      waitingForPerch: true,
+    });
+  });
+
+  it("does not mark a ready egg as waiting while a perch is free", async () => {
+    await layEgg(world.max.id);
+
+    const result = await aviary(deps, max);
+
+    expect(result.perches.free).toBe(1);
+    expect(result.egg).toMatchObject({
+      status: "ready",
+      waitingForPerch: false,
+    });
+  });
+
+  it("shows another user only their own birds and egg", async () => {
+    await addBird(world.max.id, "king");
+    await layEgg(world.max.id);
+    const priyaEgg = await layEgg(world.priya.id, { status: "incubating" });
+    const priya = await callerFor(world.priya.id);
+
+    const result = await aviary(deps, priya);
+
+    expect(result.perches.birds.map((b) => b.id)).toEqual(
+      world.priya.birds.map((b) => b.id),
+    );
+    expect(result.perches.free).toBe(1);
+    expect(result.egg).toMatchObject({ id: priyaEgg, status: "incubating" });
+    expect(result.breeds.find((b) => b.id === "king")?.owned).toBe(false);
   });
 });
 

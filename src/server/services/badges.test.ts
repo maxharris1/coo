@@ -26,7 +26,7 @@ describe("badgeRules", () => {
     );
   });
 
-  it("every stub rule resolves without writing a badge row", async () => {
+  it("a rule ignores an event for a flight that does not exist", async () => {
     const before = await badgeRows();
     const events: BadgeEvent[] = [
       {

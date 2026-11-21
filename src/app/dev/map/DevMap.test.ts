@@ -23,6 +23,7 @@ const lib = vi.hoisted(() => {
   return {
     maps,
     FakeMap,
+    setWorkerUrl: vi.fn(),
     setEffect: (fn: typeof effect) => {
       effect = fn;
     },
@@ -30,7 +31,10 @@ const lib = vi.hoisted(() => {
   };
 });
 
-vi.mock("maplibre-gl", () => ({ Map: lib.FakeMap }));
+vi.mock("maplibre-gl", () => ({
+  Map: lib.FakeMap,
+  setWorkerUrl: lib.setWorkerUrl,
+}));
 
 vi.mock("react", async (importOriginal) => ({
   ...(await importOriginal<typeof import("react")>()),
@@ -73,4 +77,11 @@ it("removes the map on unmount", async () => {
   const { map, cleanup } = await mount();
   (cleanup as () => void)();
   expect(map.removed).toBe(true);
+});
+
+it("points MapLibre at its bundled worker before creating the map", async () => {
+  await mount();
+  expect(lib.setWorkerUrl).toHaveBeenCalledWith(
+    expect.stringMatching(/maplibre-gl-worker\.mjs$/),
+  );
 });

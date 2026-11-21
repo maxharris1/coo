@@ -4,6 +4,7 @@ import { config } from "@/lib/config";
 import type { Units } from "@/lib/format";
 import type { FriendRow, Shows } from "@/server/services/friends";
 import { friendLine, type FriendsList } from "./friendsApi";
+import { FriendSheet, type SheetState, type SheetStep } from "./FriendSheet";
 import { GuestLinksWaiting } from "./GuestLinksWaiting";
 import styles from "./Friends.module.css";
 
@@ -15,6 +16,11 @@ export type FriendsViewProps = {
   units: Units;
   list: ListState;
   onCopy: () => void;
+  sheet: SheetState | null;
+  onOpen: (friend: FriendRow) => void;
+  onStep: (step: SheetStep) => void;
+  onClose: () => void;
+  onConfirm: (reason: string) => void;
 };
 
 const TONES = [styles.blush, styles.sky, styles.mint, styles.lilac];
@@ -47,39 +53,48 @@ function FriendItem({
   friend,
   tone,
   units,
+  onOpen,
 }: {
   friend: FriendRow;
   tone: string;
   units: Units;
+  onOpen: (friend: FriendRow) => void;
 }) {
   return (
-    <li className={styles.row}>
-      <span aria-hidden="true" className={`${styles.avatar} ${tone}`}>
-        {friend.name.slice(0, 1).toUpperCase()}
-      </span>
-      <span className={styles.who}>
-        <span className={styles.name}>{friend.name}</span>
-        <span className={styles.line}>{friendLine(friend, units)}</span>
-      </span>
-      <span
-        role="img"
-        aria-label={`${friend.name} can see: ${LABELS[friend.shows]}`}
-        className={styles.toggle}
+    <li>
+      <button
+        type="button"
+        aria-haspopup="dialog"
+        className={styles.row}
+        onClick={() => onOpen(friend)}
       >
-        {SHOWS.map((shows) => (
-          <span
-            key={shows}
-            aria-hidden="true"
-            className={
-              shows === friend.shows
-                ? `${styles.choice} ${styles.on}`
-                : styles.choice
-            }
-          >
-            {LABELS[shows]}
-          </span>
-        ))}
-      </span>
+        <span aria-hidden="true" className={`${styles.avatar} ${tone}`}>
+          {friend.name.slice(0, 1).toUpperCase()}
+        </span>
+        <span className={styles.who}>
+          <span className={styles.name}>{friend.name}</span>
+          <span className={styles.line}>{friendLine(friend, units)}</span>
+        </span>
+        <span
+          role="img"
+          aria-label={`${friend.name} can see: ${LABELS[friend.shows]}`}
+          className={styles.toggle}
+        >
+          {SHOWS.map((shows) => (
+            <span
+              key={shows}
+              aria-hidden="true"
+              className={
+                shows === friend.shows
+                  ? `${styles.choice} ${styles.on}`
+                  : styles.choice
+              }
+            >
+              {LABELS[shows]}
+            </span>
+          ))}
+        </span>
+      </button>
     </li>
   );
 }
@@ -89,6 +104,11 @@ export function FriendsView({
   units,
   list,
   onCopy,
+  sheet,
+  onOpen,
+  onStep,
+  onClose,
+  onConfirm,
 }: FriendsViewProps) {
   const sms = `sms:?&body=${encodeURIComponent(
     `Trade pigeons with me on ${config.app.name}: ${inviteLink}`,
@@ -160,12 +180,21 @@ export function FriendsView({
                   friend={f}
                   tone={TONES[i % TONES.length]}
                   units={units}
+                  onOpen={onOpen}
                 />
               ))}
             </ul>
           </section>
           <GuestLinksWaiting links={list.guestLinks} />
         </>
+      )}
+      {sheet && (
+        <FriendSheet
+          {...sheet}
+          onStep={onStep}
+          onClose={onClose}
+          onConfirm={onConfirm}
+        />
       )}
     </main>
   );

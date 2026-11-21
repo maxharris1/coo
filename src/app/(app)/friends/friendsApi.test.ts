@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { FriendRow } from "@/server/services/friends";
-import { friendLine, loadFriends } from "./friendsApi";
+import {
+  blockFriend,
+  friendLine,
+  loadFriends,
+  reportFriend,
+  unfriend,
+} from "./friendsApi";
 
 const friend = (over: Partial<FriendRow>): FriendRow =>
   ({
@@ -59,6 +65,53 @@ describe("loadFriends", () => {
     expect(await loadFriends(down)).toEqual({
       ok: false,
       message: "We could not reach the loft. Try again.",
+    });
+  });
+});
+
+describe("friend actions", () => {
+  const recorder = (status: number, body: unknown) => {
+    const calls: { url: string; init?: RequestInit }[] = [];
+    const fetchImpl = (async (url: RequestInfo | URL, init?: RequestInit) => {
+      calls.push({ url: String(url), init });
+      return new Response(JSON.stringify(body), { status });
+    }) as unknown as typeof fetch;
+    return { calls, fetchImpl };
+  };
+
+  it("unfriends with DELETE /api/friends/[id]", async () => {
+    const { calls, fetchImpl } = recorder(200, {});
+    expect(await unfriend("u1", fetchImpl)).toEqual({ ok: true });
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe("/api/friends/u1");
+    expect(calls[0].init?.method).toBe("DELETE");
+  });
+
+  it("blocks with POST /api/friends/[id]/block", async () => {
+    const { calls, fetchImpl } = recorder(200, {});
+    expect(await blockFriend("u1", fetchImpl)).toEqual({ ok: true });
+    expect(calls[0].url).toBe("/api/friends/u1/block");
+    expect(calls[0].init?.method).toBe("POST");
+  });
+
+  it("reports with POST /api/reports naming the friend and the reason", async () => {
+    const { calls, fetchImpl } = recorder(200, {});
+    expect(await reportFriend("u1", "Rude notes", fetchImpl)).toEqual({
+      ok: true,
+    });
+    expect(calls[0].url).toBe("/api/reports");
+    expect(calls[0].init?.method).toBe("POST");
+    expect(JSON.parse(String(calls[0].init?.body))).toEqual({
+      userId: "u1",
+      reason: "Rude notes",
+    });
+  });
+
+  it("returns the API's message when an action fails", async () => {
+    const { fetchImpl } = recorder(429, { error: { message: "Slow down." } });
+    expect(await blockFriend("u1", fetchImpl)).toEqual({
+      ok: false,
+      message: "Slow down.",
     });
   });
 });

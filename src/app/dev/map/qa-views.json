@@ -1,0 +1,67 @@
+{
+  "probed": "2026-11-21",
+  "views": [
+    {
+      "feature": "parks",
+      "place": "new-york",
+      "zoom": 9,
+      "layers": ["park", "green"]
+    },
+    { "feature": "parks", "place": "rural-pa", "zoom": 6, "layers": ["park"] },
+    {
+      "feature": "parks",
+      "place": "cape-cod",
+      "zoom": 12,
+      "layers": ["park", "green"]
+    },
+    {
+      "feature": "parks",
+      "place": "new-york",
+      "zoom": 15,
+      "layers": ["green"]
+    },
+    {
+      "feature": "major-roads",
+      "place": "cape-cod",
+      "zoom": 6,
+      "layers": ["road", "road-casing"]
+    },
+    {
+      "feature": "major-roads",
+      "place": "rural-pa",
+      "zoom": 9,
+      "layers": ["road", "road-casing"]
+    },
+    {
+      "feature": "major-roads",
+      "place": "new-york",
+      "zoom": 12,
+      "layers": ["road", "road-casing"]
+    },
+    {
+      "feature": "major-roads",
+      "place": "rural-pa",
+      "zoom": 17,
+      "layers": ["road", "road-casing"]
+    },
+    { "feature": "water", "place": "cape-cod", "zoom": 6, "layers": ["water"] },
+    {
+      "feature": "water",
+      "place": "new-york",
+      "zoom": 9,
+      "layers": ["water", "shoreline", "river", "river-casing"]
+    },
+    {
+      "feature": "water",
+      "place": "rural-pa",
+      "zoom": 12,
+      "layers": ["water", "shoreline", "river", "river-casing"]
+    },
+    {
+      "feature": "water",
+      "place": "cape-cod",
+      "zoom": 15,
+      "layers": ["water", "shoreline"]
+    }
+  ]
+}

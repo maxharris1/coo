@@ -1,8 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { hash32, positionAt } from "@/lib/flight/engine";
-import { duration } from "@/lib/format";
+import {
+  type FlightPlan,
+  hash32,
+  isDaylight,
+  positionAt,
+} from "@/lib/flight/engine";
+import { clockTime, duration } from "@/lib/format";
 import type { Flight } from "@/server/services/flights/shape";
 import { MapView } from "./MapView";
 import styles from "./Tracker.module.css";
@@ -20,6 +25,7 @@ export type TrackerView = {
   toLabel: string;
   progress: { frac: number; text: string };
   stats: [Stat, Stat, Stat];
+  night: boolean;
   tickMs: number;
 };
 
@@ -43,16 +49,56 @@ const STATES: Record<
 };
 
 const ALTITUDES = ["Rooftop", "Lowish", "Quite high"];
+const ROOSTS = ["A barn", "A water tower", "A ledge"];
+const COUNTS = ["one", "two", "three", "four", "five", "six", "seven"];
 const SHORT_FLIGHT_MS = 10 * 60_000;
 
 function position(
   flight: Flight,
   nowMs: number,
-): { state: TrackerState; frac: number } {
-  if (flight.status === "landed") return { state: "landed", frac: 1 };
-  if (!flight.plan) return { state: "scheduled", frac: 0 };
+): { state: TrackerState; frac: number; night: boolean } {
+  if (flight.status === "landed") {
+    return { state: "landed", frac: 1, night: !isDaylight(nowMs, flight.to) };
+  }
+  if (!flight.plan) {
+    return {
+      state: "scheduled",
+      frac: 0,
+      night: !isDaylight(nowMs, flight.from),
+    };
+  }
   const p = positionAt(flight.plan, flight.from, flight.to, nowMs);
-  return { state: p.state === "waiting" ? "scheduled" : p.state, frac: p.frac };
+  return {
+    state: p.state === "waiting" ? "scheduled" : p.state,
+    frac: p.frac,
+    night: !isDaylight(nowMs, p),
+  };
+}
+
+function roostAt(plan: FlightPlan | undefined, nowMs: number) {
+  const roosts = (plan?.segments ?? []).filter((s) => s.kind === "roost");
+  const index = roosts.findIndex((s) => s.startMs <= nowMs && nowMs < s.endMs);
+  return index < 0
+    ? undefined
+    : { index, count: roosts.length, segment: roosts[index] };
+}
+
+const roughDay = new Map<string, Intl.DateTimeFormat>();
+
+function roughly(at: number, timeZone: string): string {
+  let f = roughDay.get(timeZone);
+  if (!f) {
+    f = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      weekday: "short",
+      hour: "numeric",
+      hour12: true,
+    });
+    roughDay.set(timeZone, f);
+  }
+  const p: Record<string, string> = {};
+  for (const { type, value } of f.formatToParts(at)) p[type] = value;
+  return `${p.weekday} ${p.hour} ${p.dayPeriod.toLowerCase()}`;
 }
 
 function totalMi(flight: Flight): number {
@@ -80,14 +126,70 @@ function seconds(ms: number): string {
   return s % 60 ? `${m} min ${s % 60} sec` : `${m} min`;
 }
 
-function subLine(flight: Flight): string {
+function recipient(flight: Flight): string | undefined {
+  return flight.counterpart?.name ?? flight.guestName;
+}
+
+function subLine(flight: Flight, roost: ReturnType<typeof roostAt>): string {
   if (flight.role === "incoming") return "Carrying a note for you";
-  const to = flight.counterpart?.name ?? flight.guestName;
+  if (roost && roost.count < COUNTS.length) {
+    const to = recipient(flight) ?? flight.to.label;
+    return `Night ${COUNTS[roost.index]} of a ${COUNTS[roost.count]}-day flight to ${to}`;
+  }
+  const to = recipient(flight);
   return to ? `Carrying your note to ${to}` : "Carrying your note";
 }
 
-export function trackerView(flight: Flight, nowMs: number): TrackerView {
-  const { state, frac } = position(flight, nowMs);
+function flyingStats(
+  flight: Flight,
+  left: number | undefined,
+  short: boolean,
+): [Stat, Stat, Stat] {
+  return [
+    {
+      value: left === undefined ? "–" : short ? seconds(left) : duration(left),
+      label: "Lands in",
+    },
+    {
+      value: flight.input ? `${flight.input.bird.speedMph} mph` : "–",
+      label: "Speed",
+    },
+    {
+      value: ALTITUDES[hash32(flight.id) % ALTITUDES.length],
+      label: "Altitude",
+    },
+  ];
+}
+
+function roostingStats(
+  flight: Flight,
+  roost: NonNullable<ReturnType<typeof roostAt>>,
+  arrive: number | undefined,
+  timeZone: string,
+): [Stat, Stat, Stat] {
+  return [
+    {
+      value: clockTime(new Date(roost.segment.endMs), timeZone),
+      label: "Takes off again",
+    },
+    {
+      value: arrive === undefined ? "–" : roughly(arrive, timeZone),
+      label: "Lands, roughly",
+    },
+    {
+      value: ROOSTS[hash32(`${flight.id}${roost.index}`) % ROOSTS.length],
+      label: "Tonight's roost",
+    },
+  ];
+}
+
+export function trackerView(
+  flight: Flight,
+  nowMs: number,
+  timeZone: string,
+): TrackerView {
+  const { state, frac, night } = position(flight, nowMs);
+  const roost = state === "roosting" ? roostAt(flight.plan, nowMs) : undefined;
   const total = totalMi(flight);
   const arrive = flight.arriveAt ?? flight.plan?.arriveAtMs;
   const short =
@@ -103,28 +205,17 @@ export function trackerView(flight: Flight, nowMs: number): TrackerView {
     state,
     chip: STATES[state].chip,
     headline: STATES[state].headline(copy),
-    sub: subLine(flight),
+    sub: subLine(flight, roost),
     fromLabel: flight.from.label,
     toLabel: flight.to.label,
     progress: {
       frac,
       text: `${miles(total * frac, total)} of ${miles(total, total)} mi`,
     },
-    stats: [
-      {
-        value:
-          left === undefined ? "–" : short ? seconds(left) : duration(left),
-        label: "Lands in",
-      },
-      {
-        value: flight.input ? `${flight.input.bird.speedMph} mph` : "–",
-        label: "Speed",
-      },
-      {
-        value: ALTITUDES[hash32(flight.id) % ALTITUDES.length],
-        label: "Altitude",
-      },
-    ],
+    stats: roost
+      ? roostingStats(flight, roost, arrive, timeZone)
+      : flyingStats(flight, left, short),
+    night,
     tickMs: short ? 1000 : 10_000,
   };
 }
@@ -132,12 +223,14 @@ export function trackerView(flight: Flight, nowMs: number): TrackerView {
 export function Tracker({
   flight,
   offsetMs,
+  timeZone,
 }: {
   flight: Flight;
   offsetMs: number;
+  timeZone: string;
 }) {
   const [nowMs, setNowMs] = useState(() => Date.now() + offsetMs);
-  const view = trackerView(flight, nowMs);
+  const view = trackerView(flight, nowMs, timeZone);
 
   useEffect(() => {
     const timer = setInterval(
@@ -150,7 +243,11 @@ export function Tracker({
   const percent = Math.round(view.progress.frac * 100);
 
   return (
-    <section className={styles.tracker} data-state={view.state}>
+    <section
+      className={styles.tracker}
+      data-state={view.state}
+      data-night={view.night ? "true" : "false"}
+    >
       {flight.plan && (
         <MapView
           flightId={flight.id}
@@ -161,6 +258,7 @@ export function Tracker({
           bird={flight.bird}
           offsetMs={offsetMs}
           bottomPadding={280}
+          night={view.night}
         />
       )}
       <div className={styles.card}>

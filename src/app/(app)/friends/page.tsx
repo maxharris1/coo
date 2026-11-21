@@ -4,10 +4,43 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { Loader } from "@/components/Loader";
 import { useSync } from "@/components/SyncProvider";
 import { useToast } from "@/components/Toasts";
-import { loadFriends } from "./friendsApi";
+import type { FriendRow } from "@/server/services/friends";
+import {
+  blockFriend,
+  loadFriends,
+  reportFriend,
+  unfriend,
+  type ActionResult,
+} from "./friendsApi";
+import type { SheetState, SheetStep } from "./FriendSheet";
 import { FriendsView, type ListState } from "./FriendsView";
 
 const noSubscribe = () => () => {};
+
+const ACTIONS: Record<
+  Exclude<SheetStep, "menu">,
+  {
+    run: (friend: FriendRow, reason: string) => Promise<ActionResult>;
+    done: (name: string) => string;
+    drops: boolean;
+  }
+> = {
+  unfriend: {
+    run: (friend) => unfriend(friend.id),
+    done: (name) => `You and ${name} are no longer friends.`,
+    drops: true,
+  },
+  block: {
+    run: (friend) => blockFriend(friend.id),
+    done: (name) => `${name} is blocked.`,
+    drops: true,
+  },
+  report: {
+    run: (friend, reason) => reportFriend(friend.id, reason),
+    done: () => "Thanks. Your report is in.",
+    drops: false,
+  },
+};
 
 function useOrigin(): string {
   return useSyncExternalStore(
@@ -21,6 +54,7 @@ export default function FriendsPage() {
   const { data } = useSync();
   const origin = useOrigin();
   const [list, setList] = useState<ListState>({ kind: "loading" });
+  const [sheet, setSheet] = useState<SheetState | null>(null);
   const toast = useToast();
 
   useEffect(() => {
@@ -53,12 +87,41 @@ export default function FriendsPage() {
     );
   };
 
+  const onConfirm = (reason: string) => {
+    if (!sheet || sheet.step === "menu" || sheet.busy) return;
+    const { friend } = sheet;
+    const action = ACTIONS[sheet.step];
+    const forFriend = (next: (s: SheetState) => SheetState | null) =>
+      setSheet((s) => (s?.friend.id === friend.id ? next(s) : s));
+    setSheet({ ...sheet, busy: true });
+    void action.run(friend, reason).then((r) => {
+      if (!r.ok) {
+        toast(r.message);
+        forFriend((s) => ({ ...s, busy: false }));
+        return;
+      }
+      forFriend(() => null);
+      toast(action.done(friend.name));
+      if (!action.drops) return;
+      setList((l) =>
+        l.kind === "ready"
+          ? { ...l, friends: l.friends.filter((f) => f.id !== friend.id) }
+          : l,
+      );
+    });
+  };
+
   return (
     <FriendsView
       inviteLink={inviteLink}
       units={data.me.units === "km" ? "km" : "mi"}
       list={list}
       onCopy={onCopy}
+      sheet={sheet}
+      onOpen={(friend) => setSheet({ friend, step: "menu", busy: false })}
+      onStep={(step) => setSheet((s) => s && { ...s, step })}
+      onClose={() => setSheet(null)}
+      onConfirm={onConfirm}
     />
   );
 }

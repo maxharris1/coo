@@ -14,8 +14,12 @@ export function DevMap({ place, zoom }: View) {
   useEffect(() => {
     let map: import("maplibre-gl").Map | null = null;
     let cancelled = false;
-    void import("maplibre-gl").then(({ Map }) => {
+    void import("maplibre-gl").then(({ Map, setWorkerUrl }) => {
       if (cancelled || !container.current) return;
+      setWorkerUrl(
+        new URL("maplibre-gl/dist/maplibre-gl-worker.mjs", import.meta.url)
+          .href,
+      );
       setErrors(0);
       map = new Map({
         container: container.current,
