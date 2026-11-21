@@ -3,19 +3,17 @@ import { AppError } from "../errors";
 import type { UserId } from "../ports/auth";
 
 export type ClockOp = { ref: string } & (
-  | { addMs: number }
-  | { reset: true }
-  | { toFlight: string }
+  { addMs: number } | { reset: true } | { toFlight: string }
 );
 
-type Ctx = { userId: UserId; now: number };
+type Ctx = { userId: UserId; baseNow: number };
 
 type Row = { offset_ms: number };
 
 const CALLERS_FLIGHT =
   "f.id = $1 and (f.owner_id = $2 or f.counterpart_id = $2)";
 
-function update(tx: Db, op: ClockOp, { userId, now }: Ctx): Promise<Row[]> {
+function update(tx: Db, op: ClockOp, { userId, baseNow }: Ctx): Promise<Row[]> {
   if ("addMs" in op) {
     return tx.query<Row>(
       "update dev_clock set offset_ms = offset_ms + $1 returning offset_ms",
@@ -24,15 +22,17 @@ function update(tx: Db, op: ClockOp, { userId, now }: Ctx): Promise<Row[]> {
   }
   if ("toFlight" in op) {
     return tx.query<Row>(
-      `update dev_clock set offset_ms = offset_ms + greatest(0,
+      `update dev_clock set offset_ms = greatest(offset_ms,
          ceil(extract(epoch from f.arrive_at) * 1000)::bigint + 1000 - $3)
        from flights f
        where ${CALLERS_FLIGHT} and f.status = 'flying'
        returning offset_ms`,
-      [op.toFlight, userId, now],
+      [op.toFlight, userId, baseNow],
     );
   }
-  return tx.query<Row>("update dev_clock set offset_ms = 0 returning offset_ms");
+  return tx.query<Row>(
+    "update dev_clock set offset_ms = 0 returning offset_ms",
+  );
 }
 
 function current(tx: Db, op: ClockOp, { userId }: Ctx): Promise<Row[]> {

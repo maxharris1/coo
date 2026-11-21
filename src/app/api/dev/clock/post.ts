@@ -20,7 +20,7 @@ export function devClockPost(jsonRoute: ReturnType<typeof createJsonRoute>) {
     async ({ deps, caller, input, rebuild }) => {
       const result = await applyClockOp(deps.db, input, {
         userId: caller.userId,
-        now: deps.clock.now(),
+        baseNow: deps.clock.now() - deps.clock.offsetMs,
       });
       const fresh = await rebuild();
       if (!("toFlight" in input)) return result;

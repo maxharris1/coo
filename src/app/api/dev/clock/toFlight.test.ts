@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
-import { devClockRoute } from "@/test/devClockRoute";
+import { devClockBuild, devClockRoute } from "@/test/devClockRoute";
 import { addDelivery, HOUR_MS } from "@/test/fixtures/flights";
 import { addNote } from "@/test/fixtures/notes";
 import { geoClient } from "@/test/geoRoute";
@@ -65,6 +65,17 @@ async function statusOf(id: string) {
   return row.status;
 }
 
+function barrier(parties: number) {
+  let arrived = 0;
+  let release = () => {};
+  const open = new Promise<void>((resolve) => (release = resolve));
+  return () => {
+    arrived += 1;
+    if (arrived === parties) release();
+    return open;
+  };
+}
+
 async function offset() {
   const [{ offset_ms }] = await deps.db.query<{ offset_ms: number }>(
     "select offset_ms from dev_clock",
@@ -121,6 +132,39 @@ describe("POST /api/dev/clock { toFlight }", () => {
     expect(status).toBe(200);
     expect(json.serverNow).toBe(now + 2 * HOUR_MS);
     expect(await statusOf(id)).toBe("landed");
+  });
+
+  it("lands only the earlier flight when two jumps to it overlap", async () => {
+    const earlierAt = now + HOUR_MS;
+    const earlier = await flight(world.max, world.priya, earlierAt);
+    const later = await flight(world.priya, world.max, earlierAt + HOUR_MS / 2);
+    const build = devClockBuild(deps);
+    const builds = [barrier(2), barrier(2)];
+    let calls = 0;
+    const racing = geoClient(
+      deps,
+      devClockPost,
+      "/api/dev/clock",
+      devClockRoute(deps, async () => {
+        const wait = builds[calls++ < 2 ? 0 : 1];
+        const built = await build();
+        await wait();
+        return built;
+      }),
+    );
+    const jar = await jarOf("max");
+    const [a, b] = await Promise.all([
+      racing.post({ toFlight: earlier, ref: ref() }, jar),
+      racing.post({ toFlight: earlier, ref: ref() }, jar),
+    ]);
+    expect([a.status, b.status]).toEqual([200, 200]);
+    expect([a.json.offsetMs, b.json.offsetMs]).toEqual([
+      HOUR_MS + 1000,
+      HOUR_MS + 1000,
+    ]);
+    expect(await offset()).toBe(HOUR_MS + 1000);
+    expect(await statusOf(earlier)).toBe("landed");
+    expect(await statusOf(later)).toBe("flying");
   });
 
   it("applies a retried ref once", async () => {
