@@ -35,6 +35,21 @@ describe("offersFor", () => {
       expect(offersFor(userId, date)).toEqual(offersFor(userId, date));
     }
   });
+
+  it("never offers the same jobs two local days running", () => {
+    for (let u = 0; u < 50; u++) {
+      const userId = `00000000-0000-4000-8000-${String(u).padStart(12, "0")}`;
+      let yesterday: string[] = [];
+      for (let d = 0; d < 400; d++) {
+        const date = localDate(Date.UTC(2026, 0, 1) + d * DAY, "UTC");
+        const today = offersFor(userId, date)
+          .map((j) => j.id)
+          .sort();
+        expect(today, `${userId} ${date}`).not.toEqual(yesterday);
+        yesterday = today;
+      }
+    }
+  });
 });
 
 describe("foundObjectFor", () => {
