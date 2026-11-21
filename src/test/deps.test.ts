@@ -1,7 +1,6 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join, relative } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AppError } from "@/server/errors";
 import { authFor, makeDeps } from "@/server/deps";
 import { toE164, type E164 } from "@/lib/phone";
 import { testDb } from "./testDb";
@@ -128,9 +127,12 @@ describe("authFor", () => {
 });
 
 describe("makeDeps", () => {
-  afterEach(() => vi.unstubAllEnvs());
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
 
-  it("sends push through web-push with the VAPID details from env and leaves sms unwired", async () => {
+  it("sends push through web-push and sms through Twilio with the details from env", async () => {
     const env = {
       NEXT_PUBLIC_SUPABASE_URL: "https://project.supabase.co",
       NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon",
@@ -164,11 +166,24 @@ describe("makeDeps", () => {
       },
     );
 
-    const err = await deps.sms
-      .send("+15555550100", "hi")
-      .catch((e: unknown) => e);
-    expect(err).toBeInstanceOf(AppError);
-    expect((err as AppError).code).toBe("internal");
+    const requests: Request[] = [];
+    vi.stubGlobal(
+      "fetch",
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        requests.push(new Request(input, init));
+        return Response.json({ sid: "SM1" }, { status: 201 });
+      },
+    );
+    await deps.sms.send("+15555550123", "hi");
+    expect(requests.map((r) => r.url)).toEqual([
+      "https://api.twilio.com/2010-04-01/Accounts/sid/Messages.json",
+    ]);
+    expect(requests[0].headers.get("authorization")).toBe(
+      `Basic ${Buffer.from("sid:token").toString("base64")}`,
+    );
+    expect(
+      Object.fromEntries(new URLSearchParams(await requests[0].text())),
+    ).toEqual({ To: "+15555550123", From: "+15555550100", Body: "hi" });
   });
 });
 
