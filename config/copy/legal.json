@@ -1,0 +1,90 @@
+{
+  "draft": "Draft. A person must read and approve this text before it is final.",
+  "privacy": {
+    "title": "Privacy",
+    "intro": "Coo holds three sensitive things: roughly where you live, your phone number and your notes. This page says what we keep, what we never keep, who handles it and how to delete it.",
+    "sections": [
+      {
+        "heading": "What we keep",
+        "paragraphs": [
+          "Your phone number. It lives in our sign-in system so we can text you a code. Your profile keeps only the last four digits. Other people never see your number.",
+          "Your roost. We snap the spot where birds find you to a coarse grid and keep that point, with a neighbourhood label. If you choose your town centre instead, we keep the town centre. Each friend sees your roost or only your city, whichever you pick for them. People who are not your friends see neither.",
+          "Your notes. Notes are stored as plain text. They are not end-to-end encrypted. Only the sender can read a note, and the recipient once the bird lands. Note text never goes into our logs, notifications or text messages.",
+          "Your push subscription, if you turn on notifications. It lets us tell your phone that a bird landed.",
+          "A guest's phone number, if they ask for a text when a bird lands. We keep it until that one text is sent, then clear it."
+        ]
+      },
+      {
+        "heading": "What we never keep",
+        "paragraphs": [
+          "Your exact location. A position from your phone or a search is snapped to the roost grid before it is saved or logged.",
+          "Your address. If you search for one, we keep the snapped point and a neighbourhood label. The search text is not saved.",
+          "Your contacts. There is no contacts upload. Friends are made by links, not by looking up phone numbers. If you pick a contact to fill in a name, only the name you confirm is sent to us."
+        ]
+      },
+      {
+        "heading": "Who handles it",
+        "paragraphs": [
+          "These services handle some of this data so the app can work.",
+          "Supabase runs sign-in and the database. Its disks are encrypted at rest.",
+          "Vercel hosts the app.",
+          "Twilio sends sign-in codes and text messages.",
+          "OpenFreeMap serves the map tiles.",
+          "Photon finds places when you search.",
+          "Open-Meteo provides the weather."
+        ]
+      },
+      {
+        "heading": "How to delete it",
+        "paragraphs": [
+          "Open Settings and choose \"Delete my account\". That removes your account, your roost, your birds and the notes you sent.",
+          "A friend's bird on your sill flies home straight away.",
+          "Notes your friends sent you stay in their shoeboxes. They show as sent to \"a former friend\".",
+          "There is no export yet. Your shoebox shows every note."
+        ]
+      }
+    ]
+  },
+  "terms": {
+    "title": "Terms",
+    "intro": "These are the rules for using Coo. They are short on purpose.",
+    "sections": [
+      {
+        "heading": "Who can use it",
+        "paragraphs": [
+          "Coo is not for children under 13.",
+          "You sign in with a phone number that can get a text code."
+        ]
+      },
+      {
+        "heading": "Be kind",
+        "paragraphs": [
+          "Do not use Coo to harass, threaten or spam anyone.",
+          "Names and bird names cannot contain slurs.",
+          "You can block anyone. Blocking ends the friendship, sends their bird home and stops contact both ways.",
+          "You can report a person or a link. A person reads every report."
+        ]
+      },
+      {
+        "heading": "Birds are slow",
+        "paragraphs": [
+          "Coo is not for anything urgent. Birds fly at pigeon speed and sometimes stop on the way.",
+          "Delivery times are estimates, not promises."
+        ]
+      },
+      {
+        "heading": "Changes",
+        "paragraphs": [
+          "We may change Coo or these terms, or stop the service."
+        ]
+      },
+      {
+        "heading": "Your account",
+        "paragraphs": [
+          "You can delete your account at any time in Settings."
+        ]
+      }
+    ],
+    "privacyLink": "What we keep and how to delete it"
+  }
+}
