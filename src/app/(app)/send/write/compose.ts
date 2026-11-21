@@ -9,6 +9,7 @@ import {
 } from "@/lib/format";
 import { noteLimit } from "@/lib/game/notes";
 import type { Wearer } from "@/lib/game/seeds";
+import type { Factor } from "@/server/services/flights/factors";
 import type { RecipientQuote } from "@/server/services/flights/quote";
 import type { FriendRow } from "@/server/services/friends";
 import { friendLine } from "../../friends/friendsApi";
@@ -113,6 +114,12 @@ export function counter(body: string, bird: Wearer): Counter {
   };
 }
 
+function factorText(factor: Factor, units: Units): string {
+  return factor.kind === "distance"
+    ? `${shortDistance(factor.distanceMi, units)} is a long way`
+    : factor.text;
+}
+
 export function stats(
   leg: RecipientQuote,
   birdId: string,
@@ -127,7 +134,7 @@ export function stats(
     distance: shortDistance(leg.distanceMi, units),
     flightTime: duration(quote.durationMs),
     odds: `${Math.round(quote.odds * 100)}%`,
-    forecast: lead ? `${lands} ${lead.text}.` : lands,
+    forecast: lead ? `${lands} ${factorText(lead, units)}.` : lands,
   };
 }
 

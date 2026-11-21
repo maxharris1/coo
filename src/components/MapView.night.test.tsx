@@ -208,10 +208,9 @@ describe("the tracker map on the Chicago vector (ac-2)", () => {
 
     vi.setSystemTime(Date.parse("2026-11-20T02:00:00-05:00"));
     renderTracker(flight);
-    expect(
-      map.styles.map((s) => s.style),
-      "style requests at 2 am",
-    ).toEqual([NIGHT_STYLE]);
+    expect(map.styles.map((s) => s.style), "style requests at 2 am").toEqual([
+      NIGHT_STYLE,
+    ]);
     expect(lib.maps.length, "the same map is restyled, not rebuilt").toBe(1);
 
     map.fire("style.load");

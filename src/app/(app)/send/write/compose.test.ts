@@ -270,6 +270,32 @@ describe("stats", () => {
       },
     ],
     [
+      "a long trip in kilometres",
+      quote({
+        factors: [{ kind: "distance", distanceMi: 712.4, effect: "6% off" }],
+      }),
+      "km",
+      {
+        distance: "131 km",
+        flightTime: "1h 48m",
+        odds: "94%",
+        forecast: "Lands around 11:20 am. 1146 km is a long way.",
+      },
+    ],
+    [
+      "a long trip in miles",
+      quote({
+        factors: [{ kind: "distance", distanceMi: 712.4, effect: "6% off" }],
+      }),
+      "mi",
+      {
+        distance: "81 mi",
+        flightTime: "1h 48m",
+        odds: "94%",
+        forecast: "Lands around 11:20 am. 712 mi is a long way.",
+      },
+    ],
+    [
       "a short hop",
       quote({ durationMs: 14_000, arriveAt: RELEASE + 14_000 }, 0.2),
       "mi",
