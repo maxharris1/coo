@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { config } from "@/lib/config";
+import { sunTimes } from "@/lib/flight/engine";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
 import { addNote } from "@/test/fixtures/notes";
 import {
@@ -172,30 +173,114 @@ describe("rfc-1149", () => {
 });
 
 describe("early-bird", () => {
-  it.each([
-    [
-      "a release before 7 am local after sunrise",
-      "America/New_York",
-      Date.UTC(2026, 6, 15, 10, 30),
-    ],
-    [
-      "a release at local midnight",
-      "America/New_York",
-      Date.UTC(2026, 6, 15, 4, 30),
-    ],
-    [
-      "a release with the owner in another time zone",
-      "Asia/Bangkok",
-      Date.UTC(2026, 6, 15, 23),
-    ],
-  ])(
-    "early-bird: the awarding hook is disabled, so %s does not earn it",
-    async (_, tz, releaseMs) => {
-      await setTimezone(world.max, tz);
-      await landDelivery({ releaseMs });
-      expect(await badge(world.max.id, "early-bird")).toBeNull();
-    },
-  );
+  const JULY_0630_NEW_YORK = Date.UTC(2026, 6, 15, 10, 30);
+  const JULY_0700_NEW_YORK = Date.UTC(2026, 6, 15, 11, 0);
+  const JULY_0030_NEW_YORK = Date.UTC(2026, 6, 15, 4, 30);
+  const JULY_0130_NEW_YORK = Date.UTC(2026, 6, 15, 5, 30);
+  const DECEMBER_0630_NEW_YORK = Date.UTC(2025, 11, 15, 11, 30);
+  const JULY_1900_NEW_YORK = Date.UTC(2026, 6, 15, 23);
+  const JULY_0015_APIA = Date.UTC(2026, 6, 14, 11, 15);
+  const JULY_NOON_APIA = Date.UTC(2026, 6, 14, 23);
+  const APIA = { lat: -13.83, lon: -171.76 };
+  const JULY_0030_BREST = Date.UTC(2026, 6, 14, 22, 30);
+  const BREST = { lat: 48.39, lon: -4.49 };
+  const JULY_2330_BRIDGEPORT = Date.UTC(2026, 6, 15, 4, 30);
+  const BRIDGEPORT_ALABAMA = { lat: 34.95, lon: -85.71 };
+
+  async function maxLoft() {
+    const [loft] = await deps.db.query<{ lat: number; lon: number }>(
+      "select home_lat as lat, home_lon as lon from profiles where id = $1",
+      [world.max.id],
+    );
+    return loft;
+  }
+
+  async function moveLoft(person: Person, loft: { lat: number; lon: number }) {
+    await deps.db.query(
+      "update profiles set home_lat = $2, home_lon = $3 where id = $1",
+      [person.id, loft.lat, loft.lon],
+    );
+  }
+
+  async function expectEarned(flight: PlannedDelivery) {
+    expect(await badge(world.max.id, "early-bird")).toEqual({
+      progress: 1,
+      earned_at: new Date(flight.arriveAtMs),
+    });
+  }
+
+  it("early-bird: earned by a release before 7 am local and after sunrise at the loft", async () => {
+    await expectEarned(await landDelivery({ releaseMs: JULY_0630_NEW_YORK }));
+  });
+
+  it("early-bird: earned by a release just after that day's sunrise at the loft", async () => {
+    const { sunriseMs } = sunTimes(Date.UTC(2026, 6, 15, 16), await maxLoft());
+    await expectEarned(
+      await landDelivery({ releaseMs: sunriseMs + MINUTE_MS }),
+    );
+  });
+
+  it("early-bird: earned on the loft's date when the owner's time zone is a day ahead", async () => {
+    await setTimezone(world.max, "Asia/Bangkok");
+    await expectEarned(await landDelivery({ releaseMs: JULY_1900_NEW_YORK }));
+  });
+
+  it("early-bird: not earned at 7 am exactly", async () => {
+    await landDelivery({ releaseMs: JULY_0700_NEW_YORK });
+    expect(await badge(world.max.id, "early-bird")).toBeNull();
+  });
+
+  it("early-bird: not earned by a release before sunrise", async () => {
+    await landDelivery({ releaseMs: DECEMBER_0630_NEW_YORK });
+    expect(await badge(world.max.id, "early-bird")).toBeNull();
+  });
+
+  it("early-bird: not earned after the loft's midnight and before that day's sunrise", async () => {
+    await landDelivery({ releaseMs: JULY_0130_NEW_YORK });
+    expect(await badge(world.max.id, "early-bird")).toBeNull();
+  });
+
+  it("early-bird: not earned half an hour after the loft's midnight", async () => {
+    await landDelivery({ releaseMs: JULY_0030_NEW_YORK });
+    expect(await badge(world.max.id, "early-bird")).toBeNull();
+  });
+
+  it("early-bird: not earned just after midnight at a loft whose time zone runs a day ahead of its longitude", async () => {
+    await moveLoft(world.max, APIA);
+    await setTimezone(world.max, "Pacific/Apia");
+    await landDelivery({ releaseMs: JULY_0015_APIA });
+    expect(await badge(world.max.id, "early-bird")).toBeNull();
+  });
+
+  it("early-bird: earned just after sunrise on the loft's date at a loft whose time zone runs a day ahead of its longitude", async () => {
+    await moveLoft(world.max, APIA);
+    await setTimezone(world.max, "Asia/Tokyo");
+    const { sunriseMs } = sunTimes(JULY_NOON_APIA, APIA);
+    await expectEarned(
+      await landDelivery({ releaseMs: sunriseMs + MINUTE_MS }),
+    );
+  });
+
+  it("early-bird: not earned just after midnight at a loft whose zone differs from the nearest zone city's", async () => {
+    await moveLoft(world.max, BREST);
+    await setTimezone(world.max, "Europe/Paris");
+    await landDelivery({ releaseMs: JULY_0030_BREST });
+    expect(await badge(world.max.id, "early-bird")).toBeNull();
+  });
+
+  it("early-bird: earned late in the day on the Central side of the US Eastern-Central border", async () => {
+    await moveLoft(world.max, BRIDGEPORT_ALABAMA);
+    await setTimezone(world.max, "Europe/London");
+    await expectEarned(
+      await landDelivery({ releaseMs: JULY_2330_BRIDGEPORT }),
+    );
+  });
+
+  it("early-bird: not earned when the owner's time zone puts the release after 7 am", async () => {
+    await setTimezone(world.max, "Europe/London");
+    await landDelivery({ releaseMs: JULY_0630_NEW_YORK });
+    expect(await badge(world.max.id, "early-bird")).toBeNull();
+  });
 });
 
 describe("search-and-rescue", () => {
