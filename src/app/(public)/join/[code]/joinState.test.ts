@@ -57,4 +57,26 @@ describe("joinState", () => {
       joinState(signedOut(), "nobody-AAAAAAAAAAAA"),
     ).rejects.toMatchObject({ digest: "NEXT_HTTP_ERROR_FALLBACK;404" });
   });
+
+  it("turns a code with a NUL byte into not-found", async () => {
+    await expect(
+      joinState(signedOut(), "priya-AAAA\0AAAAAAA"),
+    ).rejects.toMatchObject({ digest: "NEXT_HTTP_ERROR_FALLBACK;404" });
+  });
+
+  it.each([
+    ["too many characters", `${"p".repeat(21)}-AAAAAAAAAAAA`],
+    ["characters outside the invite charset", "priya-AAAA%AAAAAAA"],
+  ])("never resolves a stored code with %s", async (_, code) => {
+    const [{ id }] = await deps.db.query<{ id: string }>(
+      "insert into auth.users default values returning id",
+    );
+    await deps.db.query(
+      "insert into profiles (id, name, handle, invite_code) values ($1, 'Priya', 'priya', $2)",
+      [id, code],
+    );
+    await expect(joinState(signedOut(), code)).rejects.toMatchObject({
+      digest: "NEXT_HTTP_ERROR_FALLBACK;404",
+    });
+  });
 });
