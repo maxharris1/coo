@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { config } from "@/lib/config";
+import { sunTimes } from "@/lib/flight/engine";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
 import { addNote } from "@/test/fixtures/notes";
 import {
@@ -194,6 +195,24 @@ describe("early-bird", () => {
     await setTimezone(world.max, "Europe/London");
     await landDelivery({ releaseMs: JULY_0630_NEW_YORK });
     expect(await badge(world.max.id, "early-bird")).toBeNull();
+  });
+
+  it("does not earn at midnight", async () => {
+    await landDelivery({ releaseMs: Date.UTC(2026, 6, 15, 4, 30) });
+    expect(await badge(world.max.id, "early-bird")).toBeNull();
+  });
+
+  it("early-bird: earned by a release just after that day's sunrise at the loft", async () => {
+    const [loft] = await deps.db.query<{ lat: number; lon: number }>(
+      "select home_lat as lat, home_lon as lon from profiles where id = $1",
+      [world.max.id],
+    );
+    const { sunriseMs } = sunTimes(Date.UTC(2026, 6, 15, 16), loft);
+    const flight = await landDelivery({ releaseMs: sunriseMs + MINUTE_MS });
+    expect(await badge(world.max.id, "early-bird")).toEqual({
+      progress: 1,
+      earned_at: new Date(flight.arriveAtMs),
+    });
   });
 });
 

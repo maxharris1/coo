@@ -1,8 +1,10 @@
 import { config } from "@/lib/config";
 import { sunTimes } from "@/lib/flight/engine";
-import { localHour } from "@/lib/game/time";
+import { localHour, startOfLocalDayMs } from "@/lib/game/time";
 import type { BadgeRule } from "../badges";
 import { setBadgeProgress } from "./award";
+
+const HALF_DAY_MS = 43_200_000;
 
 export const earlyBird: BadgeRule = {
   async apply(db, event) {
@@ -23,10 +25,12 @@ export const earlyBird: BadgeRule = {
     if (!row) return;
     const releaseMs = row.release_at.getTime();
     const loft = { lat: row.from_lat, lon: row.from_lon };
+    const localNoonMs =
+      startOfLocalDayMs(releaseMs, row.timezone) + HALF_DAY_MS;
     if (
       localHour(releaseMs, row.timezone) <
         config.game.badges.earlyBirdBeforeHour &&
-      releaseMs >= sunTimes(releaseMs, loft).sunriseMs
+      releaseMs >= sunTimes(localNoonMs, loft).sunriseMs
     )
       await setBadgeProgress(
         db,
