@@ -5,6 +5,7 @@ import { SyncContext } from "@/components/SyncProvider";
 import { ToastProvider } from "@/components/Toasts";
 import type { LocalDate } from "@/lib/game/time";
 import type { Earn } from "@/server/services/earn";
+import game from "../../../../config/game.json";
 import { earnTop, type EarnState } from "./earn";
 import { EarnView } from "./EarnView";
 import EarnPage from "./page";
@@ -147,14 +148,91 @@ describe("/earn punch card", () => {
     expect(css).toMatch(/\.cardHead\s*{[^}]*flex-wrap:\s*wrap/);
   });
 
-  it("leaves the pay table to a later ticket", () => {
-    expect(html).not.toContain("Every delivery pays");
-  });
-
   it("hands jobs and found objects to the jobs panel", () => {
     panels.length = 0;
     ready();
     expect(panels).toEqual([{ jobs: EARN.jobs, found: EARN.found }]);
+  });
+});
+
+describe("/earn pay table", () => {
+  const seeds = game.seeds;
+  const fromConfig = (partyHatWeekend: number | null): Earn => ({
+    ...EARN,
+    payTable: {
+      delivery: {
+        base: seeds.deliveryBase,
+        milesPerBonusSeed: seeds.milesPerBonusSeed,
+        fullPayPerDay: seeds.fullPayDeliveriesPerDay,
+        reducedPay: seeds.reducedDeliveryPay,
+      },
+      replyHome: seeds.replyHome,
+      newCity: seeds.newCity,
+      partyHatWeekend,
+    },
+  });
+  const table = (earn: Earn) => {
+    const section = ready(earn).match(
+      /<section[^>]*aria-labelledby="earn-pay"[^>]*>([\s\S]*?)<\/section>/,
+    )?.[1];
+    const rows = [
+      ...(section ?? "").matchAll(/<dt[^>]*>(.*?)<\/dt><dd[^>]*>(.*?)<\/dd>/g),
+    ].map(([, label, value]) => [label, value]);
+    return { section, rows };
+  };
+
+  it("heads the section Every delivery pays", () => {
+    expect(table(fromConfig(null)).section).toMatch(
+      /<h2[^>]*id="earn-pay"[^>]*>Every delivery pays<\/h2>/,
+    );
+  });
+
+  it("lists the three pay rows from config as in the mock", () => {
+    expect(table(fromConfig(null)).rows).toEqual([
+      [
+        "A note lands",
+        `${seeds.deliveryBase}, plus 1 per ${seeds.milesPerBonusSeed} miles`,
+      ],
+      ["Your bird comes home with a reply", `${seeds.replyHome}`],
+      ["First landing in a new city", `${seeds.newCity} and a postmark`],
+    ]);
+  });
+
+  it("matches the reference numbers", () => {
+    expect(table(fromConfig(null)).rows.map(([, v]) => v)).toEqual([
+      "10, plus 1 per 25 miles",
+      "5",
+      "25 and a postmark",
+    ]);
+  });
+
+  it("adds the party hat weekend row only when the hat is owned", () => {
+    expect(table(fromConfig(null)).section).not.toContain("party hat");
+    expect(table(fromConfig(seeds.partyHatWeekendBonus)).rows).toEqual([
+      ...table(fromConfig(null)).rows,
+      [
+        "A weekend delivery in your party hat",
+        `${seeds.partyHatWeekendBonus} extra`,
+      ],
+    ]);
+  });
+
+  it("sits between the punch card and the jobs panel", () => {
+    const html = ready();
+    expect(html.indexOf("Post office punch card")).toBeLessThan(
+      html.indexOf("Every delivery pays"),
+    );
+  });
+
+  it("separates rows with a dashed rule and none under the last", () => {
+    expect(css).toMatch(/\.payRow\s*{[^}]*border-bottom:\s*2px dashed/);
+    expect(css).toMatch(/\.payRow:last-child\s*{[^}]*border-bottom:\s*0/);
+  });
+
+  it("wraps long labels and keeps each value on one line at 360 px", () => {
+    expect(css).toMatch(/\.payRow dt\s*{[^}]*min-width:\s*0/);
+    expect(css).toMatch(/\.payRow dd\s*{[^}]*text-align:\s*right/);
+    expect(css).toMatch(/\.payRow dd\s*{[^}]*flex-shrink:\s*0/);
   });
 });
 
