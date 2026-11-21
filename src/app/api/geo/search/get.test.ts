@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
 import { geoClient } from "@/test/geoRoute";
+import type { HeldPlace, PlaceResult } from "@/server/services/places";
 import { geoSearchGet } from "./get";
 
 const NOT_FOUND = "Could not find that place. Try a neighborhood or a city.";
@@ -83,10 +84,21 @@ describe("GET /api/geo/search", () => {
         kind: "neighbourhood",
       },
     ]);
-    const stored = await deps.db.query("select payload from geo_cache");
-    expect(JSON.stringify({ json, stored })).not.toMatch(
-      /Bedford|123|Apartment|4B|11211/,
+    const stored = await deps.db.query<{ payload: { place: HeldPlace } }>(
+      "select payload from geo_cache",
     );
+    const placeText = [
+      ...json.results.flatMap((r: PlaceResult) => [r.label, r.sublabel]),
+      ...stored.flatMap(({ payload: { place } }) => [
+        place.label,
+        place.sublabel,
+        place.city,
+        place.region,
+        place.country,
+      ]),
+    ].join("\n");
+    expect(placeText).toContain("Williamsburg");
+    expect(placeText).not.toMatch(/Bedford|123|Apartment|4B|11211/);
   });
 
   it("answers 200 with an empty list and the not-found message when the geocoder fails (ac-4)", async () => {
