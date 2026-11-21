@@ -220,6 +220,24 @@ describe("incomingCards (ac-3)", () => {
       },
     ]);
   });
+
+  it("makes a card for a delivery flying to me", () => {
+    expect(
+      incomingCards([flight({ role: "incoming", kind: "delivery" })], now),
+    ).toHaveLength(1);
+  });
+
+  it("makes no card for a return leaving my sill", () => {
+    expect(
+      incomingCards([flight({ role: "incoming", kind: "return" })], now),
+    ).toEqual([]);
+  });
+
+  it("makes no card for my own bird heading home", () => {
+    expect(
+      incomingCards([flight({ role: "mine", kind: "return" })], now),
+    ).toEqual([]);
+  });
 });
 
 describe("feedThenRefresh (ac-2)", () => {
