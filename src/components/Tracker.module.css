@@ -114,6 +114,16 @@
   animation: coo-pulse 1.4s ease-in-out infinite;
 }
 
+@keyframes coo-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.5);
+  }
+}
+
 .card {
   position: absolute;
   inset: auto 0 0;
