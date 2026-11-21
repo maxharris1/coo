@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { randomUUID } from "node:crypto";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { OnboardedCaller, Profile } from "@/server/auth";
 import type { UserId } from "@/server/ports/auth";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
@@ -9,9 +10,16 @@ import { sync } from "./sync";
 import { tick } from "./tick";
 import { replyToVisit } from "./visits/reply";
 
+vi.mock("node:crypto", async (load) => {
+  const actual = await load<typeof import("node:crypto")>();
+  return { ...actual, randomUUID: vi.fn(actual.randomUUID) };
+});
+
 const MINUTE_MS = 60_000;
 const NOTE = "Bring the good bagels on Sunday";
 const REPLY = "Only if you bring the cream cheese";
+const DELIVERY_ID = "00000000-0000-4000-8000-000000000401";
+const RETURN_ID = "00000000-0000-4000-8000-000000000402";
 
 let deps: TestDeps;
 let world: World;
@@ -81,16 +89,20 @@ async function snapshot() {
 describe("scenario 1: there and back", () => {
   it("Gerald flies to Priya, waits for her reply, and brings it home", async () => {
     const seedsAtStart = await seedsOf(max);
+    vi.mocked(randomUUID).mockReturnValueOnce(DELIVERY_ID);
     const {
       flights: [out],
     } = await send(deps, max, {
       body: NOTE,
       sends: [{ friendId: priya, birdId: gerald }],
     });
-    const [{ arrive_at: deliveryArrival }] = await rows<{ arrive_at: Date }>(
-      "select arrive_at from flights where id = $1",
-      [out.id],
-    );
+    expect(out.id).toBe(DELIVERY_ID);
+    const [{ arrive_at: deliveryArrival, delay_kind: deliveryDelay }] =
+      await rows<{ arrive_at: Date; delay_kind: string }>(
+        "select arrive_at, delay_kind from flights where id = $1",
+        [out.id],
+      );
+    expect(deliveryDelay).toBe("none");
 
     deps.clock.set(deliveryArrival.getTime() - MINUTE_MS);
     const before = await sync(deps, await callerFor(priya), null);
@@ -126,6 +138,7 @@ describe("scenario 1: there and back", () => {
     await tick(deps);
     expect(await snapshot()).toEqual(landed);
 
+    vi.mocked(randomUUID).mockReturnValueOnce(RETURN_ID);
     const { flight: back } = await replyToVisit(
       deps,
       await callerFor(priya),
@@ -133,10 +146,12 @@ describe("scenario 1: there and back", () => {
       REPLY,
     );
     expect(back.kind).toBe("return");
-    const [{ arrive_at: returnArrival }] = await rows<{ arrive_at: Date }>(
-      "select arrive_at from flights where id = $1",
-      [back.id],
-    );
+    expect(back.id).toBe(RETURN_ID);
+    const [{ arrive_at: returnArrival, delay_kind: returnDelay }] = await rows<{
+      arrive_at: Date;
+      delay_kind: string;
+    }>("select arrive_at, delay_kind from flights where id = $1", [back.id]);
+    expect(returnDelay).toBe("none");
 
     deps.clock.set(returnArrival.getTime() + MINUTE_MS);
     expect((await tick(deps)).counts.landReturns).toBe(1);
