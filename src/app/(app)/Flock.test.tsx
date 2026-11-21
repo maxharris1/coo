@@ -1,0 +1,150 @@
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it } from "vitest";
+import type { SyncPayload } from "@/components/sync";
+import { Flock } from "./Flock";
+
+type Bird = SyncPayload["birds"][number];
+
+const bird = (name: string, over: Partial<Bird> = {}): Bird =>
+  ({
+    id: name.toLowerCase().replace(" ", "-"),
+    name,
+    look: "gerald",
+    breed: "city",
+    pronoun: "he",
+    status: "home",
+    hungry: false,
+    tired: false,
+    busyKind: null,
+    busyUntil: null,
+    gear: [],
+    ...over,
+  }) as Bird;
+
+const now = Date.parse("2026-11-20T14:20:00Z");
+
+const data = ({
+  birds,
+  perches = 5,
+  egg = null,
+  flights = [],
+}: {
+  birds: Bird[];
+  perches?: number;
+  egg?: { status: string; deliveriesToGo: number } | null;
+  flights?: unknown[];
+}) =>
+  ({
+    serverNow: now,
+    me: { seeds: 240, perches, timezone: "America/New_York", loft: null },
+    birds,
+    flights,
+    myVisiting: [],
+    egg,
+  }) as unknown as SyncPayload;
+
+const render = (d: SyncPayload) =>
+  renderToStaticMarkup(<Flock data={d} onFeed={() => {}} />).replaceAll(
+    "&#x27;",
+    "'",
+  );
+
+const mock = [
+  bird("Gerald"),
+  bird("Brenda", { look: "brenda", status: "flying" }),
+  bird("Kevin", {
+    look: "kevin",
+    status: "busy",
+    busyKind: "nap",
+    busyUntil: Date.parse("2026-11-20T19:40:00Z"),
+  }),
+  bird("Admiral Crumbs", { look: "admiral", hungry: true, gear: ["cap"] }),
+];
+
+describe("Flock on Main", () => {
+  it("lists each bird with name, status line and chip, linking to its page (ac-2)", () => {
+    const html = render(data({ birds: mock }));
+    for (const id of ["gerald", "brenda", "kevin", "admiral-crumbs"]) {
+      expect(html).toContain(`href="/birds/${id}"`);
+    }
+    expect(html).toContain("Home, fed, smug");
+    expect(html).toContain("Napping until 2:40 pm");
+    expect(html).toMatch(/>Ready</);
+    expect(html).toMatch(/>Flying</);
+    expect(html).toMatch(/>Resting</);
+    expect(html.match(/<svg/g)?.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it("gives a hungry bird a Feed me button instead of a chip (ac-2)", () => {
+    const html = render(data({ birds: mock }));
+    expect(html).toContain("Hungry. Has opinions about it.");
+    expect(html).toMatch(
+      /<button[^>]*aria-label="Feed Admiral Crumbs"[^>]*>Feed me<\/button>/,
+    );
+    expect(html.match(/<button/g)).toHaveLength(1);
+  });
+
+  it("counts perches and draws a dashed slot for each empty one (ac-3)", () => {
+    const html = render(data({ birds: mock, perches: 6 }));
+    expect(html).toContain("4 of 6 perches");
+    expect(html.match(/data-perch="empty"/g)).toHaveLength(2);
+    expect(html).not.toContain("An egg is ready");
+  });
+
+  it("says an egg is ready in the first empty slot (ac-3)", () => {
+    const html = render(
+      data({
+        birds: [bird("Gerald")],
+        perches: 3,
+        egg: { status: "ready", deliveriesToGo: 0 },
+      }),
+    );
+    expect(html).toContain("1 of 3 perches");
+    expect(html.match(/data-perch="egg"/g)).toHaveLength(1);
+    expect(html.match(/data-perch="empty"/g)).toHaveLength(1);
+    expect(html.indexOf('data-perch="egg"')).toBeLessThan(
+      html.indexOf('data-perch="empty"'),
+    );
+    expect(html).toContain("An egg is ready");
+  });
+
+  it("shows an incoming card for each flight headed to me (ac-3)", () => {
+    const incoming = (id: string, from: string, name: string) => ({
+      id,
+      kind: "delivery",
+      status: "flying",
+      role: "incoming",
+      bird: { id: `${id}-bird`, name },
+      owner: { id: from.toLowerCase(), name: from },
+      to: { label: "Williamsburg" },
+      releaseAt: now - 60_000,
+      arriveAt: now + 12 * 60_000,
+    });
+    const html = render(
+      data({
+        birds: mock,
+        flights: [
+          incoming("f1", "Priya", "Dumpling"),
+          incoming("f2", "Theo", "Pip"),
+        ],
+      }),
+    );
+    expect(html).toContain("Incoming from Priya");
+    expect(html).toContain("Dumpling lands on your sill in 12 min");
+    expect(html).toContain("Incoming from Theo");
+    expect(html).toContain('href="/flights/f1"');
+    expect(html).toContain('href="/flights/f2"');
+  });
+
+  it("shows no incoming card when nothing is headed to me", () => {
+    expect(render(data({ birds: mock }))).not.toContain("Incoming from");
+  });
+
+  it("renders five birds with one row each", () => {
+    const five = ["A", "B", "C", "D", "E"].map((n) => bird(`Bird ${n}`));
+    const html = render(data({ birds: five, perches: 5 }));
+    expect(html.match(/href="\/birds\//g)).toHaveLength(5);
+    expect(html).toContain("5 of 5 perches");
+    expect(html).not.toContain("data-perch=");
+  });
+});
