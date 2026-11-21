@@ -3,7 +3,10 @@ import { join, relative } from "node:path";
 import { NextRequest } from "next/server";
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@/env", () => ({ getEnv: () => ({ APP_ENV: "production" }) }));
+vi.mock("@/env", () => ({
+  getEnv: () => ({ APP_ENV: "production" }),
+  readAppEnv: () => "production",
+}));
 vi.mock("@/server/db", () => ({
   getDb: () => {
     throw new Error("a dev route reached the database in production");

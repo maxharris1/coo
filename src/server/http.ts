@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type { z } from "zod";
-import { getEnv, type Env } from "@/env";
+import { readAppEnv, type Env } from "@/env";
 import {
   requireOnboarded,
   requireUser,
@@ -87,7 +87,7 @@ type Build = () => Promise<Deps>;
 
 export function createJsonRoute(
   build: Build,
-  gate: { appEnv?: () => Env["APP_ENV"] } = {},
+  gate: { appEnv?: () => Env["APP_ENV"] | undefined } = {},
 ) {
   const devAllowed = () => {
     const env = gate.appEnv?.();
@@ -144,5 +144,5 @@ export function createJsonRoute(
 }
 
 export const jsonRoute = createJsonRoute(makeDeps, {
-  appEnv: () => getEnv().APP_ENV,
+  appEnv: () => readAppEnv(process.env),
 });
