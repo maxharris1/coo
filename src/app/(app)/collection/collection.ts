@@ -1,4 +1,6 @@
+import { config } from "@/lib/config";
 import type { Collection } from "@/server/services/collection";
+import { stampPlace } from "../sill/landedModel";
 
 const TINTS = ["sun", "lilac", "sky", "mint"] as const;
 
@@ -41,6 +43,73 @@ export function badgesView(badges: Badge[]): BadgesView {
   };
 }
 
+export type PostmarkSlot =
+  | {
+      kind: "stamp";
+      key: string;
+      date: string;
+      place: string;
+      long: boolean;
+      label: string;
+      fresh: boolean;
+    }
+  | { kind: "empty"; key: string };
+
+export type PostmarksView = {
+  slots: PostmarkSlot[];
+  count: string;
+  seen: number;
+};
+
+type Earned = Collection["postmarks"][number];
+
+const COLUMNS = 4;
+const SHORT_PLACE = 9;
+
+export function postmarksView(
+  postmarks: Earned[],
+  seenUpTo: number | null,
+  timeZone: string,
+): PostmarksView {
+  const total = config.game.postmarkSlots;
+  const short = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    month: "short",
+    day: "numeric",
+  });
+  const long = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    month: "long",
+    day: "numeric",
+  });
+  const stamps: PostmarkSlot[] = postmarks.map((p, i) => {
+    const place = stampPlace({ name: p.city, region: p.region });
+    const city = p.region === null ? p.city : `${p.city}, ${p.region}`;
+    return {
+      kind: "stamp",
+      key: `stamp-${i}`,
+      date: short.format(p.earnedAt).toUpperCase(),
+      place,
+      long: place.length > SHORT_PLACE,
+      label: `Postmark from ${city}, ${long.format(p.earnedAt)}`,
+      fresh: seenUpTo !== null && p.earnedAt > seenUpTo,
+    };
+  });
+  const padded = Math.min(
+    total,
+    Math.ceil(stamps.length / COLUMNS) * COLUMNS + COLUMNS,
+  );
+  const empties = Array.from(
+    { length: Math.max(0, padded - stamps.length) },
+    (_, i): PostmarkSlot => ({ kind: "empty", key: `empty-${i}` }),
+  );
+  return {
+    slots: [...stamps, ...empties],
+    count: `${stamps.length} of ${total} cities`,
+    seen: Math.max(seenUpTo ?? 0, ...postmarks.map((p) => p.earnedAt)),
+  };
+}
+
 const UNREACHABLE = "We could not reach the post office. Try again.";
 
 type Result<T> = { ok: true; data: T } | { ok: false; message: string };
@@ -66,9 +135,18 @@ export async function loadCollection(
 
 export async function openCollection(
   load: () => Promise<Result<Collection>>,
-): Promise<{ ok: true; view: BadgesView } | { ok: false; message: string }> {
+  seenUpTo: number | null,
+  timeZone: string,
+): Promise<
+  | { ok: true; postmarks: PostmarksView; badges: BadgesView }
+  | { ok: false; message: string }
+> {
   const result = await load();
   return result.ok
-    ? { ok: true, view: badgesView(result.data.badges) }
+    ? {
+        ok: true,
+        postmarks: postmarksView(result.data.postmarks, seenUpTo, timeZone),
+        badges: badgesView(result.data.badges),
+      }
     : result;
 }
