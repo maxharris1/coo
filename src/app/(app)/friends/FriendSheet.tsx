@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import type { FriendRow } from "@/server/services/friends";
+import { nextHref } from "../send/recipients";
 import styles from "./FriendSheet.module.css";
 
 export type SheetStep = "menu" | "unfriend" | "block" | "report";
@@ -119,6 +121,15 @@ export function FriendSheet({
 
         {step === "menu" && (
           <div className={styles.actions}>
+            <Link href={nextHref([friend.id])} className={styles.button}>
+              Send a bird
+            </Link>
+            <Link
+              href={`/shoebox?friend=${encodeURIComponent(friend.id)}`}
+              className={styles.button}
+            >
+              Shoebox with them
+            </Link>
             <button
               type="button"
               className={styles.button}

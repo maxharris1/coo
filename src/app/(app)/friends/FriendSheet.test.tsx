@@ -15,10 +15,10 @@ const PRIYA = {
   distanceMi: 81,
 } as FriendRow;
 
-const render = (step: SheetStep, busy = false) =>
+const renderFor = (friend: FriendRow, step: SheetStep = "menu", busy = false) =>
   renderToStaticMarkup(
     <FriendSheet
-      friend={PRIYA}
+      friend={friend}
       step={step}
       busy={busy}
       onStep={() => {}}
@@ -26,6 +26,16 @@ const render = (step: SheetStep, busy = false) =>
       onConfirm={() => {}}
     />,
   );
+
+const render = (step: SheetStep, busy = false) => renderFor(PRIYA, step, busy);
+
+const hrefOf = (html: string, label: string) => {
+  const href = new RegExp(`<a[^>]*href="([^"]*)"[^>]*>${label}</a>`).exec(
+    html,
+  )?.[1];
+  expect(href, label).toBeTruthy();
+  return new URL(href!.replaceAll("&amp;", "&"), "https://coo.test");
+};
 
 const APP_DIR = join(process.cwd(), "src", "app");
 
@@ -52,27 +62,50 @@ describe("FriendSheet (ac-1)", () => {
     expect(html).toMatch(new RegExp(`id="${labelledBy}"[^>]*>Priya<`));
   });
 
-  it("offers Unfriend, Block and Report in the drawn order", () => {
+  it("offers Send a bird, Shoebox with them, Unfriend, Block and Report in the drawn order", () => {
     const html = render("menu");
-    const labels = ["Unfriend", "Block", "Report"];
+    const labels = [
+      "Send a bird",
+      "Shoebox with them",
+      "Unfriend",
+      "Block",
+      "Report",
+    ];
     const at = labels.map((l) => html.indexOf(`>${l}<`));
     expect(at.every((i) => i >= 0)).toBe(true);
     expect([...at].sort((a, b) => a - b)).toEqual(at);
   });
 
-  it("hides Send a bird and Shoebox with them until their screens exist", () => {
-    const html = render("menu");
-    expect(html).not.toContain("Send a bird");
-    expect(html).not.toContain("Shoebox with them");
+  it("opens Compose with the friend preselected from Send a bird", () => {
+    const url = hrefOf(render("menu"), "Send a bird");
+    expect(url.pathname).toBe("/send/write");
+    expect(url.searchParams.getAll("to")).toEqual(["p1"]);
+  });
+
+  it("opens the Shoebox filtered to the friend from Shoebox with them", () => {
+    const url = hrefOf(render("menu"), "Shoebox with them");
+    expect(url.pathname).toBe("/shoebox");
+    expect(url.searchParams.get("friend")).toBe("p1");
+  });
+
+  it("encodes an id that needs escaping in both links", () => {
+    const html = renderFor({ ...PRIYA, id: "a b&c" } as FriendRow);
+    expect(hrefOf(html, "Send a bird").searchParams.get("to")).toBe("a b&c");
+    expect(hrefOf(html, "Shoebox with them").searchParams.get("friend")).toBe(
+      "a b&c",
+    );
   });
 
   it.each(STEPS)("links only to app routes that exist (%s)", (step) => {
     const hrefs = [...render(step).matchAll(/href="([^"]*)"/g)].map(
-      (m) => new URL(m[1].replaceAll("&amp;", "&"), "https://coo.test")
-        .pathname,
+      (m) =>
+        new URL(m[1].replaceAll("&amp;", "&"), "https://coo.test").pathname,
     );
     for (const path of hrefs) {
-      expect(appRoutes.some((r) => r.test(path)), path).toBe(true);
+      expect(
+        appRoutes.some((r) => r.test(path)),
+        path,
+      ).toBe(true);
     }
   });
 
