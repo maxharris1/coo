@@ -66,7 +66,7 @@ describe("Tracker at 50% of the calm vector (ac-1)", () => {
       ),
     );
     expect(page).toContain("In the air");
-    expect(page).toContain("Gerald is over Brooklyn");
+    expect(page).toContain("Gerald is on the way to Priya");
     expect(page).toContain("Carrying your note to Priya");
     expect(page).toContain("41 of 82 mi");
     expect(page).toContain("55 min Lands in");
@@ -150,12 +150,44 @@ describe("trackerView states", () => {
     expect(view.progress.text).toBe("82 of 82 mi");
   });
 
-  it("names the place from the latest passed event", () => {
+  it("names the place from the nearest decile", () => {
+    const deciles = Array.from({ length: 11 }, (_, i) => `Town ${i}`);
+    deciles[5] = "Trenton, NJ";
     const flight = flightFrom("calm-short", {
-      placeNames: { "1": "Edison, NJ", "2": "Trenton" },
+      placeNames: { deciles, events: {}, dest: null } as never,
     });
     const view = trackerView(flight, at(flight, 0.5), TZ);
-    expect(view.headline).toBe("Gerald is over Edison, NJ");
+    expect(view.headline).toBe("Gerald is over Trenton, NJ");
+  });
+
+  it("falls back to the friend when the geocoder was down", () => {
+    const flight = flightFrom("calm-short", {
+      placeNames: { deciles: [], events: {}, dest: null } as never,
+    });
+    const view = trackerView(flight, at(flight, 0.5), TZ);
+    expect(view.headline).toBe("Gerald is on the way to Priya");
+  });
+
+  it("falls back to the friend for legacy empty place names", () => {
+    const flight = flightFrom("calm-short", { placeNames: {} });
+    const view = trackerView(flight, at(flight, 0.5), TZ);
+    expect(view.headline).toBe("Gerald is on the way to Priya");
+  });
+
+  it("falls back to the friend when the nearest decile has no name", () => {
+    const deciles: (string | null)[] = Array(11).fill("Somewhere");
+    deciles[5] = null;
+    const flight = flightFrom("calm-short", {
+      placeNames: { deciles, events: {}, dest: null } as never,
+    });
+    const view = trackerView(flight, at(flight, 0.5), TZ);
+    expect(view.headline).toBe("Gerald is on the way to Priya");
+  });
+
+  it("says on the way to you for an incoming bird", () => {
+    const flight = flightFrom("calm-short", { role: "incoming" });
+    const view = trackerView(flight, at(flight, 0.5), TZ);
+    expect(view.headline).toBe("Gerald is on the way to you");
   });
 });
 
@@ -175,7 +207,7 @@ describe("Tracker on the Chicago vector at 2 am (ac-2)", () => {
     );
     const page = text(html);
     expect(page).toContain("Roosting");
-    expect(page).toContain("Asleep near Brooklyn");
+    expect(page).toContain("Gerald is on the way to Priya");
     expect(page).toContain("Night one of a two-day flight to Priya");
     expect(page).toContain("7:15 am Takes off again");
     expect(page).toContain("Fri 4 pm Lands, roughly");
