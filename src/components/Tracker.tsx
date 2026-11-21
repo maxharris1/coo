@@ -7,7 +7,7 @@ import {
   isDaylight,
   positionAt,
 } from "@/lib/flight/engine";
-import { clockTime, duration } from "@/lib/format";
+import { clockTime, duration, inUnits, type Units } from "@/lib/format";
 import Link from "next/link";
 import type { Flight } from "@/server/services/flights/shape";
 import { Bird, type GearId, type Look } from "./Bird";
@@ -126,7 +126,7 @@ function totalMi(flight: Flight): number {
   return flight.distanceMi ?? flight.plan?.distanceMi ?? 0;
 }
 
-function miles(n: number, total: number): string {
+function rounded(n: number, total: number): string {
   const digits = total < 1 ? 2 : total < 10 ? 1 : 0;
   return String(Number(n.toFixed(digits)));
 }
@@ -224,10 +224,11 @@ export function trackerView(
   flight: Flight,
   nowMs: number,
   timeZone: string,
+  units: Units,
 ): TrackerView {
   const { state, frac, night } = position(flight, nowMs);
   const roost = state === "roosting" ? roostAt(flight.plan, nowMs) : undefined;
-  const total = totalMi(flight);
+  const total = inUnits(totalMi(flight), units);
   const arrive = flight.arriveAt ?? flight.plan?.arriveAtMs;
   const short =
     arrive !== undefined && arrive - flight.releaseAt < SHORT_FLIGHT_MS;
@@ -248,7 +249,7 @@ export function trackerView(
     toLabel: flight.to.label,
     progress: {
       frac,
-      text: `${miles(total * frac, total)} of ${miles(total, total)} mi`,
+      text: `${rounded(total * frac, total)} of ${rounded(total, total)} ${units}`,
     },
     stats: roost
       ? roostingStats(flight, roost, arrive, timeZone)
@@ -263,13 +264,15 @@ export function Tracker({
   flight,
   offsetMs,
   timeZone,
+  units,
 }: {
   flight: Flight;
   offsetMs: number;
   timeZone: string;
+  units: Units;
 }) {
   const [nowMs, setNowMs] = useState(() => Date.now() + offsetMs);
-  const view = trackerView(flight, nowMs, timeZone);
+  const view = trackerView(flight, nowMs, timeZone, units);
 
   useEffect(() => {
     const timer = setInterval(

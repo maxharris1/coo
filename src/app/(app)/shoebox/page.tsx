@@ -5,6 +5,7 @@ import { Suspense, useEffect, useState } from "react";
 import { Loader } from "@/components/Loader";
 import { useSync } from "@/components/SyncProvider";
 import { useToast } from "@/components/Toasts";
+import { asUnits } from "@/lib/format";
 import type { FriendRow } from "@/server/services/friends";
 import type { NotesPage } from "@/server/services/notes";
 import { call, loadFriends } from "../friends/friendsApi";
@@ -110,6 +111,7 @@ function Shoebox() {
       timeZone={
         data?.me.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone
       }
+      units={asUnits(data?.me.units)}
       onSelect={onSelect}
       onMore={onMore}
     />

@@ -27,10 +27,10 @@ it("a real return flight heads to its owner, rather than the host it left", asyn
   const hostFlight = toFlight(row, world.priya.id);
   const bird = ownerFlight.bird.name;
 
-  expect(trackerView(ownerFlight, now, "America/New_York").headline).toBe(
+  expect(trackerView(ownerFlight, now, "America/New_York", "mi").headline).toBe(
     `${bird} is on the way to you`,
   );
-  expect(trackerView(hostFlight, now, "America/New_York").headline).toBe(
+  expect(trackerView(hostFlight, now, "America/New_York", "mi").headline).toBe(
     `${bird} is on the way to ${world.max.name}`,
   );
 });

@@ -1,4 +1,5 @@
 import type { BirdState, FlightInput, FlightPlan } from "@/lib/flight/engine";
+import type { PlaceNames } from "./placeNames";
 
 type CareKeys = "belly" | "feathers" | "energy";
 
@@ -30,7 +31,7 @@ export type Flight = {
   odds?: number;
   plan?: FlightPlan;
   input?: FlightInputPublic;
-  placeNames: Record<string, string>;
+  placeNames: Partial<PlaceNames>;
   searchParty?: "found" | "not_found";
   role: "mine" | "incoming";
   hasNote: boolean;
@@ -69,7 +70,7 @@ export type FlightRow = {
   odds: number | null;
   plan: FlightPlan | null;
   input: FlightInput | null;
-  place_names: Record<string, string>;
+  place_names: Partial<PlaceNames>;
   search_party: Flight["searchParty"] | null;
   has_note: boolean;
   bird_id: string;
