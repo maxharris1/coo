@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { config } from "@/lib/config";
 import {
   computeFlightPlan,
@@ -29,17 +29,18 @@ beforeEach(async () => {
   world = await seedWorld(deps.db, deps.clock.now());
 });
 
+afterEach(() => vi.restoreAllMocks());
+
 type Trip = { flightId: string; plan: FlightPlan };
 
 async function insertTrip(
   releaseMs: number,
   to: LatLon & { label: string },
+  birdId = world.max.birds[0].id,
 ): Promise<Trip> {
-  const { flightId, birdId } = await insertFlyingDelivery(
-    deps.db,
-    world,
-    releaseMs,
-  );
+  const { flightId } = await insertFlyingDelivery(deps.db, world, releaseMs, {
+    birdId,
+  });
   const [bird] = await deps.db.query<{
     speed_mph: number;
     focus: number;
@@ -248,5 +249,56 @@ describe("roost notices", () => {
 
     expect(result.counts.roostNotices).toBe(0);
     expect(await roostingNotices()).toEqual([]);
+  });
+
+  it("notices the other flights and logs the failing flight id when one flight throws", async () => {
+    const errorLines = vi.spyOn(console, "error").mockImplementation(() => {});
+    const trips = [
+      await insertTrip(AFTERNOON_NY, CHICAGO),
+      await insertTrip(
+        AFTERNOON_NY + 10 * MINUTE_MS,
+        CHICAGO,
+        world.max.birds[1].id,
+      ),
+    ].sort((a, b) => a.plan.arriveAtMs - b.plan.arriveAtMs);
+    const [failing, healthy] = trips;
+    expect(failing.plan.arriveAtMs).toBeLessThan(healthy.plan.arriveAtMs);
+    vi.spyOn(deps.db, "tx").mockImplementationOnce(async () => {
+      throw new Error("boom");
+    });
+    deps.clock.set(
+      Math.max(...trips.map((t) => nightsAfterTakeoff(t.plan)[0].startMs)) +
+        MINUTE_MS,
+    );
+
+    const result = await roostNotices({ deps, limit: 50, timeUp: () => false });
+
+    expect(result).toEqual({ count: 1, failed: 1 });
+    expect((await roostingNotices()).map((n) => n.body)).toEqual([
+      expect.stringContaining(
+        `Back in the air at ${clockTime(new Date(nightsAfterTakeoff(healthy.plan)[0].endMs), ZONE)}.`,
+      ),
+    ]);
+    const notifiedRows = await deps.db.query<{
+      id: string;
+      roosts_notified: number;
+    }>("select id, roosts_notified from flights where id = any($1)", [
+      [failing.flightId, healthy.flightId],
+    ]);
+    expect(notifiedRows).toEqual(
+      expect.arrayContaining([
+        { id: failing.flightId, roosts_notified: 0 },
+        { id: healthy.flightId, roosts_notified: 1 },
+      ]),
+    );
+    expect(
+      errorLines.mock.calls.map(([line]) => JSON.parse(line as string)),
+    ).toEqual([
+      expect.objectContaining({
+        event: "tick.row_failed",
+        step: "roostNotices",
+        rowId: failing.flightId,
+      }),
+    ]);
   });
 });
