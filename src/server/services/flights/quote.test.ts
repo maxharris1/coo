@@ -248,8 +248,10 @@ describe("quote", () => {
 
     const [q] = recipients[0].quotes;
     const headwind = q.factors.find((f) => f.kind === "headwind");
-    expect(headwind?.text).toBe("14 mph from the southwest");
-    expect(headwind?.effect).toMatch(/^\+1[7-9] min$/);
+    expect(headwind).toMatchObject({
+      text: "14 mph from the southwest",
+      effect: expect.stringMatching(/^\+1[7-9] min$/),
+    });
   });
 
   it("lists no factors in calm weather on a quiet day", async () => {

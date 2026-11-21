@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import type { Units } from "@/lib/format";
 import type { ShoeboxNote } from "@/server/services/notes";
 import { NoteCard } from "./NoteCard";
 
@@ -20,9 +21,18 @@ const note = (over: Partial<ShoeboxNote> = {}): ShoeboxNote => ({
   ...over,
 });
 
-const render = (over: Partial<ShoeboxNote> = {}, index = 0) =>
+const render = (
+  over: Partial<ShoeboxNote> = {},
+  index = 0,
+  units: Units = "mi",
+) =>
   renderToStaticMarkup(
-    <NoteCard note={note(over)} index={index} timeZone="America/New_York" />,
+    <NoteCard
+      note={note(over)}
+      index={index}
+      timeZone="America/New_York"
+      units={units}
+    />,
   );
 
 const text = (html: string) =>
@@ -63,6 +73,14 @@ describe("NoteCard (ac-1)", () => {
       }),
     );
     expect(words).toContain("Biscuit, 3 blocks in 31 seconds");
+  });
+
+  it("writes the trip distance in the user's units", () => {
+    expect(text(render({}, 0, "km"))).toContain("Dumpling, 130 km in 1h 52m");
+    const short = text(
+      render({ trip: { distanceMi: 0.15, durationMs: 31_000 } }, 0, "km"),
+    );
+    expect(short).toContain("Dumpling, 250 metres in 31 seconds");
   });
 
   it("stamps the dated postmark", () => {
