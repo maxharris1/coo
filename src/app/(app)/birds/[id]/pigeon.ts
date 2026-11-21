@@ -3,6 +3,8 @@ import type { SyncPayload } from "@/components/sync";
 import { config } from "@/lib/config";
 import { positionAt, type BirdPosition } from "@/lib/flight/engine";
 import { fill, type Pronoun } from "@/lib/format";
+import { rangeFor } from "@/lib/game/levels";
+import type { BreedId } from "@/lib/game/types";
 import type { CareAction } from "@/server/services/care";
 
 type PigeonBird = SyncPayload["birds"][number];
@@ -112,21 +114,24 @@ export const moodLine = (bird: PigeonBird, trip: Trip = null): string =>
 
 const PRONOUN_LINES: Record<
   Pronoun,
-  { closet: string; doing: string; sulk: string }
+  { closet: string; doing: string; sulk: string; can: string }
 > = {
   he: {
     closet: "Open his closet",
     doing: "How he's doing",
+    can: "What he can do",
     sulk: "Skip a few days and he sulks and flies slower. He never leaves.",
   },
   she: {
     closet: "Open her closet",
     doing: "How she's doing",
+    can: "What she can do",
     sulk: "Skip a few days and she sulks and flies slower. She never leaves.",
   },
   they: {
     closet: "Open their closet",
     doing: "How they're doing",
+    can: "What they can do",
     sulk: "Skip a few days and they sulk and fly slower. They never leave.",
   },
 };
@@ -187,3 +192,30 @@ export const metersFor = (bird: PigeonBird) =>
       low: bird[m.value] < meterLowBelow,
     };
   });
+
+export const abilitiesFor = (bird: PigeonBird) => [
+  { label: "Speed", value: `${bird.speedMph} mph` },
+  { label: "Range before a rest", value: `${rangeFor(bird.speedMph)} miles` },
+];
+
+const ABILITY_MAX = 5;
+
+const FOCUS_MOTIVE: Partial<Record<BreedId, string>> = { city: "bread" };
+
+const dots = (name: string, filled: number, motive?: string) => ({
+  label: `${name}, ${filled} of ${ABILITY_MAX}${motive ? ` (${motive})` : ""}`,
+  ariaLabel: `${name} ${filled} of ${ABILITY_MAX}`,
+  filled,
+  max: ABILITY_MAX,
+});
+
+export const dotsFor = (bird: PigeonBird) => [
+  dots("Navigation", bird.navigation),
+  dots("Focus", bird.focus, FOCUS_MOTIVE[bird.breed]),
+];
+
+const count = (n: number, one: string, many: string) =>
+  `${n} ${n === 1 ? one : many}`;
+
+export const recordLine = (bird: PigeonBird) =>
+  `${count(bird.deliveries, "delivery", "deliveries")}. ${count(bird.detours, "detour", "detours")}. 0 notes lost.`;

@@ -109,7 +109,7 @@
   color: var(--coo-ink);
 }
 
-.care {
+.section {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -206,6 +206,80 @@
   margin: 0;
   color: var(--coo-muted);
   font-size: 12.5px;
+  font-weight: 800;
+}
+
+.abilities {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.ability {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 12px;
+  overflow-wrap: anywhere;
+  background: var(--coo-card);
+  border: var(--coo-line);
+  border-radius: var(--coo-radius-tile);
+}
+
+.dotCard {
+  gap: 3px;
+}
+
+.abilityLabel {
+  color: var(--coo-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.abilityValue {
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.ability > svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.dot,
+.filled {
+  stroke: var(--coo-ink);
+  stroke-width: 2;
+}
+
+.dot {
+  fill: var(--coo-card);
+}
+
+.filled {
+  fill: var(--coo-ink);
+}
+
+.quirks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.quirk {
+  padding: 4px 12px;
+  font-size: 13px;
+  font-weight: 900;
+  background: var(--coo-lilac);
+  border: var(--coo-line-thin);
+  border-radius: var(--coo-radius-pill);
+}
+
+.record {
+  margin: 0;
+  font-size: 13px;
   font-weight: 800;
 }
 

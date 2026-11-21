@@ -15,13 +15,18 @@ import {
 } from "../../flockRows";
 import styles from "./page.module.css";
 import {
+  abilitiesFor,
+  dotsFor,
   levelLine,
   metersFor,
   moodLine,
   poseFor,
   pronounLines,
+  recordLine,
   tripOf,
 } from "./pigeon";
+
+const DOT_STEP = 22;
 
 function BackLink() {
   return (
@@ -109,7 +114,7 @@ export default function PigeonPage() {
         </div>
       </section>
       <main className={styles.body}>
-        <section className={styles.care}>
+        <section className={styles.section}>
           <h2 className={styles.heading}>{lines.doing}</h2>
           {away && <p className={styles.away}>{away}</p>}
           {metersFor(bird).map((m) => (
@@ -139,6 +144,53 @@ export default function PigeonPage() {
             </div>
           ))}
           <p className={styles.sulk}>{lines.sulk}</p>
+        </section>
+        <section className={styles.section}>
+          <h2 className={styles.heading}>{lines.can}</h2>
+          <div className={styles.abilities}>
+            {abilitiesFor(bird).map((a) => (
+              <div key={a.label} className={styles.ability}>
+                <span className={styles.abilityLabel}>{a.label}</span>
+                <span className={styles.abilityValue}>{a.value}</span>
+              </div>
+            ))}
+            {dotsFor(bird).map((d) => (
+              <div
+                key={d.ariaLabel}
+                className={`${styles.ability} ${styles.dotCard}`}
+              >
+                <span className={styles.abilityLabel}>{d.label}</span>
+                <svg
+                  role="img"
+                  aria-label={d.ariaLabel}
+                  width={DOT_STEP * d.max - 6}
+                  height="16"
+                  viewBox={`0 0 ${DOT_STEP * d.max - 6} 16`}
+                >
+                  {Array.from({ length: d.max }, (_, i) => (
+                    <circle
+                      key={i}
+                      aria-hidden="true"
+                      className={i < d.filled ? styles.filled : styles.dot}
+                      cx={8 + DOT_STEP * i}
+                      cy="8"
+                      r="6"
+                    />
+                  ))}
+                </svg>
+              </div>
+            ))}
+          </div>
+        </section>
+        <section className={styles.section}>
+          <ul className={styles.quirks}>
+            {bird.quirks.map((q) => (
+              <li key={q} className={styles.quirk}>
+                {q}
+              </li>
+            ))}
+          </ul>
+          <p className={styles.record}>{recordLine(bird)}</p>
         </section>
       </main>
     </>
