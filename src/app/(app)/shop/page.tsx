@@ -44,7 +44,7 @@ export default function ShopPage() {
     if (state.kind !== "confirming" || !rows) return;
     dispatch({ type: "confirm" });
     const next = await completeBuy(state.row, rows, {
-      buy: (id) => buyItem(id),
+      buy: (row) => buyItem(row),
       load: () => loadShop(),
       toast: (message) => live.current && toast(message),
       refresh,

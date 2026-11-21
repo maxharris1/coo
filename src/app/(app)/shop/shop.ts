@@ -114,7 +114,8 @@ export function confirmLine({ name, action }: BuyRow): string {
 
 const UNREACHABLE = "We could not reach the loft. Try again.";
 
-type Result<T> = { ok: true; data: T } | { ok: false; message: string };
+type Result<T> =
+  { ok: true; data: T } | { ok: false; message: string; code?: string };
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
 
 async function call<T>(
@@ -126,11 +127,14 @@ async function call<T>(
     const res = init ? await fetchImpl(url, init) : await fetchImpl(url);
     const json: unknown = await res.json().catch(() => null);
     if (res.ok && json !== null) return { ok: true, data: json as T };
-    const message = (json as { error?: { message?: unknown } } | null)?.error
-      ?.message;
+    const error = (
+      json as { error?: { code?: unknown; message?: unknown } } | null
+    )?.error;
+    const message = error?.message;
     return {
       ok: false,
       message: typeof message === "string" && message ? message : UNREACHABLE,
+      ...(typeof error?.code === "string" && { code: error.code }),
     };
   } catch {
     return { ok: false, message: UNREACHABLE };
@@ -140,11 +144,11 @@ async function call<T>(
 export const loadShop = (fetchImpl: Fetch = fetch) =>
   call<Shop>(fetchImpl, "/api/shop");
 
-export const buyItem = (itemId: string, fetchImpl: Fetch = fetch) =>
+export const buyItem = ({ itemId, action }: BuyRow, fetchImpl: Fetch = fetch) =>
   call<{ me: Me; closet: GearId[] }>(fetchImpl, "/api/shop/buy", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ itemId }),
+    body: JSON.stringify({ itemId, price: action.price }),
   });
 
 export async function openShop(
@@ -181,17 +185,18 @@ export async function completeBuy(
   bought: BuyRow,
   rows: ShopRows,
   deps: {
-    buy(itemId: string): Promise<Result<unknown>>;
+    buy(row: BuyRow): Promise<Result<unknown>>;
     load(): Promise<Result<Shop>>;
     toast(message: string): void;
     refresh(): void;
     burst(itemId: string): void;
   },
 ): Promise<ShopRows> {
-  const result = await deps.buy(bought.itemId);
+  const result = await deps.buy(bought);
   if (!result.ok) {
     deps.toast(result.message);
-    return rows;
+    if (result.code !== "conflict") return rows;
+    return (await openShop(deps.load, deps.toast)) ?? rows;
   }
   deps.burst(bought.itemId);
   deps.refresh();

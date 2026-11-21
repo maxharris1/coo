@@ -13,6 +13,7 @@ import { startSync, type SyncResult } from "@/components/sync";
 import { toE164 } from "@/lib/phone";
 import { requireOnboarded } from "@/server/auth";
 import type { UserId } from "@/server/ports/auth";
+import { AppError } from "@/server/errors";
 import { buy, listShop, type Shop } from "@/server/services/shop";
 import { makeTestDeps, type TestDeps } from "./deps";
 import { FakeJar } from "./fakes/jar";
@@ -63,9 +64,9 @@ describe("f-1: a confirmation always names the price the server charges (ac-1)",
     );
 
     const next = await completeBuy(fourth!, rows, {
-      buy: async (itemId) => ({
+      buy: async ({ itemId, action }) => ({
         ok: true,
-        data: await buy(deps, max, { itemId }),
+        data: await buy(deps, max, { itemId, price: action.price }),
       }),
       load: async () => ({
         ok: false,
@@ -81,7 +82,10 @@ describe("f-1: a confirmation always names the price the server charges (ac-1)",
     const offer = perchOffer(next);
     if (offer) {
       const before = await charged();
-      await buy(deps, max, { itemId: offer.itemId });
+      await buy(deps, max, {
+        itemId: offer.itemId,
+        price: offer.action.price,
+      });
       expect(
         (await charged()) - before,
         `charged for "${confirmLine(offer)}"`,
@@ -89,6 +93,56 @@ describe("f-1: a confirmation always names the price the server charges (ac-1)",
     }
     expect(offer, "no stale perch offer until the shop is current").toBe(
       undefined,
+    );
+  });
+
+  it("never charges a price different from the confirmation when another tab bought first", async () => {
+    const rowsA = await openShopRows();
+    const fourthA = perchOffer(rowsA)!;
+    expect(confirmLine(fourthA)).toBe("Buy the fourth perch for 250 seeds?");
+
+    const rowsB = await openShopRows();
+    const fourthB = perchOffer(rowsB)!;
+    await buy(deps, max, {
+      itemId: fourthB.itemId,
+      price: fourthB.action.price,
+    });
+
+    const toasts: string[] = [];
+    const next = await completeBuy(fourthA, rowsA, {
+      buy: async ({ itemId, action }) => {
+        try {
+          return {
+            ok: true,
+            data: await buy(deps, max, { itemId, price: action.price }),
+          };
+        } catch (err) {
+          if (!(err instanceof AppError)) throw err;
+          return { ok: false, code: err.code, message: err.message };
+        }
+      },
+      load: async () => {
+        const phone = toE164("+15550000001")!;
+        const auth = deps.auth(new FakeJar());
+        await auth.verifyCode(phone, "000000");
+        const caller = await requireOnboarded({ auth, db: deps.db });
+        return { ok: true, data: await listShop(deps, caller) };
+      },
+      toast: (message) => toasts.push(message),
+      refresh: noop,
+      burst: noop,
+    });
+
+    expect(await charged(), "only tab B's fourth perch was charged").toBe(250);
+    const [{ perches }] = await deps.db.query<{ perches: number }>(
+      "select perches from profiles where id = $1",
+      [max],
+    );
+    expect(perches).toBe(4);
+    expect(toasts).toEqual(["The price changed. Take another look."]);
+    const fifth = perchOffer(next);
+    expect(fifth && confirmLine(fifth)).toBe(
+      "Buy the fifth perch for 400 seeds?",
     );
   });
 });

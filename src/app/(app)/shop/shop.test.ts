@@ -239,6 +239,7 @@ describe("loadShop", () => {
       json(401, { error: { code: "unauthorized", message: "Sign in first." } });
     await expect(loadShop(fetchImpl)).resolves.toEqual({
       ok: false,
+      code: "unauthorized",
       message: "Sign in first.",
     });
   });
@@ -259,21 +260,27 @@ describe("buyItem", () => {
     me: { id: "u1", seeds: 120 },
     closet: ["goggles", "rainhat"],
   };
+  const fourthPerch: BuyRow = {
+    itemId: "perch",
+    name: "Fourth perch",
+    effect: "Room for one more bird",
+    action: { kind: "buy", price: 250 },
+  };
 
-  it("posts the item id to /api/shop/buy and returns me and the closet", async () => {
+  it("posts the item id and its confirmed price to /api/shop/buy and returns me and the closet", async () => {
     const fetchImpl = vi.fn(async () => json(200, bought));
-    await expect(buyItem("rainhat", fetchImpl)).resolves.toEqual({
+    await expect(buyItem(fourthPerch, fetchImpl)).resolves.toEqual({
       ok: true,
       data: bought,
     });
     expect(fetchImpl).toHaveBeenCalledWith("/api/shop/buy", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ itemId: "rainhat" }),
+      body: JSON.stringify({ itemId: "perch", price: 250 }),
     });
   });
 
-  it("returns the API's message when the purchase is refused", async () => {
+  it("returns the API's message and code when the purchase is refused", async () => {
     const fetchImpl = async () =>
       json(409, {
         error: {
@@ -281,15 +288,16 @@ describe("buyItem", () => {
           message: "Not enough seeds for that.",
         },
       });
-    await expect(buyItem("perch", fetchImpl)).resolves.toEqual({
+    await expect(buyItem(fourthPerch, fetchImpl)).resolves.toEqual({
       ok: false,
+      code: "insufficient_seeds",
       message: "Not enough seeds for that.",
     });
   });
 
   it("returns the unreachable line when the reply is not JSON", async () => {
     const fetchImpl = async () => new Response("<html>", { status: 502 });
-    await expect(buyItem("perch", fetchImpl)).resolves.toEqual({
+    await expect(buyItem(fourthPerch, fetchImpl)).resolves.toEqual({
       ok: false,
       message: "We could not reach the loft. Try again.",
     });
@@ -342,11 +350,11 @@ describe("completeBuy (part 4 ac-2)", () => {
     const calls: string[] = [];
     return {
       calls,
-      buy: vi.fn(async (itemId: string) => {
-        calls.push(`buy ${itemId}`);
+      buy: vi.fn(async (row: BuyRow) => {
+        calls.push(`buy ${row.itemId} for ${row.action.price}`);
         return buyResult;
       }),
-      load: vi.fn(async () => {
+      load: vi.fn(async (): ReturnType<typeof loadShop> => {
         calls.push("load");
         return { ok: true as const, data: { ...MOCK, seeds: 120 } };
       }),
@@ -368,7 +376,7 @@ describe("completeBuy (part 4 ac-2)", () => {
     const d = deps({ ok: true, data: { me: {} as never, closet: [] } });
     const rows = await completeBuy(hat, before, d);
     expect(d.calls).toEqual([
-      "buy rainhat",
+      "buy rainhat for 120",
       "burst rainhat",
       "refresh",
       "load",
@@ -380,8 +388,43 @@ describe("completeBuy (part 4 ac-2)", () => {
     const d = deps({ ok: false, message: "Not enough seeds for that." });
     const rows = await completeBuy(hat, before, d);
     expect(d.calls).toEqual([
-      "buy rainhat",
+      "buy rainhat for 120",
       "toast Not enough seeds for that.",
+    ]);
+    expect(rows).toBe(before);
+  });
+
+  it("toasts a price change, then shows the shop as it is now", async () => {
+    const d = deps({
+      ok: false,
+      code: "conflict",
+      message: "The price changed. Take another look.",
+    });
+    const rows = await completeBuy(hat, before, d);
+    expect(d.calls).toEqual([
+      "buy rainhat for 120",
+      "toast The price changed. Take another look.",
+      "load",
+    ]);
+    expect(rows).toEqual(shopRows({ ...MOCK, seeds: 120 }));
+  });
+
+  it("keeps the rows it had when the refetch after a price change fails", async () => {
+    const d = deps({
+      ok: false,
+      code: "conflict",
+      message: "The price changed. Take another look.",
+    });
+    d.load.mockImplementation(async () => {
+      d.calls.push("load");
+      return { ok: false, message: "We could not reach the loft. Try again." };
+    });
+    const rows = await completeBuy(hat, before, d);
+    expect(d.calls).toEqual([
+      "buy rainhat for 120",
+      "toast The price changed. Take another look.",
+      "load",
+      "toast We could not reach the loft. Try again.",
     ]);
     expect(rows).toBe(before);
   });
