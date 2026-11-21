@@ -50,11 +50,25 @@ describe("src/app/api/flights/route.ts", () => {
 });
 
 describe("GET /api/flights", () => {
-  it("answers an onboarded caller with 404 until flights are built", async () => {
+  it("answers an onboarded caller with empty sections and no next page", async () => {
     const { jar } = await onboarded();
     const { status, json } = await getClient().get({}, jar);
-    expect(status).toBe(404);
-    expect(json.error.code).toBe("not_found");
+    expect(status).toBe(200);
+    expect(json).toEqual({
+      yours: [],
+      incoming: [],
+      landedToday: [],
+      earlier: [],
+      nextCursor: null,
+      serverNow: deps.clock.now(),
+    });
+  });
+
+  it("answers a malformed cursor with 400 invalid", async () => {
+    const { jar } = await onboarded();
+    const { status, json } = await getClient().get({ cursor: "nope" }, jar);
+    expect(status).toBe(400);
+    expect(json.error.code).toBe("invalid");
   });
 
   it("refuses a request without a session as 401", async () => {
