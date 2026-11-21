@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { FriendRow } from "@/server/services/friends";
-import { friendLine, loadFriends, saveShows, withShows } from "./friendsApi";
+import { friendLine, loadFriends } from "./friendsApi";
 
 const friend = (over: Partial<FriendRow>): FriendRow =>
   ({
@@ -40,19 +40,6 @@ describe("friendLine", () => {
   });
 });
 
-describe("withShows", () => {
-  it("changes only the named friend", () => {
-    const list = [
-      friend({ id: "a" as FriendRow["id"] }),
-      friend({ id: "b" as FriendRow["id"] }),
-    ];
-    expect(withShows(list, "b", "block").map((f) => f.shows)).toEqual([
-      "city",
-      "block",
-    ]);
-  });
-});
-
 describe("loadFriends", () => {
   it("returns the friends and waiting links", async () => {
     const body = { friends: [friend({})], guestLinks: [] };
@@ -73,29 +60,5 @@ describe("loadFriends", () => {
       ok: false,
       message: "We could not reach the loft. Try again.",
     });
-  });
-});
-
-describe("saveShows", () => {
-  it("PATCHes the friend with the new choice", async () => {
-    const calls: [string, RequestInit | undefined][] = [];
-    const spy = (async (url: string, init?: RequestInit) => {
-      calls.push([url, init]);
-      return new Response("{}", { status: 200 });
-    }) as unknown as typeof fetch;
-    expect(await saveShows("u 1", "block", spy)).toEqual({ ok: true });
-    expect(calls[0][0]).toBe("/api/friends/u%201");
-    expect(calls[0][1]?.method).toBe("PATCH");
-    expect(JSON.parse(String(calls[0][1]?.body))).toEqual({ shows: "block" });
-  });
-
-  it("reports a refusal", async () => {
-    expect(
-      await saveShows(
-        "u1",
-        "city",
-        reply(404, { error: { message: "Gone." } }),
-      ),
-    ).toEqual({ ok: false, message: "Gone." });
   });
 });

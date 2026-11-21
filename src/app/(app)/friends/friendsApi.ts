@@ -1,10 +1,6 @@
 import type { Units } from "@/lib/format";
 import { distance } from "@/lib/format";
-import type {
-  FriendRow,
-  Shows,
-  WaitingGuestLink,
-} from "@/server/services/friends";
+import type { FriendRow, WaitingGuestLink } from "@/server/services/friends";
 
 export type FriendsList = {
   friends: FriendRow[];
@@ -24,14 +20,6 @@ export function friendLine(friend: FriendRow, units: Units): string {
   if (local < CLOSE_BELOW) return `${distance(distanceMi, units)} over`;
   const far = `${Math.round(local)} ${units}`;
   return where ? `${where}, ${far}` : far;
-}
-
-export function withShows(
-  friends: readonly FriendRow[],
-  id: string,
-  shows: Shows,
-): FriendRow[] {
-  return friends.map((f) => (f.id === id ? { ...f, shows } : f));
 }
 
 async function call(
@@ -61,17 +49,4 @@ export async function loadFriends(
   if (!r.ok) return r;
   const { friends, guestLinks } = r.json as FriendsList;
   return { ok: true, friends, guestLinks };
-}
-
-export async function saveShows(
-  id: string,
-  shows: Shows,
-  fetchImpl: typeof fetch = fetch,
-): Promise<{ ok: true } | Failed> {
-  const r = await call(fetchImpl, `/api/friends/${encodeURIComponent(id)}`, {
-    method: "PATCH",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ shows }),
-  });
-  return r.ok ? { ok: true } : r;
 }

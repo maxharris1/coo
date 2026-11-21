@@ -39,7 +39,6 @@ const render = (over: Partial<FriendsViewProps> = {}) =>
         guestLinks: [{ id: "g", name: "Maya", where: "Fishtown" }],
       }}
       onCopy={() => {}}
-      onShows={() => {}}
       {...over}
     />,
   );
@@ -69,7 +68,7 @@ describe("Friends screen (ac-1)", () => {
     );
   });
 
-  it("lists each friend with where they are and the toggle state", () => {
+  it("lists each friend with where they are", () => {
     const html = render();
     expect(html).toContain(">4 friends</h2>");
     expect(html).toContain("They can see");
@@ -77,13 +76,24 @@ describe("Friends screen (ac-1)", () => {
     expect(html).toContain("Boston, 190 mi");
     expect(html).toContain("3 blocks over");
     expect(html).toContain("Chicago, 713 mi");
-    const groups = html.match(/role="group"[\s\S]*?<\/div>/g) ?? [];
-    expect(groups).toHaveLength(4);
-    const pressed = groups.map(
-      (g) => /aria-pressed="true"[^>]*>(City|Block)</.exec(g)?.[1],
+  });
+
+  it("shows each friend's City/Block setting read-only", () => {
+    const rows = render().match(/<li[\s\S]*?<\/li>/g) ?? [];
+    expect(rows).toHaveLength(4);
+    for (const r of rows) {
+      expect(r).not.toMatch(/<(button|input|select|a)\b/);
+      expect(r).not.toContain("aria-pressed");
+    }
+    const labels = rows.map(
+      (r) => /aria-label="([^"]*can see[^"]*)"/.exec(r)?.[1],
     );
-    expect(pressed).toEqual(["City", "City", "Block", "City"]);
-    expect(html).toContain('aria-label="What Rosa can see"');
+    expect(labels).toEqual([
+      "Priya can see: City",
+      "Theo can see: City",
+      "Rosa can see: Block",
+      "Dev can see: City",
+    ]);
   });
 
   it("says 1 friend in the singular", () => {

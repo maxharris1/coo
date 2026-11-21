@@ -15,14 +15,11 @@ export type FriendsViewProps = {
   units: Units;
   list: ListState;
   onCopy: () => void;
-  onShows: (id: string, shows: Shows) => void;
 };
 
 const TONES = [styles.blush, styles.sky, styles.mint, styles.lilac];
-const CHOICES: { shows: Shows; label: string }[] = [
-  { shows: "city", label: "City" },
-  { shows: "block", label: "Block" },
-];
+const SHOWS: Shows[] = ["city", "block"];
+const LABELS: Record<Shows, string> = { city: "City", block: "Block" };
 
 const INK = "#2A2140";
 
@@ -50,12 +47,10 @@ function FriendItem({
   friend,
   tone,
   units,
-  onShows,
 }: {
   friend: FriendRow;
   tone: string;
   units: Units;
-  onShows: FriendsViewProps["onShows"];
 }) {
   return (
     <li className={styles.row}>
@@ -66,25 +61,25 @@ function FriendItem({
         <span className={styles.name}>{friend.name}</span>
         <span className={styles.line}>{friendLine(friend, units)}</span>
       </span>
-      <div
-        role="group"
-        aria-label={`What ${friend.name} can see`}
+      <span
+        role="img"
+        aria-label={`${friend.name} can see: ${LABELS[friend.shows]}`}
         className={styles.toggle}
       >
-        {CHOICES.map((c) => (
-          <button
-            key={c.shows}
-            type="button"
-            aria-pressed={friend.shows === c.shows}
-            className={styles.choice}
-            onClick={() => {
-              if (friend.shows !== c.shows) onShows(friend.id, c.shows);
-            }}
+        {SHOWS.map((shows) => (
+          <span
+            key={shows}
+            aria-hidden="true"
+            className={
+              shows === friend.shows
+                ? `${styles.choice} ${styles.on}`
+                : styles.choice
+            }
           >
-            {c.label}
-          </button>
+            {LABELS[shows]}
+          </span>
         ))}
-      </div>
+      </span>
     </li>
   );
 }
@@ -94,7 +89,6 @@ export function FriendsView({
   units,
   list,
   onCopy,
-  onShows,
 }: FriendsViewProps) {
   const sms = `sms:?&body=${encodeURIComponent(
     `Trade pigeons with me on ${config.app.name}: ${inviteLink}`,
@@ -166,7 +160,6 @@ export function FriendsView({
                   friend={f}
                   tone={TONES[i % TONES.length]}
                   units={units}
-                  onShows={onShows}
                 />
               ))}
             </ul>
