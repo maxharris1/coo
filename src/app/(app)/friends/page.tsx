@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Loader } from "@/components/Loader";
 import { useSync } from "@/components/SyncProvider";
 import { useToast } from "@/components/Toasts";
@@ -9,6 +9,13 @@ import { loadFriends, saveShows, withShows } from "./friendsApi";
 import { FriendsView, type ListState } from "./FriendsView";
 
 const noSubscribe = () => () => {};
+
+type ShowsSaves = {
+  confirmed: Shows;
+  confirmedSeq: number;
+  latestSeq: number;
+  latestFailed: boolean;
+};
 
 function useOrigin(): string {
   return useSyncExternalStore(
@@ -23,6 +30,8 @@ export default function FriendsPage() {
   const origin = useOrigin();
   const [list, setList] = useState<ListState>({ kind: "loading" });
   const toast = useToast();
+  const saves = useRef(new Map<string, ShowsSaves>());
+  const seq = useRef(0);
 
   useEffect(() => {
     let live = true;
@@ -49,17 +58,31 @@ export default function FriendsPage() {
 
   const onShows = (id: string, shows: Shows) => {
     if (list.kind !== "ready") return;
-    const was = list.friends.find((f) => f.id === id)?.shows;
-    if (!was) return;
+    const current = list.friends.find((f) => f.id === id)?.shows;
+    if (!current) return;
+    const n = ++seq.current;
+    const before = saves.current.get(id) ?? {
+      confirmed: current,
+      confirmedSeq: 0,
+    };
+    saves.current.set(id, { ...before, latestSeq: n, latestFailed: false });
     setList({ ...list, friends: withShows(list.friends, id, shows) });
     void saveShows(id, shows).then((r) => {
-      if (r.ok) return;
-      setList((now) =>
-        now.kind === "ready"
-          ? { ...now, friends: withShows(now.friends, id, was) }
-          : now,
+      const now = saves.current.get(id)!;
+      let next = now;
+      if (r.ok && n > now.confirmedSeq) {
+        next = { ...now, confirmed: shows, confirmedSeq: n };
+      } else if (!r.ok && n === now.latestSeq) {
+        next = { ...now, latestFailed: true };
+        toast(r.message);
+      }
+      saves.current.set(id, next);
+      if (!next.latestFailed) return;
+      setList((l) =>
+        l.kind === "ready"
+          ? { ...l, friends: withShows(l.friends, id, next.confirmed) }
+          : l,
       );
-      toast(r.message);
     });
   };
 
