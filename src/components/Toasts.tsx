@@ -13,7 +13,9 @@ import styles from "./Toasts.module.css";
 
 const TOAST_MS = 4000;
 
-const ToastContext = createContext<((message: string) => void) | null>(null);
+export const ToastContext = createContext<((message: string) => void) | null>(
+  null,
+);
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [store] = useState(() => createToasts(TOAST_MS));
