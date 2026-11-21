@@ -2,8 +2,7 @@ import { notFound } from "next/navigation";
 import type { Session } from "@/server/auth";
 import { AppError } from "@/server/errors";
 import { inviterFor } from "@/server/services/friends";
-
-const INVITE_CODE = /^[a-z0-9_]{2,20}-[\w-]{12}$/;
+import { INVITE_CODE } from "../returnTo";
 
 export async function joinState(
   { auth, db }: Session,
