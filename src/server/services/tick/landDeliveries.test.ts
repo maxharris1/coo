@@ -513,6 +513,11 @@ describe("landing a delivery", () => {
         flight.arriveAtMs + 30 * MINUTE_MS,
         { to: world.rosa, birdId: world.max.birds[1].id },
       );
+      later.arriveAtMs = flight.arriveAtMs + 30 * MINUTE_MS;
+      await deps.db.query("update flights set arrive_at = $2 where id = $1", [
+        later.flightId,
+        iso(later.arriveAtMs),
+      ]);
       await landedEarlier(
         Array.from(
           { length: 9 },
