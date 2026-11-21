@@ -13,7 +13,6 @@ type ClaimedFlight = {
   from_label: string;
   to_label: string;
   place_names: Partial<PlaceNames>;
-  ref_id: string;
 };
 
 function nightsStarted(plan: FlightPlan, nowMs: number): Segment[] {
@@ -40,29 +39,26 @@ async function dueIds(ctx: StepContext): Promise<string[]> {
   return found.map((r) => r.id);
 }
 
-async function noticeOne(
-  deps: Deps,
-  tx: Db,
-  id: string,
-): Promise<string | null> {
+async function noticeNights(deps: Deps, tx: Db, id: string): Promise<string[]> {
   const nowMs = deps.clock.now();
-  const [row] = await tx.query<{ plan: FlightPlan }>(
-    "select plan from flights where id = $1 and status = 'flying'",
+  const [row] = await tx.query<{ plan: FlightPlan; roosts_notified: number }>(
+    "select plan, roosts_notified from flights where id = $1 and status = 'flying' for update",
     [id],
   );
-  if (!row) return null;
+  if (!row) return [];
   const nights = nightsStarted(row.plan, nowMs);
-  const n = nights.length;
+  const unnotified = nights.slice(row.roosts_notified);
+  if (unnotified.length === 0) return [];
   const [f] = await tx.query<ClaimedFlight>(
-    `update flights set roosts_notified = $2
-     where id = $1 and status = 'flying' and roosts_notified < $2
-     returning owner_id, bird_id, from_label, to_label, place_names,
-       md5(id::text || ':roost:' || roosts_notified)::uuid as ref_id`,
-    [id, n],
+    `update flights set roosts_notified = $2 where id = $1
+     returning owner_id, bird_id, from_label, to_label, place_names`,
+    [id, nights.length],
   );
-  if (!f) return null;
-
-  const night = nights[n - 1];
+  const refs = await tx.query<{ ref_id: string }>(
+    `select md5($1::text || ':roost:' || k)::uuid as ref_id
+     from generate_series($2::int + 1, $3::int) k order by k`,
+    [id, row.roosts_notified, nights.length],
+  );
   const [bird] = await tx.query<{ name: string; pronoun: Pronoun }>(
     "select name, pronoun from birds where id = $1",
     [f.bird_id],
@@ -71,32 +67,38 @@ async function noticeOne(
     "select timezone from profiles where id = $1",
     [f.owner_id],
   );
-  const named = f.place_names.deciles?.[Math.round(night.fromFrac * 10)];
-  const place = named || (night.fromFrac < 0.5 ? f.from_label : f.to_label);
-  const created = await recordNotification(tx, nowMs, {
-    userId: f.owner_id,
-    kind: "roosting",
-    refId: f.ref_id,
-    ...notificationText(
-      "roosting",
-      {
-        bird: bird.name,
-        flightId: id,
-        place,
-        sunrise: clockTime(new Date(night.endMs), owner.timezone),
-      },
-      bird.pronoun,
-    ),
-  });
-  return created?.id ?? null;
+  const created: string[] = [];
+  for (const [i, night] of unnotified.entries()) {
+    const named = f.place_names.deciles?.[Math.round(night.fromFrac * 10)];
+    const place = named || (night.fromFrac < 0.5 ? f.from_label : f.to_label);
+    const notice = await recordNotification(tx, nowMs, {
+      userId: f.owner_id,
+      kind: "roosting",
+      refId: refs[i].ref_id,
+      ...notificationText(
+        "roosting",
+        {
+          bird: bird.name,
+          flightId: id,
+          place,
+          sunrise: clockTime(new Date(night.endMs), owner.timezone),
+        },
+        bird.pronoun,
+      ),
+    });
+    if (notice) created.push(notice.id);
+  }
+  return created;
 }
 
 export const roostNotices: Step = async (ctx) => {
   const notificationIds: string[] = [];
   for (const id of await dueIds(ctx)) {
     if (ctx.timeUp()) break;
-    const created = await ctx.deps.db.tx((tx) => noticeOne(ctx.deps, tx, id));
-    if (created) notificationIds.push(created);
+    const created = await ctx.deps.db.tx((tx) =>
+      noticeNights(ctx.deps, tx, id),
+    );
+    notificationIds.push(...created);
   }
   for (const n of notificationIds) await deliver(ctx.deps, n);
   return { count: notificationIds.length };

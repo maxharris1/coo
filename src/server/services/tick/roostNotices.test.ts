@@ -188,6 +188,45 @@ describe("roost notices", () => {
     );
   });
 
+  it("catches up with one notice for each night that started before the first tick", async () => {
+    const { flightId, plan } = await insertTrip(NIGHT_NY, DENVER);
+    const nights = nightsAfterTakeoff(plan);
+    expect(nights.length).toBeGreaterThanOrEqual(2);
+
+    deps.clock.set(nights[1].startMs + MINUTE_MS);
+    const first = await tick(deps);
+    const retry = await tick(deps);
+
+    expect(first.counts.roostNotices).toBe(2);
+    expect(retry.counts.roostNotices).toBe(0);
+    const notices = await roostingNotices();
+    expect(notices).toHaveLength(2);
+    expect(new Set(notices.map((n) => n.ref_id)).size).toBe(2);
+    expect(notices.map((n) => n.body)).toEqual(
+      expect.arrayContaining(
+        nights
+          .slice(0, 2)
+          .map((n) =>
+            expect.stringContaining(
+              `Back in the air at ${clockTime(new Date(n.endMs), ZONE)}.`,
+            ),
+          ),
+      ),
+    );
+    const [f] = await deps.db.query<{
+      status: string;
+      roosts_notified: number;
+    }>("select status, roosts_notified from flights where id = $1", [flightId]);
+    expect(f).toEqual({ status: "flying", roosts_notified: 2 });
+
+    for (const night of nights.slice(2)) {
+      deps.clock.set(night.startMs + MINUTE_MS);
+      await tick(deps);
+      await tick(deps);
+    }
+    expect(await roostingNotices()).toHaveLength(nights.length);
+  });
+
   it("sends one notice when two runs of the step race", async () => {
     const { plan } = await insertTrip(AFTERNOON_NY, CHICAGO);
     const [night] = nightsAfterTakeoff(plan);
