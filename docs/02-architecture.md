@@ -45,6 +45,7 @@ Use the current stable release of each. Add nothing else without asking.
 | `zod` | Validating every request body and every external response. |
 | `maplibre-gl` | The map. |
 | `web-push` | Sending push notifications. |
+| `tz-lookup` | The server's lookup of a loft's IANA time zone from its coordinates. |
 | `vitest`, `@electric-sql/pglite` | Unit and database tests. No Docker needed. |
 | `@playwright/test` | End-to-end tests. |
 | `eslint`, `prettier` | Lint and format. |

@@ -1,6 +1,7 @@
 import { config } from "@/lib/config";
 import { sunTimes } from "@/lib/flight/engine";
-import { localHour, loftTimeZone, startOfLocalDayMs } from "@/lib/game/time";
+import { localHour, startOfLocalDayMs } from "@/lib/game/time";
+import { loftTimeZone } from "@/server/loftTimeZone";
 import type { BadgeRule } from "../badges";
 import { setBadgeProgress } from "./award";
 

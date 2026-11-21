@@ -178,6 +178,10 @@ describe("early-bird", () => {
   const JULY_0015_APIA = Date.UTC(2026, 6, 14, 11, 15);
   const JULY_NOON_APIA = Date.UTC(2026, 6, 14, 23);
   const APIA = { lat: -13.83, lon: -171.76 };
+  const JULY_0030_BREST = Date.UTC(2026, 6, 14, 22, 30);
+  const BREST = { lat: 48.39, lon: -4.49 };
+  const JULY_2330_BRIDGEPORT = Date.UTC(2026, 6, 15, 4, 30);
+  const BRIDGEPORT_ALABAMA = { lat: 34.95, lon: -85.71 };
 
   async function maxLoft() {
     const [loft] = await deps.db.query<{ lat: number; lon: number }>(
@@ -250,6 +254,21 @@ describe("early-bird", () => {
     const { sunriseMs } = sunTimes(JULY_NOON_APIA, APIA);
     await expectEarned(
       await landDelivery({ releaseMs: sunriseMs + MINUTE_MS }),
+    );
+  });
+
+  it("early-bird: not earned just after midnight at a loft whose zone differs from the nearest zone city's", async () => {
+    await moveLoft(world.max, BREST);
+    await setTimezone(world.max, "Europe/Paris");
+    await landDelivery({ releaseMs: JULY_0030_BREST });
+    expect(await badge(world.max.id, "early-bird")).toBeNull();
+  });
+
+  it("early-bird: earned late in the day on the Central side of the US Eastern-Central border", async () => {
+    await moveLoft(world.max, BRIDGEPORT_ALABAMA);
+    await setTimezone(world.max, "Europe/London");
+    await expectEarned(
+      await landDelivery({ releaseMs: JULY_2330_BRIDGEPORT }),
     );
   });
 
