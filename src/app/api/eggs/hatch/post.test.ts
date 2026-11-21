@@ -95,6 +95,8 @@ describe("POST /api/eggs/hatch", () => {
     ["a 25-character name", { name: "a".repeat(25), pronoun: "she" }],
     ["an unknown pronoun", { name: "Pretzel", pronoun: "it" }],
     ["an unknown key", { ...PRETZEL, eggId: crypto.randomUUID() }],
+    ["a NUL name", { name: "\u0000", pronoun: "they" }],
+    ["a name with a NUL inside", { name: "Pre\u0000tzel", pronoun: "they" }],
   ])("answers %s with 400 invalid", async (_, body) => {
     const { id, jar } = await onboarded("(555) 123-4567", "Max");
     await deliverFive(id);
@@ -102,6 +104,7 @@ describe("POST /api/eggs/hatch", () => {
     expect(status).toBe(400);
     expect(json.error.code).toBe("invalid");
     expect(await birdCount(id)).toBe(2);
+    expect((await eggsOf(id)).map((e) => e.status)).toEqual(["ready"]);
   });
 
   it("answers an egg that is not ready with 409 conflict", async () => {
