@@ -44,8 +44,13 @@ type NoteRow = {
   end_at: Date | null;
 };
 
+const MAX_BIGINT = 9223372036854775807n;
+
 const CURSOR = z.object({
-  t: z.string().regex(/^\d{1,20}$/),
+  t: z
+    .string()
+    .regex(/^\d{1,19}$/)
+    .refine((t) => BigInt(t) <= MAX_BIGINT),
   id: z.uuid(),
 });
 type Cursor = z.infer<typeof CURSOR>;

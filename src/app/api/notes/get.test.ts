@@ -234,6 +234,18 @@ describe("GET /api/notes", () => {
     expect(json.error.code).toBe("invalid");
   });
 
+  it("answers a cursor whose time is out of range with 400 invalid", async () => {
+    const cursor = Buffer.from(
+      JSON.stringify({
+        t: "99999999999999999999",
+        id: "00000000-0000-4000-8000-000000000002",
+      }),
+    ).toString("base64url");
+    const { status, json } = await list("max", { cursor });
+    expect(status).toBe(400);
+    expect(json.error.code).toBe("invalid");
+  });
+
   it("answers a malformed friend id with 400 invalid", async () => {
     const { status, json } = await list("max", { friendId: "nope" });
     expect(status).toBe(400);
