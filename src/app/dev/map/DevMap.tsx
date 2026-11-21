@@ -3,10 +3,10 @@
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
 import { config } from "@/lib/config";
-import type { View } from "./views";
+import { MODE_LABELS, type View } from "./views";
 import styles from "./page.module.css";
 
-export function DevMap({ place, zoom }: View) {
+export function DevMap({ place, zoom, mode }: View) {
   const container = useRef<HTMLDivElement>(null);
   const [errors, setErrors] = useState(0);
   const [lon, lat] = place.center;
@@ -23,7 +23,7 @@ export function DevMap({ place, zoom }: View) {
       setErrors(0);
       map = new Map({
         container: container.current,
-        style: "/map/coo-day.style.json",
+        style: `/map/coo-${mode}.style.json`,
         center: [lon, lat],
         zoom,
         minZoom: 3,
@@ -39,7 +39,7 @@ export function DevMap({ place, zoom }: View) {
       cancelled = true;
       map?.remove();
     };
-  }, [lon, lat, zoom]);
+  }, [lon, lat, zoom, mode]);
 
   return (
     <>
@@ -47,7 +47,7 @@ export function DevMap({ place, zoom }: View) {
         ref={container}
         className={styles.map}
         role="img"
-        aria-label={`Day map of ${place.label} at zoom ${zoom}`}
+        aria-label={`${MODE_LABELS[mode]} map of ${place.label} at zoom ${zoom}`}
       />
       <p className={styles.errors}>{`Map errors: ${errors}`}</p>
     </>
