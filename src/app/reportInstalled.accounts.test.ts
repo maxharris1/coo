@@ -315,4 +315,35 @@ describe("the installed reporter across accounts", () => {
       patchesB: patchesFor(b),
     }).toEqual({ A: true, B: true, patchesA: 1, patchesB: 1 });
   });
+  it("retains the last navigation while a successful install reply is pending", async () => {
+    const a = await onboarded(A);
+    const b = await onboarded(B);
+    const client = browser();
+    const report = createInstallReporter();
+    const reached = Promise.withResolvers<void>();
+    const released = Promise.withResolvers<void>();
+    let hold = true;
+    const fetchImpl = (async (path: string, init: RequestInit = {}) => {
+      const response = await client.watchedFetch(path, init);
+      if (init.method === "PATCH" && response.ok && hold) {
+        hold = false;
+        reached.resolve();
+        await released.promise;
+      }
+      return response;
+    }) as typeof fetch;
+    await client.signIn(A);
+    const pending = report(true, fetchImpl);
+    await reached.promise;
+    await client.signIn(B);
+    await report(true, fetchImpl);
+    released.resolve();
+    await pending;
+    expect({
+      A: await installed(a),
+      B: await installed(b),
+      patchesA: client.patchesFor(a),
+      patchesB: client.patchesFor(b),
+    }).toEqual({ A: true, B: true, patchesA: 1, patchesB: 1 });
+  });
 });
