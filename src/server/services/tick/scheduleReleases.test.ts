@@ -5,11 +5,15 @@ import {
   type FlightPlan,
   type WeatherSample,
 } from "@/lib/flight/engine";
+import type { OnboardedCaller } from "@/server/auth";
 import type { UserId } from "@/server/ports/auth";
+import type { Row } from "@/server/rows";
 import type { WeatherQuery } from "@/server/ports/weather";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
 import { seedWorld, type World } from "@/test/seedWorld";
+import { deleteAccount } from "../account";
 import { send } from "../flights/send";
+import { block, setShows } from "../friends";
 import { tick } from "../tick";
 
 const HOUR_MS = 3_600_000;
@@ -38,10 +42,13 @@ beforeEach(async () => {
 
 afterEach(() => vi.restoreAllMocks());
 
-async function scheduleGerald(releaseAt = SEVEN_AM_TOMORROW) {
+async function scheduleGerald(
+  releaseAt = SEVEN_AM_TOMORROW,
+  friendId: UserId = priya,
+) {
   const { flights } = await send(deps, max, {
     body: "Coffee at seven, my treat",
-    sends: [{ friendId: priya, birdId: gerald }],
+    sends: [{ friendId, birdId: gerald }],
     releaseAt,
   });
   return flights[0].id;
@@ -50,6 +57,9 @@ async function scheduleGerald(releaseAt = SEVEN_AM_TOMORROW) {
 async function flightRow(id: string) {
   const [row] = await deps.db.query<{
     status: string;
+    to_lat: number;
+    to_lon: number;
+    to_label: string;
     release_at: Date;
     arrive_at: Date | null;
     input: FlightInput | null;
@@ -58,7 +68,7 @@ async function flightRow(id: string) {
     odds: number | null;
     delay_kind: string | null;
   }>(
-    `select status, release_at, arrive_at, input, plan, distance_mi::float8 as distance_mi,
+    `select status, to_lat, to_lon, to_label, release_at, arrive_at, input, plan, distance_mi::float8 as distance_mi,
        odds::float8 as odds, delay_kind
      from flights where id = $1`,
     [id],
@@ -193,5 +203,74 @@ describe("scheduleReleases", () => {
 
     await tick(deps, { userId: priya });
     expect((await flightRow(flightId)).status).toBe("flying");
+  });
+
+  it("cancels a send whose recipient deleted their account and frees the bird", async () => {
+    const flightId = await scheduleGerald();
+    const [profile] = await deps.db.query<Row<"profiles">>(
+      "select * from profiles where id = $1",
+      [priya],
+    );
+    await deleteAccount(deps, {
+      userId: priya,
+      profile: profile as OnboardedCaller["profile"],
+    });
+    deps.clock.set(SEVEN_AM_TOMORROW);
+
+    const first = await tick(deps);
+    const before = await everything();
+    const second = await tick(deps);
+
+    expect(first.failed.scheduleReleases ?? 0).toBe(0);
+    expect(second.failed.scheduleReleases ?? 0).toBe(0);
+    expect((await flightRow(flightId)).status).toBe("cancelled");
+    expect((await flightRow(flightId)).plan).toBeNull();
+    expect(await birdStatus()).toBe("home");
+    expect(await everything()).toEqual(before);
+  });
+
+  it("cancels a send to a friend who blocked the sender, with no incoming", async () => {
+    const flightId = await scheduleGerald();
+    await block(deps, priya, max);
+    deps.clock.set(SEVEN_AM_TOMORROW);
+
+    const result = await tick(deps);
+
+    expect(result.failed.scheduleReleases ?? 0).toBe(0);
+    expect(await incomingFor(flightId)).toEqual([]);
+    expect((await flightRow(flightId)).status).toBe("cancelled");
+    expect(await birdStatus()).toBe("home");
+  });
+
+  it("cancels a send the sender blocked the recipient on", async () => {
+    const flightId = await scheduleGerald();
+    await block(deps, max, priya);
+    deps.clock.set(SEVEN_AM_TOMORROW);
+
+    await tick(deps);
+
+    expect(await incomingFor(flightId)).toEqual([]);
+    expect((await flightRow(flightId)).status).toBe("cancelled");
+    expect(await birdStatus()).toBe("home");
+  });
+
+  it("works out the endpoints at release, from what the recipient shares then", async () => {
+    const rosa = world.rosa.id as UserId;
+    const flightId = await scheduleGerald(SEVEN_AM_TOMORROW, rosa);
+    const scheduled = await flightRow(flightId);
+    await setShows(deps, rosa, max, "city");
+    deps.clock.set(SEVEN_AM_TOMORROW);
+
+    await tick(deps);
+
+    const row = await flightRow(flightId);
+    expect(row.status).toBe("flying");
+    expect({ lat: row.to_lat, lon: row.to_lon }).not.toEqual({
+      lat: scheduled.to_lat,
+      lon: scheduled.to_lon,
+    });
+    expect(row.input?.to).toEqual({ lat: row.to_lat, lon: row.to_lon });
+    expect(row.input?.to).toEqual({ lat: 40.712, lon: -74.005 });
+    expect(row.plan).toEqual(computeFlightPlan(row.input as FlightInput));
   });
 });

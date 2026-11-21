@@ -10,13 +10,25 @@ import { careAt, projectCare, type CareOwner } from "@/lib/game/care";
 import { levelFor } from "@/lib/game/levels";
 import { isWeekend } from "@/lib/game/time";
 import type { Deps } from "@/server/deps";
+import { AppError } from "@/server/errors";
 import { log } from "@/server/log";
-import { toBirdRecord, type BirdRecord, type Row } from "@/server/rows";
+import type { UserId } from "@/server/ports/auth";
+import { pair, toBirdRecord, type BirdRecord, type Row } from "@/server/rows";
+import {
+  LOFT_COLUMNS,
+  loftsOf,
+  type LoftColumns,
+} from "@/server/services/friends";
 import { notificationText, recordNotification } from "@/server/services/notify";
 import { deliver } from "@/server/services/notify/deliver";
 import { sampleWeather } from "@/server/services/weather";
 import { placeNames, type PlaceNames } from "../flights/placeNames";
-import { snapshotOf } from "../flights/quote";
+import {
+  endpointOf,
+  legFor,
+  snapshotOf,
+  type Endpoint,
+} from "../flights/quote";
 import type { Step, StepContext } from "../tick";
 import { tryRow } from "./rows";
 
@@ -24,22 +36,17 @@ type DueFlight = {
   id: string;
   bird_id: string;
   owner_id: string;
-  counterpart_id: string;
-  from_lat: number;
-  from_lon: number;
-  from_label: string;
-  to_lat: number;
-  to_lon: number;
-  to_label: string;
+  counterpart_id: string | null;
   release_at: Date;
 };
+
+type Leg = { from: Endpoint; to: Endpoint };
 
 type Profile = { name: string; timezone: string; has_birdbath: boolean };
 
 async function dueFlights(ctx: StepContext): Promise<DueFlight[]> {
   return ctx.deps.db.query<DueFlight>(
-    `select id, bird_id, owner_id, counterpart_id, from_lat, from_lon, from_label,
-       to_lat, to_lon, to_label, release_at
+    `select id, bird_id, owner_id, counterpart_id, release_at
      from flights
      where status = 'scheduled' and release_at <= $1
        and ($2::uuid is null or owner_id = $2 or counterpart_id = $2)
@@ -50,6 +57,25 @@ async function dueFlights(ctx: StepContext): Promise<DueFlight[]> {
       ctx.limit,
     ],
   );
+}
+
+async function currentLeg(deps: Deps, f: DueFlight): Promise<Leg | null> {
+  if (!f.counterpart_id) return null;
+  const [mine] = await deps.db.query<LoftColumns>(
+    `select ${LOFT_COLUMNS.join(", ")} from profiles where id = $1`,
+    [f.owner_id],
+  );
+  const myLofts = mine && loftsOf(mine);
+  const roost = myLofts && endpointOf("block", myLofts);
+  if (!roost) return null;
+  try {
+    return await legFor(deps, f.owner_id as UserId, myLofts, roost, {
+      friendId: f.counterpart_id as UserId,
+    });
+  } catch (error) {
+    if (error instanceof AppError) return null;
+    throw error;
+  }
 }
 
 function toFlightInput(
@@ -88,21 +114,54 @@ function toFlightInput(
 async function releaseOne(
   deps: Deps,
   f: DueFlight,
-  weather: FlightInput["weather"],
-  names: PlaceNames,
+  leg: Leg | null,
+  weather: FlightInput["weather"] | null,
+  names: PlaceNames | null,
 ): Promise<{ notificationId: string | null } | null> {
   const releaseMs = f.release_at.getTime();
   const releaseIso = f.release_at.toISOString();
-  const from = { lat: f.from_lat, lon: f.from_lon };
-  const to = { lat: f.to_lat, lon: f.to_lon };
 
   return deps.db.tx(async (tx) => {
     const now = deps.clock.now();
-    const [locked] = await tx.query<{ id: string }>(
-      "select id from flights where id = $1 and status = 'scheduled' for update",
+    await tx.query(
+      "select 1 from profiles where id = any($1::uuid[]) order by id for update",
+      [[f.owner_id, f.counterpart_id].filter((id) => id !== null)],
+    );
+    if (f.counterpart_id)
+      await tx.query(
+        "select 1 from friendships where a_id = $1 and b_id = $2 for share",
+        pair(f.owner_id, f.counterpart_id),
+      );
+    const [locked] = await tx.query<{ counterpart_id: string | null }>(
+      "select counterpart_id from flights where id = $1 and status = 'scheduled' for update",
       [f.id],
     );
     if (!locked) return null;
+    const current = await currentLeg(
+      { ...deps, db: tx },
+      { ...f, counterpart_id: locked.counterpart_id },
+    );
+    if (JSON.stringify(current) !== JSON.stringify(leg))
+      throw new Error(`flight ${f.id} endpoints changed before release`);
+
+    if (!current || !weather || !names) {
+      await tx.query(
+        "update flights set status = 'cancelled' where id = $1 and status = 'scheduled'",
+        [f.id],
+      );
+      await tx.query(
+        "update birds set status = 'home' where id = $1 and status = 'scheduled'",
+        [f.bird_id],
+      );
+      await tx.query(
+        "insert into events (user_id, kind, created_at) values ($1, 'flight', $2)",
+        [f.owner_id, new Date(now).toISOString()],
+      );
+      return { notificationId: null };
+    }
+    const counterpartId = locked.counterpart_id as string;
+    const from = current.from.point;
+    const to = current.to.point;
 
     const [owner] = await tx.query<Profile>(
       "select name, timezone, has_birdbath from profiles where id = $1",
@@ -110,7 +169,7 @@ async function releaseOne(
     );
     const [them] = await tx.query<{ timezone: string }>(
       "select timezone from profiles where id = $1",
-      [f.counterpart_id],
+      [counterpartId],
     );
     const [row] = await tx.query<Row<"birds">>(
       "select * from birds where id = $1 for update",
@@ -143,7 +202,9 @@ async function releaseOne(
 
     await tx.query(
       `update flights set status = 'flying', arrive_at = $2, distance_mi = $3,
-         odds = $4, delay_kind = $5, input = $6, plan = $7, place_names = $8
+         odds = $4, delay_kind = $5, input = $6, plan = $7, place_names = $8,
+         from_lat = $9, from_lon = $10, from_label = $11,
+         to_lat = $12, to_lon = $13, to_label = $14
        where id = $1 and status = 'scheduled'`,
       [
         f.id,
@@ -154,18 +215,24 @@ async function releaseOne(
         JSON.stringify(flight),
         JSON.stringify(plan),
         JSON.stringify(names),
+        from.lat,
+        from.lon,
+        current.from.label,
+        to.lat,
+        to.lon,
+        current.to.label,
       ],
     );
 
     const created = await recordNotification(tx, now, {
-      userId: f.counterpart_id,
+      userId: counterpartId,
       kind: "incoming",
       refId: f.id,
       ...notificationText(
         "incoming",
         {
           bird: bird.name,
-          fromCity: f.from_label,
+          fromCity: current.from.label,
           friend: owner.name,
           eta: clockTime(new Date(plan.arriveAtMs), them.timezone),
           flightId: f.id,
@@ -175,10 +242,28 @@ async function releaseOne(
     });
     await tx.query(
       "insert into events (user_id, kind, created_at) select unnest($1::uuid[]), 'flight', $2",
-      [[f.owner_id, f.counterpart_id], new Date(now).toISOString()],
+      [[f.owner_id, counterpartId], new Date(now).toISOString()],
     );
     return { notificationId: created?.id ?? null };
   });
+}
+
+async function weatherAndNames(
+  deps: Deps,
+  { from, to }: Leg,
+  releaseMs: number,
+): Promise<[FlightInput["weather"], PlaceNames]> {
+  const [{ samples }, names] = await Promise.all([
+    sampleWeather(
+      deps,
+      deps.config.game.weather.sampleFractions.map((fraction) => ({
+        ...interpolate(from.point, to.point, fraction),
+        atMs: releaseMs,
+      })),
+    ),
+    placeNames(deps, from.point, to.point),
+  ]);
+  return [samples.slice(0, 3) as FlightInput["weather"], names];
 }
 
 export const scheduleReleases: Step = async (ctx) => {
@@ -189,21 +274,11 @@ export const scheduleReleases: Step = async (ctx) => {
   for (const f of await dueFlights(ctx)) {
     if (ctx.timeUp()) break;
     const ok = await tryRow("scheduleReleases", f.id, async () => {
-      const releaseMs = f.release_at.getTime();
-      const from = { lat: f.from_lat, lon: f.from_lon };
-      const to = { lat: f.to_lat, lon: f.to_lon };
-      const [{ samples }, names] = await Promise.all([
-        sampleWeather(
-          deps,
-          deps.config.game.weather.sampleFractions.map((fraction) => ({
-            ...interpolate(from, to, fraction),
-            atMs: releaseMs,
-          })),
-        ),
-        placeNames(deps, from, to),
-      ]);
-      const weather = samples.slice(0, 3) as FlightInput["weather"];
-      const released = await releaseOne(deps, f, weather, names);
+      const leg = await currentLeg(deps, f);
+      const [weather, names] = leg
+        ? await weatherAndNames(deps, leg, f.release_at.getTime())
+        : [null, null];
+      const released = await releaseOne(deps, f, leg, weather, names);
       if (!released) return;
       count++;
       if (released.notificationId)
