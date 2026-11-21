@@ -3,7 +3,7 @@ import type { FlightInput, FlightPlan } from "@/lib/flight/engine";
 import { distance, duration, type Pronoun } from "@/lib/format";
 import { settleFlight } from "@/lib/game/care";
 import { deliveryPay } from "@/lib/game/seeds";
-import { startOfLocalDayMs, weekday } from "@/lib/game/time";
+import { startOfLocalDayMs, weekStart, weekday } from "@/lib/game/time";
 import type { BirdStatus } from "@/lib/game/types";
 import type { Db } from "@/server/db";
 import type { Deps } from "@/server/deps";
@@ -138,6 +138,30 @@ async function postmark(
   return seeds.newCity;
 }
 
+async function punchCard(
+  tx: Db,
+  f: ClaimedDelivery,
+  week: string,
+): Promise<number> {
+  await tx.query(
+    `insert into punch_cards (user_id, week_start, deliveries) values ($1, $2, 1)
+     on conflict (user_id, week_start) do update set deliveries = punch_cards.deliveries + 1`,
+    [f.owner_id, week],
+  );
+  const claimed = await tx.query(
+    `update punch_cards set paid = true
+     where user_id = $1 and week_start = $2 and not paid and deliveries >= $3 returning 1`,
+    [f.owner_id, week, seeds.punchCardSize],
+  );
+  if (claimed.length === 0) return 0;
+  await tx.query("select apply_seeds($1, $2, 'punch_card', $3)", [
+    f.owner_id,
+    seeds.punchCardPay,
+    f.id,
+  ]);
+  return seeds.punchCardPay;
+}
+
 async function landOne(
   deps: Deps,
   tx: Db,
@@ -239,11 +263,18 @@ async function landOne(
     pay,
     f.id,
   ]);
-  await tx.query(
-    "update profiles set deliveries_count = deliveries_count + 1 where id = $1",
+  const [{ deliveries_count }] = await tx.query<{ deliveries_count: number }>(
+    "update profiles set deliveries_count = deliveries_count + 1 where id = $1 returning deliveries_count",
     [f.owner_id],
   );
-  const earned = pay + (await postmark(tx, f, arriveIso));
+  await tx.query(
+    "update eggs set status = 'ready' where user_id = $1 and status = 'incubating' and hatch_at_delivery <= $2",
+    [f.owner_id, deliveries_count],
+  );
+  const earned =
+    pay +
+    (await postmark(tx, f, arriveIso)) +
+    (await punchCard(tx, f, weekStart(arriveMs, owner.timezone)));
 
   for (const rule of Object.values(badgeRules))
     await rule.apply(tx, {
