@@ -83,8 +83,6 @@ export function FriendSheet({
   const titleId = useId();
   const dialog = useRef<HTMLDivElement>(null);
 
-  // The pressed button unmounts on every step change, so pull focus back into
-  // the dialog or Escape and Tab would act on the page behind it.
   useEffect(() => {
     dialog.current?.focus();
   }, [step]);

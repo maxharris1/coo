@@ -1,7 +1,6 @@
 .layer {
   position: fixed;
   inset: 0;
-  /* Above the tab bar, below the toasts, so a failed action's message shows over the scrim. */
   z-index: 15;
   display: flex;
   flex-direction: column;
