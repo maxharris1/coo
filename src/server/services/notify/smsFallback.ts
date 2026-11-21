@@ -129,6 +129,11 @@ export async function smsFallback(
   });
   if (claim !== "texting") return { texted: false, reason: claim };
 
+  const stamp = (db: Db) =>
+    db.query("update notifications set sms_sent_at = $2 where id = $1", [
+      notificationId,
+      new Date(deps.clock.now()).toISOString(),
+    ]);
   let sending: Promise<SmsOutcome> | undefined;
   const gated = await deps.db
     .tx(async (db) => {
@@ -141,21 +146,23 @@ export async function smsFallback(
         return refused;
       }
       sending = send(deps, row.user_id, phone, text);
-      await db.query(
-        "update notifications set sms_sent_at = $2 where id = $1",
-        [notificationId, new Date(deps.clock.now()).toISOString()],
-      );
+      await stamp(db);
       return "sending" as const;
     })
-    .catch((error: unknown) => {
+    .catch(async (error: unknown) => {
       if (!sending) throw error;
-      log.warn("sms.stamp_failed", {
-        error: error instanceof Error ? error.name : typeof error,
-      });
+      log.warn("sms.stamp_failed", { error: errorName(error) });
+      await stamp(deps.db).catch((retry: unknown) =>
+        log.error("sms.stamp_lost", { error: errorName(retry) }),
+      );
       return "sending" as const;
     });
   if (gated !== "sending") return { texted: false, reason: gated };
   return sending ?? { texted: false, reason: "failed" };
+}
+
+function errorName(error: unknown): string {
+  return error instanceof Error ? error.name : typeof error;
 }
 
 type Refusal = "setting-off" | "rate-limited";

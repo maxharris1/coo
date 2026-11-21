@@ -41,13 +41,28 @@ async function migrate(db: pg.Pool) {
   }
 }
 
-function holdFirstCommit(base: pg.Pool) {
+const STAMP = "update notifications set sms_sent_at = $2 where id = $1";
+
+type StampFault = "update-error" | "rollback";
+
+function holdFirstCommit(base: pg.Pool, fault?: StampFault) {
   const holding = gate();
   const released = gate();
   let first = true;
+  let armed = fault !== undefined;
   const connect = async () => {
     const client = await base.connect();
+    let rollBack = false;
     const query = async (sql: string, params?: unknown[]) => {
+      if (armed && sql === STAMP) {
+        armed = false;
+        if (fault === "update-error") return client.query("select 1/0");
+        rollBack = true;
+      }
+      if (rollBack && sql === "COMMIT") {
+        rollBack = false;
+        return client.query("ROLLBACK");
+      }
       const result = await client.query(sql, params);
       if (first && sql === "COMMIT") {
         first = false;
@@ -141,6 +156,31 @@ describe.skipIf(!url)("SMS fallback on PostgreSQL", () => {
       expect(calls).toEqual([committedAt + MINUTE_MS]);
     });
   });
+
+  it.each<StampFault>(["update-error", "rollback"])(
+    "a text whose send-gate stamp fails (%s) still holds back a landing 15 minutes after its claim committed",
+    async (fault) => {
+      await withTwoLandings(
+        async ({ conn, deps, landings: [first, second] }) => {
+          const held = holdFirstCommit(conn, fault);
+          const late = { ...deps, db: held.db };
+          const calls = portCalls(deps);
+          const committedAt = deps.clock.now();
+
+          const delivering = deliver(late, first).catch(() => undefined);
+          await held.holding;
+          deps.clock.set(committedAt + MINUTE_MS);
+          held.release();
+          await delivering;
+
+          deps.clock.set(committedAt + 15 * MINUTE_MS);
+          await deliver(late, second);
+
+          expect(calls).toHaveLength(1);
+        },
+      );
+    },
+  );
 
   it("a claim whose COMMIT acknowledgment is held 16 minutes sends nothing once an unsubscribe is saved", async () => {
     await withTwoLandings(
