@@ -11,6 +11,7 @@ import { tick } from "../tick";
 import { landDeliveries } from "./landDeliveries";
 
 const MINUTE_MS = 60_000;
+const FLIGHT_ID = "00000000-0000-4000-f000-000000000001";
 
 let deps: TestDeps;
 let world: World;
@@ -19,7 +20,9 @@ let flight: PlannedDelivery;
 beforeEach(async () => {
   deps = await makeTestDeps();
   world = await seedWorld(deps.db, deps.clock.now());
-  flight = await insertPlannedDelivery(deps.db, world, deps.clock.now());
+  flight = await insertPlannedDelivery(deps.db, world, deps.clock.now(), {
+    flightId: FLIGHT_ID,
+  });
 });
 
 const iso = (ms: number) => new Date(ms).toISOString();
@@ -477,6 +480,7 @@ describe("landing a delivery", () => {
 
     const HOUR = 60 * MINUTE_MS;
     const NY_MIDNIGHT = Date.UTC(2026, 10, 19, 5);
+    const NEXT_NY_MIDNIGHT = NY_MIDNIGHT + 24 * HOUR;
 
     it("the 11th delivery of the local day pays 2", async () => {
       await landedEarlier(
@@ -510,9 +514,15 @@ describe("landing a delivery", () => {
       const later = await insertPlannedDelivery(
         deps.db,
         world,
-        flight.arriveAtMs + 30 * MINUTE_MS,
-        { to: world.rosa, birdId: world.max.birds[1].id },
+        Date.UTC(2026, 10, 19, 17, 20),
+        {
+          to: world.rosa,
+          birdId: world.max.birds[1].id,
+          flightId: "00000000-0000-4000-f001-000000000001",
+        },
       );
+      expect(later.arriveAtMs).toBeGreaterThan(flight.arriveAtMs);
+      expect(later.arriveAtMs).toBeLessThan(NEXT_NY_MIDNIGHT);
       await landedEarlier(
         Array.from(
           { length: 9 },
