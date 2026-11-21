@@ -48,6 +48,15 @@ const PRIYA = {
   distanceMi: 81.3,
 };
 
+const ALEX = {
+  ...PRIYA,
+  id: "u3",
+  name: "Alex",
+  handle: "alex",
+  where: "Boston",
+  distanceMi: 215,
+};
+
 const FLOCK = {
   look: "gerald",
   breed: "city",
@@ -121,6 +130,14 @@ const sync = (): SyncState => ({
   refresh: () => {},
 });
 
+const page = () => (
+  <SyncContext.Provider value={sync()}>
+    <ToastContext.Provider value={seen.toast}>
+      <ComposePage />
+    </ToastContext.Provider>
+  </SyncContext.Provider>
+);
+
 async function show() {
   const container = Object.assign(new EventTarget(), {
     nodeType: 1,
@@ -129,16 +146,13 @@ async function show() {
   }) as unknown as Element;
   const r = createRoot(container);
   root = r;
-  await act(async () =>
-    r.render(
-      <SyncContext.Provider value={sync()}>
-        <ToastContext.Provider value={seen.toast}>
-          <ComposePage />
-        </ToastContext.Provider>
-      </SyncContext.Provider>,
-    ),
-  );
+  await act(async () => r.render(page()));
 }
+
+const sendTo = (friendId: string) => {
+  seen.to = friendId;
+  return act(async () => root?.render(page()));
+};
 
 const view = () => {
   if (!seen.view) throw new Error("ComposeView not shown");
@@ -354,6 +368,40 @@ describe("Compose page stats (ac-2)", () => {
     await show();
     quoted = () => new Promise(() => {});
     await pick("b1");
+    expect(view().stats).toBeNull();
+  });
+
+  it("drops the old friend's stats while the new friend's quote is on its way", async () => {
+    friends = { status: 200, body: { friends: [PRIYA, ALEX], guestLinks: [] } };
+    await show();
+    expect(view().stats?.distance).toBe("81 mi");
+    quoted = () => new Promise(() => {});
+    await sendTo("u3");
+    expect(view().recipient.name).toBe("Alex");
+    expect(view().stats).toBeNull();
+  });
+
+  it("shows no stats when the new friend's quote fails", async () => {
+    friends = { status: 200, body: { friends: [PRIYA, ALEX], guestLinks: [] } };
+    await show();
+    expect(view().stats?.distance).toBe("81 mi");
+    quoted = async () => ({
+      status: 500,
+      body: { error: { code: "internal", message: "Quote unavailable" } },
+    });
+    await sendTo("u3");
+    expect(view().recipient.name).toBe("Alex");
+    expect(seen.toast).toHaveBeenCalledExactlyOnceWith("Quote unavailable");
+    expect(view().stats).toBeNull();
+  });
+
+  it("drops the bird's old stats when it is picked again", async () => {
+    await show();
+    expect(view().stats?.odds).toBe("81%");
+    quoted = () => new Promise(() => {});
+    await pick("b1");
+    await pick("b2");
+    expect(view().pickedId).toBe("b2");
     expect(view().stats).toBeNull();
   });
 

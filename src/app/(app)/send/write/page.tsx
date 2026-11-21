@@ -24,7 +24,7 @@ type Friends =
   | { kind: "failed"; message: string }
   | { kind: "ready"; friends: FriendRow[] };
 
-type Quote = { birdId: string; leg: RecipientQuote } | null;
+type Quote = { friendId: string; birdId: string; leg: RecipientQuote } | null;
 
 const NOT_A_FRIEND = "That friend is not in your address book.";
 const PLAIN_BIRD: Wearer = { breed: "city", gear: [] };
@@ -74,11 +74,13 @@ function Compose() {
     let live = true;
     void quoteFor(fetch, quoteFriend, [quoteBird]).then((r) => {
       if (!live) return;
-      if (r.ok) setQuote({ birdId: quoteBird, leg: r.quote });
+      if (r.ok)
+        setQuote({ friendId: quoteFriend, birdId: quoteBird, leg: r.quote });
       else toast(r.message);
     });
     return () => {
       live = false;
+      setQuote(null);
     };
   }, [quoteFriend, quoteBird, toast]);
 
@@ -113,7 +115,7 @@ function Compose() {
       birds={options}
       pickedId={bird?.id ?? null}
       stats={
-        bird && quote?.birdId === bird.id
+        bird && quote?.friendId === friend.id && quote.birdId === bird.id
           ? stats(quote.leg, bird.id, data.me.timezone, units)
           : null
       }
