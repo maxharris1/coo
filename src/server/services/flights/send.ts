@@ -14,7 +14,7 @@ import { isWeekend } from "@/lib/game/time";
 import type { Deps } from "@/server/deps";
 import { AppError } from "@/server/errors";
 import type { UserId } from "@/server/ports/auth";
-import { toBirdRecord, type BirdRecord, type Row } from "@/server/rows";
+import { pair, toBirdRecord, type BirdRecord, type Row } from "@/server/rows";
 import {
   LOFT_COLUMNS,
   loftsOf,
@@ -61,18 +61,8 @@ export async function send(
     throw new AppError("invalid", "sends: pick a friend and a bird");
   const friend = item.friendId;
 
-  const [mine] = await deps.db.query<Me>(
-    `select ${LOFT_COLUMNS.join(", ")}, has_birdbath, timezone, name
-     from profiles where id = $1`,
-    [me],
-  );
-  const myLofts = mine && loftsOf(mine);
-  const roost = myLofts && endpointOf("block", myLofts);
-  if (!roost) throw new AppError("conflict", "Set up your loft first");
+  const { mine, from, to } = await prepareLeg(deps, me, friend);
   const owner: CareOwner = { hasBirdbath: mine.has_birdbath };
-  const { from, to } = await legFor(deps, me, myLofts, roost, {
-    friendId: friend,
-  });
   const [unlocked] = await deps.db.query<Row<"birds">>(
     "select * from birds where id = $1 and owner_id = $2",
     [item.birdId, me],
@@ -105,6 +95,19 @@ export async function send(
   const nowIso = new Date(now).toISOString();
 
   const notification = await deps.db.tx(async (tx) => {
+    await tx.query(
+      "select 1 from profiles where id = any($1::uuid[]) order by id for share",
+      [[me, friend]],
+    );
+    await tx.query(
+      "select 1 from friendships where a_id = $1 and b_id = $2 for share",
+      pair(me, friend),
+    );
+    const current = await prepareLeg({ ...deps, db: tx }, me, friend);
+    if (
+      JSON.stringify([current.from, current.to]) !== JSON.stringify([from, to])
+    )
+      throw new AppError("forbidden", "Your friend changed what they share");
     const [locked] = await tx.query<Row<"birds">>(
       "select * from birds where id = $1 and owner_id = $2 for update",
       [item.birdId, me],
@@ -192,6 +195,25 @@ export async function send(
 
   if (notification) await deliver(deps, notification.id);
   return { flights: [await getFlight(deps, me, flightId)] };
+}
+
+async function prepareLeg(
+  deps: Deps,
+  me: UserId,
+  friend: UserId,
+): Promise<{ mine: Me; from: Endpoint; to: Endpoint }> {
+  const [mine] = await deps.db.query<Me>(
+    `select ${LOFT_COLUMNS.join(", ")}, has_birdbath, timezone, name
+     from profiles where id = $1`,
+    [me],
+  );
+  const myLofts = mine && loftsOf(mine);
+  const roost = myLofts && endpointOf("block", myLofts);
+  if (!roost) throw new AppError("conflict", "Set up your loft first");
+  const leg = await legFor(deps, me, myLofts, roost, {
+    friendId: friend,
+  });
+  return { mine, ...leg };
 }
 
 function readyToFly(

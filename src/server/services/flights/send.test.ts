@@ -7,6 +7,7 @@ import {
 import type { UserId } from "@/server/ports/auth";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
 import { seedWorld, type World } from "@/test/seedWorld";
+import { block, setShows, unfriend } from "@/server/services/friends";
 import { send } from "./send";
 
 const BODY = "Bring the good bagels on Sunday";
@@ -35,11 +36,29 @@ async function refusal(promise: Promise<unknown>): Promise<string> {
 }
 
 async function counts() {
-  const [row] = await deps.db.query<{ notes: number; flights: number }>(
+  const [row] = await deps.db.query<{
+    notes: number;
+    flights: number;
+    notifications: number;
+  }>(
     `select (select count(*)::int from notes) as notes,
-       (select count(*)::int from flights) as flights`,
+       (select count(*)::int from flights) as flights,
+       (select count(*)::int from notifications) as notifications`,
   );
   return row;
+}
+
+function duringWeather(change: () => Promise<unknown>) {
+  const port = deps.weather;
+  deps = {
+    ...deps,
+    weather: Object.assign(Object.create(port), {
+      samples: async (at: Parameters<typeof port.samples>[0]) => {
+        await change();
+        return port.samples(at);
+      },
+    }),
+  };
 }
 
 type StoredFlight = {
@@ -77,6 +96,7 @@ describe("send", () => {
     expect(await counts()).toEqual({
       notes: before.notes + 1,
       flights: before.flights + 1,
+      notifications: before.notifications + 1,
     });
     expect(flights).toHaveLength(1);
     const [flight] = flights;
@@ -178,5 +198,31 @@ describe("send", () => {
     ).toBe("not_found");
 
     expect(await counts()).toEqual(before);
+  });
+
+  describe("when the friendship changes while weather is fetched", () => {
+    it.each([
+      ["the recipient blocks the sender", () => block(deps, priya, max)],
+      ["the recipient unfriends the sender", () => unfriend(deps, priya, max)],
+      [
+        "the recipient switches to city sharing",
+        () => setShows(deps, priya, max, "city"),
+      ],
+    ])(
+      "refuses as forbidden when %s and creates nothing",
+      async (_, change) => {
+        const before = await counts();
+        duringWeather(change);
+
+        expect(await refusal(sendGerald())).toBe("forbidden");
+
+        expect(await counts()).toEqual(before);
+        const [bird] = await deps.db.query<{ status: string }>(
+          "select status from birds where id = $1",
+          [gerald],
+        );
+        expect(bird.status).toBe("home");
+      },
+    );
   });
 });
