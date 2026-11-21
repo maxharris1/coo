@@ -1,0 +1,56 @@
+.sheet {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 30;
+  box-sizing: border-box;
+  max-width: 480px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px var(--coo-gutter) calc(16px + var(--coo-safe-bottom));
+  background: var(--coo-card);
+  border: var(--coo-line);
+  border-bottom: none;
+  border-radius: var(--coo-radius-card) var(--coo-radius-card) 0 0;
+  box-shadow: 0 -4px 0 var(--coo-ink);
+  color: var(--coo-ink);
+  font-family: var(--coo-font-body);
+}
+
+.question {
+  margin: 0;
+  font-family: var(--coo-font-display);
+  font-weight: 400;
+  font-size: 24px;
+  line-height: 1.1;
+}
+
+.answers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.yes,
+.no {
+  min-height: var(--coo-touch);
+  padding: 0 12px;
+  border: var(--coo-line);
+  border-radius: var(--coo-radius-button);
+  box-shadow: var(--coo-shadow-2);
+  color: var(--coo-ink);
+  font-family: var(--coo-font-display);
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.yes {
+  background: var(--coo-tomato);
+}
+
+.no {
+  background: var(--coo-card);
+}
