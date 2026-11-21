@@ -1,0 +1,31 @@
+{
+  "fetched": "2026-11-21",
+  "from": "https://tiles.openfreemap.org/styles/liberty",
+  "openmaptiles": {
+    "type": "vector",
+    "url": "https://tiles.openfreemap.org/planet"
+  },
+  "glyphs": "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
+  "sprite": "https://tiles.openfreemap.org/sprites/ofm_f384/ofm",
+  "sourceLayers": [
+    "aerodrome_label",
+    "aeroway",
+    "boundary",
+    "building",
+    "landcover",
+    "landuse",
+    "park",
+    "place",
+    "poi",
+    "transportation",
+    "transportation_name",
+    "water",
+    "water_name",
+    "waterway"
+  ],
+  "fontStacks": [
+    ["Noto Sans Bold"],
+    ["Noto Sans Italic"],
+    ["Noto Sans Regular"]
+  ]
+}

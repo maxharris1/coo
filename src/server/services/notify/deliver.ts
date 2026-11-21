@@ -7,19 +7,20 @@ import {
   type PushSubscription,
 } from "@/server/ports/push";
 import { COLUMNS, type Row } from "@/server/rows";
+import { smsFallback, type SmsOutcome } from "./smsFallback";
+
+export type PushOutcome =
+  | { pushed: false; reason: "missing" | "read" | "claimed" }
+  | { pushed: false; reason: "no-subscription" }
+  | { pushed: true; sent: number; removed: number };
 
 export type DeliverOutcome =
   | {
       pushed: false;
-      reason:
-        | "missing"
-        | "setting-off"
-        | "quiet"
-        | "read"
-        | "claimed"
-        | "no-subscription";
+      reason: "missing" | "setting-off" | "quiet" | "read" | "claimed";
     }
-  | { pushed: true; sent: number; removed: number };
+  | { pushed: false; reason: "no-subscription"; sms: SmsOutcome }
+  | { pushed: true; sent: number; removed: number; sms?: SmsOutcome };
 
 export type Setting = Extract<keyof Row<"profiles">, `notify_${string}`>;
 
@@ -73,13 +74,20 @@ export async function deliver(
     );
     return { pushed: false, reason: "quiet" };
   }
-  return pushNotification(deps, notificationId);
+  const outcome = await pushNotification(deps, notificationId);
+  if (
+    (outcome.pushed && outcome.sent === 0) ||
+    (!outcome.pushed && outcome.reason === "no-subscription")
+  ) {
+    return { ...outcome, sms: await smsFallback(deps, notificationId) };
+  }
+  return outcome;
 }
 
 export async function pushNotification(
   deps: Deps,
   notificationId: string,
-): Promise<DeliverOutcome> {
+): Promise<PushOutcome> {
   const [state] = await deps.db.query<{
     user_id: string;
     read_at: Date | null;

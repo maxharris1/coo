@@ -106,3 +106,77 @@ export async function hatch(
     });
   });
 }
+
+export type Aviary = {
+  perches: {
+    total: number;
+    free: number;
+    birds: { id: string; name: string; breed: BreedId; look: string }[];
+  };
+  egg: {
+    id: string;
+    status: "incubating" | "ready";
+    deliveriesToGo: number;
+    waitingForPerch: boolean;
+  } | null;
+  breeds: {
+    id: BreedId;
+    name: string;
+    note: string;
+    trait: string;
+    hatchable: boolean;
+    owned: boolean;
+  }[];
+};
+
+export async function aviary(
+  deps: Deps,
+  caller: OnboardedCaller,
+): Promise<Aviary> {
+  const id = caller.userId;
+  const [[profile], birds, [egg]] = await Promise.all([
+    deps.db.query<Pick<Row<"profiles">, "perches" | "deliveries_count">>(
+      "select perches, deliveries_count from profiles where id = $1",
+      [id],
+    ),
+    deps.db.query<Aviary["perches"]["birds"][number]>(
+      "select id, name, breed, look from birds where owner_id = $1 order by hatched_at, id",
+      [id],
+    ),
+    deps.db.query<{
+      id: string;
+      status: "incubating" | "ready";
+      hatch_at_delivery: number;
+    }>(
+      "select id, status, hatch_at_delivery from eggs where user_id = $1 and status <> 'hatched'",
+      [id],
+    ),
+  ]);
+  const free = Math.max(0, profile.perches - birds.length);
+  const owned = new Set(birds.map((b) => b.breed));
+  return {
+    perches: { total: profile.perches, free, birds },
+    egg: egg
+      ? {
+          id: egg.id,
+          status: egg.status,
+          deliveriesToGo: Math.max(
+            0,
+            egg.hatch_at_delivery - profile.deliveries_count,
+          ),
+          waitingForPerch: egg.status === "ready" && free === 0,
+        }
+      : null,
+    breeds: deps.config.breeds.breeds.map((b) => {
+      const breed = b.id as BreedId;
+      return {
+        id: breed,
+        name: b.name,
+        note: b.note,
+        trait: b.trait,
+        hatchable: b.hatchable,
+        owned: owned.has(breed),
+      };
+    }),
+  };
+}

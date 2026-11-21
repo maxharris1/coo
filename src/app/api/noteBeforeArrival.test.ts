@@ -12,13 +12,16 @@ import {
 } from "@/test/fixtures/plannedFlight";
 import { seedWorld, type World } from "@/test/seedWorld";
 import { authRoutes } from "./auth/handlers";
+import { aviaryGet } from "./aviary/get";
 import { collectionGet } from "./collection/get";
+import { earnGet } from "./earn/get";
 import { flightGet } from "./flights/[id]/get";
 import { flightsGet } from "./flights/get";
 import { friendsGet } from "./friends/get";
 import { geoHereGet } from "./geo/here/get";
 import { geoSearchGet } from "./geo/search/get";
 import { inviteGet } from "./invite/[code]/get";
+import { notificationsGet } from "./notifications/get";
 import { shopGet } from "./shop/get";
 import { syncGet } from "./sync/get";
 
@@ -35,10 +38,12 @@ const GET_ENDPOINTS: Record<
     build: (r) => authRoutes(r).session,
     url: "/api/auth/session",
   },
+  "src/app/api/aviary/route.ts": { build: aviaryGet, url: "/api/aviary" },
   "src/app/api/collection/route.ts": {
     build: collectionGet,
     url: "/api/collection",
   },
+  "src/app/api/earn/route.ts": { build: earnGet, url: "/api/earn" },
   "src/app/api/flights/[id]/route.ts": {
     build: flightGet,
     url: "/api/flights/:flightId",
@@ -56,6 +61,10 @@ const GET_ENDPOINTS: Record<
   "src/app/api/invite/[code]/route.ts": {
     build: inviteGet,
     url: "/api/invite/seed-max",
+  },
+  "src/app/api/notifications/route.ts": {
+    build: notificationsGet,
+    url: "/api/notifications",
   },
   "src/app/api/shop/route.ts": { build: shopGet, url: "/api/shop" },
   "src/app/api/sync/route.ts": { build: syncGet, url: "/api/sync" },
