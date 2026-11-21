@@ -1,5 +1,10 @@
+import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it } from "vitest";
+import { syncGet } from "@/app/api/sync/get";
+import { toE164 } from "@/lib/phone";
+import { createJsonRoute } from "@/server/http";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
+import { FakeJar } from "@/test/fakes/jar";
 import { seedWorld, type Person, type World } from "@/test/seedWorld";
 import { notify } from "../notify";
 import { tick } from "../tick";
@@ -10,6 +15,7 @@ const NOON_NY = Date.UTC(2026, 10, 19, 17);
 const ELEVEN_PM_NY = Date.UTC(2026, 10, 20, 4);
 const TWO_AM_NY = Date.UTC(2026, 10, 20, 7);
 const SEVEN_AM_NY = Date.UTC(2026, 10, 20, 12);
+const SEVEN_AM_TOKYO = Date.UTC(2026, 10, 19, 22);
 
 let deps: TestDeps;
 let world: World;
@@ -49,6 +55,28 @@ async function pushSentAt(id: string) {
     [id],
   );
   return row.push_sent_at;
+}
+
+async function syncTimezone(person: Person, phone: string, timezone: string) {
+  const jar = new FakeJar();
+  const e164 = toE164(phone);
+  if (!e164) throw new Error("invalid fixture phone");
+  expect(await deps.auth(jar).verifyCode(e164, "000000")).toBe(person.id);
+  const cookie = jar
+    .getAll()
+    .map(({ name, value }) => `${name}=${value}`)
+    .join("; ");
+  const response = await syncGet(createJsonRoute(async () => deps))(
+    new NextRequest("https://coo.test/api/sync", {
+      headers: { cookie, "x-timezone": timezone },
+    }),
+  );
+  expect(response.status).toBe(200);
+  const [profile] = await deps.db.query<{ timezone: string }>(
+    "select timezone from profiles where id = $1",
+    [person.id],
+  );
+  expect(profile.timezone).toBe(timezone);
 }
 
 async function flushAt(at: number, userId?: string) {
@@ -173,5 +201,37 @@ describe("tick step 11: flush quiet hours", () => {
 
     expect(count).toBe(1);
     expect(deps.push.sent.map((s) => s.payload.tag)).toEqual([held.tag]);
+  });
+
+  describe("when GET /api/sync changes the time zone after the decision", () => {
+    it("never flushes a daytime no-subscription skip", async () => {
+      const skipped = await hold(world.priya, NOON_NY);
+      await syncTimezone(world.priya, "+15550000002", "Asia/Tokyo");
+      await subscribe(world.priya);
+
+      expect(await flushAt(SEVEN_AM_TOKYO, world.priya.id)).toBe(0);
+      expect(deps.push.sent).toEqual([]);
+      expect(await pushSentAt(skipped.id)).toBeNull();
+    });
+
+    it("releases a 23:00 New York hold at 07:00 New York", async () => {
+      await subscribe(world.priya);
+      const held = await hold(world.priya, ELEVEN_PM_NY);
+      await syncTimezone(world.priya, "+15550000002", "Asia/Tokyo");
+
+      expect(await flushAt(SEVEN_AM_NY, world.priya.id)).toBe(1);
+      expect(deps.push.sent.map((s) => s.payload.tag)).toEqual([held.tag]);
+      expect(await pushSentAt(held.id)).toEqual(new Date(SEVEN_AM_NY));
+    });
+
+    it("keeps the release instant decided at hold time", async () => {
+      await subscribe(world.priya);
+      const held = await hold(world.priya, ELEVEN_PM_NY);
+      await syncTimezone(world.priya, "+15550000002", "America/Los_Angeles");
+
+      expect(await flushAt(SEVEN_AM_NY - 1)).toBe(0);
+      expect(await flushAt(SEVEN_AM_NY)).toBe(1);
+      expect(await pushSentAt(held.id)).toEqual(new Date(SEVEN_AM_NY));
+    });
   });
 });

@@ -118,3 +118,13 @@ export function inQuietHours(ms: number, tz: string, q: QuietHours): boolean {
     ? q.startHour <= hour && hour < q.endHour
     : hour >= q.startHour || hour < q.endHour;
 }
+
+const QUARTER_HOUR_MS = 900_000;
+
+export function quietHoursEnd(ms: number, tz: string, q: QuietHours): number {
+  if (!inQuietHours(ms, tz, q)) return ms;
+  let at = Math.floor(ms / QUARTER_HOUR_MS) * QUARTER_HOUR_MS;
+  do at += QUARTER_HOUR_MS;
+  while (inQuietHours(at, tz, q));
+  return at;
+}

@@ -1,4 +1,4 @@
-import { inQuietHours } from "@/lib/game/time";
+import { inQuietHours, quietHoursEnd } from "@/lib/game/time";
 import type { Deps } from "@/server/deps";
 import { log } from "@/server/log";
 import {
@@ -56,12 +56,23 @@ export async function deliver(
   if (!row) return { pushed: false, reason: "missing" };
   const setting = settings(deps).get(row.kind);
   if (setting && !row[setting]) return { pushed: false, reason: "setting-off" };
-  const quiet = inQuietHours(deps.clock.now(), row.timezone, {
+  const now = deps.clock.now();
+  const quiet = {
     on: row.quiet_on,
     startHour: row.quiet_start,
     endHour: row.quiet_end,
-  });
-  if (quiet) return { pushed: false, reason: "quiet" };
+  };
+  if (inQuietHours(now, row.timezone, quiet)) {
+    await deps.db.query(
+      `update notifications set push_held_until = $2
+       where id = $1 and push_sent_at is null and read_at is null`,
+      [
+        notificationId,
+        new Date(quietHoursEnd(now, row.timezone, quiet)).toISOString(),
+      ],
+    );
+    return { pushed: false, reason: "quiet" };
+  }
   return pushNotification(deps, notificationId);
 }
 

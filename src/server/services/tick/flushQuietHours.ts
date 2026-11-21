@@ -1,14 +1,10 @@
-import { inQuietHours } from "@/lib/game/time";
 import type { Row } from "@/server/rows";
 import { pushNotification, type Setting, settings } from "../notify/deliver";
 import type { Step } from "../tick";
 
 const HELD_WINDOW_MS = 24 * 60 * 60_000;
 
-type Candidate = Pick<
-  Row<"profiles">,
-  "timezone" | "quiet_on" | "quiet_start" | "quiet_end" | Setting
-> & { id: string; kind: string; created_at: Date };
+type Candidate = Pick<Row<"profiles">, Setting> & { id: string; kind: string };
 
 export const flushQuietHours: Step = async ({
   deps,
@@ -18,12 +14,12 @@ export const flushQuietHours: Step = async ({
 }) => {
   const now = deps.clock.now();
   const rows = await deps.db.query<Candidate>(
-    `select n.id, n.kind, n.created_at, p.timezone, p.quiet_on, p.quiet_start,
-       p.quiet_end, p.notify_landed_in, p.notify_landed_out, p.notify_delays,
-       p.notify_hungry
+    `select n.id, n.kind, p.notify_landed_in, p.notify_landed_out,
+       p.notify_delays, p.notify_hungry
      from notifications n
      join profiles p on p.id = n.user_id
      where n.push_sent_at is null and n.read_at is null
+       and n.push_held_until <= $2
        and n.created_at >= $1 and n.created_at <= $2
        and exists (select 1 from push_subscriptions s where s.user_id = n.user_id)
        and ($3::uuid is null or n.user_id = $3)
@@ -38,16 +34,7 @@ export const flushQuietHours: Step = async ({
   const held = rows
     .filter((r) => {
       const setting = kindSetting.get(r.kind);
-      if (setting && !r[setting]) return false;
-      const quiet = {
-        on: r.quiet_on,
-        startHour: r.quiet_start,
-        endHour: r.quiet_end,
-      };
-      return (
-        inQuietHours(r.created_at.getTime(), r.timezone, quiet) &&
-        !inQuietHours(now, r.timezone, quiet)
-      );
+      return !setting || r[setting];
     })
     .slice(0, limit);
 
