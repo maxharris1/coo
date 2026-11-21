@@ -7,6 +7,7 @@ type BadgeId = Config["badges"]["badges"][number]["id"];
 const RECENT_BIRDS = 5;
 
 export type Collection = {
+  account: string;
   postmarks: {
     city: string;
     region: string | null;
@@ -66,6 +67,7 @@ export async function getCollection(
 
   const rows = new Map(badgeRows.map((r) => [r.badge_id, r]));
   return {
+    account: userId,
     postmarks: postmarks.map((p) => ({
       city: p.city,
       region: p.region,

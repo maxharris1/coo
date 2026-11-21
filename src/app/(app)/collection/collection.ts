@@ -1,5 +1,7 @@
+import { config } from "@/lib/config";
 import type { Breed, GearId, Look } from "@/components/Bird";
 import type { Collection } from "@/server/services/collection";
+import { stampPlace } from "../sill/landedModel";
 
 const TINTS = ["sun", "lilac", "sky", "mint"] as const;
 
@@ -39,6 +41,73 @@ export function badgesView(badges: Badge[]): BadgesView {
   return {
     cards: [...earned, ...cards.filter((c) => !c.earned)],
     count: `${earned.length} of ${cards.length}`,
+  };
+}
+
+export type PostmarkSlot =
+  | {
+      kind: "stamp";
+      key: string;
+      date: string;
+      place: string;
+      long: boolean;
+      label: string;
+      fresh: boolean;
+    }
+  | { kind: "empty"; key: string };
+
+export type PostmarksView = {
+  slots: PostmarkSlot[];
+  count: string;
+  seen: number;
+};
+
+type Earned = Collection["postmarks"][number];
+
+const COLUMNS = 4;
+const SHORT_PLACE = 9;
+
+export function postmarksView(
+  postmarks: Earned[],
+  seenUpTo: number | null,
+  timeZone: string,
+): PostmarksView {
+  const total = config.game.postmarkSlots;
+  const short = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    month: "short",
+    day: "numeric",
+  });
+  const long = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    month: "long",
+    day: "numeric",
+  });
+  const stamps: PostmarkSlot[] = postmarks.map((p, i) => {
+    const place = stampPlace({ name: p.city, region: p.region });
+    const city = p.region === null ? p.city : `${p.city}, ${p.region}`;
+    return {
+      kind: "stamp",
+      key: `stamp-${i}`,
+      date: short.format(p.earnedAt).toUpperCase(),
+      place,
+      long: place.length > SHORT_PLACE,
+      label: `Postmark from ${city}, ${long.format(p.earnedAt)}`,
+      fresh: seenUpTo !== null && p.earnedAt > seenUpTo,
+    };
+  });
+  const padded = Math.min(
+    total,
+    Math.ceil(stamps.length / COLUMNS) * COLUMNS + COLUMNS,
+  );
+  const empties = Array.from(
+    { length: Math.max(0, padded - stamps.length) },
+    (_, i): PostmarkSlot => ({ kind: "empty", key: `empty-${i}` }),
+  );
+  return {
+    slots: [...stamps, ...empties],
+    count: `${stamps.length} of ${total} cities`,
+    seen: Math.max(seenUpTo ?? 0, ...postmarks.map((p) => p.earnedAt)),
   };
 }
 
@@ -96,18 +165,54 @@ export async function loadCollection(
   }
 }
 
+type SeenStore = {
+  read(account: string): number | null;
+  write(account: string, seen: number): void;
+};
+
+const seenKey = (account: string) => `coo.postmarks-seen:${account}`;
+
+export function seenStore(
+  storage: () => Pick<Storage, "getItem" | "setItem">,
+): SeenStore {
+  return {
+    read(account) {
+      try {
+        const raw = storage().getItem(seenKey(account));
+        const seen = raw === null ? Number.NaN : Number(raw);
+        return Number.isFinite(seen) ? seen : null;
+      } catch {
+        return 0;
+      }
+    },
+    write(account, seen) {
+      try {
+        storage().setItem(seenKey(account), String(seen));
+      } catch {}
+    },
+  };
+}
+
 export async function openCollection(
   load: () => Promise<Result<Collection>>,
+  seenUpTo: (account: string) => number | null,
+  timeZone: string,
 ): Promise<
-  | { ok: true; view: { badges: BadgesView; birds: BirdsView } }
+  | {
+      ok: true;
+      account: string;
+      view: { postmarks: PostmarksView; badges: BadgesView; birds: BirdsView };
+    }
   | { ok: false; message: string }
 > {
   const result = await load();
   if (!result.ok) return result;
-  const { badges, birdsMet, birdsMetRecent } = result.data;
+  const { account, postmarks, badges, birdsMet, birdsMetRecent } = result.data;
   return {
     ok: true,
+    account,
     view: {
+      postmarks: postmarksView(postmarks, seenUpTo(account), timeZone),
       badges: badgesView(badges),
       birds: birdsView(birdsMet, birdsMetRecent),
     },

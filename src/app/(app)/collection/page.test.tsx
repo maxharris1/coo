@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { config } from "@/lib/config";
-import { badgesView, birdsView } from "./collection";
+import { badgesView, birdsView, postmarksView } from "./collection";
 import { CollectionView } from "./CollectionView";
 import CollectionPage from "./page";
 
@@ -28,6 +28,23 @@ const BADGES = badgesView(
   })),
 );
 
+const day = (d: number) => Date.UTC(2026, 10, d, 15);
+const POSTMARKS = postmarksView(
+  [
+    ["Philadelphia", "PA", day(19)],
+    ["Boston", "MA", day(12)],
+    ["Hoboken", "NJ", day(9)],
+    ["Chicago", "IL", day(2)],
+  ].map(([city, region, earnedAt]) => ({
+    city: city as string,
+    region: region as string,
+    country: "US",
+    earnedAt: earnedAt as number,
+  })),
+  day(10),
+  "America/New_York",
+);
+
 const BIRDS = birdsView(
   11,
   ["Kevin", "Pip", "Lou", "Biscuit", "Gerald"].map((name) => ({
@@ -39,7 +56,7 @@ const BIRDS = birdsView(
 );
 
 const ready = (birds = BIRDS) =>
-  ({ kind: "ready", badges: BADGES, birds }) as const;
+  ({ kind: "ready", postmarks: POSTMARKS, badges: BADGES, birds }) as const;
 
 const view = (state: Parameters<typeof CollectionView>[0]["state"]) =>
   renderToStaticMarkup(<CollectionView state={state} onRetry={() => {}} />);
@@ -83,6 +100,91 @@ describe("/collection header", () => {
   });
 });
 
+describe("/collection postmarks", () => {
+  const html = view(ready());
+
+  it("heads the section Postmarks with the city count, above Badges", () => {
+    expect(html).toMatch(/<h2[^>]*>Postmarks<\/h2>/);
+    expect(html).toContain(">4 of 50 cities<");
+    expect(html.indexOf(">Postmarks<")).toBeLessThan(html.indexOf(">Badges<"));
+  });
+
+  it("draws each stamp with PIGEON POST, its date and its place", () => {
+    const stamps = [
+      ...html.matchAll(
+        /<svg[^>]*aria-label="(Postmark from [^"]+)"[^>]*>(.*?)<\/svg>/g,
+      ),
+    ];
+    expect(stamps.map((m) => m[1])).toEqual([
+      "Postmark from Philadelphia, PA, November 19",
+      "Postmark from Boston, MA, November 12",
+      "Postmark from Hoboken, NJ, November 9",
+      "Postmark from Chicago, IL, November 2",
+    ]);
+    const texts = stamps.map((m) =>
+      [...m[2].matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map((t) => t[1]),
+    );
+    expect(texts[0]).toEqual(["PIGEON POST", "NOV 19", "PHILA, PA"]);
+    expect(texts[3]).toEqual(["PIGEON POST", "NOV 2", "CHICAGO, IL"]);
+  });
+
+  it("shrinks a long place line as drawn", () => {
+    expect(html).toMatch(/<text class="[^"]*small[^"]*"[^>]*>PHILA, PA</);
+    expect(html).toMatch(/<text class="[^"]*long[^"]*"[^>]*>BOSTON, MA</);
+    expect(css).toMatch(/\.long\s*{[^}]*font-size:\s*7px/);
+  });
+
+  it("pads with dashed ? slots to a full row plus one", () => {
+    const empties = html.match(
+      /<li[^>]*><span[^>]*role="img"[^>]*aria-label="Not collected yet"[^>]*>\?<\/span><\/li>/g,
+    );
+    expect(empties).toHaveLength(4);
+    expect(rule("empty")).toMatch(/border:\s*2\.5px dashed #b9b3c9/i);
+    expect(rule("empty")).toMatch(/border-radius:\s*50%/);
+    expect(rule("empty")).toMatch(/width:\s*70px/);
+  });
+
+  it("lays stamps out in four columns, tilted as drawn", () => {
+    expect(rule("stamps")).toMatch(
+      /grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\)/,
+    );
+    expect(rule("stamp")).toMatch(/transform:\s*rotate\(-8deg\)/);
+    expect(rule("stamp")).toMatch(/width:\s*76px/);
+  });
+
+  it("marks only the postmarks earned since the last visit as fresh", () => {
+    const slots = html.match(/<li class="[^"]*"/g)?.slice(0, 4) ?? [];
+    expect(slots.map((li) => /fresh/.test(li))).toEqual([
+      true,
+      true,
+      false,
+      false,
+    ]);
+  });
+
+  it("plays coo-stamp once on a fresh postmark, and only when motion is welcome", () => {
+    const motion = css.match(
+      /@media \(prefers-reduced-motion: no-preference\) \{([\s\S]*?)\n\}/,
+    )?.[1];
+    expect(motion).toMatch(
+      /\.fresh\s*{[^}]*animation:\s*coo-stamp 1\.8s cubic-bezier\(0?\.2,\s*1\.6,\s*0?\.4,\s*1\) 1 both/,
+    );
+    const outside = css.replace(/@media[^{]*\{[\s\S]*?\n\}/g, "");
+    expect(outside).not.toMatch(/\.fresh|animation/);
+    expect(css.match(/animation:/g)).toHaveLength(1);
+  });
+
+  it("lands the fresh stamp at the same tilt as the others", () => {
+    const motion =
+      css.match(
+        /@media \(prefers-reduced-motion: no-preference\) \{([\s\S]*?)\n\}/,
+      )?.[1] ?? "";
+    expect(motion).toMatch(
+      /\.fresh \.stamp\s*{[^}]*transform:\s*rotate\(4deg\)/,
+    );
+  });
+});
+
 describe("/collection badges", () => {
   const html = view(ready());
 
@@ -104,7 +206,8 @@ describe("/collection badges", () => {
   });
 
   it("marks earned and unearned cards apart beyond the border", () => {
-    const kinds = (html.match(/<li class="[^"]*"/g) ?? []).map((li) =>
+    const badges = html.slice(html.indexOf(">Badges<"));
+    const kinds = (badges.match(/<li class="[^"]*"/g) ?? []).map((li) =>
       /[\s"_]unearned/.test(li)
         ? "unearned"
         : /[\s"_]earned/.test(li)
@@ -161,7 +264,9 @@ describe("/collection badges", () => {
 });
 
 describe("/collection birds you have met", () => {
-  const html = view(ready());
+  const birdsOf = (page: string) =>
+    page.slice(page.indexOf('aria-labelledby="collection-birds"'));
+  const html = birdsOf(view(ready()));
 
   it("heads the section with how many birds I have met", () => {
     expect(html).toMatch(/<h2[^>]*>Birds you have met<\/h2>/);
@@ -190,7 +295,7 @@ describe("/collection birds you have met", () => {
   });
 
   it("keeps the heading and count with no birds met", () => {
-    const none = view(ready(birdsView(0, [])));
+    const none = birdsOf(view(ready(birdsView(0, []))));
     expect(none).toMatch(/<h2[^>]*>Birds you have met<\/h2>/);
     expect(none).toContain(">0 met<");
     expect(none).not.toMatch(/<svg[^>]*role="img"/);
@@ -232,6 +337,7 @@ describe("/collection error", () => {
     expect(html).toMatch(/<p[^>]*role="alert"[^>]*>Sign in first\.<\/p>/);
     expect(html).toMatch(/<button[^>]*type="button"[^>]*>Try again<\/button>/);
     expect(html).not.toContain("Badges");
+    expect(html).not.toContain("Postmarks");
   });
 
   it("keeps Try again a 44 px tap target", () => {

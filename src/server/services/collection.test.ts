@@ -154,6 +154,11 @@ describe("getCollection", () => {
     expect(mine.badges.every((b) => b.progress === 0)).toBe(true);
   });
 
+  it("names the account the collection belongs to", async () => {
+    expect((await collectionOf(world.max.id)).account).toBe(world.max.id);
+    expect((await collectionOf(world.priya.id)).account).toBe(world.priya.id);
+  });
+
   it("starts with no birds met", async () => {
     const { birdsMet, birdsMetRecent } = await collectionOf(world.priya.id);
     expect(birdsMet).toBe(0);

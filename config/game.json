@@ -183,6 +183,7 @@
     "longHaulMi": 500,
     "earlyBirdBeforeHour": 7
   },
+  "postmarkSlots": 50,
   "roost": {
     "gridLatDeg": 0.002,
     "gridLonDeg": 0.0025
