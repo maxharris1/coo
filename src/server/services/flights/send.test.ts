@@ -86,6 +86,17 @@ function sendGerald(body = BODY) {
   });
 }
 
+async function sendAndLand() {
+  await sendGerald();
+  await deps.db.query(
+    "update flights set status = 'landed' where bird_id = $1 and status = 'flying'",
+    [gerald],
+  );
+  await deps.db.query("update birds set status = 'home' where id = $1", [
+    gerald,
+  ]);
+}
+
 describe("send", () => {
   it("sends one note on one flying flight", async () => {
     const before = await counts();
@@ -198,6 +209,67 @@ describe("send", () => {
     ).toBe("not_found");
 
     expect(await counts()).toEqual(before);
+  });
+
+  describe("refuses a bird that cannot fly and creates nothing", () => {
+    it.each([
+      ["flying", "status = 'flying'"],
+      ["busy", "status = 'busy', busy_kind = 'nap', busy_until = $2"],
+      ["visiting", "status = 'visiting'"],
+      ["scheduled", "status = 'scheduled'"],
+      ["too tired", "energy = 5"],
+    ])("%s", async (_, change) => {
+      await deps.db.query(
+        `update birds set ${change}, care_at = $2 where id = $1`,
+        [gerald, new Date(deps.clock.now()).toISOString()],
+      );
+      const before = await counts();
+
+      expect(await refusal(sendGerald())).toBe("conflict");
+
+      expect(await counts()).toEqual(before);
+    });
+  });
+
+  it("refuses the 41st flight of the day as rate_limited and creates nothing", async () => {
+    for (let i = 0; i < 40; i++) await sendAndLand();
+    const before = await counts();
+
+    expect(await refusal(sendGerald())).toBe("rate_limited");
+
+    expect(await counts()).toEqual(before);
+    const [bird] = await deps.db.query<{ status: string }>(
+      "select status from birds where id = $1",
+      [gerald],
+    );
+    expect(bird.status).toBe("home");
+  });
+
+  it("does not count a refused send toward the daily limit", async () => {
+    await deps.db.query(
+      "update birds set energy = 5, care_at = $2 where id = $1",
+      [gerald, new Date(deps.clock.now()).toISOString()],
+    );
+    for (let i = 0; i < 5; i++)
+      expect(await refusal(sendGerald())).toBe("conflict");
+    await deps.db.query("update birds set energy = 100 where id = $1", [
+      gerald,
+    ]);
+    for (let i = 0; i < 40; i++) await sendAndLand();
+
+    expect(await refusal(sendGerald())).toBe("rate_limited");
+  });
+
+  it("sends with the fallback weather when the weather service is down", async () => {
+    deps.weather.failNext();
+
+    const { flights } = await sendGerald();
+
+    const row = await storedFlight(flights[0].id);
+    const fallback = deps.config.game.weather.fallback;
+    expect(row.input.weather).toEqual([fallback, fallback, fallback]);
+    expect(row.status).toBe("flying");
+    expect(row.plan).toEqual(computeFlightPlan(row.input));
   });
 
   describe("when the friendship changes while weather is fetched", () => {
