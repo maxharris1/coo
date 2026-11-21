@@ -15,7 +15,15 @@ const MIN = 60_000;
 
 const visit = (id: string, bird: string, leavesInMin: number): SyncVisit => ({
   id,
-  bird: { id: `b-${id}`, name: bird, breed: "city", look: "gerald", gear: [] },
+  bird: {
+    id: `b-${id}`,
+    name: bird,
+    breed: "city",
+    look: "gerald",
+    pronoun: "they",
+    speedMph: 42,
+    gear: [],
+  },
   owner: { id: `o-${id}`, name: "Priya", handle: "priya" },
   note: { id: `n-${id}`, body: "hi", createdAt: NOW - 90 * MIN },
   arrivedAt: NOW - 10 * MIN,

@@ -23,12 +23,14 @@ export type FactorKind =
   | "tired"
   | "distance";
 
-export type Factor = { kind: FactorKind; text: string; effect: string };
+export type Factor =
+  | { kind: Exclude<FactorKind, "distance">; text: string; effect: string }
+  | { kind: "distance"; distanceMi: number; effect: string };
 
 type Measure = "time" | "odds";
 
 type FactorDef = {
-  kind: Exclude<FactorKind, "headwind" | "tailwind"> | "wind";
+  kind: Exclude<FactorKind, "headwind" | "tailwind" | "distance"> | "wind";
   measure: Measure;
   without: (input: FlightInput) => FlightInput;
   text: (input: FlightInput) => string;
@@ -168,17 +170,23 @@ const DEFS: FactorDef[] = [
     without: (input) => withBird(input, { energy: CONFIG.tiredBelow }),
     text: () => "Energy is low",
   },
-  {
-    kind: "distance",
-    measure: "odds",
-    without: (input) => ({ ...input, to: input.from }),
-    text: (input) =>
-      `${Math.round(haversineMi(input.from, input.to))} mi is a long way`,
-  },
 ];
 
+function distanceFactor(input: FlightInput, plan: FlightPlan): Factor[] {
+  const odds = MEASURES.odds;
+  const n = odds.delta(plan, { ...input, to: input.from });
+  if (n === 0) return [];
+  return [
+    {
+      kind: "distance",
+      distanceMi: haversineMi(input.from, input.to),
+      effect: odds.format(n),
+    },
+  ];
+}
+
 export function factorsFor(input: FlightInput, plan: FlightPlan): Factor[] {
-  return DEFS.flatMap((def) => {
+  const named: Factor[] = DEFS.flatMap((def) => {
     const measure = MEASURES[def.measure];
     const n = measure.delta(plan, def.without(input));
     if (n === 0) return [];
@@ -186,4 +194,5 @@ export function factorsFor(input: FlightInput, plan: FlightPlan): Factor[] {
       def.kind !== "wind" ? def.kind : n > 0 ? "headwind" : "tailwind";
     return [{ kind, text: def.text(input), effect: measure.format(n) }];
   });
+  return [...named, ...distanceFactor(input, plan)];
 }

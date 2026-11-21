@@ -62,11 +62,11 @@ describe("Tracker at 50% of the calm vector (ac-1)", () => {
     vi.setSystemTime(at(flight, 0.5));
     const page = text(
       renderToStaticMarkup(
-        <Tracker flight={flight} offsetMs={0} timeZone={TZ} />,
+        <Tracker flight={flight} offsetMs={0} timeZone={TZ} units="mi" />,
       ),
     );
     expect(page).toContain("In the air");
-    expect(page).toContain("Gerald is over Brooklyn");
+    expect(page).toContain("Gerald is on the way to Priya");
     expect(page).toContain("Carrying your note to Priya");
     expect(page).toContain("41 of 82 mi");
     expect(page).toContain("55 min Lands in");
@@ -79,7 +79,12 @@ describe("Tracker at 50% of the calm vector (ac-1)", () => {
     vi.setSystemTime(at(flight, 0.5) - 10 * 60_000);
     const page = text(
       renderToStaticMarkup(
-        <Tracker flight={flight} offsetMs={10 * 60_000} timeZone={TZ} />,
+        <Tracker
+          flight={flight}
+          offsetMs={10 * 60_000}
+          timeZone={TZ}
+          units="mi"
+        />,
       ),
     );
     expect(page).toContain("41 of 82 mi");
@@ -91,7 +96,7 @@ describe("Tracker at 50% of the calm vector (ac-1)", () => {
     vi.setSystemTime(at(flight, 0.5));
     const page = text(
       renderToStaticMarkup(
-        <Tracker flight={flight} offsetMs={0} timeZone={TZ} />,
+        <Tracker flight={flight} offsetMs={0} timeZone={TZ} units="mi" />,
       ),
     );
     expect(page).toContain("Carrying a note for you");
@@ -107,7 +112,7 @@ describe("Tracker on the block vector (ac-3)", () => {
     vi.setSystemTime(at(flight, 0.5));
     const page = text(
       renderToStaticMarkup(
-        <Tracker flight={flight} offsetMs={0} timeZone={TZ} />,
+        <Tracker flight={flight} offsetMs={0} timeZone={TZ} units="mi" />,
       ),
     );
     expect(page).toContain("1 min 28 sec Lands in");
@@ -119,7 +124,7 @@ describe("Tracker on the block vector (ac-3)", () => {
     vi.setSystemTime(flight.arriveAt! - 14_000);
     const page = text(
       renderToStaticMarkup(
-        <Tracker flight={flight} offsetMs={0} timeZone={TZ} />,
+        <Tracker flight={flight} offsetMs={0} timeZone={TZ} units="mi" />,
       ),
     );
     expect(page).toContain("14 sec Lands in");
@@ -128,15 +133,31 @@ describe("Tracker on the block vector (ac-3)", () => {
   it("ticks every second on a flight under ten minutes and slower otherwise", () => {
     const block = flightFrom("block");
     const calm = flightFrom("calm-short");
-    expect(trackerView(block, at(block, 0.5), TZ).tickMs).toBe(1000);
-    expect(trackerView(calm, at(calm, 0.5), TZ).tickMs).toBeGreaterThan(1000);
+    expect(trackerView(block, at(block, 0.5), TZ, "mi").tickMs).toBe(1000);
+    expect(trackerView(calm, at(calm, 0.5), TZ, "mi").tickMs).toBeGreaterThan(
+      1000,
+    );
+  });
+});
+
+describe("Tracker in kilometres", () => {
+  it("counts the progress in km when the user picks km", () => {
+    const flight = flightFrom("calm-short");
+    const view = trackerView(flight, at(flight, 0.5), TZ, "km");
+    expect(view.progress.text).toBe("66 of 132 km");
+  });
+
+  it("keeps decimals on a short flight in km", () => {
+    const flight = flightFrom("block", { status: "landed" });
+    const view = trackerView(flight, flight.arriveAt! + 60_000, TZ, "km");
+    expect(view.progress.text).toBe("3.5 of 3.5 km");
   });
 });
 
 describe("trackerView states", () => {
   it("is Scheduled before release", () => {
     const flight = flightFrom("calm-short", { status: "scheduled" });
-    const view = trackerView(flight, flight.releaseAt - 60_000, TZ);
+    const view = trackerView(flight, flight.releaseAt - 60_000, TZ, "mi");
     expect(view.state).toBe("scheduled");
     expect(view.chip).toBe("Scheduled");
     expect(view.progress.text).toBe("0 of 82 mi");
@@ -144,18 +165,50 @@ describe("trackerView states", () => {
 
   it("is Landed once the flight has landed", () => {
     const flight = flightFrom("calm-short", { status: "landed" });
-    const view = trackerView(flight, flight.arriveAt! + 60_000, TZ);
+    const view = trackerView(flight, flight.arriveAt! + 60_000, TZ, "mi");
     expect(view.state).toBe("landed");
     expect(view.chip).toBe("Landed");
     expect(view.progress.text).toBe("82 of 82 mi");
   });
 
-  it("names the place from the latest passed event", () => {
+  it("names the place from the nearest decile", () => {
+    const deciles = Array.from({ length: 11 }, (_, i) => `Town ${i}`);
+    deciles[5] = "Trenton, NJ";
     const flight = flightFrom("calm-short", {
-      placeNames: { "1": "Edison, NJ", "2": "Trenton" },
+      placeNames: { deciles, events: {}, dest: null } as never,
     });
-    const view = trackerView(flight, at(flight, 0.5), TZ);
-    expect(view.headline).toBe("Gerald is over Edison, NJ");
+    const view = trackerView(flight, at(flight, 0.5), TZ, "mi");
+    expect(view.headline).toBe("Gerald is over Trenton, NJ");
+  });
+
+  it("falls back to the friend when the geocoder was down", () => {
+    const flight = flightFrom("calm-short", {
+      placeNames: { deciles: [], events: {}, dest: null } as never,
+    });
+    const view = trackerView(flight, at(flight, 0.5), TZ, "mi");
+    expect(view.headline).toBe("Gerald is on the way to Priya");
+  });
+
+  it("falls back to the friend for legacy empty place names", () => {
+    const flight = flightFrom("calm-short", { placeNames: {} });
+    const view = trackerView(flight, at(flight, 0.5), TZ, "mi");
+    expect(view.headline).toBe("Gerald is on the way to Priya");
+  });
+
+  it("falls back to the friend when the nearest decile has no name", () => {
+    const deciles: (string | null)[] = Array(11).fill("Somewhere");
+    deciles[5] = null;
+    const flight = flightFrom("calm-short", {
+      placeNames: { deciles, events: {}, dest: null } as never,
+    });
+    const view = trackerView(flight, at(flight, 0.5), TZ, "mi");
+    expect(view.headline).toBe("Gerald is on the way to Priya");
+  });
+
+  it("says on the way to you for an incoming bird", () => {
+    const flight = flightFrom("calm-short", { role: "incoming" });
+    const view = trackerView(flight, at(flight, 0.5), TZ, "mi");
+    expect(view.headline).toBe("Gerald is on the way to you");
   });
 });
 
@@ -171,11 +224,11 @@ describe("Tracker on the Chicago vector at 2 am (ac-2)", () => {
     const flight = flightFrom("chicago-overnight");
     vi.setSystemTime(nyTime("20", "02:00"));
     const html = renderToStaticMarkup(
-      <Tracker flight={flight} offsetMs={0} timeZone={TZ} />,
+      <Tracker flight={flight} offsetMs={0} timeZone={TZ} units="mi" />,
     );
     const page = text(html);
     expect(page).toContain("Roosting");
-    expect(page).toContain("Asleep near Brooklyn");
+    expect(page).toContain("Gerald is on the way to Priya");
     expect(page).toContain("Night one of a two-day flight to Priya");
     expect(page).toContain("7:15 am Takes off again");
     expect(page).toContain("Fri 4 pm Lands, roughly");
@@ -188,7 +241,7 @@ describe("Tracker on the Chicago vector at 2 am (ac-2)", () => {
     const flight = flightFrom("chicago-overnight");
     vi.setSystemTime(nyTime("19", "12:00"));
     const html = renderToStaticMarkup(
-      <Tracker flight={flight} offsetMs={0} timeZone={TZ} />,
+      <Tracker flight={flight} offsetMs={0} timeZone={TZ} units="mi" />,
     );
     expect(text(html)).toContain("In the air");
     expect(html).toMatch(/<section[^>]*data-night="false"/);
@@ -199,7 +252,7 @@ describe("Tracker on the Chicago vector at 2 am (ac-2)", () => {
     vi.setSystemTime(nyTime("20", "02:00"));
     const page = text(
       renderToStaticMarkup(
-        <Tracker flight={flight} offsetMs={0} timeZone={TZ} />,
+        <Tracker flight={flight} offsetMs={0} timeZone={TZ} units="mi" />,
       ),
     );
     expect(page).toContain("Carrying a note for you");
@@ -208,7 +261,12 @@ describe("Tracker on the Chicago vector at 2 am (ac-2)", () => {
 
   it("reads the roost end in the viewer's time zone", () => {
     const flight = flightFrom("chicago-overnight");
-    const view = trackerView(flight, nyTime("20", "02:00"), "America/Chicago");
+    const view = trackerView(
+      flight,
+      nyTime("20", "02:00"),
+      "America/Chicago",
+      "mi",
+    );
     expect(view.state).toBe("roosting");
     expect(view.night).toBe(true);
     expect(view.stats[0]).toEqual({
@@ -229,7 +287,7 @@ describe("Tracker chrome and pins (ac-4)", () => {
   function render(flight: Flight): string {
     vi.setSystemTime(at(flight, 0.5));
     return renderToStaticMarkup(
-      <Tracker flight={flight} offsetMs={0} timeZone={TZ} />,
+      <Tracker flight={flight} offsetMs={0} timeZone={TZ} units="mi" />,
     );
   }
 

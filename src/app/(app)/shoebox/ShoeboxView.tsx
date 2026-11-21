@@ -1,4 +1,5 @@
 import { Loader } from "@/components/Loader";
+import type { Units } from "@/lib/format";
 import type { NotesPage } from "@/server/services/notes";
 import { NoteCard } from "./NoteCard";
 import { ShoeboxTop, type ShoeboxTopProps } from "./ShoeboxTop";
@@ -14,6 +15,7 @@ export type ShoeboxViewProps = {
   friends: ShoeboxTopProps["friends"];
   selected: ShoeboxTopProps["selected"];
   timeZone: string;
+  units: Units;
   onSelect: ShoeboxTopProps["onSelect"];
   onMore: () => void;
 };
@@ -23,6 +25,7 @@ export function ShoeboxView({
   friends,
   selected,
   timeZone,
+  units,
   onSelect,
   onMore,
 }: ShoeboxViewProps) {
@@ -49,6 +52,7 @@ export function ShoeboxView({
                   note={note}
                   index={index}
                   timeZone={timeZone}
+                  units={units}
                 />
               ))}
             </div>

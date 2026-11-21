@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Bird, type GearId, type Look } from "@/components/Bird";
 import { Landing } from "@/components/Takeoff";
 import { config } from "@/lib/config";
+import type { Units } from "@/lib/format";
 import type { SyncVisit } from "@/server/services/visits/syncRead";
 import {
   countdownLine,
@@ -24,6 +25,7 @@ type LandedProps = {
   city: SenderCity | null;
   nowMs: number;
   timeZone: string;
+  units: Units;
   animate: boolean;
   snacking: boolean;
   onSnack(): void;
@@ -110,6 +112,7 @@ export function Landed({
   city,
   nowMs,
   timeZone,
+  units,
   animate,
   snacking,
   onSnack,
@@ -128,7 +131,7 @@ export function Landed({
 
       <div className={styles.intro}>
         <h1 className={styles.title}>{name} has landed</h1>
-        <p className={styles.summary}>{tripSummary(visit, city, "mi")}</p>
+        <p className={styles.summary}>{tripSummary(visit, city, units)}</p>
       </div>
 
       <Sill visit={visit} animate={animate} />

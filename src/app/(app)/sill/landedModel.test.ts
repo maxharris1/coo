@@ -14,7 +14,15 @@ const leaves = arrived + 30 * MINUTE;
 
 const visit = (over: Partial<SyncVisit> = {}): SyncVisit => ({
   id: "v1",
-  bird: { id: "b1", name: "Dumpling", breed: "city", look: "slate", gear: [] },
+  bird: {
+    id: "b1",
+    name: "Dumpling",
+    breed: "city",
+    look: "slate",
+    pronoun: "they",
+    speedMph: 42,
+    gear: [],
+  },
   owner: { id: "u1", name: "Priya", handle: "priya" },
   note: { id: "n1", body: "Dumplings tonight?", createdAt: created },
   arrivedAt: arrived,
