@@ -39,6 +39,12 @@ const gerald = (over: Record<string, unknown> = {}) =>
     busyKind: null,
     busyUntil: null,
     gear: ["goggles"],
+    speedMph: 45,
+    focus: 2,
+    navigation: 4,
+    quirks: ["Afraid of statues", "Loves New Jersey"],
+    deliveries: 37,
+    detours: 2,
     ...over,
   }) as unknown as PigeonBird;
 
@@ -229,6 +235,72 @@ describe("Pigeon care meters (ac-1)", () => {
     );
     expect(render(payload([gerald({ pronoun: "they" })]))).toContain(
       "Skip a few days and they sulk and fly slower. They never leave.",
+    );
+  });
+});
+
+describe("Pigeon abilities (ac-1)", () => {
+  const html = render(payload([gerald()]));
+
+  const dots = (html: string, label: string) => {
+    const svg = new RegExp(
+      `role="img" aria-label="${label}"[^>]*>(.*?)</svg>`,
+    ).exec(html)?.[1];
+    return [...(svg ?? "").matchAll(/<circle[^>]*class="([^"]*)"/g)].map((m) =>
+      /filled/.test(m[1]),
+    );
+  };
+
+  it("heads the section in the bird's pronoun", () => {
+    expect(html).toMatch(/<h2[^>]*>What he can do<\/h2>/);
+    expect(render(payload([gerald({ pronoun: "she" })]))).toMatch(
+      /<h2[^>]*>What she can do<\/h2>/,
+    );
+    expect(render(payload([gerald({ pronoun: "they" })]))).toMatch(
+      /<h2[^>]*>What they can do<\/h2>/,
+    );
+  });
+
+  it("shows base speed and the range before a rest", () => {
+    expect(html).toMatch(/>Speed<\/span><span[^>]*>45 mph</);
+    expect(html).toMatch(/>Range before a rest<\/span><span[^>]*>320 miles</);
+  });
+
+  it("draws navigation and focus as five dots, the first few filled", () => {
+    expect(html).toContain(">Navigation, 4 of 5<");
+    expect(html).toContain(">Focus, 2 of 5 (bread)<");
+    expect(dots(html, "Navigation 4 of 5")).toEqual([
+      true,
+      true,
+      true,
+      true,
+      false,
+    ]);
+    expect(dots(html, "Focus 2 of 5")).toEqual([
+      true,
+      true,
+      false,
+      false,
+      false,
+    ]);
+  });
+
+  it("only city pigeons focus for bread", () => {
+    const html = render(payload([gerald({ breed: "king", focus: 3 })]));
+    expect(html).toContain(">Focus, 3 of 5<");
+    expect(html).not.toContain("(bread)");
+  });
+
+  it("shows each quirk as a chip", () => {
+    expect(html).toMatch(
+      /<ul[^>]*><li[^>]*>Afraid of statues<\/li><li[^>]*>Loves New Jersey<\/li><\/ul>/,
+    );
+  });
+
+  it("states the record, and no note is ever lost", () => {
+    expect(html).toContain(">37 deliveries. 2 detours. 0 notes lost.<");
+    expect(render(payload([gerald({ deliveries: 1, detours: 1 })]))).toContain(
+      ">1 delivery. 1 detour. 0 notes lost.<",
     );
   });
 });
