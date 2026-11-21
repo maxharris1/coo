@@ -23,13 +23,14 @@ const render = (
   picked: string[],
   readyCount = 2,
   list: RecipientList = { kind: "ready", cards },
+  query = "",
 ) =>
   renderToStaticMarkup(
     <RecipientsView
       list={list}
       picked={new Set(picked)}
       readyCount={readyCount}
-      query=""
+      query={query}
       onQuery={() => {}}
       onToggle={() => {}}
     />,
@@ -102,5 +103,18 @@ describe("RecipientsView (ac-1)", () => {
     const html = render([], 2, { kind: "ready", cards: [] });
     expect(html).toContain("No friends yet. Send to someone new.");
     expect(html).toContain("Someone new");
+  });
+
+  it("filters friends by name and keeps each friend's avatar colour", () => {
+    const tone = (html: string) =>
+      rowFor(html, "Rosa").match(/avatar ([^"]+)"/)?.[1];
+    const all = render([]);
+    const searched = render([], 2, { kind: "ready", cards }, "ros");
+    expect(searched).toContain(">Rosa<");
+    expect(searched).not.toContain(">Theo<");
+    expect(tone(searched)).toBe(tone(all));
+    expect(render([], 2, { kind: "ready", cards }, "zz")).toContain(
+      "Nobody by that name.",
+    );
   });
 });

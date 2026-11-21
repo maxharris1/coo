@@ -50,14 +50,8 @@ export default function SendPage() {
 
   if (!data) return <Loader />;
 
-  const needle = query.trim().toLowerCase();
   const list: RecipientList =
-    friends.kind === "ready"
-      ? {
-          kind: "ready",
-          cards: cards.filter((c) => c.name.toLowerCase().includes(needle)),
-        }
-      : friends;
+    friends.kind === "ready" ? { kind: "ready", cards } : friends;
 
   const onToggle = (id: string) =>
     setPicked((prev) => {

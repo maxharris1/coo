@@ -93,6 +93,10 @@ function Friends({
   query: string;
   onToggle: (id: string) => void;
 }) {
+  const needle = query.trim().toLowerCase();
+  const shown = cards
+    .map((card, i) => ({ card, tone: TONES[i % TONES.length] }))
+    .filter(({ card }) => card.name.toLowerCase().includes(needle));
   return (
     <section className={styles.section} aria-labelledby="friends-title">
       <div className={styles.sectionHead}>
@@ -101,7 +105,7 @@ function Friends({
         </h2>
         <span className={styles.sectionNote}>Flight time from your loft</span>
       </div>
-      {cards.length === 0 ? (
+      {shown.length === 0 ? (
         <p className={styles.empty}>
           {query
             ? "Nobody by that name. Send to someone new."
@@ -109,11 +113,11 @@ function Friends({
         </p>
       ) : (
         <ul className={styles.rows}>
-          {cards.map((card, i) => (
+          {shown.map(({ card, tone }) => (
             <Row
               key={card.id}
               card={card}
-              tone={TONES[i % TONES.length]}
+              tone={tone}
               picked={picked.has(card.id)}
               onToggle={onToggle}
             />
