@@ -10,7 +10,11 @@ import { clockTime, type Pronoun } from "@/lib/format";
 import { careAt, projectCare, type CareOwner } from "@/lib/game/care";
 import { levelFor } from "@/lib/game/levels";
 import { noteLimit, validateBody } from "@/lib/game/notes";
-import { isWeekend, startOfLocalDayMs } from "@/lib/game/time";
+import {
+  isWeekend,
+  startOfLocalDayMs,
+  startOfNextLocalDayMs,
+} from "@/lib/game/time";
 import type { Deps } from "@/server/deps";
 import { AppError } from "@/server/errors";
 import type { UserId } from "@/server/ports/auth";
@@ -137,10 +141,13 @@ export async function send(
     const [{ count: sentToday }] = await tx.query<{ count: number }>(
       `select count(*)::int from flights
        where owner_id = $1 and kind = 'delivery' and status <> 'cancelled'
-         and created_at >= $2`,
+         and created_at >= $2 and created_at < $3`,
       [
         me,
         new Date(startOfLocalDayMs(now, current.mine.timezone)).toISOString(),
+        new Date(
+          startOfNextLocalDayMs(now, current.mine.timezone),
+        ).toISOString(),
       ],
     );
     if (sentToday >= deps.config.game.limits.flightsPerDay)

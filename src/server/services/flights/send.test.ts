@@ -348,6 +348,56 @@ describe("send", () => {
       expect(await deliveriesBy(max)).toBe(40);
       expect(await counts()).toEqual(before);
     });
+
+    it("does not count a next-day send that commits during the weather lookup against the captured day", async () => {
+      await setTimezone(max, "America/New_York");
+      const brenda = world.max.birds[1].id;
+      const afternoon = Date.parse("2026-11-20T20:00:00Z");
+      await deps.db.tx(async (t) => {
+        for (let i = 0; i < 39; i++) {
+          const noteId = await addNote(
+            t,
+            world.max,
+            world.priya,
+            afternoon,
+            true,
+          );
+          await addDelivery(
+            t,
+            world.max,
+            world.priya,
+            brenda,
+            noteId,
+            "landed",
+            afternoon,
+            afternoon + HOUR_MS,
+          );
+        }
+      });
+      deps.clock.set(Date.parse("2026-11-21T04:59:59.500Z"));
+      const base = deps;
+      duringWeather(async () => {
+        base.clock.advance(1000);
+        await send(base, max, {
+          body: BODY,
+          sends: [{ friendId: priya, birdId: brenda }],
+        });
+      });
+
+      expect(await refusal(sendGerald())).toBe("resolved");
+
+      const days = await deps.db.query<{ day: string; count: number }>(
+        `select to_char(created_at at time zone 'America/New_York', 'YYYY-MM-DD') as day,
+           count(*)::int
+         from flights where owner_id = $1 and kind = 'delivery'
+         group by 1 order by 1`,
+        [max],
+      );
+      expect(days).toEqual([
+        { day: "2026-11-20", count: 40 },
+        { day: "2026-11-21", count: 1 },
+      ]);
+    });
   });
 
   it("sends with the fallback weather when the weather service is down", async () => {
