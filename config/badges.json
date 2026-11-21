@@ -85,7 +85,7 @@
       "id": "full-house",
       "name": "Full house",
       "text": "Five birds in the loft",
-      "icon": "home",
+      "icon": "loft",
       "goal": 5,
       "rule": "progress is the number of birds owned"
     },

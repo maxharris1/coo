@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { config } from "@/lib/config";
+import { offersFor } from "@/lib/game/jobs";
+import type { LocalDate } from "@/lib/game/time";
 import type { UserId } from "@/server/ports/auth";
 import { onboard } from "@/server/services/onboarding";
 import { tick } from "@/server/services/tick";
@@ -301,5 +303,131 @@ describe("GET /api/earn?flight=", () => {
     const { status, json } = await client.get({ flight: "nope" }, jar);
     expect(status).toBe(400);
     expect(json.error.code).toBe("invalid");
+  });
+});
+
+describe("GET /api/earn jobs", () => {
+  const TZ = "America/New_York";
+  const MINUTE = 60_000;
+
+  async function startedJob(userId: string, startedAtMs: number) {
+    const [bird] = await deps.db.query<{ id: string }>(
+      "select id from birds where owner_id = $1 limit 1",
+      [userId],
+    );
+    await deps.db.query(
+      `insert into jobs (user_id, bird_id, job_id, pay, started_at, ends_at)
+       values ($1, $2, 'x', 1, to_timestamp($3 / 1000.0), to_timestamp($3 / 1000.0))`,
+      [userId, bird.id, startedAtMs],
+    );
+  }
+
+  function pair(json: { jobs: { offers: { id: string }[] } }) {
+    return json.jobs.offers.map((o) => o.id);
+  }
+
+  it.each([
+    {
+      early: Date.UTC(2026, 10, 21, 5, 5),
+      late: Date.UTC(2026, 10, 22, 4, 55),
+      nextDay: Date.UTC(2026, 10, 22, 5, 5),
+      today: "2026-11-21",
+      tomorrow: "2026-11-22",
+    },
+    {
+      early: Date.UTC(2026, 3, 6, 4, 5),
+      late: Date.UTC(2026, 3, 7, 3, 55),
+      nextDay: Date.UTC(2026, 3, 7, 4, 5),
+      today: "2026-04-06",
+      tomorrow: "2026-04-07",
+    },
+  ])(
+    "offers the same two jobs all local day $today and a different pair on $tomorrow",
+    async ({ early, late, nextDay, today, tomorrow }) => {
+      const world = await seedWorld(deps.db, deps.clock.now());
+      const id = world.max.id;
+      await deps.db.query("update profiles set timezone = $2 where id = $1", [
+        id,
+        TZ,
+      ]);
+      const { jar } = await client.signIn("(555) 000-0001");
+      const expected = (date: string) => offersFor(id, date as LocalDate);
+
+      deps.clock.set(early);
+      const morning = await client.get({}, jar);
+      expect(morning.status).toBe(200);
+      expect(morning.json.jobs.offers).toHaveLength(config.game.jobs.offered);
+      expect(pair(morning.json)).toEqual(expected(today).map((j) => j.id));
+      expect(morning.json.jobs.offers[0]).toEqual({
+        id: expected(today)[0].id,
+        text: expected(today)[0].text,
+        minutes: expected(today)[0].minutes,
+        pay: expected(today)[0].pay,
+      });
+
+      deps.clock.set(late);
+      const night = await client.get({}, jar);
+      expect(pair(night.json)).toEqual(pair(morning.json));
+
+      deps.clock.set(nextDay);
+      const nextMorning = await client.get({}, jar);
+      expect(pair(nextMorning.json)).toEqual(
+        expected(tomorrow).map((j) => j.id),
+      );
+      expect(pair(nextMorning.json)).not.toEqual(pair(morning.json));
+    },
+  );
+
+  it("follows the caller's own local day, not UTC", async () => {
+    const { id, jar } = await onboarded("(555) 123-4567", "Max", "Asia/Tokyo");
+    deps.clock.set(Date.UTC(2026, 10, 21, 16, 0));
+    const { json } = await client.get({}, jar);
+    expect(pair(json)).toEqual(
+      offersFor(id, "2026-11-22" as LocalDate).map((j) => j.id),
+    );
+  });
+
+  it("counts down jobs left today and halves pay after the full-pay jobs", async () => {
+    const { id, jar } = await onboarded("(555) 123-4567", "Max", TZ);
+    const now = Date.UTC(2026, 10, 21, 18, 0);
+    deps.clock.set(now);
+    const { fullPayPerDay, maxPerDay, reducedPayFactor } = config.game.jobs;
+    const full = offersFor(id, "2026-11-21" as LocalDate);
+
+    let { json } = await client.get({}, jar);
+    expect(json.jobs.leftToday).toBe(maxPerDay);
+
+    await startedJob(id, Date.UTC(2026, 10, 21, 4, 0));
+    for (let i = 0; i < fullPayPerDay; i++) {
+      await startedJob(id, now - (i + 1) * MINUTE);
+    }
+    ({ json } = await client.get({}, jar));
+    expect(json.jobs.leftToday).toBe(maxPerDay - fullPayPerDay);
+    expect(json.jobs.offers.map((o: { pay: number }) => o.pay)).toEqual(
+      full.map((j) => Math.floor(j.pay * reducedPayFactor)),
+    );
+
+    for (let i = fullPayPerDay; i < maxPerDay + 1; i++) {
+      await startedJob(id, now - (i + 1) * MINUTE);
+    }
+    ({ json } = await client.get({}, jar));
+    expect(json.jobs.leftToday).toBe(0);
+    expect(pair(json)).toEqual(full.map((j) => j.id));
+    expect(json.jobs.offers.map((o: { pay: number }) => o.pay)).toEqual([0, 0]);
+  });
+
+  it("counts only the caller's own jobs and offers by the caller's id", async () => {
+    const other = await onboarded("(555) 765-4321", "Brenda", TZ);
+    const now = Date.UTC(2026, 10, 21, 18, 0);
+    deps.clock.set(now);
+    for (let i = 0; i < config.game.jobs.maxPerDay; i++) {
+      await startedJob(other.id, now - (i + 1) * MINUTE);
+    }
+    const { id, jar } = await onboarded("(555) 123-4567", "Max", TZ);
+    const { json } = await client.get({ userId: other.id }, jar);
+    expect(json.jobs.leftToday).toBe(config.game.jobs.maxPerDay);
+    expect(pair(json)).toEqual(
+      offersFor(id, "2026-11-21" as LocalDate).map((j) => j.id),
+    );
   });
 });
