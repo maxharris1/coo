@@ -1,0 +1,135 @@
+.top {
+  display: flex;
+  flex-direction: column;
+  background: var(--coo-sky);
+  color: var(--coo-ink);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 20px 0;
+}
+
+.wordmark {
+  margin: 0;
+  font-family: var(--coo-font-display);
+  font-size: 38px;
+  line-height: 1;
+  letter-spacing: -1px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.menu {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: var(--coo-touch);
+  height: var(--coo-touch);
+  background: var(--coo-card);
+  border: var(--coo-line);
+  border-radius: 50%;
+  box-shadow: var(--coo-shadow-1);
+}
+
+.seeds {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  min-height: var(--coo-touch);
+  padding: 0 14px 0 10px;
+  color: var(--coo-ink);
+  font-size: 16px;
+  font-weight: 900;
+  text-decoration: none;
+  background: var(--coo-card);
+  border: var(--coo-line);
+  border-radius: var(--coo-radius-pill);
+  box-shadow: var(--coo-shadow-1);
+}
+
+.menu:focus-visible,
+.seeds:focus-visible {
+  outline: 3px solid var(--coo-ink);
+  outline-offset: 3px;
+}
+
+.greeting {
+  margin: 0;
+  padding: 10px 20px 0;
+  font-family: var(--coo-font-display);
+  font-size: 26px;
+  font-weight: 400;
+  line-height: 1.12;
+  text-wrap: balance;
+}
+
+.scene {
+  display: block;
+  flex-shrink: 0;
+  width: 100%;
+  height: auto;
+}
+
+.drift {
+  animation: coo-drift 6s ease-in-out infinite alternate;
+}
+
+.snooze {
+  font-family: var(--coo-font-body);
+  font-size: 13px;
+  font-weight: 900;
+  fill: var(--coo-paper);
+  animation: coo-snooze 2.4s ease-in-out infinite;
+}
+
+.snoozeLate {
+  font-size: 10px;
+  animation-delay: 0.5s;
+}
+
+.tag {
+  font-family: var(--coo-font-body);
+  font-size: 10px;
+  font-weight: 900;
+  text-anchor: middle;
+  fill: var(--coo-ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drift,
+  .snooze {
+    animation: none;
+  }
+}
+
+@keyframes coo-drift {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(18px);
+  }
+}
+
+@keyframes coo-snooze {
+  0% {
+    transform: translate(0, 0) scale(0.5);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(12px, -26px) scale(1.25);
+    opacity: 0;
+  }
+}

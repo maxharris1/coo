@@ -1,3 +1,5 @@
+import type { BirdStatus } from "./game/types";
+
 export type Pronoun = "he" | "she" | "they";
 export type Units = "mi" | "km";
 
@@ -130,4 +132,75 @@ export function fill(
       sentence.replace(TOKEN, (_, name: string) => String(values[name])),
     )
     .join(" ");
+}
+
+const NUMBER_WORDS = [
+  "no",
+  "one",
+  "two",
+  "three",
+  "four",
+  "five",
+  "six",
+  "seven",
+  "eight",
+  "nine",
+  "ten",
+  "eleven",
+  "twelve",
+];
+
+const AWAY: ReadonlySet<BirdStatus> = new Set(["flying", "visiting"]);
+
+export function isAway(status: BirdStatus): boolean {
+  return AWAY.has(status);
+}
+
+const hourFormatters = new Map<string, Intl.DateTimeFormat>();
+
+function hourIn(nowMs: number, timeZone: string): number {
+  let f = hourFormatters.get(timeZone);
+  if (!f) {
+    f = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      hour: "numeric",
+      hourCycle: "h23",
+    });
+    hourFormatters.set(timeZone, f);
+  }
+  return Number(f.format(nowMs));
+}
+
+function timeOfDay(hour: number): string {
+  if (hour >= 5 && hour < 12) return "Morning";
+  if (hour >= 12 && hour < 17) return "Afternoon";
+  if (hour >= 17 && hour < 22) return "Evening";
+  return "Night";
+}
+
+function inWords(n: number): string {
+  return NUMBER_WORDS[n] ?? String(n);
+}
+
+function capitalise(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+export function greeting(
+  nowMs: number,
+  timeZone: string,
+  birds: readonly { status: BirdStatus }[],
+): string {
+  const away = birds.filter((b) => isAway(b.status)).length;
+  const home = birds.length - away;
+  const homePart = `${inWords(home)} ${home === 1 ? "bird" : "birds"} home`;
+  const awayPart =
+    away === 1 ? "one out on a job" : `${inWords(away)} out on jobs`;
+  const count =
+    birds.length === 0
+      ? "no birds yet"
+      : away === 0
+        ? homePart
+        : `${homePart}, ${awayPart}`;
+  return `${timeOfDay(hourIn(nowMs, timeZone))}. ${capitalise(count)}.`;
 }

@@ -1,0 +1,36 @@
+.page {
+  display: grid;
+  place-items: center;
+  min-height: 60dvh;
+  background: var(--coo-paper);
+}
+
+.status {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+
+.walk {
+  animation: coo-drift 1.2s ease-in-out infinite alternate;
+}
+
+.label {
+  color: var(--coo-muted);
+  font-weight: 800;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .walk {
+    animation: none;
+  }
+}
+
+@keyframes coo-drift {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(18px);
+  }
+}
