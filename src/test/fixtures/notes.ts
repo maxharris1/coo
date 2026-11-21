@@ -14,7 +14,13 @@ export async function addNote(
   const [{ id }] = await t.query<{ id: string }>(
     `insert into notes (sender_id, recipient_id, body, created_at, delivered_at)
      values ($1, $2, $3, $4, $5) returning id`,
-    [from.id, to.id, `Coo from ${from.name}`, now, delivered ? now : null],
+    [
+      from.id,
+      to.id,
+      `Test note from ${from.name}`,
+      now,
+      delivered ? now : null,
+    ],
   );
   return id;
 }
