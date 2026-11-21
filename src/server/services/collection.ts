@@ -52,14 +52,11 @@ export async function getCollection(
   }>("select badge_id, progress, earned_at from badges where user_id = $1", [
     userId,
   ]);
-  const [{ count }] = await deps.db.query<{ count: number }>(
-    "select count(*)::int as count from bird_meetings where user_id = $1",
-    [userId],
-  );
-  const birdsMetRecent = await deps.db.query<
-    Collection["birdsMetRecent"][number]
+  const recentRows = await deps.db.query<
+    Collection["birdsMetRecent"][number] & { total: number }
   >(
-    `select b.name, b.look, b.breed, b.gear from bird_meetings m
+    `select b.name, b.look, b.breed, b.gear, count(*) over () as total
+     from bird_meetings m
      join birds b on b.id = m.bird_id
      where m.user_id = $1
      order by m.first_at desc, m.bird_id
@@ -87,7 +84,12 @@ export async function getCollection(
         earnedAt: row?.earned_at?.getTime() ?? null,
       };
     }),
-    birdsMet: count,
-    birdsMetRecent,
+    birdsMet: recentRows[0]?.total ?? 0,
+    birdsMetRecent: recentRows.map(({ name, look, breed, gear }) => ({
+      name,
+      look,
+      breed,
+      gear,
+    })),
   };
 }

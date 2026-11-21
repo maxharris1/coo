@@ -222,6 +222,30 @@ describe("getCollection", () => {
     expect((await collectionOf(world.priya.id)).birdsMet).toBe(2);
   });
 
+  it("counts the same birds it lists when a meeting lands mid-read", async () => {
+    const gerald = world.max.birds[0].id;
+    let landed = false;
+    const db: TestDeps["db"] = {
+      ...deps.db,
+      async query<T>(sql: string, params?: unknown[]) {
+        const rows = await deps.db.query<T>(sql, params);
+        if (!landed && sql.includes("bird_meetings")) {
+          landed = true;
+          await meet(world.priya.id, gerald, deps.clock.now());
+        }
+        return rows;
+      },
+    };
+
+    const { birdsMet, birdsMetRecent } = await getCollection(
+      { ...deps, db },
+      world.priya.id as UserId,
+    );
+
+    expect(landed).toBe(true);
+    expect(birdsMet).toBe(birdsMetRecent.length);
+  });
+
   it("does not count birds that landed on someone else's sill, nor my own birds", async () => {
     await land({
       from: world.max,

@@ -6,6 +6,10 @@ import { badgesView, birdsView } from "./collection";
 import { CollectionView } from "./CollectionView";
 import CollectionPage from "./page";
 
+const tokens = readFileSync(
+  new URL("../../../../public/assets/tokens.css", import.meta.url),
+  "utf8",
+);
 const css = readFileSync(
   new URL("./Collection.module.css", import.meta.url),
   "utf8",
@@ -205,7 +209,8 @@ describe("/collection birds you have met", () => {
   it("draws the chip as a dashed 50 px circle in muted 900 text", () => {
     expect(rule("more")).toMatch(/width:\s*50px/);
     expect(rule("more")).toMatch(/height:\s*50px/);
-    expect(rule("more")).toMatch(/border:\s*2\.5px dashed var\(--coo-muted\)/);
+    expect(rule("more")).toMatch(/border:\s*var\(--coo-line-dashed-soft\)/);
+    expect(tokens).toMatch(/--coo-line-dashed-soft:\s*2\.5px dashed #B9B3C9;/);
     expect(rule("more")).toMatch(/border-radius:\s*50%/);
     expect(rule("more")).toMatch(/color:\s*var\(--coo-muted\)/);
     expect(rule("more")).toMatch(/font-weight:\s*900/);
