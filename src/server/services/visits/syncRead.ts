@@ -1,3 +1,4 @@
+import type { Pronoun } from "@/lib/format";
 import type { BreedId, GearId } from "@/lib/game/types";
 import type { Deps } from "@/server/deps";
 
@@ -6,6 +7,8 @@ type BirdLite = {
   name: string;
   breed: BreedId;
   look: string;
+  pronoun: Pronoun;
+  speedMph: number;
   gear: GearId[];
 };
 type PersonLite = { id: string; name: string; handle: string };
@@ -38,6 +41,8 @@ type VisitRow = {
   bird_name: string;
   breed: string;
   look: string;
+  pronoun: string;
+  speed_mph: number;
   gear: string[];
   owner_id: string;
   owner_name: string;
@@ -61,7 +66,7 @@ export async function syncVisits(
   const [visitRows, myRows] = await Promise.all([
     deps.db.query<VisitRow>(
       `select v.id, v.arrived_at, v.leaves_at, v.snack_given,
-              b.id as bird_id, b.name as bird_name, b.breed, b.look, b.gear,
+              b.id as bird_id, b.name as bird_name, b.breed, b.look, b.pronoun, b.speed_mph, b.gear,
               o.id as owner_id, o.name as owner_name, o.handle as owner_handle,
               n.id as note_id, n.body as note_body, n.created_at as note_created_at,
               f.distance_mi, f.delay_kind, f.release_at, f.arrive_at
@@ -93,6 +98,8 @@ export async function syncVisits(
         name: r.bird_name,
         breed: r.breed as BreedId,
         look: r.look,
+        pronoun: r.pronoun as Pronoun,
+        speedMph: r.speed_mph,
         gear: r.gear as GearId[],
       },
       owner: { id: r.owner_id, name: r.owner_name, handle: r.owner_handle },

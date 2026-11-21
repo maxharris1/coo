@@ -55,6 +55,8 @@ const visit = (over: Partial<SyncVisit> = {}): SyncVisit => ({
     name: "Dumpling",
     breed: "city",
     look: "dumpling",
+    pronoun: "they",
+    speedMph: 42,
     gear: [],
   },
   owner: { id: "u1", name: "Priya", handle: "priya" },
