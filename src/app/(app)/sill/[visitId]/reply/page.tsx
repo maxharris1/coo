@@ -6,7 +6,7 @@ import type { Look } from "@/components/Bird";
 import { Loader } from "@/components/Loader";
 import { useSync } from "@/components/SyncProvider";
 import { useToast } from "@/components/Toasts";
-import type { Units } from "@/lib/format";
+import { asUnits, type Units } from "@/lib/format";
 import type { FriendRow } from "@/server/services/friends";
 import type { SyncVisit } from "@/server/services/visits/syncRead";
 import { friendRow, postReply } from "./replyApi";
@@ -105,7 +105,7 @@ export default function ReplyPage() {
     <ReplyScreen
       key={visit.id}
       visit={visit}
-      units={data?.me.units === "km" ? "km" : "mi"}
+      units={asUnits(data?.me.units)}
       nowMs={nowMs}
       onSent={() => {
         setSent(true);
