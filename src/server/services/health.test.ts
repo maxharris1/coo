@@ -66,4 +66,22 @@ describe("health", () => {
 
     expect((await health(deps)).lastTickAt).toBe(later);
   });
+
+  it("works as the coo_app role with row level security on", async () => {
+    await deps.db.tx(async (db) => {
+      await db.query("set local role coo_app");
+      const asApp = { db, clock: deps.clock };
+      await recordTick(asApp);
+      deps.clock.advance(MINUTE);
+
+      expect(await health(asApp)).toMatchObject({
+        ageMs: MINUTE,
+        stale: false,
+      });
+    });
+    const [{ relrowsecurity }] = await deps.db.query<{
+      relrowsecurity: boolean;
+    }>("select relrowsecurity from pg_class where relname = 'tick_health'");
+    expect(relrowsecurity).toBe(true);
+  });
 });
