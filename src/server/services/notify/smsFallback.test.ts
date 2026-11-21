@@ -10,6 +10,7 @@ import { seedWorld, type Person, type World } from "@/test/seedWorld";
 import { notify } from "../notify";
 import { tick } from "../tick";
 import { deliver } from "./deliver";
+import { SMS_UNSUBSCRIBED } from "@/server/ports/sms";
 import { smsText } from "./smsFallback";
 
 const MINUTE_MS = 60_000;
@@ -38,6 +39,21 @@ async function phoneOf(person: Person) {
     [person.id],
   );
   return toE164(phone);
+}
+
+async function smsFallbackOf(person: Person) {
+  const [{ sms_fallback }] = await deps.db.query<{ sms_fallback: boolean }>(
+    "select sms_fallback from profiles where id = $1",
+    [person.id],
+  );
+  return sms_fallback;
+}
+
+async function landedIns() {
+  return deps.db.query<{ id: string; sms_sent_at: Date | null }>(
+    "select id, sms_sent_at from notifications where kind = 'landed-in' and user_id = $1 order by sms_sent_at nulls last",
+    [world.priya.id],
+  );
 }
 
 async function landedIn() {
@@ -134,5 +150,90 @@ describe("SMS fallback", () => {
 
     expect(text.length).toBeLessThan(160);
     expect(text.endsWith(STOP)).toBe(true);
+  });
+
+  describe("at most one text per 15 minutes", () => {
+    async function landTwo() {
+      const second = await insertPlannedDelivery(
+        deps.db,
+        world,
+        deps.clock.now(),
+        { from: world.rosa },
+      );
+      deps.clock.set(
+        Math.max(flight.arriveAtMs, second.arriveAtMs) + MINUTE_MS,
+      );
+      await tick(deps);
+      return landedIns();
+    }
+
+    it("two landings inside 15 minutes produce one text", async () => {
+      const rows = await landTwo();
+
+      expect(rows).toHaveLength(2);
+      expect(deps.sms.sent).toHaveLength(1);
+      expect(rows.filter((r) => r.sms_sent_at !== null)).toHaveLength(1);
+    });
+
+    it("drops a text 14 minutes after the last and sends one after 15", async () => {
+      const [texted, dropped] = await landTwo();
+      const sentAt = texted.sms_sent_at!.getTime();
+
+      deps.clock.set(sentAt + 14 * MINUTE_MS);
+      await deliver(deps, dropped.id);
+      expect(deps.sms.sent).toHaveLength(1);
+
+      deps.clock.set(sentAt + 15 * MINUTE_MS);
+      await deliver(deps, dropped.id);
+      expect(deps.sms.sent).toHaveLength(2);
+    });
+
+    it("another person's recent text does not hold back this one", async () => {
+      await deps.db.query(
+        `insert into notifications (user_id, kind, ref_id, title, body, url, created_at, sms_sent_at)
+         values ($1, 'landed-in', $2, 'Pip', 'Pip landed.', '/', $3, $3)`,
+        [
+          world.rosa.id,
+          crypto.randomUUID(),
+          new Date(deps.clock.now()).toISOString(),
+        ],
+      );
+
+      await land();
+
+      expect(deps.sms.sent).toHaveLength(1);
+    });
+  });
+
+  describe("opt-out", () => {
+    it("an unsubscribed error turns the setting off and nothing more is sent", async () => {
+      deps.sms.failNext(SMS_UNSUBSCRIBED);
+
+      await land();
+
+      expect(deps.sms.sent).toEqual([]);
+      expect(await smsFallbackOf(world.priya)).toBe(false);
+
+      const later = await insertPlannedDelivery(
+        deps.db,
+        world,
+        deps.clock.now(),
+        { from: world.rosa },
+      );
+      deps.clock.set(later.arriveAtMs + 5 * MINUTE_MS);
+      await tick(deps);
+
+      expect(await landedIns()).toHaveLength(2);
+      expect(deps.sms.sent).toEqual([]);
+    });
+
+    it("any other send error leaves the setting on", async () => {
+      deps.sms.failNext(30003);
+
+      await land();
+
+      expect(deps.sms.sent).toEqual([]);
+      expect(await smsFallbackOf(world.priya)).toBe(true);
+    });
   });
 });

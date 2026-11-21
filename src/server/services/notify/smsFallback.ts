@@ -4,7 +4,7 @@ import { toE164 } from "@/lib/phone";
 import type { Db } from "@/server/db";
 import type { Deps } from "@/server/deps";
 import { log } from "@/server/log";
-import { SmsError } from "@/server/ports/sms";
+import { SMS_UNSUBSCRIBED, SmsError } from "@/server/ports/sms";
 
 export type SmsKind = Extract<
   keyof Config["copy"]["sms"],
@@ -16,13 +16,21 @@ export type SmsOutcome =
   | {
       texted: false;
       reason:
-        "missing" | "kind" | "setting-off" | "no-phone" | "claimed" | "failed";
+        | "missing"
+        | "kind"
+        | "setting-off"
+        | "no-phone"
+        | "claimed"
+        | "rate-limited"
+        | "unsubscribed"
+        | "failed";
     };
 
 type Names = { bird: string; friend: string };
 type Resolver = (db: Db, refId: string) => Promise<Names | undefined>;
 
 const MAX_LENGTH = 159;
+const SMS_WINDOW_MS = 15 * 60_000;
 
 const resolvers: Partial<Record<SmsKind, Resolver>> = {
   "landed-in": async (db, visitId) => {
@@ -79,13 +87,14 @@ export async function smsFallback(
   notificationId: string,
 ): Promise<SmsOutcome> {
   const [row] = await deps.db.query<{
+    user_id: string;
     kind: string;
     ref_id: string | null;
     url: string;
     sms_fallback: boolean;
     phone: string | null;
   }>(
-    `select n.kind, n.ref_id, n.url, p.sms_fallback, u.phone
+    `select n.user_id, n.kind, n.ref_id, n.url, p.sms_fallback, u.phone
      from notifications n
      join profiles p on p.id = n.user_id
      join auth.users u on u.id = n.user_id
@@ -108,17 +117,43 @@ export async function smsFallback(
     url: `https://${deps.config.app.domain}${row.url}`,
   });
 
-  const [claimed] = await deps.db.query<{ id: string }>(
-    `update notifications set sms_sent_at = $2
-     where id = $1 and sms_sent_at is null and read_at is null
-     returning id`,
-    [notificationId, new Date(deps.clock.now()).toISOString()],
-  );
-  if (!claimed) return { texted: false, reason: "claimed" };
+  const now = deps.clock.now();
+  const claim = await deps.db.tx(async (db) => {
+    await db.query("select 1 from profiles where id = $1 for update", [
+      row.user_id,
+    ]);
+    const [{ recent }] = await db.query<{ recent: number }>(
+      `select count(*)::int as recent from notifications
+       where user_id = $1 and id <> $2 and sms_sent_at > $3`,
+      [
+        row.user_id,
+        notificationId,
+        new Date(now - SMS_WINDOW_MS).toISOString(),
+      ],
+    );
+    if (recent >= deps.config.game.limits.smsPerUserPer15Min) {
+      return "rate-limited";
+    }
+    const claimed = await db.query(
+      `update notifications set sms_sent_at = $2
+       where id = $1 and sms_sent_at is null and read_at is null
+       returning id`,
+      [notificationId, new Date(now).toISOString()],
+    );
+    return claimed.length > 0 ? "texting" : "claimed";
+  });
+  if (claim !== "texting") return { texted: false, reason: claim };
 
   try {
     await deps.sms.send(phone, text);
   } catch (error) {
+    if (error instanceof SmsError && error.code === SMS_UNSUBSCRIBED) {
+      await deps.db.query(
+        "update profiles set sms_fallback = false where id = $1",
+        [row.user_id],
+      );
+      return { texted: false, reason: "unsubscribed" };
+    }
     log.warn("sms.failed", {
       code:
         error instanceof SmsError
