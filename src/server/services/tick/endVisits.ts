@@ -6,27 +6,28 @@ import {
   type LatLon,
   type WeatherSample,
 } from "@/lib/flight/engine";
-import type { Shows } from "@/lib/game/privacy";
+import { activeLoft, type Shows } from "@/lib/game/privacy";
 import { isWeekend } from "@/lib/game/time";
 import type { Db } from "@/server/db";
 import type { Deps } from "@/server/deps";
+import { log } from "@/server/log";
 import { toBirdRecord, type Row } from "@/server/rows";
 import { LOFT_COLUMNS, loftsOf, type LoftColumns } from "../friends";
-import { endpointOf, quoteInput } from "../flights/quote";
+import { quoteInput } from "../flights/quote";
 import { sampleWeather } from "../weather";
 import type { Step, StepContext } from "../tick";
 
+type Endpoint = { point: LatLon; label: string };
+
 export type ReturnLeg = {
-  visitId: string;
-  from: { point: LatLon; label: string };
-  to: { point: LatLon; label: string };
+  from: Endpoint;
+  to: Endpoint;
   timezone: string;
   hasBirdbath: boolean;
   weather: [WeatherSample, WeatherSample, WeatherSample];
 };
 
 type VisitLegRow = LoftColumns & {
-  visit_id: string;
   from_lat: number;
   from_lon: number;
   from_label: string;
@@ -37,13 +38,27 @@ type VisitLegRow = LoftColumns & {
 
 const OWNER_LOFT = LOFT_COLUMNS.map((c) => `o.${c}`).join(", ");
 
+function returnEndpoint(
+  shows: Shows,
+  lofts: ReturnType<typeof loftsOf>,
+): Endpoint | null {
+  const loft = activeLoft(lofts);
+  if (!loft) return null;
+  if (shows === "block") return { point: loft.roost, label: loft.label };
+  for (const candidate of [loft, lofts.home]) {
+    if (candidate?.cityCentre)
+      return { point: candidate.cityCentre, label: candidate.city };
+  }
+  return null;
+}
+
 export async function returnLeg(
   deps: Deps,
   visitId: string,
   nowMs: number,
 ): Promise<ReturnLeg | null> {
   const [row] = await deps.db.query<VisitLegRow>(
-    `select v.id as visit_id, f.to_lat as from_lat, f.to_lon as from_lon,
+    `select f.to_lat as from_lat, f.to_lon as from_lon,
        f.to_label as from_label, o.timezone, o.has_birdbath, ${OWNER_LOFT},
        case when v.host_id is null then 'block'
          when fr.a_id = o.id then fr.a_shows
@@ -59,7 +74,7 @@ export async function returnLeg(
     [visitId],
   );
   if (!row) return null;
-  const to = endpointOf(row.owner_shows, loftsOf(row));
+  const to = returnEndpoint(row.owner_shows, loftsOf(row));
   if (!to) return null;
   const from = {
     point: { lat: row.from_lat, lon: row.from_lon },
@@ -73,7 +88,6 @@ export async function returnLeg(
     })),
   );
   return {
-    visitId,
     from,
     to,
     timezone: row.timezone,
@@ -163,7 +177,12 @@ async function dueIds(ctx: StepContext): Promise<string[]> {
   return found.map((r) => r.id);
 }
 
-async function endOne(tx: Db, nowMs: number, leg: ReturnLeg) {
+async function endOne(
+  tx: Db,
+  nowMs: number,
+  visitId: string,
+  leg: ReturnLeg | null,
+) {
   const [visit] = await tx.query<{
     bird_id: string;
     host_id: string | null;
@@ -172,15 +191,21 @@ async function endOne(tx: Db, nowMs: number, leg: ReturnLeg) {
     `update visits set status = 'left'
      where id = $1 and status = 'waiting' and leaves_at <= $2
      returning bird_id, host_id, guest_link_id`,
-    [leg.visitId, new Date(nowMs).toISOString()],
+    [visitId, new Date(nowMs).toISOString()],
   );
-  if (!visit) return false;
+  if (!visit) return null;
+  if (!leg) {
+    await tx.query("update birds set status = 'home' where id = $1", [
+      visit.bird_id,
+    ]);
+    return visit;
+  }
   const flightId = await startReturn(tx, nowMs, leg, visit, null);
   await tx.query("update visits set return_flight_id = $2 where id = $1", [
-    leg.visitId,
+    visitId,
     flightId,
   ]);
-  return true;
+  return visit;
 }
 
 export const endVisits: Step = async (ctx) => {
@@ -189,8 +214,15 @@ export const endVisits: Step = async (ctx) => {
     if (ctx.timeUp()) break;
     const nowMs = ctx.deps.clock.now();
     const leg = await returnLeg(ctx.deps, id, nowMs);
-    if (!leg) continue;
-    if (await ctx.deps.db.tx((tx) => endOne(tx, nowMs, leg))) count++;
+    const ended = await ctx.deps.db.tx((tx) => endOne(tx, nowMs, id, leg));
+    if (!ended) continue;
+    count++;
+    if (!leg) {
+      log.warn("endVisits.noReturnEndpoint", {
+        visitId: id,
+        birdId: ended.bird_id,
+      });
+    }
   }
   return { count };
 };
