@@ -174,3 +174,89 @@
   box-shadow: var(--coo-shadow-1);
   cursor: pointer;
 }
+
+.stamps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px 6px;
+  align-items: center;
+  justify-items: center;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.slot {
+  display: flex;
+}
+
+.stamp {
+  display: block;
+  width: 76px;
+  height: 76px;
+  transform: rotate(-8deg);
+}
+
+.ring {
+  fill: var(--coo-card);
+  stroke: var(--coo-stamp);
+  stroke-width: 2.5;
+}
+
+.dash {
+  fill: none;
+  stroke: var(--coo-stamp);
+  stroke-width: 1.5;
+}
+
+.small,
+.long,
+.date {
+  fill: var(--coo-stamp);
+  text-anchor: middle;
+}
+
+.small,
+.long {
+  font-family: var(--coo-font-body);
+  font-weight: 900;
+}
+
+.small {
+  font-size: 8.5px;
+  letter-spacing: 1px;
+}
+
+.long {
+  font-size: 7px;
+  letter-spacing: 0.4px;
+}
+
+.date {
+  font-family: var(--coo-font-display);
+  font-size: 17px;
+}
+
+.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 70px;
+  height: 70px;
+  color: var(--coo-muted);
+  font-family: var(--coo-font-display);
+  font-size: 24px;
+  border: 2.5px dashed #b9b3c9;
+  border-radius: 50%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .fresh {
+    animation: coo-stamp 1.8s cubic-bezier(0.2, 1.6, 0.4, 1) 1 both;
+  }
+
+  .fresh .stamp {
+    transform: rotate(4deg);
+  }
+}

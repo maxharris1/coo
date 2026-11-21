@@ -70,9 +70,12 @@ export function postmark(
     p[type] = value;
   }
   const date = `${p.month} ${p.day}`.toUpperCase();
-  if (!city) return { date, place: null };
+  return { date, place: city ? stampPlace(city) : null };
+}
+
+export function stampPlace(city: SenderCity): string {
   const region = city.region === null ? "" : `, ${city.region.toUpperCase()}`;
-  return { date, place: `${stampName(city.name)}${region}` };
+  return `${stampName(city.name)}${region}`;
 }
 
 export function postmarkLabel(
