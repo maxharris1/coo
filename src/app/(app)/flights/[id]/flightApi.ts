@@ -1,7 +1,7 @@
 import type { Flight } from "@/server/services/flights/shape";
 
 export type FlightResult =
-  { ok: true; flight: Flight; serverNow: number } | { ok: false; code: string };
+  { ok: true; flight: Flight } | { ok: false; code: string };
 
 export async function loadFlight(
   fetchFn: typeof fetch,
@@ -13,8 +13,8 @@ export async function loadFlight(
     });
     const json: unknown = await res.json().catch(() => null);
     if (res.ok) {
-      const body = json as { flight: Flight; serverNow: number };
-      return { ok: true, flight: body.flight, serverNow: body.serverNow };
+      const body = json as { flight: Flight };
+      return { ok: true, flight: body.flight };
     }
     const code = (json as { error?: { code?: unknown } } | null)?.error?.code;
     return { ok: false, code: typeof code === "string" ? code : "unreachable" };

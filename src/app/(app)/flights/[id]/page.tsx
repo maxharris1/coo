@@ -5,8 +5,20 @@ import { useEffect, useState } from "react";
 import { Loader } from "@/components/Loader";
 import { useSync } from "@/components/SyncProvider";
 import { Tracker } from "@/components/Tracker";
+import type { Flight } from "@/server/services/flights/shape";
 import { FlightError } from "./FlightError";
 import { type FlightResult, loadFlight } from "./flightApi";
+
+const STAGE: Record<Flight["status"], number> = {
+  scheduled: 0,
+  flying: 1,
+  landed: 2,
+  cancelled: 2,
+};
+
+function revision(flight: Flight): number {
+  return STAGE[flight.status] * 2 + (flight.searchParty ? 1 : 0);
+}
 
 export default function FlightPage() {
   const { id } = useParams<{ id: string }>();
@@ -27,7 +39,7 @@ export default function FlightPage() {
   if (!result.ok) return <FlightError code={result.code} />;
   const synced = data?.flights.find((f) => f.id === result.flight.id);
   const flight =
-    data && synced && data.serverNow >= result.serverNow
+    synced && revision(synced) >= revision(result.flight)
       ? synced
       : result.flight;
   return (
