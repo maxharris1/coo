@@ -1,6 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Shop } from "@/server/services/shop";
-import { buyItem, confirmLine, loadShop, shopRows, type ShopRow } from "./shop";
+import {
+  buyItem,
+  completeBuy,
+  confirmLine,
+  loadShop,
+  purchase,
+  shopRows,
+  type BuyRow,
+  type Purchase,
+  type ShopRow,
+} from "./shop";
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), {
@@ -283,5 +293,88 @@ describe("buyItem", () => {
       ok: false,
       message: "We could not reach the loft. Try again.",
     });
+  });
+});
+
+const RAIN_HAT: BuyRow = {
+  itemId: "rainhat",
+  name: "Rain hat",
+  effect: "Shrugs off downpours",
+  action: { kind: "buy", price: 120 },
+};
+const CAP: BuyRow = { ...RAIN_HAT, itemId: "cap", name: "Captain's cap" };
+
+describe("purchase (part 4 ac-1)", () => {
+  const idle: Purchase = { kind: "idle" };
+  const confirming: Purchase = { kind: "confirming", row: RAIN_HAT };
+  const buying: Purchase = { kind: "buying", row: RAIN_HAT };
+
+  it("opens the confirm step when a price is tapped", () => {
+    expect(purchase(idle, { type: "tap", row: RAIN_HAT })).toEqual(confirming);
+  });
+
+  it("keeps one confirm step open when another price is tapped", () => {
+    expect(purchase(confirming, { type: "tap", row: CAP })).toEqual(confirming);
+    expect(purchase(buying, { type: "tap", row: CAP })).toEqual(buying);
+  });
+
+  it("closes without buying on Not now", () => {
+    expect(purchase(confirming, { type: "cancel" })).toEqual(idle);
+  });
+
+  it("starts the purchase only from the confirm step", () => {
+    expect(purchase(confirming, { type: "confirm" })).toEqual(buying);
+    expect(purchase(idle, { type: "confirm" })).toEqual(idle);
+    expect(purchase(buying, { type: "confirm" })).toEqual(buying);
+  });
+
+  it("stays open while the request is in flight", () => {
+    expect(purchase(buying, { type: "cancel" })).toEqual(buying);
+  });
+
+  it("closes once the request settles", () => {
+    expect(purchase(buying, { type: "settled" })).toEqual(idle);
+  });
+});
+
+describe("completeBuy (part 4 ac-2)", () => {
+  const deps = (buyResult: Awaited<ReturnType<typeof buyItem>>) => {
+    const calls: string[] = [];
+    return {
+      calls,
+      buy: vi.fn(async (itemId: string) => {
+        calls.push(`buy ${itemId}`);
+        return buyResult;
+      }),
+      load: vi.fn(async () => {
+        calls.push("load");
+        return { ok: true as const, data: { ...MOCK, seeds: 120 } };
+      }),
+      toast: vi.fn((message: string) => calls.push(`toast ${message}`)),
+      refresh: vi.fn(() => calls.push("refresh")),
+      burst: vi.fn((itemId: string) => calls.push(`burst ${itemId}`)),
+    };
+  };
+
+  it("bursts from the item, refreshes sync and refetches the shop", async () => {
+    const d = deps({ ok: true, data: { me: {} as never, closet: [] } });
+    const rows = await completeBuy("rainhat", d);
+    expect(d.calls).toEqual([
+      "buy rainhat",
+      "burst rainhat",
+      "refresh",
+      "load",
+    ]);
+    expect(rows).toEqual(shopRows({ ...MOCK, seeds: 120 }));
+  });
+
+  it("toasts the API's message and changes nothing on failure", async () => {
+    const d = deps({ ok: false, message: "Not enough seeds for that." });
+    const rows = await completeBuy("rainhat", d);
+    expect(d.calls).toEqual([
+      "buy rainhat",
+      "toast Not enough seeds for that.",
+    ]);
+    expect(rows).toBeNull();
   });
 });

@@ -41,6 +41,7 @@
 }
 
 .row {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -139,4 +140,36 @@
   color: var(--coo-muted);
   font-size: 12px;
   font-weight: 800;
+}
+
+.burst {
+  position: absolute;
+  top: 50%;
+  right: 49px;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.seed {
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  display: flex;
+  opacity: 0;
+  animation: coo-burst 1.8s ease-out forwards;
+}
+
+.seedL {
+  animation-name: coo-burst-l;
+}
+
+.seedU {
+  animation-name: coo-burst-u;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .burst {
+    display: none;
+  }
 }

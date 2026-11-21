@@ -16,6 +16,36 @@ export type ShopRow<A extends RowAction = RowAction> = {
 
 export type ShopRows = { seeds: number; gear: ShopRow[]; loft: ShopRow[] };
 
+export type BuyRow = ShopRow<Extract<RowAction, { kind: "buy" }>>;
+
+export type Purchase =
+  | { kind: "idle" }
+  | { kind: "confirming"; row: BuyRow }
+  | { kind: "buying"; row: BuyRow };
+
+export type PurchaseEvent =
+  | { type: "tap"; row: BuyRow }
+  | { type: "cancel" }
+  | { type: "confirm" }
+  | { type: "settled" };
+
+export function purchase(state: Purchase, event: PurchaseEvent): Purchase {
+  switch (event.type) {
+    case "tap":
+      return state.kind === "idle"
+        ? { kind: "confirming", row: event.row }
+        : state;
+    case "cancel":
+      return state.kind === "confirming" ? { kind: "idle" } : state;
+    case "confirm":
+      return state.kind === "confirming"
+        ? { kind: "buying", row: state.row }
+        : state;
+    case "settled":
+      return state.kind === "buying" ? { kind: "idle" } : state;
+  }
+}
+
 const ORDINALS = [
   "First",
   "Second",
@@ -78,10 +108,7 @@ export function shopRows(shop: Shop): ShopRows {
   };
 }
 
-export function confirmLine({
-  name,
-  action,
-}: ShopRow<Extract<RowAction, { kind: "buy" }>>): string {
+export function confirmLine({ name, action }: BuyRow): string {
   return `Buy the ${name.toLowerCase()} for ${action.price} seeds?`;
 }
 
@@ -128,4 +155,24 @@ export async function openShop(
   if (result.ok) return shopRows(result.data);
   toast(result.message);
   return null;
+}
+
+export async function completeBuy(
+  itemId: string,
+  deps: {
+    buy(itemId: string): Promise<Result<unknown>>;
+    load(): Promise<Result<Shop>>;
+    toast(message: string): void;
+    refresh(): void;
+    burst(itemId: string): void;
+  },
+): Promise<ShopRows | null> {
+  const result = await deps.buy(itemId);
+  if (!result.ok) {
+    deps.toast(result.message);
+    return null;
+  }
+  deps.burst(itemId);
+  deps.refresh();
+  return openShop(deps.load, deps.toast);
 }
