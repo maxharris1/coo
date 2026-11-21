@@ -1,0 +1,152 @@
+[
+ {
+  "name": "mock",
+  "width": 360,
+  "hScroll": false,
+  "pageHeight": 844,
+  "actionsBottom": 826,
+  "clipped": [],
+  "targets": [
+   "Back to the loft:44x44",
+   "Send a search party20 se:328x60",
+   "Wait it out:159x52",
+   "Resend with Gerald:159x52"
+  ]
+ },
+ {
+  "name": "mock",
+  "width": 390,
+  "hScroll": false,
+  "pageHeight": 844,
+  "actionsBottom": 826,
+  "clipped": [],
+  "targets": [
+   "Back to the loft:44x44",
+   "Send a search party20 se:358x60",
+   "Wait it out:174x50",
+   "Resend with Gerald:174x50"
+  ]
+ },
+ {
+  "name": "mock",
+  "width": 430,
+  "hScroll": false,
+  "pageHeight": 844,
+  "actionsBottom": 826,
+  "clipped": [],
+  "targets": [
+   "Back to the loft:44x44",
+   "Send a search party20 se:398x60",
+   "Wait it out:194x50",
+   "Resend with Gerald:194x50"
+  ]
+ },
+ {
+  "name": "busy",
+  "width": 360,
+  "hScroll": false,
+  "pageHeight": 844,
+  "actionsBottom": 826,
+  "clipped": [],
+  "targets": [
+   "Back to the loft:44x44",
+   "Send a search party20 se:328x60",
+   "Wait it out:159x52",
+   "Resend with Gerald:159x52"
+  ]
+ },
+ {
+  "name": "busy",
+  "width": 430,
+  "hScroll": false,
+  "pageHeight": 844,
+  "actionsBottom": 826,
+  "clipped": [],
+  "targets": [
+   "Back to the loft:44x44",
+   "Send a search party20 se:398x60",
+   "Wait it out:194x50",
+   "Resend with Gerald:194x50"
+  ]
+ },
+ {
+  "name": "done",
+  "width": 360,
+  "hScroll": false,
+  "pageHeight": 844,
+  "actionsBottom": 826,
+  "clipped": [],
+  "targets": [
+   "Back to the loft:44x44",
+   "Send a search partyThey :328x60",
+   "Wait it out:159x52",
+   "Resend with Gerald:159x52"
+  ]
+ },
+ {
+  "name": "done",
+  "width": 430,
+  "hScroll": false,
+  "pageHeight": 844,
+  "actionsBottom": 826,
+  "clipped": [],
+  "targets": [
+   "Back to the loft:44x44",
+   "Send a search partyThey :398x60",
+   "Wait it out:194x50",
+   "Resend with Gerald:194x50"
+  ]
+ },
+ {
+  "name": "unavailable",
+  "width": 360,
+  "hScroll": false,
+  "pageHeight": 844,
+  "actionsBottom": 826,
+  "clipped": [],
+  "targets": [
+   "Back to the loft:44x44",
+   "Wait it out:328x50"
+  ]
+ },
+ {
+  "name": "unavailable",
+  "width": 430,
+  "hScroll": false,
+  "pageHeight": 844,
+  "actionsBottom": 826,
+  "clipped": [],
+  "targets": [
+   "Back to the loft:44x44",
+   "Wait it out:398x50"
+  ]
+ },
+ {
+  "name": "long",
+  "width": 360,
+  "hScroll": false,
+  "pageHeight": 844,
+  "actionsBottom": 826,
+  "clipped": [],
+  "targets": [
+   "Back to the loft:44x44",
+   "Send a search party20 se:328x60",
+   "Wait it out:159x92",
+   "Resend with Sir Reginald:159x92"
+  ]
+ },
+ {
+  "name": "long",
+  "width": 430,
+  "hScroll": false,
+  "pageHeight": 844,
+  "actionsBottom": 826,
+  "clipped": [],
+  "targets": [
+   "Back to the loft:44x44",
+   "Send a search party20 se:398x60",
+   "Wait it out:194x72",
+   "Resend with Sir Reginald:194x72"
+  ]
+ }
+]
