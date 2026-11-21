@@ -4,14 +4,20 @@ import type { Deps } from "@/server/deps";
 import { AppError } from "@/server/errors";
 import {
   returnRoute,
+  sameRoute,
   startReturn,
   withWeather,
   type ReturnLeg,
+  type ReturnRoute,
 } from "./tick/endVisits";
 
 const ATTEMPTS = 3;
 
-type Planned = { visitId: string; leg: ReturnLeg | null };
+type Planned = {
+  visitId: string;
+  route: ReturnRoute | null;
+  leg: ReturnLeg | null;
+};
 
 const SILL_SQL = `select id from visits
   where host_id = $1 and status = 'waiting'
@@ -27,7 +33,7 @@ async function planReturns(
   for (const { id } of sill) {
     const route = await returnRoute(deps.db, id);
     const leg = route && (await withWeather(deps, route, nowMs));
-    planned.set(id, { visitId: id, leg });
+    planned.set(id, { visitId: id, route, leg });
   }
   return planned;
 }
@@ -74,11 +80,19 @@ async function tryDelete(
       "select id from profiles where id = any($1::uuid[]) order by id for update",
       [[userId, ...owners.map((o) => o.owner_id)]],
     );
+    await tx.query(
+      "select 1 from friendships where a_id = $1 or b_id = $1 order by a_id, b_id for update",
+      [userId],
+    );
     const sill = await tx.query<{ id: string }>(`${SILL_SQL} for update`, [
       userId,
     ]);
     if (sill.length !== planned.size || sill.some((v) => !planned.has(v.id))) {
       return false;
+    }
+    for (const visit of planned.values()) {
+      if (!sameRoute(await returnRoute(tx, visit.visitId), visit.route))
+        return false;
     }
     for (const visit of planned.values()) await sendHome(tx, nowMs, visit);
     await tx.query(

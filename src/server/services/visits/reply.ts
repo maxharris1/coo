@@ -8,9 +8,9 @@ import { getFlight } from "../flights/get";
 import type { Flight } from "../flights/shape";
 import {
   returnRoute,
+  sameRoute,
   startReturn,
   withWeather,
-  type ReturnRoute,
 } from "../tick/endVisits";
 
 const VISIT_ID = z.uuid();
@@ -23,9 +23,6 @@ type VisitBird = Row<"birds"> & {
   visit_note_id: string | null;
   guest_link_id: string | null;
 };
-
-const sameRoute = (a: ReturnRoute, b: ReturnRoute) =>
-  JSON.stringify(a) === JSON.stringify(b);
 
 export async function replyToVisit(
   deps: Deps,

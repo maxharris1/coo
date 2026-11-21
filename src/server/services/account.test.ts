@@ -274,4 +274,25 @@ describe("deleteAccount", () => {
       ).toBe(person.birds.length);
     }
   });
+
+  it("rechecks the owner's active loft after weather", async () => {
+    const { setTravel } = await import("./loft");
+    const visit = await visitToMax(world.priya);
+    const samples = deps.weather.samples.bind(deps.weather);
+    let changed = false;
+    vi.spyOn(deps.weather, "samples").mockImplementation(async (at) => {
+      if (!changed) {
+        changed = true;
+        await setTravel(deps, world.priya.id as UserId, {
+          on: true,
+          roost: { lat: 42.35, lon: -71.08 },
+        });
+      }
+      return samples(at);
+    });
+
+    await deleteMax();
+
+    expect((await returnsOf(visit.birdId))[0].to_label).toBe("Back Bay");
+  });
 });

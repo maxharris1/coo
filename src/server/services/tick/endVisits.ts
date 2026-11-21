@@ -11,12 +11,14 @@ import { isWeekend } from "@/lib/game/time";
 import type { Db } from "@/server/db";
 import type { Deps } from "@/server/deps";
 import { log } from "@/server/log";
-import { toBirdRecord, type Row } from "@/server/rows";
+import { pair, toBirdRecord, type Row } from "@/server/rows";
 import { LOFT_COLUMNS, loftsOf, type LoftColumns } from "../friends";
 import { quoteInput } from "../flights/quote";
 import { sampleWeather } from "../weather";
 import type { Step, StepContext } from "../tick";
 import { tryRow } from "./rows";
+
+const ROUTE_ATTEMPTS = 3;
 
 type Endpoint = { point: LatLon; label: string };
 
@@ -104,14 +106,8 @@ export async function withWeather(
   return { ...route, weather: samples as ReturnLeg["weather"] };
 }
 
-export async function returnLeg(
-  deps: Deps,
-  visitId: string,
-  nowMs: number,
-): Promise<ReturnLeg | null> {
-  const route = await returnRoute(deps.db, visitId);
-  return route && withWeather(deps, route, nowMs);
-}
+export const sameRoute = (a: ReturnRoute | null, b: ReturnRoute | null) =>
+  JSON.stringify(a) === JSON.stringify(b);
 
 export async function startReturn(
   tx: Db,
@@ -198,8 +194,26 @@ async function endOne(
   tx: Db,
   nowMs: number,
   visitId: string,
+  route: ReturnRoute | null,
   leg: ReturnLeg | null,
 ) {
+  const [owner] = await tx.query<{ owner_id: string; host_id: string | null }>(
+    `select b.owner_id, v.host_id from visits v
+     join birds b on b.id = v.bird_id
+     where v.id = $1`,
+    [visitId],
+  );
+  if (!owner) return null;
+  await tx.query("select 1 from profiles where id = $1 for share", [
+    owner.owner_id,
+  ]);
+  if (owner.host_id) {
+    await tx.query(
+      "select 1 from friendships where a_id = $1 and b_id = $2 for share",
+      pair(owner.owner_id, owner.host_id),
+    );
+  }
+  if (!sameRoute(await returnRoute(tx, visitId), route)) return "changed";
   const [visit] = await tx.query<{
     bird_id: string;
     host_id: string | null;
@@ -231,16 +245,23 @@ export const endVisits: Step = async (ctx) => {
   for (const id of await dueIds(ctx)) {
     if (ctx.timeUp()) break;
     const ok = await tryRow("endVisits", id, async () => {
-      const nowMs = ctx.deps.clock.now();
-      const leg = await returnLeg(ctx.deps, id, nowMs);
-      const ended = await ctx.deps.db.tx((tx) => endOne(tx, nowMs, id, leg));
-      if (!ended) return;
-      count++;
-      if (!leg) {
-        log.warn("endVisits.noReturnEndpoint", {
-          visitId: id,
-          birdId: ended.bird_id,
-        });
+      for (let attempt = 0; attempt < ROUTE_ATTEMPTS; attempt++) {
+        const nowMs = ctx.deps.clock.now();
+        const route = await returnRoute(ctx.deps.db, id);
+        const leg = route && (await withWeather(ctx.deps, route, nowMs));
+        const ended = await ctx.deps.db.tx((tx) =>
+          endOne(tx, nowMs, id, route, leg),
+        );
+        if (ended === "changed") continue;
+        if (!ended) return;
+        count++;
+        if (!leg) {
+          log.warn("endVisits.noReturnEndpoint", {
+            visitId: id,
+            birdId: ended.bird_id,
+          });
+        }
+        return;
       }
     });
     if (!ok) failed++;
