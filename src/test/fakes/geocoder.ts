@@ -4,6 +4,28 @@ const MAX_HITS = 6;
 const REVERSE_RADIUS_DEG = 0.05;
 const US = { country: "United States", countryCode: "US" };
 
+function usTown(
+  label: string,
+  lat: number,
+  lon: number,
+  stateCode: string,
+  state: string,
+): { hit: GeoHit; name: GeoName } {
+  return {
+    hit: {
+      label,
+      sublabel: `${stateCode}, United States`,
+      kind: "city",
+      lat,
+      lon,
+      city: label,
+      region: stateCode,
+      ...US,
+    },
+    name: { city: label, state, stateCode, ...US },
+  };
+}
+
 const PLACES: { hit: GeoHit; name: GeoName }[] = [
   {
     hit: {
@@ -187,6 +209,15 @@ const PLACES: { hit: GeoHit; name: GeoName }[] = [
       ...US,
     },
   },
+  usTown("Bayonne", 40.66, -74.11, "NJ", "New Jersey"),
+  usTown("Carteret", 40.58, -74.23, "NJ", "New Jersey"),
+  usTown("Sayreville", 40.48, -74.35, "NJ", "New Jersey"),
+  usTown("Milltown", 40.44, -74.44, "NJ", "New Jersey"),
+  usTown("Plainsboro", 40.33, -74.59, "NJ", "New Jersey"),
+  usTown("Lawrenceville", 40.28, -74.71, "NJ", "New Jersey"),
+  usTown("Levittown", 40.17, -74.83, "PA", "Pennsylvania"),
+  usTown("Bensalem", 40.10, -74.95, "PA", "Pennsylvania"),
+  usTown("Palmyra", 40.01, -75.03, "NJ", "New Jersey"),
 ];
 
 export class FakeGeocoder implements Geocoder {
