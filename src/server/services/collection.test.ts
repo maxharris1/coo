@@ -6,7 +6,7 @@ import type { DeliveryOpts } from "@/test/fixtures/flights";
 import { insertPlannedDelivery } from "@/test/fixtures/plannedFlight";
 import { seedWorld, type World } from "@/test/seedWorld";
 import { getCollection } from "./collection";
-import { tick } from "./tick";
+import { landDeliveries } from "./tick/landDeliveries";
 
 const MINUTE_MS = 60_000;
 const DAY_MS = 24 * 60 * MINUTE_MS;
@@ -50,10 +50,12 @@ async function land(opts: DeliveryOpts) {
     opts,
   );
   deps.clock.set(Math.max(deps.clock.now(), flight.arriveAtMs) + MINUTE_MS);
-  const result = await tick(deps);
-  expect(result.counts.landDeliveries).toBe(1);
-  deps.clock.set(deps.clock.now() + DAY_MS);
-  await tick(deps);
+  const result = await landDeliveries({
+    deps,
+    limit: 50,
+    timeUp: () => false,
+  });
+  expect(result.count).toBe(1);
 }
 
 describe("getCollection", () => {
