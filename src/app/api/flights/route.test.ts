@@ -185,6 +185,85 @@ describe("POST /api/flights", () => {
     expect(status).toBe(200);
   });
 
+  describe("with releaseAt", () => {
+    const HOUR_MS = 60 * 60 * 1000;
+    const schedule = async (
+      who: keyof typeof PHONE,
+      friendId: string,
+      birdId: string,
+      releaseAt: number,
+    ) =>
+      postClient().post(
+        { body: BODY, sends: [{ friendId, birdId }], releaseAt },
+        await jarOf(who),
+      );
+
+    it("stores a scheduled flight without a plan and reserves the bird", async () => {
+      const releaseAt = deps.clock.now() + 9 * HOUR_MS;
+      const { status, json } = await schedule(
+        "max",
+        world.priya.id,
+        gerald(),
+        releaseAt,
+      );
+      expect(status).toBe(200);
+      expect(json.flights).toHaveLength(1);
+      expect(json.flights[0]).toMatchObject({
+        status: "scheduled",
+        releaseAt,
+        hasNote: true,
+      });
+      expect(json.flights[0].plan).toBeUndefined();
+      const [bird] = await deps.db.query<{ status: string }>(
+        "select status from birds where id = $1",
+        [gerald()],
+      );
+      expect(bird.status).toBe("scheduled");
+    });
+
+    it("refuses someone else's bird as not_found", async () => {
+      const before = await counts();
+      const { status, json } = await schedule(
+        "max",
+        world.priya.id,
+        world.priya.birds[0].id,
+        deps.clock.now() + HOUR_MS,
+      );
+      expect(status).toBe(404);
+      expect(json.error.code).toBe("not_found");
+      expect(await counts()).toEqual(before);
+    });
+
+    it("refuses a non-friend as forbidden", async () => {
+      const before = await counts();
+      const { status, json } = await schedule(
+        "priya",
+        world.rosa.id,
+        world.priya.birds[0].id,
+        deps.clock.now() + HOUR_MS,
+      );
+      expect(status).toBe(403);
+      expect(json.error.code).toBe("forbidden");
+      expect(await counts()).toEqual(before);
+    });
+
+    it.each([
+      ["more than 24 hours ahead", 24 * HOUR_MS + 1],
+      ["in the past", -HOUR_MS],
+    ])("answers a time %s with 400 invalid", async (_, offset) => {
+      const before = await counts();
+      const { status, json } = await schedule(
+        "max",
+        world.priya.id,
+        gerald(),
+        deps.clock.now() + offset,
+      );
+      expect(status).toBe(400);
+      expect(json.error.code).toBe("invalid");
+      expect(await counts()).toEqual(before);
+    });
+  });
+
   it("refuses a send to someone who is not a friend as forbidden", async () => {
     const { status, json } = await postClient().post(
       {
@@ -218,14 +297,6 @@ describe("POST /api/flights", () => {
     [
       "a friendId that is not a uuid",
       () => ({ body: BODY, sends: [{ friendId: "priya", birdId: gerald() }] }),
-    ],
-    [
-      "a release time",
-      () => ({
-        body: BODY,
-        sends: [{ friendId: world.priya.id, birdId: gerald() }],
-        releaseAt: deps.clock.now() + 60_000,
-      }),
     ],
     [
       "a guest send",
