@@ -16,8 +16,12 @@ export function RoostMap({ roost }: { roost: Roost }) {
   useEffect(() => {
     let map: import("maplibre-gl").Map | null = null;
     let cancelled = false;
-    void import("maplibre-gl").then(({ Map, Marker }) => {
+    void import("maplibre-gl").then(({ Map, Marker, setWorkerUrl }) => {
       if (cancelled || !container.current || !pin.current) return;
+      setWorkerUrl(
+        new URL("maplibre-gl/dist/maplibre-gl-worker.mjs", import.meta.url)
+          .href,
+      );
       map = new Map({
         container: container.current,
         style: STOCK_STYLE,
