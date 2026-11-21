@@ -24,7 +24,7 @@ export type FlightsSection = {
 export type FlightsView = { pill: string; sections: FlightsSection[] };
 
 type Copy = {
-  place: string;
+  place?: string;
   lands: string;
   left: string;
   leaves: string;
@@ -32,6 +32,8 @@ type Copy = {
 };
 
 const sill = (c: Copy) => `Lands on your sill in ${c.left}.`;
+const sentences = (...parts: (string | false | undefined)[]) =>
+  parts.filter(Boolean).join(" ");
 
 const STATES: Record<
   RowState,
@@ -47,17 +49,18 @@ const STATES: Record<
   },
   flying: {
     chip: { text: "Flying", tone: "sun" },
-    line: (c) => `Over ${c.place}. Lands ${c.lands}.`,
+    line: (c) => sentences(c.place && `Over ${c.place}.`, `Lands ${c.lands}.`),
     incomingLine: sill,
   },
   almostHere: { chip: { text: "Almost here", tone: "mint" }, line: sill },
   roosting: {
     chip: { text: "Roosting", tone: "lilac" },
-    line: (c) => `Asleep near ${c.place}. Lands ${c.lands}.`,
+    line: (c) =>
+      sentences(c.place && `Asleep near ${c.place}.`, `Lands ${c.lands}.`),
   },
   delayed: {
     chip: { text: "Delayed", tone: "tomato" },
-    line: (c) => `Last seen near ${c.place}.`,
+    line: (c) => sentences(c.place && `Last seen near ${c.place}.`),
   },
   landed: { line: (c) => c.trip },
 };
@@ -72,6 +75,12 @@ const landedByPlan = (f: Flight, nowMs: number): boolean =>
   f.plan !== undefined &&
   positionAt(f.plan, f.from, f.to, nowMs).state === "landed";
 
+const headingToViewer = (f: Flight): boolean =>
+  (f.role === "incoming") !== (f.kind === "return");
+
+const landsOnSill = (f: Flight): boolean =>
+  f.role === "incoming" && f.kind === "delivery";
+
 const landedAtMs = (f: Flight): number =>
   f.plan?.arriveAtMs ?? f.arriveAt ?? f.releaseAt;
 
@@ -82,17 +91,21 @@ function liveState(
   if (!f.plan) return { state: "scheduled", frac: 0 };
   const { state, frac } = positionAt(f.plan, f.from, f.to, nowMs);
   if (state === "waiting") return { state: "scheduled", frac };
-  if (state === "flying" && f.role === "incoming" && frac >= 0.9) {
+  if (state === "flying" && landsOnSill(f) && frac >= 0.9) {
     return { state: "almostHere", frac };
   }
   return { state, frac };
 }
 
 function rowTitle(f: Flight, landed: boolean, units: Units): string {
-  const who =
+  const toward = headingToViewer(f);
+  const other =
     f.role === "incoming"
-      ? `${f.bird.name} from ${f.owner.name}`
-      : `${f.bird.name} to ${f.counterpart?.name ?? f.guestName ?? f.to.label}`;
+      ? f.owner.name
+      : (f.counterpart?.name ??
+        f.guestName ??
+        (toward ? f.from.label : f.to.label));
+  const who = `${f.bird.name} ${toward ? "from" : "to"} ${other}`;
   if (!landed) return who;
   const miles = f.distanceMi ?? f.plan?.distanceMi ?? 0;
   return `${who}, ${distance(miles, units)}`;
@@ -106,7 +119,7 @@ function copyOf(
 ): Copy {
   const arrive = landedAtMs(f);
   return {
-    place: f.placeNames.deciles?.[Math.round(frac * 10)] ?? f.from.label,
+    place: f.placeNames.deciles?.[Math.round(frac * 10)] ?? undefined,
     lands: clockTime(new Date(arrive), timezone),
     left: duration(Math.max(0, arrive - nowMs)),
     leaves: clockTime(new Date(f.releaseAt), timezone),
@@ -125,7 +138,7 @@ function toRow(
     ? { state: "landed" as const, frac: 1 }
     : liveState(f, nowMs);
   const entry = STATES[state];
-  const line = (f.role === "incoming" && entry.incomingLine) || entry.line;
+  const line = (landsOnSill(f) && entry.incomingLine) || entry.line;
   return {
     id: f.id,
     flight: f,

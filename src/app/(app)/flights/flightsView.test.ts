@@ -385,4 +385,95 @@ describe("flightsView status lines", () => {
       },
     ]);
   });
+
+  it("a bird flying home reads as coming from the host and never promises a sill, in the owner's view", () => {
+    const out = vectorFlight("calm-short");
+    const flight = vectorFlight("calm-short", {
+      kind: "return",
+      from: out.to,
+      to: out.from,
+      placeNames: { deciles: [...DECILES].reverse() },
+    });
+    const page = pageOf(flight);
+    const arrive = flight.plan!.arriveAtMs;
+    const clock = new FakeClock((flight.releaseAt + arrive) / 2);
+
+    expect(rowsAt(page, clock)).toEqual({
+      "Your birds": [
+        {
+          title: "Gerald from Priya",
+          line: "Over New Brunswick, NJ. Lands 11:49 am.",
+          chip: { text: "Flying", tone: "sun" },
+        },
+      ],
+      "Coming to you": [],
+      "Landed today": [],
+    });
+
+    clock.set(arrive - 5 * 60_000);
+    expect(rowsAt(page, clock)["Your birds"]).toEqual([
+      {
+        title: "Gerald from Priya",
+        line: "Over Brooklyn, NY. Lands 11:49 am.",
+        chip: { text: "Flying", tone: "sun" },
+      },
+    ]);
+  });
+
+  it("a bird flying home reads as going to its owner and never lands on the host's sill, in the host's view", () => {
+    const out = vectorFlight("calm-short");
+    const flight = vectorFlight("calm-short", {
+      kind: "return",
+      role: "incoming",
+      from: out.to,
+      to: out.from,
+      placeNames: { deciles: [...DECILES].reverse() },
+    });
+    const page = pageOf(flight);
+    const arrive = flight.plan!.arriveAtMs;
+    const clock = new FakeClock((flight.releaseAt + arrive) / 2);
+
+    expect(rowsAt(page, clock)["Coming to you"]).toEqual([
+      {
+        title: "Gerald to Max",
+        line: "Over New Brunswick, NJ. Lands 11:49 am.",
+        chip: { text: "Flying", tone: "sun" },
+      },
+    ]);
+
+    clock.set(arrive - 5 * 60_000);
+    expect(rowsAt(page, clock)["Coming to you"]).toEqual([
+      {
+        title: "Gerald to Max",
+        line: "Over Brooklyn, NY. Lands 11:49 am.",
+        chip: { text: "Flying", tone: "sun" },
+      },
+    ]);
+  });
+
+  it.each([
+    ["no deciles", {}],
+    ["a deciles list missing the current tenth", { deciles: [] }],
+    ["only unnamed tenths", { deciles: DECILES.map(() => null) }],
+  ])(
+    "drops the place sentence rather than naming the start when there are %s",
+    (_, placeNames: Flight["placeNames"]) => {
+      const lineAt = (flight: Flight, at: number) =>
+        flightsView(pageOf(flight), at, NY, "mi").sections[0].rows[0].line;
+
+      const flying = vectorFlight("calm-short", { placeNames });
+      expect(
+        lineAt(flying, (flying.releaseAt + flying.plan!.arriveAtMs) / 2),
+      ).toBe("Lands 11:49 am.");
+
+      const overnight = vectorFlight("chicago-overnight", { placeNames });
+      const roost = overnight.plan!.segments[1];
+      expect(roost.kind).toBe("roost");
+      expect(lineAt(overnight, roost.startMs + HOUR_MS)).toBe("Lands 4:06 pm.");
+
+      const delayed = vectorFlight("delay-major", { placeNames });
+      const delay = delayed.plan!.segments[1];
+      expect(lineAt(delayed, delay.startMs + 60_000)).toBe("");
+    },
+  );
 });
