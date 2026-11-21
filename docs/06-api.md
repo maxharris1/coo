@@ -238,7 +238,7 @@ per run and stop after 20 seconds.
 8. **Wake birds**: `busy` naps and baths whose `busy_until` has passed: apply the effect, set `home`.
 9. **Hungry notices**: home birds whose computed belly is under 30 and `hungry_notified = false`.
 10. **Expire guest links** past `expires_at`: set `expired`, set `notes.returned_at`, notify the sender.
-11. **Send what is waiting**: notifications with no `push_sent_at` whose quiet hours have ended.
+11. **Send what is waiting**: notifications with no `push_sent_at` whose `push_held_until` has passed.
 
 Starting a return flight (steps 3 and from `reply`): origin is the delivery's `to`, destination
 is the owner's active loft adjusted for the same privacy rule, weather sampled now, hazards for

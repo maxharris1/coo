@@ -4,6 +4,7 @@ import {
   isTimeZone,
   isWeekend,
   localDate,
+  quietHoursEnd,
   startOfLocalDayMs,
   weekday,
   weekStart,
@@ -159,6 +160,40 @@ describe("inQuietHours", () => {
     expect(inQuietHours(nyEdt(2026, 3, 8, 7), NY, night)).toBe(false);
     expect(inQuietHours(nyEst(2026, 11, 1, 6, 59), NY, night)).toBe(true);
     expect(inQuietHours(nyEst(2026, 11, 1, 7), NY, night)).toBe(false);
+  });
+});
+
+describe("quietHoursEnd", () => {
+  it("is the first instant after quiet hours in the given zone", () => {
+    expect(quietHoursEnd(nyEst(2026, 11, 19, 23), NY, night)).toBe(
+      nyEst(2026, 11, 20, 7),
+    );
+    expect(quietHoursEnd(nyEst(2026, 11, 20, 6, 59), NY, night)).toBe(
+      nyEst(2026, 11, 20, 7),
+    );
+    expect(quietHoursEnd(Date.UTC(2026, 10, 19, 13), TOKYO, night)).toBe(
+      Date.UTC(2026, 10, 19, 22),
+    );
+  });
+
+  it("follows a DST change inside the quiet hours", () => {
+    expect(quietHoursEnd(nyEst(2026, 3, 7, 23), NY, night)).toBe(
+      nyEdt(2026, 3, 8, 7),
+    );
+    expect(quietHoursEnd(nyEdt(2026, 10, 31, 23), NY, night)).toBe(
+      nyEst(2026, 11, 1, 7),
+    );
+  });
+
+  it("handles half-hour offsets", () => {
+    expect(
+      quietHoursEnd(Date.UTC(2026, 10, 19, 18), "Asia/Kolkata", night),
+    ).toBe(Date.UTC(2026, 10, 20, 1, 30));
+  });
+
+  it("is the given instant when it is not quiet", () => {
+    const at = nyEst(2026, 11, 19, 12, 17);
+    expect(quietHoursEnd(at, NY, night)).toBe(at);
   });
 });
 

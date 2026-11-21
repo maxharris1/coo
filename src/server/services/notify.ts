@@ -29,6 +29,10 @@ export function notificationText(
   };
 }
 
+export function landedInTitle(title: string, gear: readonly string[]): string {
+  return gear.includes("bell") ? `${title} Ding.` : title;
+}
+
 export async function recordNotification(
   db: Db,
   nowMs: number,
