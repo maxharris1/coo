@@ -3,12 +3,9 @@ type Session = { userId: string; onboarded: boolean };
 export function createInstallReporter() {
   const reported = new Set<string>();
   let pending = false;
-  return async function reportInstalled(
-    isStandalone: boolean,
-    fetchImpl: typeof fetch = fetch,
-  ): Promise<void> {
-    if (!isStandalone || pending) return;
-    pending = true;
+  let queued: typeof fetch | null = null;
+
+  async function reportCurrent(fetchImpl: typeof fetch): Promise<void> {
     const getSession = async (): Promise<Session | null> => {
       const res = await fetchImpl("/api/auth/session");
       return res.ok ? ((await res.json()) as Session) : null;
@@ -32,6 +29,26 @@ export function createInstallReporter() {
       }
     } catch {
       return;
+    }
+  }
+
+  return async function reportInstalled(
+    isStandalone: boolean,
+    fetchImpl: typeof fetch = fetch,
+  ): Promise<void> {
+    if (!isStandalone) return;
+    if (pending) {
+      queued = fetchImpl;
+      return;
+    }
+    pending = true;
+    try {
+      let next: typeof fetch | null = fetchImpl;
+      while (next) {
+        queued = null;
+        await reportCurrent(next);
+        next = queued;
+      }
     } finally {
       pending = false;
     }
