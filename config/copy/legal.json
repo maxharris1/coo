@@ -8,7 +8,7 @@
         "heading": "What we keep",
         "paragraphs": [
           "Your phone number. It lives in our sign-in system so we can text you a code. Your profile keeps only the last four digits. Other people never see your number.",
-          "Your roost. We snap the spot where birds find you to a coarse grid and keep that point, with a neighbourhood label. If you choose your town centre instead, we keep the town centre. Each friend sees your roost or only your city, whichever you pick for them. People who are not your friends see neither.",
+          "Your roost. We snap the spot where birds find you to a coarse grid and keep that point, with a neighbourhood label. If you choose your town centre instead, we keep the town centre. Each friend sees your roost or only your city, whichever you pick for them. People who are not your friends see neither, with two exceptions. A flight shows where it left from and where it lands to the two people in it, even if you are not friends or stop being friends. If you send a bird by guest link, the person holding that link sees those two places too.",
           "Your notes. Notes are stored as plain text. They are not end-to-end encrypted. Only the sender can read a note, and the recipient once the bird lands. Note text never goes into our logs, notifications or text messages.",
           "Your push subscription, if you turn on notifications. It lets us tell your phone that a bird landed.",
           "A guest's phone number, if they ask for a text when a bird lands. We keep it until that one text is sent, then clear it."
