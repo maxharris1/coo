@@ -241,7 +241,7 @@ export async function block(
 
 type Place = Loft & { label: string; city: string };
 
-const LOFT_COLUMNS = [
+export const LOFT_COLUMNS = [
   "travel_on",
   "home_lat",
   "home_lon",
@@ -257,7 +257,7 @@ const LOFT_COLUMNS = [
   "travel_city_lon",
 ] as const;
 
-type LoftColumns = Pick<Row<"profiles">, (typeof LOFT_COLUMNS)[number]>;
+export type LoftColumns = Pick<Row<"profiles">, (typeof LOFT_COLUMNS)[number]>;
 
 function place(
   lat: number | null,
@@ -280,7 +280,7 @@ function place(
   };
 }
 
-function loftsOf(r: LoftColumns): LoftProfile<Place> {
+export function loftsOf(r: LoftColumns): LoftProfile<Place> {
   return {
     travelOn: r.travel_on,
     home: place(

@@ -176,6 +176,11 @@
   "foundOnReturn": {
     "chance": 0.1
   },
+  "badges": {
+    "aroundTheBlockUnderMi": 1,
+    "centuryMi": 100,
+    "longHaulMi": 500
+  },
   "roost": {
     "gridLatDeg": 0.002,
     "gridLonDeg": 0.0025

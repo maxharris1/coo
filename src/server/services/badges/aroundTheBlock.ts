@@ -1,3 +1,7 @@
-import type { BadgeRule } from "../badges";
+import { config } from "@/lib/config";
+import { landingBadge } from "./award";
 
-export const aroundTheBlock: BadgeRule = { async apply() {} };
+export const aroundTheBlock = landingBadge(
+  "around-the-block",
+  ({ distanceMi }) => distanceMi < config.game.badges.aroundTheBlockUnderMi,
+);

@@ -1,3 +1,7 @@
-import type { BadgeRule } from "../badges";
+import { config } from "@/lib/config";
+import { landingBadge } from "./award";
 
-export const century: BadgeRule = { async apply() {} };
+export const century = landingBadge(
+  "century",
+  ({ distanceMi }) => distanceMi >= config.game.badges.centuryMi,
+);
