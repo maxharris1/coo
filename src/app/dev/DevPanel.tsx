@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useSync } from "@/components/SyncProvider";
 import type { SyncPayload } from "@/components/sync";
 import { DevPanelView, type DevButton, type Post } from "./DevPanelView";
@@ -34,12 +34,12 @@ function devButtons(data: SyncPayload | null): DevButton[] {
   ];
 }
 
-async function send({ url, body }: Post): Promise<string | null> {
+async function send({ url, body }: Post, ref: string): Promise<string | null> {
   try {
     const res = await fetch(url, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ ...body, ref: crypto.randomUUID() }),
+      body: JSON.stringify({ ...body, ref }),
     });
     if (res.ok) return null;
     const json: unknown = await res.json().catch(() => null);
@@ -55,16 +55,21 @@ export function DevPanel() {
   const { data, refresh } = useSync();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const failed = useRef<{ key: string; ref: string } | null>(null);
 
   async function run({ run }: DevButton) {
     if (busy || !run) return;
     setError(null);
     if (run === "refresh") return refresh();
+    const key = JSON.stringify(run);
+    const ref =
+      failed.current?.key === key ? failed.current.ref : crypto.randomUUID();
     setBusy(true);
-    const failure = await send(run);
+    const failure = await send(run, ref);
     setBusy(false);
-    if (failure) setError(failure);
-    else refresh();
+    failed.current = failure ? { key, ref } : null;
+    setError(failure);
+    refresh();
   }
 
   return (

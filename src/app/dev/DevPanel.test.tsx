@@ -198,7 +198,7 @@ describe("DevPanel buttons (ac-2, ac-3)", () => {
     expect(refresh).toHaveBeenCalledOnce();
   });
 
-  it("shows a failed post's message and does not refresh", async () => {
+  it("shows a failed post's message and refreshes", async () => {
     fetchMock.mockResolvedValueOnce(
       Response.json(
         { error: { message: "Could not find that flight." } },
@@ -208,12 +208,12 @@ describe("DevPanel buttons (ac-2, ac-3)", () => {
     await mount(FLYING);
     await click("Jump to next landing");
     expect(alert()).toBe("Could not find that flight.");
-    expect(refresh).not.toHaveBeenCalled();
+    expect(refresh).toHaveBeenCalledOnce();
     expect(button("+1 hour").props.disabled).toBe(false);
 
     await click("+1 hour");
     expect(alert()).toBeUndefined();
-    expect(refresh).toHaveBeenCalledOnce();
+    expect(refresh).toHaveBeenCalledTimes(2);
   });
 
   it("shows a calm message when the network fails", async () => {
@@ -221,6 +221,68 @@ describe("DevPanel buttons (ac-2, ac-3)", () => {
     await mount(FLYING);
     await click("+500 seeds");
     expect(alert()).toBe("We could not reach the loft. Try again.");
-    expect(refresh).not.toHaveBeenCalled();
+    expect(refresh).toHaveBeenCalledOnce();
+  });
+});
+
+describe("DevPanel retries (ac-2)", () => {
+  const LABELS = [
+    "+10 min",
+    "+1 hour",
+    "+1 day",
+    "Jump to next landing",
+    "Reset clock",
+    "+500 seeds",
+  ];
+  const FAILURES: [string, () => Promise<Response>][] = [
+    ["a 500", async () => Response.json({}, { status: 500 })],
+    [
+      "a network failure",
+      async () => {
+        throw new TypeError("offline");
+      },
+    ],
+  ];
+
+  describe.each(FAILURES)("after %s", (_, fail) => {
+    it.each(LABELS)(
+      "%s retries with the failed operation's ref",
+      async (label) => {
+        fetchMock.mockImplementationOnce(fail);
+        await mount(FLYING);
+        await click(label);
+        await click(label);
+        const [failed, retry] = posts();
+        expect(retry).toEqual(failed);
+        expect(retry.body.ref).toMatch(UUID);
+        expect(alert()).toBeUndefined();
+
+        await click(label);
+        expect(posts()[2].body.ref).not.toBe(retry.body.ref);
+      },
+    );
+  });
+
+  it("gives a different operation after a failure its own ref", async () => {
+    fetchMock.mockImplementationOnce(FAILURES[0][1]);
+    await mount(FLYING);
+    await click("+1 hour");
+    await click("+1 day");
+    await click("+1 hour");
+    const [failed, other, again] = posts();
+    expect(other.body.ref).not.toBe(failed.body.ref);
+    expect(again.body.ref).not.toBe(failed.body.ref);
+    expect(again.body.ref).not.toBe(other.body.ref);
+  });
+
+  it("keeps the ref across repeated failures of the same operation", async () => {
+    fetchMock
+      .mockImplementationOnce(FAILURES[0][1])
+      .mockImplementationOnce(FAILURES[1][1]);
+    await mount(FLYING);
+    await click("Reset clock");
+    await click("Reset clock");
+    await click("Reset clock");
+    expect(new Set(posts().map((p) => p.body.ref)).size).toBe(1);
   });
 });
