@@ -17,6 +17,9 @@ import { sendSearchParty } from "./searchParty";
 const MINUTE = 60_000;
 const FOUND_ID = "vector-major-15";
 const NOT_FOUND_ID = "vector-major-142";
+const LATER_ID = "10000000-0000-4000-8000-000000000130";
+const LATER_DEPART_MS = 1795118400000;
+const LATER_SEARCH_MS = 1795121907399;
 
 function vectorInput(name: string, flightId?: string): FlightInput {
   const v = vectors.vectors.find((x) => x.name === name);
@@ -164,6 +167,64 @@ describe("sendSearchParty", () => {
       search_party: "not_found",
     });
   });
+
+  it.each([
+    {
+      name: "the same arrival",
+      input: () => vectorInput("delay-major", FOUND_ID),
+      at: (delay: { endMs: number }) => delay.endMs - 1,
+      compare: "toBe" as const,
+    },
+    {
+      name: "a later arrival",
+      input: () => ({
+        ...vectorInput("delay-major", LATER_ID),
+        departAtMs: LATER_DEPART_MS,
+      }),
+      at: () => LATER_SEARCH_MS,
+      compare: "toBeGreaterThan" as const,
+    },
+  ])(
+    "stores not_found, charges 20 and leaves the plan unchanged when the override gives $name (ac-2, ac-3)",
+    async ({ input, at, compare }) => {
+      const stored = input();
+      const original = await storeInput(stored);
+      const now = at(delayOf(original));
+      deps.clock.set(now);
+      const override = searchParty(stored.flightId, now);
+      expect(override).not.toBeNull();
+      const recomputed = computeFlightPlan({
+        ...stored,
+        delayEndOverrideMs: override as number,
+      });
+      expect(recomputed.arriveAtMs)[compare](original.arriveAtMs);
+      const owner = world.max.id;
+      const before = await snapshot();
+      const seedsBefore = await seedsOf(owner);
+
+      const result = await sendSearchParty(
+        deps,
+        await callerFor(owner),
+        flightId,
+      );
+
+      const after = await snapshot();
+      expect(result.outcome).toBe("not_found");
+      expect(result.flight.searchParty).toBe("not_found");
+      expect(result.seeds).toBe(seedsBefore - 20);
+      expect(await seedsOf(owner)).toBe(seedsBefore - 20);
+      expect(after.ledger).toContainEqual({
+        user_id: owner,
+        delta: -20,
+        reason: "search_party",
+        ref_id: flightId,
+      });
+      expect(after.flight).toEqual({
+        ...before.flight,
+        search_party: "not_found",
+      });
+    },
+  );
 
   it("nudges both people's apps after a search", async () => {
     const original = await storeInput(vectorInput("delay-major", FOUND_ID));

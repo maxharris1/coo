@@ -69,25 +69,30 @@ export async function sendSearchParty(
       [caller.userId, -searchPartyCost, row.id],
     );
     const override = searchParty(row.input.flightId, now);
-    const outcome: SearchOutcome = override === null ? "not_found" : "found";
-    if (override === null) {
-      await db.query(
-        "update flights set search_party = 'not_found' where id = $1",
-        [row.id],
-      );
-    } else {
-      const input: FlightInput = { ...row.input, delayEndOverrideMs: override };
-      const plan = computeFlightPlan(input);
+    const input: FlightInput | null =
+      override === null ? null : { ...row.input, delayEndOverrideMs: override };
+    const plan = input && computeFlightPlan(input);
+    const found =
+      input && plan && row.plan && plan.arriveAtMs < row.plan.arriveAtMs
+        ? { input, plan }
+        : null;
+    const outcome: SearchOutcome = found ? "found" : "not_found";
+    if (found) {
       await db.query(
         `update flights set input = $2, plan = $3, arrive_at = $4,
            search_party = 'found'
          where id = $1`,
         [
           row.id,
-          JSON.stringify(input),
-          JSON.stringify(plan),
-          new Date(plan.arriveAtMs).toISOString(),
+          JSON.stringify(found.input),
+          JSON.stringify(found.plan),
+          new Date(found.plan.arriveAtMs).toISOString(),
         ],
+      );
+    } else {
+      await db.query(
+        "update flights set search_party = 'not_found' where id = $1",
+        [row.id],
       );
     }
     const people = row.counterpart_id
