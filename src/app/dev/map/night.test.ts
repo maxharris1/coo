@@ -61,6 +61,11 @@ describe("night style", () => {
     }
   });
 
+  it("names the night style after the day style it came from", () => {
+    const renamed = { ...(day as Style), name: "Any day" };
+    expect(deriveNight(renamed, overrides).name).toBe("Any night");
+  });
+
   it("drops the stray public copy of the overrides", () => {
     expect(existsSync("public/map/coo-night.overrides.json")).toBe(false);
   });

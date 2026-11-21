@@ -52,7 +52,7 @@ export type NightOverrides = Record<keyof typeof ROLES, string>;
 
 export function deriveNight(day: Style, overrides: NightOverrides): Style {
   const night: Style = structuredClone(day);
-  night.name = "Coo night";
+  night.name = day.name.replace(/day$/, "night");
   night.metadata = {
     ...day.metadata,
     "coo:night":
