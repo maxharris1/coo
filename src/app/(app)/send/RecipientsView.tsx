@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Loader } from "@/components/Loader";
+import { config } from "@/lib/config";
 import {
   canGoNext,
   matches,
@@ -220,7 +221,7 @@ function FromContacts({
             >
               <RowBody
                 name={name}
-                line="Not on Coo yet. Add where the bird should fly."
+                line={`Not on ${config.app.name} yet. Add where the bird should fly.`}
                 tone={tone}
                 pill="By link"
               />

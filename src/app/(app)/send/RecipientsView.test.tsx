@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { config } from "@/lib/config";
 import type { Card, SillCard } from "./recipients";
 import { RecipientsView, type RecipientList } from "./RecipientsView";
 
@@ -178,7 +179,9 @@ describe("RecipientsView sill, contacts and search (ac-1)", () => {
     for (const name of contacts.names) {
       const row = linkFor(html, name);
       expect(row).toContain('href="/send/new"');
-      expect(row).toContain("Not on Coo yet. Add where the bird should fly.");
+      expect(row).toContain(
+        `Not on ${config.app.name} yet. Add where the bird should fly.`,
+      );
       expect(row).toContain("By link");
     }
     expect(html.indexOf(">Friends<")).toBeLessThan(
