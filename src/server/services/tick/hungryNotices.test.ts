@@ -1,7 +1,8 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { config } from "@/lib/config";
 import { careAt } from "@/lib/game/care";
 import type { OnboardedCaller, Profile } from "@/server/auth";
+import type { Db } from "@/server/db";
 import { toBirdRecord, type Row } from "@/server/rows";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
 import { seedWorld, type World } from "@/test/seedWorld";
@@ -20,6 +21,25 @@ beforeEach(async () => {
   world = await seedWorld(deps.db, deps.clock.now());
   gerald = world.max.birds[0].id;
 });
+
+afterEach(() => vi.restoreAllMocks());
+
+function failQueryInTx(match: (sql: string, params?: unknown[]) => boolean) {
+  const tx = deps.db.tx.bind(deps.db);
+  return vi
+    .spyOn(deps.db, "tx")
+    .mockImplementation(<T>(fn: (db: Db) => Promise<T>) =>
+      tx((t) =>
+        fn({
+          ...t,
+          query: <R>(sql: string, params?: unknown[]) =>
+            match(sql, params)
+              ? t.query<R>("select 1 / 0")
+              : t.query<R>(sql, params),
+        }),
+      ),
+    );
+}
 
 async function hungryNotices(userId: string) {
   return deps.db.query<{ title: string; body: string; url: string }>(
@@ -169,5 +189,43 @@ describe("hungry notices", () => {
 
     expect(await geraldNotices()).toHaveLength(2);
     expect((await reading(gerald)).hungryNotified).toBe(true);
+  });
+
+  it("notifies the later birds and logs the failing bird id when one bird throws", async () => {
+    const errorLines = vi.spyOn(console, "error").mockImplementation(() => {});
+    const brenda = world.max.birds[1].id;
+    await deps.db.query(
+      "update birds set care_at = care_at - interval '1 minute' where id = $1",
+      [gerald],
+    );
+    const failing = failQueryInTx(
+      (sql, params) =>
+        sql.includes("not b.hungry_notified") && params?.[0] === gerald,
+    );
+    deps.clock.advance(hoursUntilHungry(80) * HOUR_MS);
+
+    const result = await tick(deps, { userId: world.max.id });
+
+    expect(result.counts.hungryNotices).toBe(1);
+    expect(result.failed).toEqual({ hungryNotices: 1 });
+    expect(await geraldNotices()).toEqual([]);
+    expect((await reading(gerald)).hungryNotified).toBe(false);
+    expect((await hungryNotices(world.max.id)).map((n) => n.url)).toEqual([
+      `/birds/${brenda}`,
+    ]);
+    expect(
+      errorLines.mock.calls.map(([line]) => JSON.parse(line as string)),
+    ).toEqual([
+      expect.objectContaining({
+        event: "tick.row_failed",
+        step: "hungryNotices",
+        rowId: gerald,
+      }),
+    ]);
+
+    failing.mockRestore();
+    const again = await tick(deps, { userId: world.max.id });
+    expect(again.counts.hungryNotices).toBe(1);
+    expect(await geraldNotices()).toHaveLength(1);
   });
 });

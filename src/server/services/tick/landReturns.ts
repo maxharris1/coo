@@ -14,6 +14,7 @@ import {
 } from "../notify";
 import { deliver } from "../notify/deliver";
 import type { Step, StepContext } from "../tick";
+import { eachRow, tryRow } from "./rows";
 
 type ClaimedReturn = {
   id: string;
@@ -193,12 +194,19 @@ async function landOne(
 }
 
 export const landReturns: Step = async (ctx) => {
-  const landed: string[][] = [];
-  for (const id of await dueIds(ctx)) {
-    if (ctx.timeUp()) break;
-    const out = await ctx.deps.db.tx((tx) => landOne(ctx.deps, tx, id));
-    if (out) landed.push(out);
-  }
-  for (const n of landed.flat()) await deliver(ctx.deps, n);
-  return { count: landed.length };
+  const { done: landed, failed } = await eachRow(
+    ctx,
+    "landReturns",
+    await dueIds(ctx),
+    async (tx, id) => {
+      const notices = await landOne(ctx.deps, tx, id);
+      return notices ? { id, notices } : null;
+    },
+  );
+  let deliverFailed = 0;
+  for (const { id, notices } of landed)
+    for (const n of notices)
+      if (!(await tryRow("landReturns", id, () => deliver(ctx.deps, n))))
+        deliverFailed++;
+  return { count: landed.length, failed: failed + deliverFailed };
 };

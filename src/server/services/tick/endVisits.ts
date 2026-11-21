@@ -16,6 +16,7 @@ import { LOFT_COLUMNS, loftsOf, type LoftColumns } from "../friends";
 import { quoteInput } from "../flights/quote";
 import { sampleWeather } from "../weather";
 import type { Step, StepContext } from "../tick";
+import { tryRow } from "./rows";
 
 type Endpoint = { point: LatLon; label: string };
 
@@ -226,19 +227,23 @@ async function endOne(
 
 export const endVisits: Step = async (ctx) => {
   let count = 0;
+  let failed = 0;
   for (const id of await dueIds(ctx)) {
     if (ctx.timeUp()) break;
-    const nowMs = ctx.deps.clock.now();
-    const leg = await returnLeg(ctx.deps, id, nowMs);
-    const ended = await ctx.deps.db.tx((tx) => endOne(tx, nowMs, id, leg));
-    if (!ended) continue;
-    count++;
-    if (!leg) {
-      log.warn("endVisits.noReturnEndpoint", {
-        visitId: id,
-        birdId: ended.bird_id,
-      });
-    }
+    const ok = await tryRow("endVisits", id, async () => {
+      const nowMs = ctx.deps.clock.now();
+      const leg = await returnLeg(ctx.deps, id, nowMs);
+      const ended = await ctx.deps.db.tx((tx) => endOne(tx, nowMs, id, leg));
+      if (!ended) return;
+      count++;
+      if (!leg) {
+        log.warn("endVisits.noReturnEndpoint", {
+          visitId: id,
+          birdId: ended.bird_id,
+        });
+      }
+    });
+    if (!ok) failed++;
   }
-  return { count };
+  return { count, failed };
 };
