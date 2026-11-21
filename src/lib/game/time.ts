@@ -101,6 +101,10 @@ export function startOfLocalDayMs(ms: number, tz: string): number {
   return Math.min(...candidates);
 }
 
+export function startOfNextLocalDayMs(ms: number, tz: string): number {
+  return startOfLocalDayMs(startOfLocalDayMs(ms, tz) + 1.5 * DAY_MS, tz);
+}
+
 export function isTimeZone(tz: string): boolean {
   try {
     formatter(tz);
