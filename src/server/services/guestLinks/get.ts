@@ -37,6 +37,10 @@ export type LiveLink = {
   sender_name: string;
 };
 
+export function firstName(name: string): string {
+  return name.trim().split(/\s+/)[0];
+}
+
 export function guestIpLimit(
   deps: Pick<Deps, "db" | "clock" | "config">,
   ip: string,
@@ -119,7 +123,7 @@ async function readGuestView(
   const flight = toFlight(row, "");
 
   const view: GuestView = {
-    senderName: link.sender_name.trim().split(/\s+/)[0],
+    senderName: firstName(link.sender_name),
     recipientName: link.recipient_name,
     bird: {
       name: flight.bird.name,

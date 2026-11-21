@@ -13,7 +13,8 @@ import { landedInTitle, notificationText, recordNotification } from "../notify";
 import { deliver } from "../notify/deliver";
 import type { Step, StepContext } from "../tick";
 import { eachRow } from "./rows";
-import { guestLanding } from "./guestLanding";
+import { firstName } from "../guestLinks/get";
+import { guestLanding, landGuestLink, type GuestText } from "./guestLanding";
 
 type Place = { city: string; region?: string | null; country?: string | null };
 
@@ -56,6 +57,7 @@ type BirdRow = {
 type LandedDelivery = {
   flight: ClaimedDelivery;
   notificationIds: string[];
+  guestText: GuestText | null;
 };
 
 const seeds = config.game.seeds;
@@ -197,6 +199,9 @@ async function landOne(
      from birds where id = $1 for update`,
     [f.bird_id],
   );
+  const guestPhone = f.guest_link_id
+    ? await landGuestLink(tx, f.guest_link_id, arriveMs)
+    : null;
   const care = settleFlight(
     {
       belly: Number(bird.belly),
@@ -328,7 +333,18 @@ async function landOne(
       [userId, new Date(nowMs).toISOString()],
     );
 
-  return { flight: f, notificationIds };
+  return {
+    flight: f,
+    notificationIds,
+    guestText: guestPhone
+      ? {
+          flightId: f.id,
+          phone: guestPhone,
+          bird: bird.name,
+          friend: firstName(owner.name),
+        }
+      : null,
+  };
 }
 
 export const landDeliveries: Step = async (ctx) => {
@@ -351,16 +367,14 @@ export const landDeliveries: Step = async (ctx) => {
           error,
         });
       }
-  const guests = landed
-    .filter((l) => l.flight.guest_link_id)
-    .map((l) => l.flight);
+  const texts = landed.flatMap((l) => (l.guestText ? [l.guestText] : []));
   try {
-    await guestLanding(ctx, guests);
+    postCommitFailed += await guestLanding(ctx, texts);
   } catch (error) {
     postCommitFailed++;
     log.error("tick.row_failed", {
       step: "landDeliveries",
-      rowIds: guests.map((f) => f.id),
+      rowIds: texts.map((t) => t.flightId),
       error,
     });
   }

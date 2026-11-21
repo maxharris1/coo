@@ -32,6 +32,11 @@ const routeFiles = new Map(
 );
 const precedence = getSortedRoutes([...routeFiles.keys()]);
 
+const BODIES: Record<string, unknown> = {
+  report: { reason: "Spam" },
+  notify: { phone: "212 555 0142", consent: true },
+};
+
 async function dispatch(method: "GET" | "POST", url: string) {
   const pathname = normalizeRepeatedSlashes(url);
   const route = precedence.find((p) =>
@@ -47,7 +52,7 @@ async function dispatch(method: "GET" | "POST", url: string) {
       method,
       ...(method === "POST" && {
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ reason: "Spam" }),
+        body: JSON.stringify(BODIES[pathname.split("/").at(-1) ?? ""]),
       }),
     }),
   );
@@ -66,19 +71,16 @@ beforeEach(async () => {
 
 describe("guest link routing (ac-2)", () => {
   it.each([
-    ["GET", "/api/guest/"],
-    ["GET", "/api/guest"],
-    ["POST", "/api/guest//report"],
-    ["POST", "/api/guest/report"],
+    ["GET", "/api/guest/", "/api/guest/AAAAAAAAAAAAAAAA"],
+    ["GET", "/api/guest", "/api/guest/AAAAAAAAAAAAAAAA"],
+    ["POST", "/api/guest//report", "/api/guest/AAAAAAAAAAAAAAAA/report"],
+    ["POST", "/api/guest/report", "/api/guest/AAAAAAAAAAAAAAAA/report"],
+    ["POST", "/api/guest//notify", "/api/guest/AAAAAAAAAAAAAAAA/notify"],
+    ["POST", "/api/guest/notify", "/api/guest/AAAAAAAAAAAAAAAA/notify"],
   ] as const)(
     "%s %s reaches a handler that answers like a wrong token",
-    async (method, url) => {
-      const wrong = await dispatch(
-        method,
-        method === "GET"
-          ? "/api/guest/AAAAAAAAAAAAAAAA"
-          : "/api/guest/AAAAAAAAAAAAAAAA/report",
-      );
+    async (method, url, wrongUrl) => {
+      const wrong = await dispatch(method, wrongUrl);
       expect(wrong.status).toBe(404);
       expect(wrong.json.error.code).toBe("not_found");
 

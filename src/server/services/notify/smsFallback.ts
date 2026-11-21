@@ -59,7 +59,7 @@ function isSmsKind(deps: Deps, kind: string): kind is SmsKind {
 }
 
 export function smsText(
-  kind: SmsKind,
+  kind: SmsKind | "guest-landed",
   vars: { bird: string; friend: string; url: string },
 ): string {
   const render = ({ bird, friend }: Names) =>
