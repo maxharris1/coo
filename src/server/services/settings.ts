@@ -3,6 +3,7 @@ import type { Deps } from "@/server/deps";
 import { AppError } from "@/server/errors";
 import type { UserId } from "@/server/ports/auth";
 import { toMe, type Me, type Row } from "@/server/rows";
+import { rescheduleHeld } from "./notify/deliver";
 import { displayName } from "./onboarding";
 
 const hour = z.number().int().min(0).max(23);
@@ -32,6 +33,12 @@ const SHAPE = Object.fromEntries(KEYS.map((k) => [k, SETTINGS[k].schema])) as {
   [K in Setting]: (typeof SETTINGS)[K]["schema"];
 };
 
+const QUIET: ReadonlySet<Setting> = new Set([
+  "quietOn",
+  "quietStart",
+  "quietEnd",
+]);
+
 export const SETTINGS_BODY = z
   .object(SHAPE)
   .partial()
@@ -53,9 +60,15 @@ export async function updateSettings(
   }
   const keys = KEYS.filter((k) => input[k] !== undefined);
   const set = keys.map((k, i) => `${SETTINGS[k].column} = $${i + 2}`);
-  const [row] = await deps.db.query<Row<"profiles">>(
-    `update profiles set ${set.join(", ")} where id = $1 returning *`,
-    [caller, ...keys.map((k) => input[k])],
-  );
+  const row = await deps.db.tx(async (tx) => {
+    const [row] = await tx.query<Row<"profiles">>(
+      `update profiles set ${set.join(", ")} where id = $1 returning *`,
+      [caller, ...keys.map((k) => input[k])],
+    );
+    if (keys.some((k) => QUIET.has(k))) {
+      await rescheduleHeld(tx, deps.clock.now(), row);
+    }
+    return row;
+  });
   return { me: toMe(row) };
 }

@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { settingsPatch } from "@/app/api/settings/patch";
 import { syncGet } from "@/app/api/sync/get";
 import { toE164 } from "@/lib/phone";
 import { createJsonRoute } from "@/server/http";
@@ -15,6 +16,7 @@ const NOON_NY = Date.UTC(2026, 10, 19, 17);
 const ELEVEN_PM_NY = Date.UTC(2026, 10, 20, 4);
 const TWO_AM_NY = Date.UTC(2026, 10, 20, 7);
 const SEVEN_AM_NY = Date.UTC(2026, 10, 20, 12);
+const NINE_AM_NY = Date.UTC(2026, 10, 20, 14);
 const SEVEN_AM_TOKYO = Date.UTC(2026, 10, 19, 22);
 
 let deps: TestDeps;
@@ -59,15 +61,30 @@ async function pushSentAt(id: string) {
   return row.push_sent_at;
 }
 
-async function syncTimezone(person: Person, phone: string, timezone: string) {
+async function signIn(person: Person, phone: string) {
   const jar = new FakeJar();
   const e164 = toE164(phone);
   if (!e164) throw new Error("invalid fixture phone");
   expect(await deps.auth(jar).verifyCode(e164, "000000")).toBe(person.id);
-  const cookie = jar
+  return jar
     .getAll()
     .map(({ name, value }) => `${name}=${value}`)
     .join("; ");
+}
+
+async function patchSettings(cookie: string, body: Record<string, unknown>) {
+  const response = await settingsPatch(createJsonRoute(async () => deps))(
+    new NextRequest("https://coo.test/api/settings", {
+      method: "PATCH",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  );
+  expect(response.status).toBe(200);
+}
+
+async function syncTimezone(person: Person, phone: string, timezone: string) {
+  const cookie = await signIn(person, phone);
   const response = await syncGet(createJsonRoute(async () => deps))(
     new NextRequest("https://coo.test/api/sync", {
       headers: { cookie, "x-timezone": timezone },
@@ -248,6 +265,56 @@ describe("tick step 11: flush quiet hours", () => {
 
     expect(count).toBe(1);
     expect(deps.push.sent.map((s) => s.payload.tag)).toEqual([held.tag]);
+  });
+
+  describe("when PATCH /api/settings changes quiet hours while a push is held", () => {
+    it("keeps a 23:00 hold quiet until a quiet end moved from 07:00 to 09:00", async () => {
+      await subscribe(world.priya);
+      const held = await hold(world.priya, ELEVEN_PM_NY);
+      await patchSettings(await signIn(world.priya, "+15550000002"), {
+        quietEnd: 9,
+      });
+
+      expect(await flushAt(SEVEN_AM_NY)).toBe(0);
+      expect(await flushAt(NINE_AM_NY - 1)).toBe(0);
+      expect(deps.push.sent).toEqual([]);
+      expect(await flushAt(NINE_AM_NY)).toBe(1);
+      expect(deps.push.sent.map((s) => s.payload.tag)).toEqual([held.tag]);
+      expect(await pushSentAt(held.id)).toEqual(new Date(NINE_AM_NY));
+    });
+
+    it("releases the hold at 06:00 when the quiet end moves from 07:00 to 06:00", async () => {
+      await subscribe(world.priya);
+      await hold(world.priya, ELEVEN_PM_NY);
+      await patchSettings(await signIn(world.priya, "+15550000002"), {
+        quietEnd: 6,
+      });
+
+      expect(await flushAt(SEVEN_AM_NY - HOUR_MS - 1)).toBe(0);
+      expect(await flushAt(SEVEN_AM_NY - HOUR_MS)).toBe(1);
+    });
+
+    it("releases the hold on the next tick when quiet hours are switched off", async () => {
+      await subscribe(world.priya);
+      await hold(world.priya, ELEVEN_PM_NY);
+      deps.clock.set(TWO_AM_NY);
+      await patchSettings(await signIn(world.priya, "+15550000002"), {
+        quietOn: false,
+      });
+
+      expect(await flushAt(TWO_AM_NY)).toBe(1);
+    });
+
+    it("leaves a daytime no-subscription skip unflushed", async () => {
+      const skipped = await hold(world.priya, NOON_NY);
+      await subscribe(world.priya);
+      await patchSettings(await signIn(world.priya, "+15550000002"), {
+        quietEnd: 9,
+      });
+
+      expect(await flushAt(NINE_AM_NY)).toBe(0);
+      expect(await pushSentAt(skipped.id)).toBeNull();
+    });
   });
 
   describe("when GET /api/sync changes the time zone after the decision", () => {
