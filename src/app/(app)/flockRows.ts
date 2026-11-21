@@ -1,5 +1,6 @@
 import type { SyncPayload } from "@/components/sync";
 import { clockTime, duration } from "@/lib/format";
+import type { CannotFly } from "@/server/services/sync";
 
 type FlockBird = SyncPayload["birds"][number];
 
@@ -45,6 +46,12 @@ const BUSY: Record<string, string> = {
   nap: "Napping",
   bath: "Bathing",
   job: "On an odd job",
+};
+
+const CANNOT_FLY: Record<CannotFly, string> = {
+  tired: "Too tired to fly. Resting up.",
+  busy: "Busy for now. Can't fly yet.",
+  away: "Away from the loft",
 };
 
 export function flockRow(bird: FlockBird, ctx: RowContext): FlockRow {
@@ -103,8 +110,11 @@ export function flockRow(bird: FlockBird, ctx: RowContext): FlockRow {
           tone: "peach",
         };
       }
+      if (bird.cannotFlyReason) {
+        return chip("Resting", CANNOT_FLY[bird.cannotFlyReason], "lilac");
+      }
       if (bird.tired) {
-        return chip("Resting", "Too tired to fly. Resting up.", "lilac");
+        return chip("Ready", "Home and a bit tired. Can still fly.", "sky");
       }
       return chip("Ready", "Home, fed, smug", "sky");
   }

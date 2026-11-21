@@ -1,6 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { SyncPayload } from "@/components/sync";
+import type { BirdRecord } from "@/server/rows";
+import { toBirdView } from "@/server/services/sync";
 import { Flock } from "./Flock";
 
 type Bird = SyncPayload["birds"][number];
@@ -146,5 +148,71 @@ describe("Flock on Main", () => {
     expect(html.match(/href="\/birds\//g)).toHaveLength(5);
     expect(html).toContain("5 of 5 perches");
     expect(html).not.toContain("data-perch=");
+  });
+});
+
+describe("Flock tiredness from the server projection (ac-2)", () => {
+  const record = (energy: number): BirdRecord => ({
+    id: "00000000-0000-4000-b000-000000000011",
+    ownerId: "00000000-0000-4000-a000-000000000001",
+    name: "Gerald",
+    breed: "city",
+    look: "gerald",
+    pronoun: "they",
+    speedMph: 40,
+    focus: 3,
+    navigation: 3,
+    quirks: [],
+    miles: 0,
+    deliveries: 0,
+    detours: 0,
+    belly: 80,
+    feathers: 80,
+    energy,
+    careAt: now,
+    lastFedAt: now,
+    hungryNotified: false,
+    status: "home",
+    busyKind: null,
+    busyUntil: null,
+    gear: [],
+    hatchedAt: now,
+  });
+
+  const rowFor = (energy: number) => {
+    const view = toBirdView(record(energy), now, { hasBirdbath: false });
+    const html = renderToStaticMarkup(
+      <Flock
+        data={
+          {
+            serverNow: now,
+            me: { timezone: "UTC", perches: 1 },
+            birds: [view],
+            flights: [],
+            myVisiting: [],
+            egg: null,
+          } as unknown as SyncPayload
+        }
+        onFeed={() => {}}
+      />,
+    );
+    return {
+      canFly: view.canFly,
+      line: html.match(/<span class="[^"]*line[^"]*">([^<]+)<\/span>/)?.[1],
+      chip: html.includes(">Resting<")
+        ? "Resting"
+        : html.includes(">Ready<")
+          ? "Ready"
+          : null,
+    };
+  };
+
+  it.each([
+    [14, false, "Resting", "Too tired to fly. Resting up."],
+    [15, true, "Ready", "Home and a bit tired. Can still fly."],
+    [30, true, "Ready", "Home and a bit tired. Can still fly."],
+    [40, true, "Ready", "Home, fed, smug"],
+  ])("energy %d: canFly %s, %s, %s", (energy, canFly, chip, line) => {
+    expect(rowFor(energy)).toEqual({ canFly, chip, line });
   });
 });

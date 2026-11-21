@@ -148,10 +148,27 @@ describe("flockRow (ac-2)", () => {
     });
   });
 
-  it("rests a tired bird at home", () => {
-    expect(flockRow(bird({ tired: true }), ctx())).toMatchObject({
+  it("keeps a tired bird that can still fly Ready", () => {
+    expect(flockRow(bird({ tired: true, canFly: true }), ctx())).toMatchObject({
+      action: { kind: "chip", chip: "Ready" },
+      line: "Home and a bit tired. Can still fly.",
+    });
+  });
+
+  it.each([
+    ["tired", "Too tired to fly. Resting up."],
+    ["busy", "Busy for now. Can't fly yet."],
+    ["away", "Away from the loft"],
+  ] as const)("rests a home bird the server grounds as %s", (reason, line) => {
+    expect(
+      flockRow(
+        bird({ tired: true, canFly: false, cannotFlyReason: reason }),
+        ctx(),
+      ),
+    ).toEqual({
       action: { kind: "chip", chip: "Resting" },
-      line: "Too tired to fly. Resting up.",
+      line,
+      tone: "lilac",
     });
   });
 });
