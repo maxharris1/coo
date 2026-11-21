@@ -4,9 +4,11 @@ import { breedIds, type BreedId } from "@/lib/game/types";
 
 export type Hatchling = {
   breed: BreedId;
+  look: string;
   speedMph: number;
   focus: number;
   navigation: number;
+  quirks: [fear: string, love: string];
 };
 
 type Breed = (typeof config.breeds.breeds)[number];
@@ -26,10 +28,13 @@ export function rollHatchling(
   const pool = unowned.length > 0 ? unowned : hatchable;
   const breed = pool[Math.floor(r() * pool.length)];
   const roll = ([lo, hi]: number[]) => lo + Math.floor(r() * (hi - lo + 1));
+  const pick = (list: string[]) => list[Math.floor(r() * list.length)];
   return {
     breed: breed.id,
+    look: breed.id,
     speedMph: roll(breed.speedMph),
     focus: roll(breed.focus),
     navigation: roll(breed.navigation),
+    quirks: [pick(config.quirks.fears), pick(config.quirks.loves)],
   };
 }
