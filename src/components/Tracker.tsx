@@ -11,6 +11,7 @@ import { clockTime, duration, inUnits, type Units } from "@/lib/format";
 import Link from "next/link";
 import type { Flight } from "@/server/services/flights/shape";
 import { Bird, type GearId, type Look } from "./Bird";
+import { placeNear } from "./FlightLog";
 import { MapView } from "./MapView";
 import styles from "./Tracker.module.css";
 import { TrackerDelay } from "./TrackerDelay";
@@ -34,7 +35,15 @@ export type TrackerView = {
   sillLabel: string;
 };
 
-type Copy = { bird: string; place: string; from: string; to: string };
+type Copy = {
+  bird: string;
+  place: string | undefined;
+  from: string;
+  to: string;
+  friend: string;
+};
+
+const onTheWay = (c: Copy) => `${c.bird} is on the way to ${c.friend}`;
 
 const STATES: Record<
   TrackerState,
@@ -46,10 +55,16 @@ const STATES: Record<
   },
   flying: {
     chip: "In the air",
-    headline: (c) => `${c.bird} is over ${c.place}`,
+    headline: (c) => (c.place ? `${c.bird} is over ${c.place}` : onTheWay(c)),
   },
-  roosting: { chip: "Roosting", headline: (c) => `Asleep near ${c.place}` },
-  delayed: { chip: "Delayed", headline: (c) => `Last seen near ${c.place}` },
+  roosting: {
+    chip: "Roosting",
+    headline: (c) => (c.place ? `Asleep near ${c.place}` : onTheWay(c)),
+  },
+  delayed: {
+    chip: "Delayed",
+    headline: (c) => (c.place ? `Last seen near ${c.place}` : onTheWay(c)),
+  },
   landed: { chip: "Landed", headline: (c) => `${c.bird} landed at ${c.to}` },
 };
 
@@ -111,15 +126,6 @@ function totalMi(flight: Flight): number {
   return flight.distanceMi ?? flight.plan?.distanceMi ?? 0;
 }
 
-function placeAt(flight: Flight, nowMs: number): string {
-  const events = flight.plan?.events ?? [];
-  for (let i = events.length - 1; i >= 0; i--) {
-    const name = flight.placeNames.events?.[String(i)];
-    if (events[i].atMs <= nowMs && name) return name;
-  }
-  return flight.from.label;
-}
-
 function rounded(n: number, total: number): string {
   const digits = total < 1 ? 2 : total < 10 ? 1 : 0;
   return String(Number(n.toFixed(digits)));
@@ -134,6 +140,15 @@ function seconds(ms: number): string {
 
 function recipient(flight: Flight): string | undefined {
   return flight.counterpart?.name ?? flight.guestName;
+}
+
+function headedTo(flight: Flight): string {
+  if (flight.kind === "return") {
+    return flight.role === "mine" ? "you" : flight.owner.name;
+  }
+  return flight.role === "incoming"
+    ? "you"
+    : (recipient(flight) ?? flight.to.label);
 }
 
 function pins(flight: Flight) {
@@ -220,9 +235,10 @@ export function trackerView(
   const left = arrive === undefined ? undefined : Math.max(0, arrive - nowMs);
   const copy = {
     bird: flight.bird.name,
-    place: placeAt(flight, nowMs),
+    place: placeNear(flight, frac),
     from: flight.from.label,
     to: flight.to.label,
+    friend: headedTo(flight),
   };
   return {
     state,
