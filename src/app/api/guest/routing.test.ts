@@ -75,6 +75,7 @@ describe("guest link routing (ac-2)", () => {
     ["GET", "/api/guest", "/api/guest/AAAAAAAAAAAAAAAA"],
     ["POST", "/api/guest//report", "/api/guest/AAAAAAAAAAAAAAAA/report"],
     ["POST", "/api/guest/report", "/api/guest/AAAAAAAAAAAAAAAA/report"],
+    ["GET", "/api/guest/notify", "/api/guest/AAAAAAAAAAAAAAAA"],
     ["POST", "/api/guest//notify", "/api/guest/AAAAAAAAAAAAAAAA/notify"],
     ["POST", "/api/guest/notify", "/api/guest/AAAAAAAAAAAAAAAA/notify"],
   ] as const)(
