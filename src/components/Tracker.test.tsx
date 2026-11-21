@@ -152,7 +152,7 @@ describe("trackerView states", () => {
 
   it("names the place from the latest passed event", () => {
     const flight = flightFrom("calm-short", {
-      placeNames: { "1": "Edison, NJ", "2": "Trenton" },
+      placeNames: { events: { "1": "Edison, NJ", "2": "Trenton" } },
     });
     const view = trackerView(flight, at(flight, 0.5), TZ);
     expect(view.headline).toBe("Gerald is over Edison, NJ");

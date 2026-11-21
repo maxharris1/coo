@@ -1,7 +1,16 @@
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import vectors from "../../../../../../reference/flight-engine/vectors.json";
 import type { FlightInput, FlightPlan } from "@/lib/flight/engine";
-import type { Flight } from "@/server/services/flights/shape";
+import { placeNames } from "@/server/services/flights/placeNames";
+import {
+  FLIGHT_SELECT,
+  toFlight,
+  type Flight,
+  type FlightRow,
+} from "@/server/services/flights/shape";
+import { makeTestDeps } from "@/test/deps";
+import { insertFlyingDelivery } from "@/test/fixtures/flights";
+import { seedWorld } from "@/test/seedWorld";
 import type { SyncBird } from "../../../send/write/compose";
 import { incidentReport, type IncidentContext } from "./incident";
 
@@ -60,7 +69,17 @@ function flight(over: Partial<Flight> = {}): Flight {
     distanceMi: PLAN.distanceMi,
     plan: PLAN,
     input: INPUT,
-    placeNames: { "2": "Trenton" },
+    placeNames: {
+      deciles: [
+        "New York, NY",
+        "Jersey City, NJ",
+        "Trenton, NJ",
+        ...Array(7).fill(null),
+        "Philadelphia, PA",
+      ],
+      events: {},
+      dest: null,
+    },
     role: "mine",
     hasNote: true,
     ...over,
@@ -94,14 +113,14 @@ describe("incidentReport for the delay-major vector", () => {
     expect(report.rows).toEqual([
       { label: "Bird", value: "Kevin. 45 mph on a good day." },
       { label: "Route", value: "Brooklyn to Philly, 82 miles" },
-      { label: "Last seen", value: "Trenton, 10:21 am" },
+      { label: "Last seen", value: "Trenton, NJ, 10:21 am" },
       { label: "Cause", value: "Found a pretzel. Chose the pretzel." },
       { label: "Your note", value: "Still attached. Probably." },
     ]);
   });
 
   it("puts the last-seen place on the sign", () => {
-    expect(report.place).toBe("Trenton");
+    expect(report.place).toBe("Trenton, NJ");
   });
 
   it("offers a search party at the configured cost and odds", () => {
@@ -218,5 +237,46 @@ describe("incidentReport edge cases", () => {
     expect(
       incidentReport(flight({ hasNote: false }), ctx())!.rows[4].value,
     ).toBe("Nothing attached this trip.");
+  });
+});
+
+describe("incidentReport on place names stored by the real producer", () => {
+  let stored: Flight;
+  let decile: string | null;
+
+  beforeAll(async () => {
+    const deps = await makeTestDeps();
+    const world = await seedWorld(deps.db, INPUT.departAtMs);
+    const { flightId } = await insertFlyingDelivery(
+      deps.db,
+      world,
+      INPUT.departAtMs,
+    );
+    const names = await placeNames(deps, INPUT.from, INPUT.to);
+    decile = names.deciles[Math.round(DELAY.fromFrac * 10)];
+    await deps.db.query(
+      "update flights set plan = $2, input = $3, place_names = $4 where id = $1",
+      [
+        flightId,
+        JSON.stringify(PLAN),
+        JSON.stringify(INPUT),
+        JSON.stringify(names),
+      ],
+    );
+    const [row] = await deps.db.query<FlightRow>(
+      `${FLIGHT_SELECT} where f.id = $1`,
+      [flightId],
+    );
+    stored = toFlight(row, world.max.id);
+  });
+
+  it("puts the delay-point decile and time in Last seen", () => {
+    const report = incidentReport(stored, ctx())!;
+    expect(decile).toBe("Carteret, NJ");
+    expect(report.place).toBe("Carteret, NJ");
+    expect(report.rows[2]).toEqual({
+      label: "Last seen",
+      value: "Carteret, NJ, 10:21 am",
+    });
   });
 });

@@ -90,9 +90,9 @@ export function incidentReport(
   { birds, delayedCount, nowMs, timeZone, units }: IncidentContext,
 ): IncidentReport | null {
   const plan = flight.plan;
-  const index = plan?.events.findIndex((e) => e.kind === "delay") ?? -1;
-  if (!plan || index < 0) return null;
-  const event = plan.events[index];
+  const event = plan?.events.find((e) => e.kind === "delay");
+  const delay = plan?.segments.find((s) => s.kind === "delay");
+  if (!plan || !event || !delay) return null;
 
   const name = flight.bird.name;
   const synced = birds.find((b) => b.id === flight.bird.id);
@@ -100,7 +100,8 @@ export function incidentReport(
   const friend = flight.counterpart?.name ?? flight.guestName ?? "your friend";
   const speed = flight.input?.bird.speedMph ?? synced?.speedMph;
   const miles = flight.distanceMi ?? plan.distanceMi;
-  const place = flight.placeNames[String(index)] ?? null;
+  const place =
+    flight.placeNames.deciles?.[Math.round(delay.fromFrac * 10)] ?? null;
   const at = clockTime(new Date(event.atMs), timeZone);
   const causes = plan.delayKind === "major" ? delay_major : delay_minor;
   const detours = synced?.detours ?? 0;
