@@ -16,6 +16,7 @@ import { LOFT_COLUMNS, loftsOf, type LoftColumns } from "../friends";
 import { quoteInput } from "../flights/quote";
 import { sampleWeather } from "../weather";
 import type { Step, StepContext } from "../tick";
+import { tryRow } from "./rows";
 
 type Endpoint = { point: LatLon; label: string };
 
@@ -52,12 +53,13 @@ function returnEndpoint(
   return null;
 }
 
-export async function returnLeg(
-  deps: Deps,
+export type ReturnRoute = Omit<ReturnLeg, "weather">;
+
+export async function returnRoute(
+  db: Db,
   visitId: string,
-  nowMs: number,
-): Promise<ReturnLeg | null> {
-  const [row] = await deps.db.query<VisitLegRow>(
+): Promise<ReturnRoute | null> {
+  const [row] = await db.query<VisitLegRow>(
     `select f.to_lat as from_lat, f.to_lon as from_lon,
        f.to_label as from_label, o.timezone, o.has_birdbath, ${OWNER_LOFT},
        case when v.host_id is null then 'block'
@@ -76,24 +78,39 @@ export async function returnLeg(
   if (!row) return null;
   const to = returnEndpoint(row.owner_shows, loftsOf(row));
   if (!to) return null;
-  const from = {
-    point: { lat: row.from_lat, lon: row.from_lon },
-    label: row.from_label,
-  };
-  const { samples } = await sampleWeather(
-    deps,
-    deps.config.game.weather.sampleFractions.map((f) => ({
-      ...interpolate(from.point, to.point, f),
-      atMs: nowMs,
-    })),
-  );
   return {
-    from,
+    from: {
+      point: { lat: row.from_lat, lon: row.from_lon },
+      label: row.from_label,
+    },
     to,
     timezone: row.timezone,
     hasBirdbath: row.has_birdbath,
-    weather: samples as ReturnLeg["weather"],
   };
+}
+
+export async function withWeather(
+  deps: Deps,
+  route: ReturnRoute,
+  nowMs: number,
+): Promise<ReturnLeg> {
+  const { samples } = await sampleWeather(
+    deps,
+    deps.config.game.weather.sampleFractions.map((f) => ({
+      ...interpolate(route.from.point, route.to.point, f),
+      atMs: nowMs,
+    })),
+  );
+  return { ...route, weather: samples as ReturnLeg["weather"] };
+}
+
+export async function returnLeg(
+  deps: Deps,
+  visitId: string,
+  nowMs: number,
+): Promise<ReturnLeg | null> {
+  const route = await returnRoute(deps.db, visitId);
+  return route && withWeather(deps, route, nowMs);
 }
 
 export async function startReturn(
@@ -210,19 +227,23 @@ async function endOne(
 
 export const endVisits: Step = async (ctx) => {
   let count = 0;
+  let failed = 0;
   for (const id of await dueIds(ctx)) {
     if (ctx.timeUp()) break;
-    const nowMs = ctx.deps.clock.now();
-    const leg = await returnLeg(ctx.deps, id, nowMs);
-    const ended = await ctx.deps.db.tx((tx) => endOne(tx, nowMs, id, leg));
-    if (!ended) continue;
-    count++;
-    if (!leg) {
-      log.warn("endVisits.noReturnEndpoint", {
-        visitId: id,
-        birdId: ended.bird_id,
-      });
-    }
+    const ok = await tryRow("endVisits", id, async () => {
+      const nowMs = ctx.deps.clock.now();
+      const leg = await returnLeg(ctx.deps, id, nowMs);
+      const ended = await ctx.deps.db.tx((tx) => endOne(tx, nowMs, id, leg));
+      if (!ended) return;
+      count++;
+      if (!leg) {
+        log.warn("endVisits.noReturnEndpoint", {
+          visitId: id,
+          birdId: ended.bird_id,
+        });
+      }
+    });
+    if (!ok) failed++;
   }
-  return { count };
+  return { count, failed };
 };

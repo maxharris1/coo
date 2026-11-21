@@ -124,4 +124,13 @@ describe("log", () => {
       batches: [{ "[redacted]": { "[redacted]": 1 } }],
     });
   });
+
+  it("keeps uuids whole so row ids stay traceable", () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const rowId = "12345678-1234-4123-8123-123456789012";
+
+    log.error("tick.row_failed", { rowId });
+
+    expect(JSON.parse(error.mock.calls[0][0] as string).rowId).toBe(rowId);
+  });
 });

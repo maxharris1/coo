@@ -1,12 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { Loader } from "@/components/Loader";
 import { useSync } from "@/components/SyncProvider";
 import { useToast } from "@/components/Toasts";
 import type { FriendRow } from "@/server/services/friends";
 import { loadFriends } from "../friends/friendsApi";
-import { fastestReady, friendCard, readyBirds } from "./recipients";
+import {
+  canPickContacts,
+  fastestReady,
+  friendCard,
+  handOffName,
+  pickContacts,
+  readyBirds,
+  sillCard,
+} from "./recipients";
 import { RecipientsView, type RecipientList } from "./RecipientsView";
 
 type Friends =
@@ -14,11 +22,19 @@ type Friends =
   | { kind: "failed" }
   | { kind: "ready"; friends: FriendRow[] };
 
+const noSubscribe = () => () => {};
+
 export default function SendPage() {
   const { data } = useSync();
   const [friends, setFriends] = useState<Friends>({ kind: "loading" });
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
   const [query, setQuery] = useState("");
+  const [contactNames, setContactNames] = useState<string[]>([]);
+  const canPick = useSyncExternalStore(
+    noSubscribe,
+    () => canPickContacts(navigator),
+    () => false,
+  );
   const toast = useToast();
 
   useEffect(() => {
@@ -48,6 +64,8 @@ export default function SendPage() {
     return friends.friends.map((f) => friendCard(f, from));
   }, [friends, data]);
 
+  const sill = useMemo(() => (data ? data.visits.map(sillCard) : []), [data]);
+
   if (!data) return <Loader />;
 
   const list: RecipientList =
@@ -60,14 +78,26 @@ export default function SendPage() {
       return next;
     });
 
+  const onPickContacts = () => {
+    void pickContacts(navigator).then((names) => {
+      if (names.length > 0) setContactNames(names);
+    });
+  };
+
+  const onOpenContact = (name: string) => handOffName(sessionStorage, name);
+
   return (
     <RecipientsView
       list={list}
+      sill={sill}
+      contacts={{ supported: canPick, names: contactNames }}
       picked={picked}
       readyCount={readyBirds(data.birds).length}
       query={query}
       onQuery={setQuery}
       onToggle={onToggle}
+      onPickContacts={onPickContacts}
+      onOpenContact={onOpenContact}
     />
   );
 }

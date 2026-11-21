@@ -1,7 +1,12 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { config } from "@/lib/config";
-import { computeFlightPlan, type FlightInput } from "@/lib/flight/engine";
+import {
+  computeFlightPlan,
+  type FlightInput,
+  type FlightPlan,
+} from "@/lib/flight/engine";
 import { foundObjectFor } from "@/lib/game/jobs";
+import type { Db } from "@/server/db";
 import type { UserId } from "@/server/ports/auth";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
 import { addNote } from "@/test/fixtures/notes";
@@ -21,6 +26,8 @@ beforeEach(async () => {
   world = await seedWorld(deps.db, deps.clock.now());
 });
 
+afterEach(() => vi.restoreAllMocks());
+
 const iso = (ms: number) => new Date(ms).toISOString();
 
 function uuidFor(n: number) {
@@ -34,6 +41,8 @@ function idWhere(test: (id: string) => boolean) {
 const finds = (id: string) => foundObjectFor(id, CHANCE) !== null;
 const NO_FIND_ID = idWhere((id) => !finds(id));
 const FIND_ID = idWhere(finds);
+const ON_TIME_ID = uuidFor(1);
+const MAJOR_DELAY_ID = "df71e406-35d1-4014-816c-32b7b7c4e388";
 
 type Return = {
   flightId: string;
@@ -41,15 +50,18 @@ type Return = {
   birdId: string;
   arriveAtMs: number;
   distanceMi: number;
+  delayKind: FlightPlan["delayKind"];
 };
 
 async function insertReturn(
-  opts: { withNote: boolean; id?: string } = { withNote: true },
+  opts: { withNote: boolean; id?: string; birdId?: string } = {
+    withNote: true,
+  },
 ): Promise<Return> {
   const nowMs = deps.clock.now();
   const owner = world.max;
   const host = world.priya;
-  const birdId = owner.birds[0].id;
+  const birdId = opts.birdId ?? owner.birds[0].id;
   return deps.db.tx(async (t) => {
     const noteId = opts.withNote
       ? await addNote(t, host, owner, nowMs, false)
@@ -126,6 +138,7 @@ async function insertReturn(
       birdId,
       arriveAtMs: plan.arriveAtMs,
       distanceMi: plan.distanceMi,
+      delayKind: plan.delayKind,
     };
   });
 }
@@ -147,10 +160,23 @@ const SNAPSHOT_TABLES = [
 ];
 
 async function snapshot() {
-  const out: Record<string, unknown[]> = {};
+  const out: Record<string, Record<string, unknown>[]> = {};
   for (const table of SNAPSHOT_TABLES)
-    out[table] = await rows(`select * from ${table} order by 1, 2`);
+    out[table] = await rows<Record<string, unknown>>(
+      `select * from ${table} order by 1, 2`,
+    );
   return out;
+}
+
+function withoutDelayNotice(s: Awaited<ReturnType<typeof snapshot>>) {
+  return {
+    ...s,
+    flights: s.flights.map((f) => ({ ...f, delay_notified: false })),
+    notifications: s.notifications.filter(
+      (n) => n.kind !== "delayed" && n.kind !== "delayed-in",
+    ),
+    events: s.events.filter((e) => e.kind !== "notification"),
+  };
 }
 
 async function notifications() {
@@ -168,7 +194,8 @@ async function notifications() {
 
 describe("landing a return", () => {
   it("does nothing before the arrival time", async () => {
-    const r = await insertReturn();
+    const r = await insertReturn({ withNote: true, id: ON_TIME_ID });
+    expect(r.delayKind).toBe("none");
     deps.clock.set(r.arriveAtMs - MINUTE_MS);
     const before = await snapshot();
 
@@ -176,6 +203,25 @@ describe("landing a return", () => {
 
     expect(result.counts.landReturns).toBe(0);
     expect(await snapshot()).toEqual(before);
+  });
+
+  it("does not land a badly delayed return before the arrival time, and only tells of the delay", async () => {
+    const r = await insertReturn({ withNote: true, id: MAJOR_DELAY_ID });
+    expect(r.delayKind).toBe("major");
+    deps.clock.set(r.arriveAtMs - MINUTE_MS);
+    const before = await snapshot();
+
+    const result = await tick(deps);
+
+    expect(result.counts.landReturns).toBe(0);
+    expect(result.counts.delayNotices).toBe(1);
+    expect((await notifications()).map((n) => n.kind)).toEqual([
+      "delayed",
+      "delayed-in",
+    ]);
+    expect(withoutDelayNotice(await snapshot())).toEqual(
+      withoutDelayNotice(before),
+    );
   });
 
   it("scenario 1: Gerald is home, Max has the reply and 5 more seeds, and both are told once", async () => {
@@ -337,7 +383,12 @@ describe("landing a return", () => {
   });
 
   it("keeps home recovery from arrival when a birdbath purchase settles the return before the tick", async () => {
-    const r = await insertReturn({ withNote: false, id: NO_FIND_ID });
+    const r = await insertReturn({ withNote: false, id: ON_TIME_ID });
+    const [{ plan }] = await rows<{ plan: { delayKind: string } }>(
+      "select plan from flights where id = $1",
+      [r.flightId],
+    );
+    expect(plan.delayKind).toBe("none");
     await rows("update birds set energy = 70, care_at = $2 where id = $1", [
       r.birdId,
       iso(deps.clock.now()),
@@ -348,7 +399,10 @@ describe("landing a return", () => {
     ]);
     deps.clock.set(r.arriveAtMs + HOUR_MS);
 
-    await buy(deps, world.max.id as UserId, { itemId: "birdbath" });
+    await buy(deps, world.max.id as UserId, {
+      itemId: "birdbath",
+      price: config.game.loftItems.find((i) => i.id === "birdbath")!.price,
+    });
     await tick(deps);
 
     const [bird] = await rows<{ status: string; energy: number }>(
@@ -368,6 +422,55 @@ describe("landing a return", () => {
 
     expect(result.counts.landReturns).toBe(0);
     expect(await snapshot()).toEqual(before);
+  });
+  it("lands the later return and logs the failing flight id when one return throws", async () => {
+    const errorLines = vi.spyOn(console, "error").mockImplementation(() => {});
+    const a = await insertReturn({ withNote: false, id: uuidFor(101) });
+    deps.clock.advance(MINUTE_MS);
+    const b = await insertReturn({
+      withNote: false,
+      id: uuidFor(102),
+      birdId: world.max.birds[1].id,
+    });
+    const [failing, later] = [a, b].sort((x, y) => x.arriveAtMs - y.arriveAtMs);
+    expect(failing.arriveAtMs).toBeLessThan(later.arriveAtMs);
+    const tx = deps.db.tx.bind(deps.db);
+    vi.spyOn(deps.db, "tx").mockImplementation(((
+      fn: (t: Db) => Promise<unknown>,
+    ) =>
+      tx((t) =>
+        fn({
+          ...t,
+          query: (sql, params) =>
+            sql.includes("set status = 'landed'") &&
+            params?.[0] === failing.flightId
+              ? t.query("select 1 / 0")
+              : t.query(sql, params),
+        }),
+      )) as Db["tx"]);
+    deps.clock.set(later.arriveAtMs);
+
+    const result = await tick(deps);
+
+    expect(result.counts.landReturns).toBe(1);
+    expect(result.failed).toEqual({ landReturns: 1 });
+    expect(
+      await rows(
+        "select id, status from flights where kind = 'return' order by arrive_at",
+      ),
+    ).toEqual([
+      { id: failing.flightId, status: "flying" },
+      { id: later.flightId, status: "landed" },
+    ]);
+    expect(
+      errorLines.mock.calls.map(([line]) => JSON.parse(line as string)),
+    ).toEqual([
+      expect.objectContaining({
+        event: "tick.row_failed",
+        step: "landReturns",
+        rowId: failing.flightId,
+      }),
+    ]);
   });
 });
 

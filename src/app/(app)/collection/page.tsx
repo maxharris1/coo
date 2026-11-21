@@ -18,16 +18,12 @@ export default function CollectionPage() {
       Intl.DateTimeFormat().resolvedOptions().timeZone,
     ).then((result) => {
       if (!live) return;
-      if (!result.ok) {
-        setState({ kind: "error", message: result.message });
-        return;
-      }
-      seen.write(result.account, result.postmarks.seen);
-      setState({
-        kind: "ready",
-        postmarks: result.postmarks,
-        badges: result.badges,
-      });
+      if (result.ok) seen.write(result.account, result.view.postmarks.seen);
+      setState(
+        result.ok
+          ? { kind: "ready", ...result.view }
+          : { kind: "error", message: result.message },
+      );
     });
     return () => {
       live = false;

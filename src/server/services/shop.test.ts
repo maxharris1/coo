@@ -11,6 +11,7 @@ import {
   type CareSnapshot,
 } from "@/lib/game/care";
 import type { UserId } from "@/server/ports/auth";
+import { config } from "@/lib/config";
 import { toBirdRecord, type Row } from "@/server/rows";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
 import { seedWorld, type World } from "@/test/seedWorld";
@@ -89,6 +90,18 @@ const rain: WeatherSample = {
   snow: false,
 };
 
+const LISTED = new Map<string, number>(
+  [...config.gear.items, ...config.game.loftItems].map((item) => [
+    item.id,
+    item.price,
+  ]),
+);
+
+const item = (itemId: string, price = LISTED.get(itemId) ?? 0) => ({
+  itemId,
+  price,
+});
+
 async function refusal(promise: Promise<unknown>) {
   return promise.then(
     () => null,
@@ -100,10 +113,10 @@ describe("buy", () => {
   it("scenario 9: buying without enough seeds is insufficient_seeds and changes nothing", async () => {
     const before = await wallet(max);
     expect(before.seeds).toBeLessThan(120);
-    expect(await refusal(buy(deps, max, { itemId: "goggles" }))).toBe(
+    expect(await refusal(buy(deps, max, item("goggles")))).toBe(
       "insufficient_seeds",
     );
-    expect(await refusal(buy(deps, max, { itemId: "birdbath" }))).toBe(
+    expect(await refusal(buy(deps, max, item("birdbath")))).toBe(
       "insufficient_seeds",
     );
     expect(await wallet(max)).toEqual(before);
@@ -120,7 +133,7 @@ describe("buy", () => {
       "booties",
     ];
     for (const itemId of steps) {
-      await buy(deps, max, { itemId }).catch(() => undefined);
+      await buy(deps, max, item(itemId)).catch(() => undefined);
       const after = await wallet(max);
       expect(after.ledgerSum).toBe(after.seeds);
     }
@@ -136,7 +149,7 @@ describe("buy", () => {
 
   it("charges the gear price once, adds it to the closet and returns the account", async () => {
     await grant(max, 100);
-    const result = await buy(deps, max, { itemId: "goggles" });
+    const result = await buy(deps, max, item("goggles"));
     expect(result.me).toMatchObject({ id: max, seeds: 40 });
     expect(result.closet).toEqual(["bell", "bow", "goggles"]);
     expect(await shopRows(max)).toEqual([{ delta: -120 }]);
@@ -148,27 +161,23 @@ describe("buy", () => {
   ])("refuses %s as conflict and changes nothing", async (_, itemId) => {
     await grant(max, 1000);
     const before = await wallet(max);
-    expect(await refusal(buy(deps, max, { itemId }))).toBe("conflict");
+    expect(await refusal(buy(deps, max, item(itemId)))).toBe("conflict");
     expect(await wallet(max)).toEqual(before);
   });
 
   it("refuses a gear item bought a moment ago as conflict", async () => {
     await grant(max, 1000);
-    await buy(deps, max, { itemId: "goggles" });
+    await buy(deps, max, item("goggles"));
     const before = await wallet(max);
-    expect(await refusal(buy(deps, max, { itemId: "goggles" }))).toBe(
-      "conflict",
-    );
+    expect(await refusal(buy(deps, max, item("goggles")))).toBe("conflict");
     expect(await wallet(max)).toEqual(before);
   });
 
   it("refuses a second birdbath as conflict and changes nothing", async () => {
     await grant(max, 1000);
-    await buy(deps, max, { itemId: "birdbath" });
+    await buy(deps, max, item("birdbath"));
     const before = await wallet(max);
-    expect(await refusal(buy(deps, max, { itemId: "birdbath" }))).toBe(
-      "conflict",
-    );
+    expect(await refusal(buy(deps, max, item("birdbath")))).toBe("conflict");
     expect(await wallet(max)).toEqual(before);
   });
 
@@ -177,14 +186,14 @@ describe("buy", () => {
     async (itemId) => {
       await grant(max, 1000);
       const before = await wallet(max);
-      expect(await refusal(buy(deps, max, { itemId }))).toBe("invalid");
+      expect(await refusal(buy(deps, max, item(itemId)))).toBe("invalid");
       expect(await wallet(max)).toEqual(before);
     },
   );
 
   it("charges 220 for the birdbath and sets it on the account", async () => {
     await grant(max, 200);
-    const result = await buy(deps, max, { itemId: "birdbath" });
+    const result = await buy(deps, max, item("birdbath"));
     expect(result.me).toMatchObject({ seeds: 40, hasBirdbath: true });
     expect(await shopRows(max)).toEqual([{ delta: -220 }]);
   });
@@ -194,7 +203,7 @@ describe("buy", () => {
     const gerald = world.max.birds[0].id;
     const start = deps.clock.now();
     deps.clock.set(start + 10 * HOUR_MS);
-    await buy(deps, max, { itemId: "birdbath" });
+    await buy(deps, max, item("birdbath"));
     const at = start + 30 * HOUR_MS;
     const [row] = await deps.db.query<Row<"birds">>(
       "select * from birds where id = $1",
@@ -225,8 +234,8 @@ describe("buy", () => {
       "select * from birds where owner_id = $1 order by id",
       [priya],
     );
-    await buy(deps, max, { itemId: "goggles" });
-    await buy(deps, max, { itemId: "birdbath" });
+    await buy(deps, max, item("goggles"));
+    await buy(deps, max, item("birdbath"));
     expect(await wallet(priya)).toEqual(before);
     expect(
       await deps.db.query(
@@ -241,8 +250,8 @@ describe("buy", () => {
     async (itemId) => {
       await grant(max, 1000);
       const results = await Promise.allSettled([
-        buy(deps, max, { itemId }),
-        buy(deps, max, { itemId }),
+        buy(deps, max, item(itemId)),
+        buy(deps, max, item(itemId)),
       ]);
       expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
       const [rejected] = results.filter((r) => r.status === "rejected");
@@ -253,16 +262,41 @@ describe("buy", () => {
     },
   );
 
+  it.each([
+    ["the fourth perch at a stale price", "perch", 400],
+    ["gear at a stale price", "goggles", 100],
+    ["the birdbath at a stale price", "birdbath", 0],
+  ])("refuses %s as conflict and charges nothing", async (_, itemId, price) => {
+    await grant(max, 1000);
+    const before = await wallet(max);
+    const err = await buy(deps, max, { itemId, price }).catch(
+      (e: { code?: string; message?: string }) => e,
+    );
+    expect(err).toMatchObject({
+      code: "conflict",
+      message: "The price changed. Take another look.",
+    });
+    expect(await wallet(max)).toEqual(before);
+    expect(await shopRows(max)).toEqual([]);
+  });
+
+  it("refuses a stale price before checking the balance", async () => {
+    const before = await wallet(max);
+    expect(before.seeds).toBeLessThan(250);
+    expect(await refusal(buy(deps, max, item("perch", 400)))).toBe("conflict");
+    expect(await wallet(max)).toEqual(before);
+  });
+
   it("sells perch 4 for 250 and perch 5 for 400", async () => {
     await grant(max, 650);
     const before = await wallet(max);
     expect(before.perches).toBe(3);
-    const fourth = await buy(deps, max, { itemId: "perch" });
+    const fourth = await buy(deps, max, item("perch", 250));
     expect(fourth.me).toMatchObject({
       perches: 4,
       seeds: before.seeds - 250,
     });
-    const fifth = await buy(deps, max, { itemId: "perch" });
+    const fifth = await buy(deps, max, item("perch", 400));
     expect(fifth.me).toMatchObject({
       perches: 5,
       seeds: before.seeds - 650,
@@ -274,13 +308,11 @@ describe("buy", () => {
 
   it("refuses a sixth perch as conflict and changes nothing", async () => {
     await grant(max, 2000);
-    await buy(deps, max, { itemId: "perch" });
-    await buy(deps, max, { itemId: "perch" });
+    await buy(deps, max, item("perch", 250));
+    await buy(deps, max, item("perch", 400));
     const before = await wallet(max);
     expect(before.perches).toBe(5);
-    expect(await refusal(buy(deps, max, { itemId: "perch" }))).toBe(
-      "conflict",
-    );
+    expect(await refusal(buy(deps, max, item("perch", 400)))).toBe("conflict");
     const after = await wallet(max);
     expect(after).toEqual(before);
     expect(after.ledgerSum).toBe(after.seeds);
@@ -288,10 +320,10 @@ describe("buy", () => {
 
   it("refuses a perch the caller cannot afford as insufficient_seeds", async () => {
     await grant(max, 200);
-    await buy(deps, max, { itemId: "birdbath" });
+    await buy(deps, max, item("birdbath"));
     const before = await wallet(max);
     expect(before.seeds).toBeLessThan(250);
-    expect(await refusal(buy(deps, max, { itemId: "perch" }))).toBe(
+    expect(await refusal(buy(deps, max, item("perch", 250)))).toBe(
       "insufficient_seeds",
     );
     expect(await wallet(max)).toEqual(before);
@@ -300,8 +332,8 @@ describe("buy", () => {
   it("prices two perch buys at once as perch 4 then perch 5", async () => {
     await grant(max, 650);
     await Promise.all([
-      buy(deps, max, { itemId: "perch" }),
-      buy(deps, max, { itemId: "perch" }),
+      buy(deps, max, item("perch", 250)),
+      buy(deps, max, item("perch", 400)),
     ]);
     expect(await shopRows(max)).toEqual([{ delta: -250 }, { delta: -400 }]);
     const after = await wallet(max);
@@ -312,7 +344,7 @@ describe("buy", () => {
   it("leaves another player's perches alone", async () => {
     await grant(max, 650);
     const before = await wallet(world.priya.id);
-    await buy(deps, max, { itemId: "perch" });
+    await buy(deps, max, item("perch", 250));
     expect(await wallet(world.priya.id)).toEqual(before);
   });
 
@@ -327,7 +359,7 @@ describe("buy", () => {
     );
     const boughtAt = start + 70 * 60_000;
     deps.clock.set(boughtAt);
-    await buy(deps, max, { itemId: "birdbath" });
+    await buy(deps, max, item("birdbath"));
     const after = await snapshot(gerald);
     expect(careAt(after, boughtAt, { hasBirdbath: true }).feathers).toBe(99);
     expect(
@@ -389,7 +421,7 @@ describe("buy", () => {
     const departed = await snapshot(gerald);
     const boughtAt = plan.arriveAtMs + HOUR_MS;
     deps.clock.set(boughtAt);
-    await buy(deps, max, { itemId: "birdbath" });
+    await buy(deps, max, item("birdbath"));
 
     const landed = settleFlight(departed, plan, input, { hasBirdbath: false });
     expect(landed.energy).toBeLessThan(100);

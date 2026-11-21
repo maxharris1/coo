@@ -166,3 +166,94 @@
   font-size: 15px;
   line-height: 1.35;
 }
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sectionHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-weight: 900;
+  font-size: 15px;
+}
+
+.count {
+  font-weight: 800;
+  font-size: 13px;
+  color: var(--coo-muted);
+}
+
+.breeds {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.breed {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 6px 10px;
+  background: var(--coo-card);
+  border: var(--coo-line);
+  border-radius: var(--coo-radius-row);
+}
+
+.breedArt {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 112px;
+  max-width: 100%;
+  height: 96px;
+}
+
+.breedName {
+  font-weight: 900;
+  font-size: 15px;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.breedNote {
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.trait,
+.owned {
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 4px 10px;
+  border: var(--coo-line-thin);
+  border-radius: var(--coo-radius-pill);
+  font-weight: 900;
+  font-size: 11.5px;
+  text-align: center;
+}
+
+.trait {
+  margin-top: 4px;
+  background: var(--coo-sky);
+}
+
+.owned {
+  margin-top: 4px;
+  background: var(--coo-mint);
+}

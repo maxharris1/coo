@@ -1,6 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Shop } from "@/server/services/shop";
-import { buyItem, confirmLine, loadShop, shopRows, type ShopRow } from "./shop";
+import {
+  buyItem,
+  completeBuy,
+  confirmLine,
+  loadShop,
+  purchase,
+  shopRows,
+  type BuyRow,
+  type Purchase,
+  type ShopRow,
+} from "./shop";
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), {
@@ -229,6 +239,7 @@ describe("loadShop", () => {
       json(401, { error: { code: "unauthorized", message: "Sign in first." } });
     await expect(loadShop(fetchImpl)).resolves.toEqual({
       ok: false,
+      code: "unauthorized",
       message: "Sign in first.",
     });
   });
@@ -249,21 +260,27 @@ describe("buyItem", () => {
     me: { id: "u1", seeds: 120 },
     closet: ["goggles", "rainhat"],
   };
+  const fourthPerch: BuyRow = {
+    itemId: "perch",
+    name: "Fourth perch",
+    effect: "Room for one more bird",
+    action: { kind: "buy", price: 250 },
+  };
 
-  it("posts the item id to /api/shop/buy and returns me and the closet", async () => {
+  it("posts the item id and its confirmed price to /api/shop/buy and returns me and the closet", async () => {
     const fetchImpl = vi.fn(async () => json(200, bought));
-    await expect(buyItem("rainhat", fetchImpl)).resolves.toEqual({
+    await expect(buyItem(fourthPerch, fetchImpl)).resolves.toEqual({
       ok: true,
       data: bought,
     });
     expect(fetchImpl).toHaveBeenCalledWith("/api/shop/buy", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ itemId: "rainhat" }),
+      body: JSON.stringify({ itemId: "perch", price: 250 }),
     });
   });
 
-  it("returns the API's message when the purchase is refused", async () => {
+  it("returns the API's message and code when the purchase is refused", async () => {
     const fetchImpl = async () =>
       json(409, {
         error: {
@@ -271,17 +288,144 @@ describe("buyItem", () => {
           message: "Not enough seeds for that.",
         },
       });
-    await expect(buyItem("perch", fetchImpl)).resolves.toEqual({
+    await expect(buyItem(fourthPerch, fetchImpl)).resolves.toEqual({
       ok: false,
+      code: "insufficient_seeds",
       message: "Not enough seeds for that.",
     });
   });
 
   it("returns the unreachable line when the reply is not JSON", async () => {
     const fetchImpl = async () => new Response("<html>", { status: 502 });
-    await expect(buyItem("perch", fetchImpl)).resolves.toEqual({
+    await expect(buyItem(fourthPerch, fetchImpl)).resolves.toEqual({
       ok: false,
       message: "We could not reach the loft. Try again.",
     });
+  });
+});
+
+const RAIN_HAT: BuyRow = {
+  itemId: "rainhat",
+  name: "Rain hat",
+  effect: "Shrugs off downpours",
+  action: { kind: "buy", price: 120 },
+};
+const CAP: BuyRow = { ...RAIN_HAT, itemId: "cap", name: "Captain's cap" };
+
+describe("purchase (part 4 ac-1)", () => {
+  const idle: Purchase = { kind: "idle" };
+  const confirming: Purchase = { kind: "confirming", row: RAIN_HAT };
+  const buying: Purchase = { kind: "buying", row: RAIN_HAT };
+
+  it("opens the confirm step when a price is tapped", () => {
+    expect(purchase(idle, { type: "tap", row: RAIN_HAT })).toEqual(confirming);
+  });
+
+  it("keeps one confirm step open when another price is tapped", () => {
+    expect(purchase(confirming, { type: "tap", row: CAP })).toEqual(confirming);
+    expect(purchase(buying, { type: "tap", row: CAP })).toEqual(buying);
+  });
+
+  it("closes without buying on Not now", () => {
+    expect(purchase(confirming, { type: "cancel" })).toEqual(idle);
+  });
+
+  it("starts the purchase only from the confirm step", () => {
+    expect(purchase(confirming, { type: "confirm" })).toEqual(buying);
+    expect(purchase(idle, { type: "confirm" })).toEqual(idle);
+    expect(purchase(buying, { type: "confirm" })).toEqual(buying);
+  });
+
+  it("stays open while the request is in flight", () => {
+    expect(purchase(buying, { type: "cancel" })).toEqual(buying);
+  });
+
+  it("closes once the request settles", () => {
+    expect(purchase(buying, { type: "settled" })).toEqual(idle);
+  });
+});
+
+describe("completeBuy (part 4 ac-2)", () => {
+  const deps = (buyResult: Awaited<ReturnType<typeof buyItem>>) => {
+    const calls: string[] = [];
+    return {
+      calls,
+      buy: vi.fn(async (row: BuyRow) => {
+        calls.push(`buy ${row.itemId} for ${row.action.price}`);
+        return buyResult;
+      }),
+      load: vi.fn(async (): ReturnType<typeof loadShop> => {
+        calls.push("load");
+        return { ok: true as const, data: { ...MOCK, seeds: 120 } };
+      }),
+      toast: vi.fn((message: string) => calls.push(`toast ${message}`)),
+      refresh: vi.fn(() => calls.push("refresh")),
+      burst: vi.fn((itemId: string) => calls.push(`burst ${itemId}`)),
+    };
+  };
+
+  const before = shopRows(MOCK);
+  const hat: BuyRow = {
+    itemId: "rainhat",
+    name: "Rain hat",
+    effect: "Rain hat effect",
+    action: { kind: "buy", price: 120 },
+  };
+
+  it("bursts from the item, refreshes sync and refetches the shop", async () => {
+    const d = deps({ ok: true, data: { me: {} as never, closet: [] } });
+    const rows = await completeBuy(hat, before, d);
+    expect(d.calls).toEqual([
+      "buy rainhat for 120",
+      "burst rainhat",
+      "refresh",
+      "load",
+    ]);
+    expect(rows).toEqual(shopRows({ ...MOCK, seeds: 120 }));
+  });
+
+  it("toasts the API's message and changes nothing on failure", async () => {
+    const d = deps({ ok: false, message: "Not enough seeds for that." });
+    const rows = await completeBuy(hat, before, d);
+    expect(d.calls).toEqual([
+      "buy rainhat for 120",
+      "toast Not enough seeds for that.",
+    ]);
+    expect(rows).toBe(before);
+  });
+
+  it("toasts a price change, then shows the shop as it is now", async () => {
+    const d = deps({
+      ok: false,
+      code: "conflict",
+      message: "The price changed. Take another look.",
+    });
+    const rows = await completeBuy(hat, before, d);
+    expect(d.calls).toEqual([
+      "buy rainhat for 120",
+      "toast The price changed. Take another look.",
+      "load",
+    ]);
+    expect(rows).toEqual(shopRows({ ...MOCK, seeds: 120 }));
+  });
+
+  it("keeps the rows it had when the refetch after a price change fails", async () => {
+    const d = deps({
+      ok: false,
+      code: "conflict",
+      message: "The price changed. Take another look.",
+    });
+    d.load.mockImplementation(async () => {
+      d.calls.push("load");
+      return { ok: false, message: "We could not reach the loft. Try again." };
+    });
+    const rows = await completeBuy(hat, before, d);
+    expect(d.calls).toEqual([
+      "buy rainhat for 120",
+      "toast The price changed. Take another look.",
+      "load",
+      "toast We could not reach the loft. Try again.",
+    ]);
+    expect(rows).toBe(before);
   });
 });

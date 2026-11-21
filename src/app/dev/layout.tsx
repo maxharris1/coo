@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
+import { readAppEnv } from "@/env";
 
 export default function DevLayout({ children }: { children: ReactNode }) {
-  if (process.env.NODE_ENV === "production") notFound();
+  const appEnv = readAppEnv(process.env);
+  if (!appEnv || appEnv === "production") notFound();
   return <>{children}</>;
 }

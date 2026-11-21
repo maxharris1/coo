@@ -49,8 +49,8 @@ afterEach(() => {
 
 const capeCod = PLACES.find((p) => p.id === "cape-cod")!;
 
-async function mount() {
-  DevMap({ place: capeCod, zoom: 15 });
+async function mount(mode: "day" | "night" = "day") {
+  DevMap({ place: capeCod, zoom: 15, mode });
   const cleanup = lib.runEffect();
   await vi.waitFor(() => expect(lib.maps).toHaveLength(1));
   return { map: lib.maps[0], cleanup };
@@ -71,6 +71,11 @@ it("loads the day style at the chosen place and zoom", async () => {
     center: capeCod.center,
     zoom: 15,
   });
+});
+
+it("loads the night style in night mode", async () => {
+  const { map } = await mount("night");
+  expect(map.options.style).toBe("/map/coo-night.style.json");
 });
 
 it("removes the map on unmount", async () => {

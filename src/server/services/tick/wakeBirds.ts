@@ -3,6 +3,7 @@ import type { Deps } from "@/server/deps";
 import { toBirdRecord, type Row } from "@/server/rows";
 import { careSnapshot, wakeEffect } from "../care/snapshot";
 import type { Step, StepContext } from "../tick";
+import { eachRow } from "./rows";
 
 async function dueIds(ctx: StepContext): Promise<string[]> {
   const found = await ctx.deps.db.query<{ id: string }>(
@@ -44,10 +45,11 @@ async function wake(deps: Deps, tx: Db, id: string): Promise<boolean> {
 }
 
 export const wakeBirds: Step = async (ctx) => {
-  let count = 0;
-  for (const id of await dueIds(ctx)) {
-    if (ctx.timeUp()) break;
-    if (await ctx.deps.db.tx((tx) => wake(ctx.deps, tx, id))) count++;
-  }
-  return { count };
+  const { done, failed } = await eachRow(
+    ctx,
+    "wakeBirds",
+    await dueIds(ctx),
+    async (tx, id) => ((await wake(ctx.deps, tx, id)) ? id : null),
+  );
+  return { count: done.length, failed };
 };

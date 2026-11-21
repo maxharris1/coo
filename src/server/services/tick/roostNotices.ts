@@ -6,6 +6,7 @@ import type { PlaceNames } from "../flights/placeNames";
 import { notificationText, recordNotification } from "../notify";
 import { deliver } from "../notify/deliver";
 import type { Step, StepContext } from "../tick";
+import { eachRow, tryRow } from "./rows";
 
 type ClaimedFlight = {
   owner_id: string;
@@ -92,14 +93,19 @@ async function noticeNights(deps: Deps, tx: Db, id: string): Promise<string[]> {
 }
 
 export const roostNotices: Step = async (ctx) => {
-  const notificationIds: string[] = [];
-  for (const id of await dueIds(ctx)) {
-    if (ctx.timeUp()) break;
-    const created = await ctx.deps.db.tx((tx) =>
-      noticeNights(ctx.deps, tx, id),
-    );
-    notificationIds.push(...created);
-  }
-  for (const n of notificationIds) await deliver(ctx.deps, n);
-  return { count: notificationIds.length };
+  const { done, failed } = await eachRow(
+    ctx,
+    "roostNotices",
+    await dueIds(ctx),
+    async (tx, id) => ({ id, notices: await noticeNights(ctx.deps, tx, id) }),
+  );
+  let count = 0;
+  let deliverFailed = 0;
+  for (const { id, notices } of done)
+    for (const n of notices) {
+      count++;
+      if (!(await tryRow("roostNotices", id, () => deliver(ctx.deps, n))))
+        deliverFailed++;
+    }
+  return { count, failed: failed + deliverFailed };
 };

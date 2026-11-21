@@ -1,4 +1,5 @@
 import { config } from "@/lib/config";
+import type { Breed, GearId, Look } from "@/components/Bird";
 import type { Collection } from "@/server/services/collection";
 import { stampPlace } from "../sill/landedModel";
 
@@ -110,6 +111,37 @@ export function postmarksView(
   };
 }
 
+const TONES = ["sky", "sun", "lilac", "peach", "mint"] as const;
+
+export type AvatarTone = (typeof TONES)[number];
+
+export type MetBird = {
+  name: string;
+  look: Look;
+  breed: Breed;
+  gear: GearId[];
+  tone: AvatarTone;
+};
+
+export type BirdsView = { shown: MetBird[]; more: number; count: string };
+
+export function birdsView(
+  birdsMet: number,
+  birdsMetRecent: Collection["birdsMetRecent"],
+): BirdsView {
+  return {
+    shown: birdsMetRecent.map((b, i) => ({
+      name: b.name,
+      look: b.look as Look,
+      breed: b.breed as Breed,
+      gear: b.gear as GearId[],
+      tone: TONES[i % TONES.length],
+    })),
+    more: Math.max(birdsMet - birdsMetRecent.length, 0),
+    count: `${birdsMet} met`,
+  };
+}
+
 const UNREACHABLE = "We could not reach the post office. Try again.";
 
 type Result<T> = { ok: true; data: T } | { ok: false; message: string };
@@ -169,22 +201,20 @@ export async function openCollection(
   | {
       ok: true;
       account: string;
-      postmarks: PostmarksView;
-      badges: BadgesView;
+      view: { postmarks: PostmarksView; badges: BadgesView; birds: BirdsView };
     }
   | { ok: false; message: string }
 > {
   const result = await load();
-  return result.ok
-    ? {
-        ok: true,
-        account: result.data.account,
-        postmarks: postmarksView(
-          result.data.postmarks,
-          seenUpTo(result.data.account),
-          timeZone,
-        ),
-        badges: badgesView(result.data.badges),
-      }
-    : result;
+  if (!result.ok) return result;
+  const { account, postmarks, badges, birdsMet, birdsMetRecent } = result.data;
+  return {
+    ok: true,
+    account,
+    view: {
+      postmarks: postmarksView(postmarks, seenUpTo(account), timeZone),
+      badges: badgesView(badges),
+      birds: birdsView(birdsMet, birdsMetRecent),
+    },
+  };
 }

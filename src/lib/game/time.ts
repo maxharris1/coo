@@ -74,6 +74,10 @@ export function localDate(ms: number, tz: string): LocalDate {
   return dateAtUtcMidnight(Date.UTC(p.year, p.month - 1, p.day));
 }
 
+export function localHour(ms: number, tz: string): number {
+  return partsAt(ms, tz).hour;
+}
+
 export function weekday(ms: number, tz: string): IsoWeekday {
   return partsAt(ms, tz).weekday;
 }
@@ -99,6 +103,10 @@ export function startOfLocalDayMs(ms: number, tz: string): number {
     midnightAsUtc - offsetMs(midnightAsUtc + DAY_MS, tz),
   ].filter((at) => localDate(at, tz) === day);
   return Math.min(...candidates);
+}
+
+export function startOfNextLocalDayMs(ms: number, tz: string): number {
+  return startOfLocalDayMs(startOfLocalDayMs(ms, tz) + 1.5 * DAY_MS, tz);
 }
 
 export function isTimeZone(tz: string): boolean {

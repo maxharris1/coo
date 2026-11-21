@@ -130,7 +130,8 @@
     "minEnergyToFly": 15,
     "hungryBelow": 30,
     "dirtyBelow": 30,
-    "tiredBelow": 40
+    "tiredBelow": 40,
+    "meterLowBelow": 50
   },
   "levels": {
     "milesPerLevelSquared": 25,
@@ -179,7 +180,8 @@
   "badges": {
     "aroundTheBlockUnderMi": 1,
     "centuryMi": 100,
-    "longHaulMi": 500
+    "longHaulMi": 500,
+    "earlyBirdBeforeHour": 7
   },
   "postmarkSlots": 50,
   "roost": {
@@ -207,6 +209,7 @@
     "geoSearchPerMinute": 30,
     "reportsPerDay": 10,
     "smsPerUserPer15Min": 1,
+    "smsWindowMinutes": 15,
     "guestViewsPerMinutePerIp": 30
   },
   "weather": {

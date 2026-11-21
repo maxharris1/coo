@@ -99,7 +99,10 @@ describe.skipIf(!url)("hungryNotices on PostgreSQL", () => {
       resumeTick.open();
 
       const [ticked, fed] = await Promise.allSettled([tick, feed]);
-      expect(ticked).toEqual({ status: "fulfilled", value: { count: 1 } });
+      expect(ticked).toEqual({
+        status: "fulfilled",
+        value: { count: 1, failed: 0 },
+      });
       expect(fed).toEqual({
         status: "fulfilled",
         value: expect.objectContaining({

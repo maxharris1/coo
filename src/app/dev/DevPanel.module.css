@@ -1,0 +1,54 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.now {
+  margin: 0;
+  color: var(--coo-muted);
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.now time {
+  color: var(--coo-ink);
+}
+
+.buttons {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.button {
+  min-height: var(--coo-touch);
+  box-sizing: border-box;
+  padding: 0 14px;
+  background: var(--coo-card);
+  border: var(--coo-line);
+  border-radius: var(--coo-radius-card);
+  box-shadow: var(--coo-shadow-1);
+  font-family: inherit;
+  font-weight: 900;
+  font-size: 15px;
+  color: var(--coo-ink);
+  cursor: pointer;
+}
+
+.button:disabled {
+  background: var(--coo-sand);
+  color: var(--coo-muted);
+  box-shadow: none;
+  cursor: default;
+}
+
+.error {
+  margin: 0;
+  padding: 10px 14px;
+  background: var(--coo-peach);
+  border: var(--coo-line-thin);
+  border-radius: var(--coo-radius-tile);
+  font-weight: 700;
+  font-size: 14px;
+}

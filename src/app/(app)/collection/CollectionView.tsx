@@ -1,12 +1,23 @@
 import Link from "next/link";
+import { Bird } from "@/components/Bird";
 import { Loader } from "@/components/Loader";
 import styles from "./Collection.module.css";
-import type { BadgesView, PostmarkSlot, PostmarksView } from "./collection";
+import type {
+  BadgesView,
+  BirdsView,
+  PostmarkSlot,
+  PostmarksView,
+} from "./collection";
 
 export type State =
   | { kind: "loading" }
   | { kind: "error"; message: string }
-  | { kind: "ready"; postmarks: PostmarksView; badges: BadgesView };
+  | {
+      kind: "ready";
+      postmarks: PostmarksView;
+      badges: BadgesView;
+      birds: BirdsView;
+    };
 
 function Header() {
   return (
@@ -138,6 +149,45 @@ function Badges({ cards, count }: BadgesView) {
   );
 }
 
+function Birds({ shown, more, count }: BirdsView) {
+  return (
+    <section className={styles.section} aria-labelledby="collection-birds">
+      <div className={styles.head}>
+        <h2 id="collection-birds" className={styles.heading}>
+          Birds you have met
+        </h2>
+        <div className={styles.count}>{count}</div>
+      </div>
+      <div className={styles.met}>
+        {shown.map(({ name, look, breed, gear, tone }, i) => (
+          <span key={i} className={`${styles.avatar} ${styles[tone]}`}>
+            <span className={styles.avatarBird}>
+              <Bird
+                look={look}
+                breed={breed}
+                gear={gear}
+                pose="perched"
+                animated={false}
+                size={104}
+                title={name}
+              />
+            </span>
+          </span>
+        ))}
+        {more > 0 && (
+          <div
+            role="img"
+            aria-label={`${more} more met`}
+            className={styles.more}
+          >
+            +{more}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export function CollectionView({
   state,
   onRetry,
@@ -153,6 +203,7 @@ export function CollectionView({
         <>
           <Postmarks {...state.postmarks} />
           <Badges {...state.badges} />
+          <Birds {...state.birds} />
         </>
       ) : (
         <div className={styles.error}>

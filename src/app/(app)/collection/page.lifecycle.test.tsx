@@ -31,6 +31,7 @@ const body = (account: Account): Collection => ({
   })),
   badges: [],
   birdsMet: 0,
+  birdsMetRecent: [],
 });
 
 const memoryStorage = () => ({

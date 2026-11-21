@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { syncGet } from "@/app/api/sync/get";
 import { toE164 } from "@/lib/phone";
 import { createJsonRoute } from "@/server/http";
@@ -25,6 +25,8 @@ beforeEach(async () => {
   deps.clock.set(NOON_NY);
   world = await seedWorld(deps.db, deps.clock.now());
 });
+
+afterEach(() => vi.restoreAllMocks());
 
 async function subscribe(person: Person, name = "phone") {
   const endpoint = `https://push.example/${person.handle}/${name}`;
@@ -115,6 +117,51 @@ describe("tick step 11: flush quiet hours", () => {
     expect(await flushAt(SEVEN_AM_NY)).toBe(1);
     expect(await flushAt(SEVEN_AM_NY + HOUR_MS)).toBe(0);
     expect(deps.push.sent).toHaveLength(1);
+  });
+
+  it("pushes the later rows and logs the failing row id when one row throws", async () => {
+    const errorLines = vi.spyOn(console, "error").mockImplementation(() => {});
+    await subscribe(world.priya);
+    const first = await hold(world.priya, ELEVEN_PM_NY);
+    const middle = await hold(world.priya, ELEVEN_PM_NY + 60_000);
+    const last = await hold(world.priya, ELEVEN_PM_NY + 120_000);
+    const query = deps.db.query.bind(deps.db);
+    const failing = vi
+      .spyOn(deps.db, "query")
+      .mockImplementation((sql, params) =>
+        sql.startsWith("select user_id, read_at, push_sent_at") &&
+        params?.[0] === middle.id
+          ? query("select 1 / 0")
+          : query(sql, params),
+      );
+    deps.clock.set(SEVEN_AM_NY);
+
+    const result = await tick(deps);
+
+    expect(result.counts.flushQuietHours).toBe(2);
+    expect(result.failed).toEqual({ flushQuietHours: 1 });
+    expect(deps.push.sent.map((s) => s.payload.tag)).toEqual([
+      first.tag,
+      last.tag,
+    ]);
+    expect(await pushSentAt(middle.id)).toBeNull();
+    expect(
+      errorLines.mock.calls.map(([line]) => JSON.parse(line as string)),
+    ).toEqual([
+      expect.objectContaining({
+        event: "tick.row_failed",
+        step: "flushQuietHours",
+        rowId: middle.id,
+      }),
+    ]);
+
+    failing.mockRestore();
+    expect(await flushAt(SEVEN_AM_NY + HOUR_MS)).toBe(1);
+    expect(deps.push.sent.map((s) => s.payload.tag)).toEqual([
+      first.tag,
+      last.tag,
+      middle.tag,
+    ]);
   });
 
   it("does not push a held notification read in the app before quiet hours end", async () => {
