@@ -1,7 +1,7 @@
-import { log } from "@/server/log";
 import type { Row } from "@/server/rows";
 import { pushNotification, type Setting, settings } from "../notify/deliver";
 import type { Step } from "../tick";
+import { tryRow } from "./rows";
 
 const HELD_WINDOW_MS = 24 * 60 * 60_000;
 
@@ -43,16 +43,10 @@ export const flushQuietHours: Step = async ({
   let failed = 0;
   for (const { id } of held) {
     if (timeUp()) break;
-    try {
+    const ok = await tryRow("flushQuietHours", id, async () => {
       if ((await pushNotification(deps, id)).pushed) count++;
-    } catch (error) {
-      failed++;
-      log.error("tick.row_failed", {
-        step: "flushQuietHours",
-        rowId: id,
-        error,
-      });
-    }
+    });
+    if (!ok) failed++;
   }
   return { count, failed };
 };

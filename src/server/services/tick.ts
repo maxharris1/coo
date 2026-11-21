@@ -1,4 +1,3 @@
-import type { Db } from "@/server/db";
 import type { Deps } from "@/server/deps";
 import { log } from "@/server/log";
 import { delayNotices } from "./tick/delayNotices";
@@ -49,27 +48,6 @@ export type TickResult = {
   ms: number;
   timedOut: boolean;
 };
-
-export async function eachRow<T>(
-  ctx: StepContext,
-  step: StepName,
-  ids: string[],
-  work: (tx: Db, id: string) => Promise<T | null>,
-): Promise<{ done: T[]; failed: number }> {
-  const done: T[] = [];
-  let failed = 0;
-  for (const id of ids) {
-    if (ctx.timeUp()) break;
-    try {
-      const out = await ctx.deps.db.tx((tx) => work(tx, id));
-      if (out !== null) done.push(out);
-    } catch (error) {
-      failed++;
-      log.error("tick.row_failed", { step, rowId: id, error });
-    }
-  }
-  return { done, failed };
-}
 
 export async function tick(
   deps: Deps,

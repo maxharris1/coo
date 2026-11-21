@@ -11,7 +11,8 @@ import { log } from "@/server/log";
 import { badgeRules } from "../badges";
 import { landedInTitle, notificationText, recordNotification } from "../notify";
 import { deliver } from "../notify/deliver";
-import { eachRow, type Step, type StepContext } from "../tick";
+import type { Step, StepContext } from "../tick";
+import { eachRow } from "./rows";
 import { guestLanding } from "./guestLanding";
 
 type Place = { city: string; region?: string | null; country?: string | null };

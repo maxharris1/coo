@@ -8,6 +8,7 @@ import {
 } from "../notify";
 import { deliver } from "../notify/deliver";
 import type { Step, StepContext } from "../tick";
+import { tryRow } from "./rows";
 
 type Candidate = {
   id: string;
@@ -108,19 +109,27 @@ async function notifyOne(
 
 export const delayNotices: Step = async (ctx) => {
   const nowMs = ctx.deps.clock.now();
-  const notificationIds: string[] = [];
-  let count = 0;
+  const notified: { flightId: string; ids: string[] }[] = [];
+  let failed = 0;
   for (const f of await candidates(ctx, nowMs)) {
     if (ctx.timeUp()) break;
     const delay = f.plan.segments.find(
       (s) => s.kind === "delay" && s.startMs <= nowMs,
     );
     if (!delay) continue;
-    const ids = await ctx.deps.db.tx((tx) => notifyOne(tx, nowMs, f, delay));
-    if (ids.length === 0) continue;
-    count++;
-    notificationIds.push(...ids);
+    const ok = await tryRow("delayNotices", f.id, async () => {
+      const ids = await ctx.deps.db.tx((tx) => notifyOne(tx, nowMs, f, delay));
+      if (ids.length > 0) notified.push({ flightId: f.id, ids });
+    });
+    if (!ok) failed++;
   }
-  for (const id of notificationIds) await deliver(ctx.deps, id);
-  return { count };
+  for (const { flightId, ids } of notified)
+    for (const id of ids)
+      if (
+        !(await tryRow("delayNotices", flightId, () => deliver(ctx.deps, id)))
+      )
+        failed++;
+  return failed
+    ? { count: notified.length, failed }
+    : { count: notified.length };
 };
