@@ -51,7 +51,7 @@ async function dueForTick(): Promise<string[]> {
 }
 
 describe("releaseVisit", () => {
-  it("brings leaves_at forward to now so the tick sends the bird home (ac-4)", async () => {
+  it("persists leaves_at as now so the visit is due for the tick (ac-1)", async () => {
     deps.clock.advance(5 * MINUTE);
     const now = deps.clock.now();
     const before = await snapshot();
@@ -71,7 +71,7 @@ describe("releaseVisit", () => {
     expect(await dueForTick()).toEqual([visitId]);
   });
 
-  it("drops the visit from the host's and the owner's sync (ac-4)", async () => {
+  it("drops the visit from the host's and the owner's sync", async () => {
     await releaseVisit(deps, await callerFor(world.priya.id), visitId);
 
     const host = await syncVisits(deps, world.priya.id);
@@ -80,7 +80,7 @@ describe("releaseVisit", () => {
     expect(owner.myVisiting).toEqual([]);
   });
 
-  it("is safe to run twice, even after time passes (ac-4)", async () => {
+  it("is safe to run twice, even after time passes", async () => {
     const host = await callerFor(world.priya.id);
     const first = await releaseVisit(deps, host, visitId);
     const after = await snapshot();
@@ -108,15 +108,18 @@ describe("releaseVisit", () => {
   it.each([
     ["the owner", () => world.max.id],
     ["a stranger", () => world.rosa.id],
-  ])("refuses %s as not_found and changes nothing (ac-6)", async (_, who) => {
-    const before = await snapshot();
+  ])(
+    "refuses %s as not_found and changes nothing (ac-4, ac-6)",
+    async (_, who) => {
+      const before = await snapshot();
 
-    await expect(
-      releaseVisit(deps, await callerFor(who()), visitId),
-    ).rejects.toMatchObject({ code: "not_found" });
+      await expect(
+        releaseVisit(deps, await callerFor(who()), visitId),
+      ).rejects.toMatchObject({ code: "not_found" });
 
-    expect(await snapshot()).toEqual(before);
-  });
+      expect(await snapshot()).toEqual(before);
+    },
+  );
 
   it("refuses an id that is not a uuid as not_found", async () => {
     await expect(

@@ -29,6 +29,14 @@ async function signIn(phone: string) {
   return jar;
 }
 
+async function leavesAt(): Promise<number> {
+  const [row] = await deps.db.query<{ leaves_at: Date }>(
+    "select leaves_at from visits where id = $1",
+    [visitId],
+  );
+  return row.leaves_at.getTime();
+}
+
 async function post(id: string, jar?: FakeJar) {
   const handler = visitReleasePost(createJsonRoute(async () => deps));
   const cookie = (jar?.getAll() ?? [])
@@ -51,20 +59,33 @@ describe("POST /api/visits/[id]/release", () => {
     expect(status).toBe(401);
   });
 
-  it("sends the bird home now for the host (ac-4)", async () => {
+  it("persists leaves_at as now for the host (ac-1, ac-4)", async () => {
+    deps.clock.advance(60_000);
+    const now = deps.clock.now();
+    expect(await leavesAt()).toBeGreaterThan(now);
+
     const { status, json } = await post(visitId, await signIn(PRIYA_PHONE));
+
     expect(status).toBe(200);
-    expect(json.leavesAt).toBe(deps.clock.now());
+    expect(json.leavesAt).toBe(now);
+    expect(await leavesAt()).toBe(now);
   });
 
   it.each([
     ["the owner", MAX_PHONE],
     ["a stranger", ROSA_PHONE],
-  ])("refuses %s as 404 not_found (ac-6)", async (_, phone) => {
-    const { status, json } = await post(visitId, await signIn(phone));
-    expect(status).toBe(404);
-    expect(json.error.code).toBe("not_found");
-  });
+  ])(
+    "refuses %s as 404 not_found and keeps leaves_at (ac-4, ac-6)",
+    async (_, phone) => {
+      const before = await leavesAt();
+
+      const { status, json } = await post(visitId, await signIn(phone));
+
+      expect(status).toBe(404);
+      expect(json.error.code).toBe("not_found");
+      expect(await leavesAt()).toBe(before);
+    },
+  );
 
   it("refuses a visit that is over as 409 conflict", async () => {
     await deps.db.query("update visits set status = 'replied' where id = $1", [
