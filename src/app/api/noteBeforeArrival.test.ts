@@ -17,6 +17,7 @@ import { flightsGet } from "./flights/get";
 import { friendsGet } from "./friends/get";
 import { geoHereGet } from "./geo/here/get";
 import { geoSearchGet } from "./geo/search/get";
+import { healthGet } from "./health/get";
 import { inviteGet } from "./invite/[code]/get";
 import { shopGet } from "./shop/get";
 import { syncGet } from "./sync/get";
@@ -48,6 +49,7 @@ const GET_ENDPOINTS: Record<
     build: geoSearchGet,
     url: "/api/geo/search?q=Philadelphia",
   },
+  "src/app/api/health/route.ts": { build: healthGet, url: "/api/health" },
   "src/app/api/invite/[code]/route.ts": {
     build: inviteGet,
     url: "/api/invite/seed-max",
