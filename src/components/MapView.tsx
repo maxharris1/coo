@@ -1,7 +1,7 @@
 "use client";
 
 import "maplibre-gl/dist/maplibre-gl.css";
-import type { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
+import type { GeoJSONSource, Map as MapLibreMap, Marker } from "maplibre-gl";
 import { useEffect, useRef, useState } from "react";
 import { config } from "@/lib/config";
 import {
@@ -116,6 +116,7 @@ export function MapView({
 
   useEffect(() => {
     let map: MapLibreMap | null = null;
+    let markers: Marker[] = [];
     let frame = 0;
     let timer: ReturnType<typeof setInterval> | undefined;
     let cancelled = false;
@@ -139,8 +140,10 @@ export function MapView({
         },
         minZoom: 3,
         maxZoom: 17,
+        maxPitch: 0,
         dragRotate: false,
         pitchWithRotate: false,
+        touchPitch: false,
         attributionControl: {
           compact: true,
           customAttribution: config.app.mapAttribution,
@@ -150,16 +153,17 @@ export function MapView({
       m.touchZoomRotate.disableRotation();
       m.keyboard.disableRotation();
 
-      new Marker({ element: loftEl.current, anchor: "bottom" })
+      const loft = new Marker({ element: loftEl.current, anchor: "bottom" })
         .setLngLat([from.lon, from.lat])
         .addTo(m);
-      new Marker({ element: sillEl.current, anchor: "bottom" })
+      const sill = new Marker({ element: sillEl.current, anchor: "bottom" })
         .setLngLat([to.lon, to.lat])
         .addTo(m);
       const start = positionAt(plan, from, to, now());
       const marker = new Marker({ element: birdEl.current })
         .setLngLat([start.lon, start.lat])
         .addTo(m);
+      markers = [loft, sill, marker];
 
       const drawRoute = (frac: number) => {
         const { flown, left } = splitRoute(from, to, fracs, frac);
@@ -237,6 +241,7 @@ export function MapView({
       cancelAnimationFrame(frame);
       clearInterval(timer);
       recentre.current = () => {};
+      for (const m of markers) m.remove();
       map?.remove();
     };
   }, [flightId, from, to, plan, distanceMi, offsetMs, bottomPadding]);
