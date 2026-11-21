@@ -1,0 +1,253 @@
+import { act, type ComponentProps } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { SyncContext, type SyncState } from "@/components/SyncProvider";
+import type { SyncPayload } from "@/components/sync";
+import type { FriendRow } from "@/server/services/friends";
+import type { SyncVisit } from "@/server/services/visits/syncRead";
+import type { ReplyView } from "./ReplyView";
+import ReplyPage from "./page";
+import { readHandoff } from "./takeoffHandoff";
+
+type ViewProps = ComponentProps<typeof ReplyView>;
+
+const seen = vi.hoisted(() => ({
+  view: null as ViewProps | null,
+  loading: false,
+  toasts: [] as string[],
+  replace: vi.fn(),
+}));
+
+vi.mock("./ReplyView", () => ({
+  ReplyView: (props: ViewProps) => {
+    seen.view = props;
+    return null;
+  },
+}));
+vi.mock("@/components/Loader", () => ({
+  Loader: () => {
+    seen.loading = true;
+    return null;
+  },
+}));
+vi.mock("@/components/Toasts", () => ({
+  useToast: () => (message: string) => void seen.toasts.push(message),
+}));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ replace: seen.replace }),
+  useParams: () => ({ visitId: "v1" }),
+}));
+
+const MIN = 60_000;
+const NOW = Date.parse("2026-11-20T19:00:00Z");
+const REPLY = "Bread is secured. Tell Dumpling the tuna was not for her.";
+
+const VISIT: SyncVisit = {
+  id: "v1",
+  bird: {
+    id: "b1",
+    name: "Dumpling",
+    breed: "city",
+    look: "dumpling",
+    pronoun: "she",
+    speedMph: 43,
+    gear: [],
+  },
+  owner: { id: "u1", name: "Priya", handle: "priya" },
+  note: { id: "n1", body: "Bring the bread.", createdAt: NOW - 120 * MIN },
+  arrivedAt: NOW - 2 * MIN,
+  leavesAt: NOW + 28 * MIN,
+  status: "waiting",
+  snackGiven: false,
+  flight: { distanceMi: 80, durationMs: 112 * MIN, delayKind: "none" },
+};
+
+const PRIYA = {
+  id: "u1",
+  name: "Priya",
+  handle: "priya",
+  shows: "city",
+  theyShow: "city",
+  where: "Philadelphia, PA",
+  distanceMi: 81,
+} as FriendRow;
+
+let replyRes: { status: number; body: unknown };
+let root: Root | null;
+const session = new Map<string, string>();
+
+function fakeFetch(url: RequestInfo | URL) {
+  if (String(url) === "/api/friends") {
+    return Promise.resolve(Response.json({ friends: [PRIYA], guestLinks: [] }));
+  }
+  return Promise.resolve(
+    Response.json(replyRes.body, { status: replyRes.status }),
+  );
+}
+
+const replyCalls = () =>
+  vi.mocked(fetch).mock.calls.filter(([url]) => String(url) !== "/api/friends");
+
+const sync = (visits: SyncVisit[] | null, offsetMs = 0): SyncState => ({
+  data:
+    visits &&
+    ({
+      serverNow: NOW,
+      visits,
+      me: { timezone: "America/New_York", units: "mi" },
+    } as unknown as SyncPayload),
+  error: null,
+  offsetMs,
+  refresh: () => {},
+});
+
+async function show(visits: SyncVisit[] | null, offsetMs = 0) {
+  if (!root) {
+    const container = Object.assign(new EventTarget(), {
+      nodeType: 1,
+      tagName: "DIV",
+      ownerDocument: new EventTarget(),
+    }) as unknown as Element;
+    root = createRoot(container);
+  }
+  const r = root;
+  await act(async () =>
+    r.render(
+      <SyncContext.Provider value={sync(visits, offsetMs)}>
+        <ReplyPage />
+      </SyncContext.Provider>,
+    ),
+  );
+}
+
+const view = () => {
+  if (!seen.view) throw new Error("no view");
+  return seen.view;
+};
+
+const type = (text: string) => act(async () => view().onNote(text));
+const send = () => act(async () => view().onSend());
+const tick = (ms: number) => act(async () => void vi.advanceTimersByTime(ms));
+
+beforeEach(() => {
+  vi.useFakeTimers({ now: NOW });
+  seen.view = null;
+  seen.loading = false;
+  seen.toasts.length = 0;
+  seen.replace.mockClear();
+  session.clear();
+  replyRes = { status: 200, body: { flight: { id: "f1", kind: "return" } } };
+  root = null;
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  vi.stubGlobal(
+    "window",
+    Object.assign(new EventTarget(), { HTMLIFrameElement: class {} }),
+  );
+  vi.stubGlobal("sessionStorage", {
+    getItem: (k: string) => session.get(k) ?? null,
+    setItem: (k: string, v: string) => void session.set(k, v),
+  });
+  vi.stubGlobal("fetch", vi.fn(fakeFetch));
+});
+
+afterEach(async () => {
+  const r = root;
+  root = null;
+  await act(async () => r?.unmount());
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
+
+describe("/sill/[visitId]/reply (ac-1)", () => {
+  it("shows the loader until the first sync lands", async () => {
+    await show(null);
+    expect(seen.loading).toBe(true);
+    expect(seen.view).toBeNull();
+    expect(seen.replace).not.toHaveBeenCalled();
+  });
+
+  it("sends the user back to the visit when it is not on the sill", async () => {
+    await show([]);
+    expect(seen.replace).toHaveBeenCalledWith("/sill/v1");
+    expect(seen.view).toBeNull();
+  });
+
+  it("sends the user back once the bird's wait is over", async () => {
+    await show([VISIT]);
+    expect(seen.replace).not.toHaveBeenCalled();
+    await tick(28 * MIN);
+    expect(seen.replace).toHaveBeenCalledWith("/sill/v1");
+  });
+
+  it("goes by the server clock, not the device clock", async () => {
+    await show([VISIT], 28 * MIN);
+    expect(seen.replace).toHaveBeenCalledWith("/sill/v1");
+  });
+
+  it("builds the model from the visit and the friend row", async () => {
+    await show([VISIT]);
+    expect(view().model.route).toBe(
+      "Philadelphia, 81 miles. About 1h 53m at her pace.",
+    );
+    expect(view().model.wait).toMatch(/^She waits 28 more minutes/);
+    expect(view().backHref).toBe("/sill/v1");
+    await tick(MIN);
+    expect(view().model.wait).toMatch(/^She waits 27 more minutes/);
+  });
+
+  it("counts the typed reply against the bird's limit", async () => {
+    await show([VISIT]);
+    await type(REPLY);
+    expect(view().note).toBe(REPLY);
+    expect(view().counter).toEqual({
+      label: "57 of 140 characters",
+      over: false,
+    });
+    await type("a".repeat(141));
+    expect(view().counter.over).toBe(true);
+  });
+
+  it("saves the hand-off and moves to takeoff on success", async () => {
+    await show([VISIT]);
+    await type(REPLY);
+    await send();
+    const [[url, init]] = replyCalls();
+    expect(String(url)).toBe("/api/visits/v1/reply");
+    expect(JSON.parse(String(init?.body))).toEqual({ body: REPLY });
+    expect(readHandoff("v1")).toEqual({ flightId: "f1", pronoun: "she" });
+    expect(seen.replace).toHaveBeenCalledWith("/sill/v1/takeoff");
+    expect(seen.toasts).toEqual([]);
+  });
+
+  it("stays on takeoff when the visit then drops out of sync", async () => {
+    await show([VISIT]);
+    await type(REPLY);
+    await send();
+    await show([]);
+    expect(seen.replace).toHaveBeenCalledTimes(1);
+    expect(seen.replace).toHaveBeenCalledWith("/sill/v1/takeoff");
+  });
+
+  it("keeps the text and toasts the API's message on an error", async () => {
+    replyRes = {
+      status: 409,
+      body: { error: { code: "conflict", message: "The visit is over." } },
+    };
+    await show([VISIT]);
+    await type(REPLY);
+    await send();
+    expect(seen.toasts).toEqual(["The visit is over."]);
+    expect(view().note).toBe(REPLY);
+    expect(view().sending).toBe(false);
+    expect(readHandoff("v1")).toBeNull();
+    expect(seen.replace).not.toHaveBeenCalled();
+  });
+
+  it("does not post an empty or over-limit reply", async () => {
+    await show([VISIT]);
+    await send();
+    await type("a".repeat(141));
+    await send();
+    expect(replyCalls()).toHaveLength(0);
+  });
+});

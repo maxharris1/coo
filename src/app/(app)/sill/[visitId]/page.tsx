@@ -8,7 +8,7 @@ import { useToast } from "@/components/Toasts";
 import type { FriendRow } from "@/server/services/friends";
 import type { SyncVisit } from "@/server/services/visits/syncRead";
 import { GoneHome, Landed } from "../Landed";
-import { landedState, type SenderCity } from "../landedModel";
+import { landedState, sharedCity, type SenderCity } from "../landedModel";
 
 type Departed = { birdName: string; ownerId: string };
 
@@ -51,14 +51,6 @@ const markLanded = (id: string) =>
 
 const reducedMotion = () =>
   window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-function sharedCity(friend: FriendRow | undefined): SenderCity | null {
-  if (!friend || friend.theyShow !== "city" || !friend.where) return null;
-  const cut = friend.where.lastIndexOf(", ");
-  return cut < 0
-    ? { name: friend.where, region: null }
-    : { name: friend.where.slice(0, cut), region: friend.where.slice(cut + 2) };
-}
 
 async function senderCity(ownerId: string): Promise<SenderCity | null> {
   try {

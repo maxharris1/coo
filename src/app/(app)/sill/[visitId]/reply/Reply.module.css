@@ -1,0 +1,268 @@
+.screen {
+  min-height: 100dvh;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: var(--coo-gutter) var(--coo-gutter) 10px;
+  background: var(--coo-paper);
+  color: var(--coo-ink);
+  font-family: var(--coo-font-body);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.back {
+  width: var(--coo-touch);
+  height: var(--coo-touch);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--coo-card);
+  border: var(--coo-line);
+  border-radius: 50%;
+  box-shadow: var(--coo-shadow-1);
+}
+
+.back path {
+  fill: none;
+  stroke: var(--coo-ink);
+  stroke-width: 2.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-family: var(--coo-font-display);
+  font-weight: 400;
+  font-size: 28px;
+  line-height: 1;
+  overflow-wrap: anywhere;
+}
+
+.trip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px 8px 4px;
+  background: var(--coo-sky);
+  border: var(--coo-line);
+  border-radius: var(--coo-radius-card);
+  box-shadow: var(--coo-shadow-2);
+}
+
+.tripText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.heading {
+  font-weight: 900;
+  font-size: 16px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.route {
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 2px;
+}
+
+.free,
+.chip {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  background: var(--coo-card);
+  border: var(--coo-line-thin);
+  border-radius: var(--coo-radius-pill);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.free {
+  background: var(--coo-mint);
+}
+
+.theirs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  background: var(--coo-card);
+  border: 2px dashed var(--coo-ink);
+  border-radius: var(--coo-radius-paper);
+}
+
+.wrote {
+  font-weight: 900;
+  font-size: 11.5px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--coo-muted);
+}
+
+.theirNote {
+  margin: 0;
+  font-family: var(--coo-font-hand);
+  font-weight: 700;
+  font-size: 20px;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.reply {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-weight: 900;
+  font-size: 15px;
+}
+
+.paper {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 14px 8px;
+  background: var(--coo-card);
+  border: var(--coo-line);
+  border-radius: var(--coo-radius-paper);
+  box-shadow: var(--coo-shadow-2);
+  transform: rotate(0.7deg);
+}
+
+.field {
+  width: 100%;
+  height: 136px;
+  box-sizing: border-box;
+  padding: 0;
+  border: none;
+  resize: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 32px,
+    #d9d3e6 32px,
+    #d9d3e6 34px
+  );
+  font-family: var(--coo-font-hand);
+  font-weight: 700;
+  font-size: 27px;
+  line-height: 34px;
+  color: var(--coo-ink);
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+  padding-top: 6px;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--coo-muted);
+}
+
+.count {
+  font-variant-numeric: tabular-nums;
+}
+
+.over {
+  font-variant-numeric: tabular-nums;
+  color: var(--coo-stamp);
+}
+
+.wait {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-weight: 800;
+  font-size: 13.5px;
+  line-height: 1.3;
+}
+
+.wait svg {
+  flex-shrink: 0;
+  fill: none;
+  stroke: var(--coo-ink);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.footer {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.release {
+  width: 100%;
+  min-height: 60px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  background: var(--coo-tomato);
+  border: var(--coo-line);
+  border-radius: var(--coo-radius-button);
+  box-shadow: var(--coo-shadow-3);
+  font-family: var(--coo-font-display);
+  font-size: 22px;
+  line-height: 1.1;
+  text-align: center;
+  color: var(--coo-ink);
+  cursor: pointer;
+}
+
+.release:disabled {
+  background: var(--coo-sand);
+  color: var(--coo-muted);
+  box-shadow: none;
+  cursor: default;
+}
+
+.instead {
+  min-height: var(--coo-touch);
+  display: flex;
+  align-items: center;
+  font-weight: 900;
+  font-size: 14.5px;
+  color: var(--coo-ink);
+}
+
+.back:focus-visible,
+.field:focus-visible,
+.release:focus-visible,
+.instead:focus-visible {
+  outline: 3px solid var(--coo-tomato);
+  outline-offset: 2px;
+}
+
+.field:focus-visible {
+  outline-offset: 4px;
+}
