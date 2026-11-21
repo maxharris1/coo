@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
 import { seedWorld, type World } from "@/test/seedWorld";
-import { notify, type NotifyRow } from "./notify";
+import { notificationText, notify, type NotifyRow } from "./notify";
 import { deliver } from "./notify/deliver";
 
 vi.mock("./notify/deliver", () => ({
@@ -84,6 +84,22 @@ describe("notify", () => {
     expect(event).toEqual({
       kind: "notification",
       created_at: new Date(deps.clock.now()),
+    });
+  });
+});
+
+describe("notificationText", () => {
+  it("fills the copy for a kind from config", () => {
+    expect(
+      notificationText("landed-in", {
+        bird: "Gerald",
+        friend: "Max",
+        visitId: "v1",
+      }),
+    ).toEqual({
+      title: "Gerald has landed",
+      body: "There is a note from Max on your sill.",
+      url: "/sill/v1",
     });
   });
 });
