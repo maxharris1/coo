@@ -113,6 +113,15 @@ export const COLUMNS = {
     items: "_text",
     position: "int2",
   },
+  eggs: {
+    id: "uuid",
+    user_id: "uuid",
+    hatch_at_delivery: "int4",
+    status: "text",
+    bird_id: "uuid?",
+    laid_at: "timestamptz",
+    hatched_at: "timestamptz?",
+  },
 } as const satisfies Record<string, Record<string, Spec>>;
 
 export type Table = keyof typeof COLUMNS;
