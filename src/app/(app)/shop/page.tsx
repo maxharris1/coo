@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Loader } from "@/components/Loader";
 import { useToast } from "@/components/Toasts";
 import { loadShop, openShop, type ShopRows } from "./shop";
+import { ShopItems } from "./ShopItems";
 import { ShopTop } from "./ShopTop";
 
 export default function ShopPage() {
@@ -21,5 +22,10 @@ export default function ShopPage() {
   }, [toast]);
 
   if (!rows) return <Loader />;
-  return <ShopTop seeds={rows.seeds} />;
+  return (
+    <>
+      <ShopTop seeds={rows.seeds} />
+      <ShopItems gear={rows.gear} loft={rows.loft} />
+    </>
+  );
 }

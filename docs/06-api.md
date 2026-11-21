@@ -5,6 +5,10 @@ they need a signed-in user with a finished profile; otherwise `401 unauthenticat
 `409 not_onboarded`. Every body is validated with zod. Every response includes `serverNow`
 (epoch ms). Ids are UUID strings. Times are epoch ms.
 
+## Idempotency
+
+A replayed action (same `actionId`) applies no second charge or effect and returns the current state.
+
 ## Errors
 
 `{ "error": { "code", "message" } }` with these codes:
@@ -139,7 +143,7 @@ Weather and place names are fetched before the transaction opens, never inside i
 | Endpoint | Body | Does |
 |---|---|---|
 | `PATCH /api/birds/[id]` | `{ name?, pronoun? }` | Rename |
-| `POST /api/birds/[id]/feed` | | Home birds only. 3 seeds, belly +50 |
+| `POST /api/birds/[id]/feed` | `{ actionId }` | Home birds only. 3 seeds, belly +50. `actionId` is a uuid made once per tap. See Idempotency |
 | `POST /api/birds/[id]/bath` | | Home only. Busy 10 minutes, feathers 100 |
 | `POST /api/birds/[id]/nap` | | Home only. Busy 30 minutes, energy +50 at the end |
 | `PUT /api/birds/[id]/gear` | `{ items: string[] }` | Home only. Validates ownership, one per slot, not worn by another bird (taking an item from another home bird is allowed and removes it there) |
@@ -238,7 +242,7 @@ per run and stop after 20 seconds.
 8. **Wake birds**: `busy` naps and baths whose `busy_until` has passed: apply the effect, set `home`.
 9. **Hungry notices**: home birds whose computed belly is under 30 and `hungry_notified = false`.
 10. **Expire guest links** past `expires_at`: set `expired`, set `notes.returned_at`, notify the sender.
-11. **Send what is waiting**: notifications with no `push_sent_at` whose quiet hours have ended.
+11. **Send what is waiting**: notifications with no `push_sent_at` whose `push_held_until` has passed.
 
 Starting a return flight (steps 3 and from `reply`): origin is the delivery's `to`, destination
 is the owner's active loft adjusted for the same privacy rule, weather sampled now, hazards for

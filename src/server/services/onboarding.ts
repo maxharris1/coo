@@ -34,14 +34,14 @@ function isTimeZone(tz: string): boolean {
 
 const codePointLength = (s: string) => [...s].length;
 
-const displayName = (max: number) =>
+export const displayName = (max: number) =>
   z
     .string()
     .trim()
     .refine((s) => codePointLength(s) >= 1 && codePointLength(s) <= max)
     .refine((s) => !isBlocked(s));
 
-const pronoun = z.enum(["he", "she", "they"]);
+export const pronoun = z.enum(["he", "she", "they"]);
 
 function schema(config: Config) {
   return z.object({

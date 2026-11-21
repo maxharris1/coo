@@ -27,8 +27,9 @@ Everything goes through one function: `notify(deps, tx, { userId, kind, refId, v
 3. Insert an `events` row.
 4. After the transaction commits, `deliver(notificationId)`:
    - If the kind's setting is off for this user: stop. The row stays in the in-app list.
-   - If it is quiet hours for the user: stop. Step 11 of the tick delivers it when they end,
-     unless it has been read in the app by then.
+   - If it is quiet hours for the user: set `push_held_until` to the instant they end, worked out
+     now in the user's current time zone, and stop. Step 11 of the tick delivers it at or after
+     that instant, unless it has been read in the app by then.
    - If the user has any push subscription: send to all of them, set `push_sent_at`.
      A 404 or 410 from the push service deletes that subscription.
    - If no push was sent, the kind is marked `"sms": true`, and `sms_fallback` is on: send the

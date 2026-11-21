@@ -8,7 +8,7 @@ import type { BirdStatus } from "@/lib/game/types";
 import type { Db } from "@/server/db";
 import type { Deps } from "@/server/deps";
 import { badgeRules } from "../badges";
-import { notificationText, recordNotification } from "../notify";
+import { landedInTitle, notificationText, recordNotification } from "../notify";
 import { deliver } from "../notify/deliver";
 import type { Step, StepContext } from "../tick";
 import { guestLanding } from "./guestLanding";
@@ -306,13 +306,15 @@ async function landOne(
   const notificationIds: string[] = [];
   for (const n of notices) {
     const text = notificationText(n.kind, n.vars, bird.pronoun);
-    const ding = n.kind === "landed-in" && bird.gear.includes("bell");
     const created = await recordNotification(tx, nowMs, {
       userId: n.userId,
       kind: n.kind,
       refId: n.refId,
       ...text,
-      title: ding ? `${text.title} Ding.` : text.title,
+      title:
+        n.kind === "landed-in"
+          ? landedInTitle(text.title, bird.gear)
+          : text.title,
     });
     if (created) notificationIds.push(created.id);
   }

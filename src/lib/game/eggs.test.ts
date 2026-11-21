@@ -74,4 +74,20 @@ describe("rollHatchling", () => {
       );
     }
   });
+
+  it("gives the hatchling its breed's look, one fear and one love", () => {
+    const quirks = new Set<string>();
+    for (const id of eggIds) {
+      const egg = rollHatchling(id, []);
+      expect(egg.look).toBe(egg.breed);
+      const [fear, love] = egg.quirks;
+      expect(egg.quirks).toHaveLength(2);
+      expect(config.quirks.fears).toContain(fear);
+      expect(config.quirks.loves).toContain(love);
+      quirks.add(fear).add(love);
+    }
+    expect(quirks.size).toBe(
+      config.quirks.fears.length + config.quirks.loves.length,
+    );
+  });
 });
