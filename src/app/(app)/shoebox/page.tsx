@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { Loader } from "@/components/Loader";
 import { useSync } from "@/components/SyncProvider";
 import { useToast } from "@/components/Toasts";
@@ -27,8 +27,13 @@ function Shoebox() {
   const { data } = useSync();
   const toast = useToast();
   const [friends, setFriends] = useState<FriendRow[]>([]);
-  const [list, setList] = useState<List>({ kind: "loading" });
-  const latest = useRef(0);
+  const [notes, setNotes] = useState<{ friendId: FriendId | null; list: List }>(
+    { friendId: selected, list: { kind: "loading" } },
+  );
+  if (notes.friendId !== selected) {
+    setNotes({ friendId: selected, list: { kind: "loading" } });
+  }
+  const { list } = notes;
 
   useEffect(() => {
     let live = true;
@@ -44,15 +49,15 @@ function Shoebox() {
 
   useEffect(() => {
     let live = true;
-    latest.current++;
     void loadNotes(selected, null).then((r) => {
       if (!live) return;
-      if (r.ok) {
-        setList({ kind: "ready", loadingMore: false, ...r.page });
-      } else {
-        setList({ kind: "failed" });
-        toast(r.message);
-      }
+      if (!r.ok) toast(r.message);
+      setNotes({
+        friendId: selected,
+        list: r.ok
+          ? { kind: "ready", loadingMore: false, ...r.page }
+          : { kind: "failed" },
+      });
     });
     return () => {
       live = false;
@@ -68,19 +73,30 @@ function Shoebox() {
 
   const onMore = () => {
     if (list.kind !== "ready" || !list.nextCursor || list.loadingMore) return;
-    const token = ++latest.current;
-    setList({ ...list, loadingMore: true });
-    void loadNotes(selected, list.nextCursor).then((r) => {
-      if (token !== latest.current) return;
+    const { friendId } = notes;
+    const cursor = list.nextCursor;
+    setNotes({ friendId, list: { ...list, loadingMore: true } });
+    void loadNotes(friendId, cursor).then((r) => {
       if (!r.ok) toast(r.message);
-      setList((prev) => {
-        if (prev.kind !== "ready") return prev;
-        if (!r.ok) return { ...prev, loadingMore: false };
+      setNotes((prev) => {
+        const from = prev.list;
+        if (
+          prev.friendId !== friendId ||
+          from.kind !== "ready" ||
+          from.nextCursor !== cursor
+        ) {
+          return prev;
+        }
         return {
-          kind: "ready",
-          loadingMore: false,
-          ...r.page,
-          notes: [...prev.notes, ...r.page.notes],
+          friendId,
+          list: r.ok
+            ? {
+                kind: "ready",
+                loadingMore: false,
+                ...r.page,
+                notes: [...from.notes, ...r.page.notes],
+              }
+            : { ...from, loadingMore: false },
         };
       });
     });

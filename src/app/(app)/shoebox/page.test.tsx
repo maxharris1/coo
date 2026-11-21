@@ -273,6 +273,47 @@ describe("/shoebox paging", () => {
     expect(shown()).not.toContain("More notes");
   });
 
+  it("pages only the selected friend's own first page after a filter change", async () => {
+    await mount();
+    const priya = Array.from({ length: 30 }, (_, i) => note(`p${30 - i}`));
+    await answer("/api/notes", page(priya, "c-priya"));
+    await act(async () => props().onSelect(friendId("rosa")));
+    expect(shown()).not.toContain("More notes");
+    await act(async () => props().onMore());
+    const rosa = [note("r2", "Rosa"), note("r1", "Rosa")];
+    await answer("/api/notes", page(rosa));
+    while (calls.some((c) => c.url.pathname === "/api/notes" && !c.done)) {
+      await answer("/api/notes", page(rosa));
+    }
+    expect(ids()).toEqual(["r2", "r1"]);
+    for (const url of requests("/api/notes")) {
+      if (url.searchParams.get("cursor") === "c-priya") {
+        expect(url.searchParams.has("friendId")).toBe(false);
+      }
+    }
+  });
+
+  it("drops a page started under the previous filter", async () => {
+    await mount();
+    await answer("/api/notes", page([note("p2"), note("p1")], "c1"));
+    await act(async () => props().onMore());
+    await act(async () => props().onSelect(friendId("rosa")));
+    await answer("/api/notes", page([note("r1", "Rosa")]), { nth: 1 });
+    await answer("/api/notes", page([note("p0")]));
+    expect(ids()).toEqual(["r1"]);
+  });
+
+  it("shows the loader, not the old filter's cards, until the new first page lands", async () => {
+    nav.params = new URLSearchParams("friend=rosa");
+    await mount();
+    await answer("/api/notes", page([note("r1", "Rosa")], "c-rosa"));
+    await act(async () => props().onSelect(null));
+    expect(props().list).toEqual({ kind: "loading" });
+    await answer("/api/notes", page([note("p1")], "c-all"));
+    await act(async () => props().onSelect(friendId("rosa")));
+    expect(props().list).toEqual({ kind: "loading" });
+  });
+
   it("a failed page keeps the cards and toasts the API's message", async () => {
     await mount();
     await answer("/api/notes", page([note("n2")], "c1"));
