@@ -1,3 +1,4 @@
+import { LOOKS, type Look } from "@/components/Bird";
 import { config } from "@/lib/config";
 import type { Aviary } from "@/server/services/eggs";
 
@@ -6,7 +7,19 @@ export type EggCard =
   | { kind: "ready" }
   | { kind: "waiting" };
 
-export type AviaryTop = { perches: string; egg: EggCard | null };
+export type BreedCard = {
+  id: Look;
+  name: string;
+  note: string;
+  trait: string;
+  owned: boolean;
+};
+
+export type AviaryTop = {
+  perches: string;
+  egg: EggCard | null;
+  breeds: BreedCard[];
+};
 
 export type AviaryState =
   | { kind: "loading" }
@@ -28,9 +41,21 @@ function eggCard(a: Aviary): EggCard | null {
   return { kind: "incubating", toGo, done: Math.max(0, span - toGo), span };
 }
 
+const isLook = (id: string): id is Look => LOOKS.includes(id as Look);
+
+function breedCards(a: Aviary): BreedCard[] {
+  return a.breeds.flatMap(({ id, name, note, trait, hatchable, owned }) =>
+    hatchable && isLook(id) ? [{ id, name, note, trait, owned }] : [],
+  );
+}
+
 export function aviaryTop(a: Aviary): AviaryTop {
   const { total, free } = a.perches;
-  return { perches: `${total - free} of ${total} perches`, egg: eggCard(a) };
+  return {
+    perches: `${total - free} of ${total} perches`,
+    egg: eggCard(a),
+    breeds: breedCards(a),
+  };
 }
 
 export async function loadAviary(
