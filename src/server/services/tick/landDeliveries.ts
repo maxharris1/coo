@@ -90,11 +90,17 @@ async function paidToday(
   ownerId: string,
   flightId: string,
   dayStartMs: number,
+  landedMs: number,
 ) {
   const [{ n }] = await tx.query<{ n: number }>(
     `select count(*)::int as n from seed_ledger l join flights f on f.id = l.ref_id
-     where l.user_id = $1 and l.reason = 'delivery' and f.id <> $2 and f.landed_at >= $3`,
-    [ownerId, flightId, new Date(dayStartMs).toISOString()],
+     where l.user_id = $1 and l.reason = 'delivery' and f.id <> $2 and f.landed_at >= $3 and f.landed_at <= $4`,
+    [
+      ownerId,
+      flightId,
+      new Date(dayStartMs).toISOString(),
+      new Date(landedMs).toISOString(),
+    ],
   );
   return n;
 }
@@ -144,8 +150,12 @@ async function landOne(
   const arriveIso = f.arrive_at.toISOString();
   const miles = Number(f.distance_mi ?? f.plan.distanceMi);
 
+  await tx.query(
+    "select id from profiles where id = any($1::uuid[]) order by id for update",
+    [[f.owner_id, f.counterpart_id].filter((u) => u !== null)],
+  );
   const [owner] = await tx.query<OwnerRow>(
-    "select name, timezone, units, has_birdbath from profiles where id = $1 for update",
+    "select name, timezone, units, has_birdbath from profiles where id = $1",
     [f.owner_id],
   );
   const [recipient] = await tx.query<{ name: string }>(
@@ -217,6 +227,7 @@ async function landOne(
       f.owner_id,
       f.id,
       startOfLocalDayMs(arriveMs, owner.timezone),
+      arriveMs,
     ),
     {
       partyHat: bird.gear.includes("party"),
@@ -274,11 +285,14 @@ async function landOne(
     : [landedOut];
   const notificationIds: string[] = [];
   for (const n of notices) {
+    const text = notificationText(n.kind, n.vars, bird.pronoun);
+    const ding = n.kind === "landed-in" && bird.gear.includes("bell");
     const created = await recordNotification(tx, nowMs, {
       userId: n.userId,
       kind: n.kind,
       refId: n.refId,
-      ...notificationText(n.kind, n.vars, bird.pronoun),
+      ...text,
+      title: ding ? `${text.title} Ding.` : text.title,
     });
     if (created) notificationIds.push(created.id);
   }

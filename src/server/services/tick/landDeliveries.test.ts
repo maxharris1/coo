@@ -293,4 +293,21 @@ describe("landing a delivery", () => {
     const priya = await tick(deps, { userId: world.priya.id });
     expect(priya.counts.landDeliveries).toBe(1);
   });
+
+  it("ends the recipient's landed-in title with Ding. when the bird wears the ankle bell", async () => {
+    await deps.db.query("update birds set gear = '{bell}' where id = $1", [
+      flight.birdId,
+    ]);
+    deps.clock.set(flight.arriveAtMs + MINUTE_MS);
+
+    await tick(deps);
+
+    const titles = await rows<{ kind: string; title: string }>(
+      "select kind, title from notifications order by kind",
+    );
+    expect(titles).toEqual([
+      { kind: "landed-in", title: "Gerald has landed Ding." },
+      { kind: "landed-out", title: "Gerald delivered your note" },
+    ]);
+  });
 });
