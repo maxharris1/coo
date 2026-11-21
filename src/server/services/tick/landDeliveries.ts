@@ -7,10 +7,12 @@ import { startOfLocalDayMs, weekStart, weekday } from "@/lib/game/time";
 import type { BirdStatus } from "@/lib/game/types";
 import type { Db } from "@/server/db";
 import type { Deps } from "@/server/deps";
+import { log } from "@/server/log";
 import { badgeRules } from "../badges";
 import { landedInTitle, notificationText, recordNotification } from "../notify";
 import { deliver } from "../notify/deliver";
 import type { Step, StepContext } from "../tick";
+import { eachRow } from "./rows";
 import { guestLanding } from "./guestLanding";
 
 type Place = { city: string; region?: string | null; country?: string | null };
@@ -64,7 +66,7 @@ async function dueIds(ctx: StepContext): Promise<string[]> {
     `select id from flights
      where kind = 'delivery' and status = 'flying' and arrive_at <= $1
        and ($2::uuid is null or owner_id = $2 or counterpart_id = $2)
-     order by arrive_at limit $3`,
+     order by arrive_at, id limit $3`,
     [
       new Date(ctx.deps.clock.now()).toISOString(),
       ctx.userId ?? null,
@@ -330,17 +332,37 @@ async function landOne(
 }
 
 export const landDeliveries: Step = async (ctx) => {
-  const landed: LandedDelivery[] = [];
-  for (const id of await dueIds(ctx)) {
-    if (ctx.timeUp()) break;
-    const out = await ctx.deps.db.tx((tx) => landOne(ctx.deps, tx, id));
-    if (out) landed.push(out);
-  }
-  for (const { notificationIds } of landed)
-    for (const n of notificationIds) await deliver(ctx.deps, n);
-  await guestLanding(
+  const { done: landed, failed } = await eachRow(
     ctx,
-    landed.filter((l) => l.flight.guest_link_id).map((l) => l.flight),
+    "landDeliveries",
+    await dueIds(ctx),
+    (tx, id) => landOne(ctx.deps, tx, id),
   );
-  return { count: landed.length };
+  let postCommitFailed = 0;
+  for (const { flight, notificationIds } of landed)
+    for (const n of notificationIds)
+      try {
+        await deliver(ctx.deps, n);
+      } catch (error) {
+        postCommitFailed++;
+        log.error("tick.row_failed", {
+          step: "landDeliveries",
+          rowId: flight.id,
+          error,
+        });
+      }
+  const guests = landed
+    .filter((l) => l.flight.guest_link_id)
+    .map((l) => l.flight);
+  try {
+    await guestLanding(ctx, guests);
+  } catch (error) {
+    postCommitFailed++;
+    log.error("tick.row_failed", {
+      step: "landDeliveries",
+      rowIds: guests.map((f) => f.id),
+      error,
+    });
+  }
+  return { count: landed.length, failed: failed + postCommitFailed };
 };

@@ -7,6 +7,7 @@ import { careSnapshot } from "../care/snapshot";
 import { notificationText, recordNotification } from "../notify";
 import { deliver } from "../notify/deliver";
 import type { Step, StepContext } from "../tick";
+import { eachRow, tryRow } from "./rows";
 
 const HOUR_MS = 3_600_000;
 
@@ -64,14 +65,18 @@ async function noticeHungry(
 }
 
 export const hungryNotices: Step = async (ctx) => {
-  const notificationIds: string[] = [];
-  for (const id of await dueIds(ctx)) {
-    if (ctx.timeUp()) break;
-    const created = await ctx.deps.db.tx((tx) =>
-      noticeHungry(ctx.deps, tx, id),
-    );
-    if (created) notificationIds.push(created);
-  }
-  for (const n of notificationIds) await deliver(ctx.deps, n);
-  return { count: notificationIds.length };
+  const { done, failed } = await eachRow(
+    ctx,
+    "hungryNotices",
+    await dueIds(ctx),
+    async (tx, id) => {
+      const notice = await noticeHungry(ctx.deps, tx, id);
+      return notice ? { id, notice } : null;
+    },
+  );
+  let deliverFailed = 0;
+  for (const { id, notice } of done)
+    if (!(await tryRow("hungryNotices", id, () => deliver(ctx.deps, notice))))
+      deliverFailed++;
+  return { count: done.length, failed: failed + deliverFailed };
 };
