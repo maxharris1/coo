@@ -138,6 +138,6 @@ describe("friend row sheet (ac-1)", () => {
     });
     expect(html).toContain('role="dialog"');
     expect(html).toContain("Priya");
-    expect(html).toContain("Send a bird");
+    expect(html).toContain("Unfriend");
   });
 });

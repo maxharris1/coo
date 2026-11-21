@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import type { FriendRow } from "@/server/services/friends";
 import styles from "./FriendSheet.module.css";
@@ -120,15 +119,6 @@ export function FriendSheet({
 
         {step === "menu" && (
           <div className={styles.actions}>
-            <Link href={`/send?friend=${friend.id}`} className={styles.button}>
-              Send a bird
-            </Link>
-            <Link
-              href={`/shoebox?friend=${friend.id}`}
-              className={styles.button}
-            >
-              Shoebox with them
-            </Link>
             <button
               type="button"
               className={styles.button}

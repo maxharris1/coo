@@ -1,3 +1,5 @@
+import { readdirSync } from "node:fs";
+import { join, relative, sep } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { FriendRow } from "@/server/services/friends";
@@ -25,6 +27,21 @@ const render = (step: SheetStep, busy = false) =>
     />,
   );
 
+const APP_DIR = join(process.cwd(), "src", "app");
+
+const appRoutes = readdirSync(APP_DIR, { recursive: true, encoding: "utf8" })
+  .filter((f) => /(^|[\\/])page\.tsx$/.test(f))
+  .map((f) => {
+    const segments = relative(APP_DIR, join(APP_DIR, f))
+      .split(sep)
+      .slice(0, -1)
+      .filter((s) => !/^\(.*\)$/.test(s))
+      .map((s) => (/^\[.*\]$/.test(s) ? "[^/]+" : s));
+    return new RegExp(`^/${segments.join("/")}$`);
+  });
+
+const STEPS: SheetStep[] = ["menu", "unfriend", "block", "report"];
+
 describe("FriendSheet (ac-1)", () => {
   it("is a labelled modal dialog named for the friend", () => {
     const html = render("menu");
@@ -35,24 +52,28 @@ describe("FriendSheet (ac-1)", () => {
     expect(html).toMatch(new RegExp(`id="${labelledBy}"[^>]*>Priya<`));
   });
 
-  it("offers the five actions in the drawn order", () => {
+  it("offers Unfriend, Block and Report in the drawn order", () => {
     const html = render("menu");
-    const labels = [
-      "Send a bird",
-      "Shoebox with them",
-      "Unfriend",
-      "Block",
-      "Report",
-    ];
+    const labels = ["Unfriend", "Block", "Report"];
     const at = labels.map((l) => html.indexOf(`>${l}<`));
     expect(at.every((i) => i >= 0)).toBe(true);
     expect([...at].sort((a, b) => a - b)).toEqual(at);
   });
 
-  it("links Send a bird and Shoebox with them to that friend", () => {
+  it("hides Send a bird and Shoebox with them until their screens exist", () => {
     const html = render("menu");
-    expect(html).toContain('href="/send?friend=p1"');
-    expect(html).toContain('href="/shoebox?friend=p1"');
+    expect(html).not.toContain("Send a bird");
+    expect(html).not.toContain("Shoebox with them");
+  });
+
+  it.each(STEPS)("links only to app routes that exist (%s)", (step) => {
+    const hrefs = [...render(step).matchAll(/href="([^"]*)"/g)].map(
+      (m) => new URL(m[1].replaceAll("&amp;", "&"), "https://coo.test")
+        .pathname,
+    );
+    for (const path of hrefs) {
+      expect(appRoutes.some((r) => r.test(path)), path).toBe(true);
+    }
   });
 
   it("asks before unfriending", () => {
