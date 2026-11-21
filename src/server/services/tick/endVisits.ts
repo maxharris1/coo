@@ -6,13 +6,13 @@ import {
   type LatLon,
   type WeatherSample,
 } from "@/lib/flight/engine";
-import { activeLoft } from "@/lib/game/privacy";
+import type { Shows } from "@/lib/game/privacy";
 import { isWeekend } from "@/lib/game/time";
 import type { Db } from "@/server/db";
 import type { Deps } from "@/server/deps";
 import { toBirdRecord, type Row } from "@/server/rows";
 import { LOFT_COLUMNS, loftsOf, type LoftColumns } from "../friends";
-import { quoteInput } from "../flights/quote";
+import { endpointOf, quoteInput } from "../flights/quote";
 import { sampleWeather } from "../weather";
 import type { Step, StepContext } from "../tick";
 
@@ -32,6 +32,7 @@ type VisitLegRow = LoftColumns & {
   from_label: string;
   timezone: string;
   has_birdbath: boolean;
+  owner_shows: Shows;
 };
 
 const OWNER_LOFT = LOFT_COLUMNS.map((c) => `o.${c}`).join(", ");
@@ -43,20 +44,27 @@ export async function returnLeg(
 ): Promise<ReturnLeg | null> {
   const [row] = await deps.db.query<VisitLegRow>(
     `select v.id as visit_id, f.to_lat as from_lat, f.to_lon as from_lon,
-       f.to_label as from_label, o.timezone, o.has_birdbath, ${OWNER_LOFT}
+       f.to_label as from_label, o.timezone, o.has_birdbath, ${OWNER_LOFT},
+       case when v.host_id is null then 'block'
+         when fr.a_id = o.id then fr.a_shows
+         when fr.b_id = o.id then fr.b_shows
+         else 'city' end as owner_shows
      from visits v
      join flights f on f.id = v.flight_id
      join profiles o on o.id = f.owner_id
+     left join friendships fr
+       on (fr.a_id = o.id and fr.b_id = v.host_id)
+       or (fr.a_id = v.host_id and fr.b_id = o.id)
      where v.id = $1`,
     [visitId],
   );
-  const loft = row && activeLoft(loftsOf(row));
-  if (!loft) return null;
+  if (!row) return null;
+  const to = endpointOf(row.owner_shows, loftsOf(row));
+  if (!to) return null;
   const from = {
     point: { lat: row.from_lat, lon: row.from_lon },
     label: row.from_label,
   };
-  const to = { point: loft.roost, label: loft.label };
   const { samples } = await sampleWeather(
     deps,
     deps.config.game.weather.sampleFractions.map((f) => ({

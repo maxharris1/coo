@@ -141,6 +141,33 @@ describe("endVisits", () => {
     expect(ret.input?.to).toEqual({ lat: 41.88, lon: -87.63 });
   });
 
+  it("aims the return at the city centre of the active loft when the owner shows the host only the city", async () => {
+    const flight = await landPlanned();
+    await deps.db.query(
+      "update friendships set a_shows = 'city' where a_id = $1 and b_id = $2",
+      [world.max.id, world.priya.id],
+    );
+    await deps.db.query(
+      `update profiles set travel_on = true, travel_lat = 41.88, travel_lon = -87.63,
+         travel_label = 'The Loop', travel_city = 'Chicago',
+         travel_city_lat = 41.878, travel_city_lon = -87.629
+       where id = $1`,
+      [world.max.id],
+    );
+
+    deps.clock.advance(30 * MINUTE_MS);
+    await tick(deps);
+
+    const [ret] = await returns();
+    expect(ret).toMatchObject({
+      bird_id: flight.birdId,
+      to_lat: 41.878,
+      to_lon: -87.629,
+      to_label: "Chicago",
+    });
+    expect(ret.input?.to).toEqual({ lat: 41.878, lon: -87.629 });
+  });
+
   it("ends a visit the host released early on the next tick (ac-7)", async () => {
     const { visitId, birdId } = await insertWaitingVisit(
       deps.db,
