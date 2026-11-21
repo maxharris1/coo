@@ -80,6 +80,7 @@ export async function careAction(
   caller: OnboardedCaller,
   birdId: string,
   action: CareAction,
+  ref: string | null,
 ): Promise<{ bird: BirdView; seeds: number }> {
   const now = deps.clock.now();
   const owner = { hasBirdbath: caller.profile.has_birdbath };
@@ -97,6 +98,15 @@ export async function careAction(
       throw new AppError("not_found", "Could not find that bird.");
     }
     const bird = toBirdRecord(row);
+    if (ref) {
+      const [done] = await db.query(
+        "select 1 from seed_ledger where user_id = $1 and reason = 'feed' and ref_id = $2",
+        [caller.userId, ref],
+      );
+      if (done) {
+        return { bird: toBirdView(bird, now, owner), seeds: profile.seeds };
+      }
+    }
     const home = settled(bird, now, owner);
     if (!home) {
       throw new AppError("conflict", `${bird.name} is not home right now.`);
@@ -107,8 +117,8 @@ export async function careAction(
     const [{ seeds }] =
       cost > 0
         ? await db.query<{ seeds: number }>(
-            "select apply_seeds($1, $2, 'feed', null) as seeds",
-            [caller.userId, -cost],
+            "select apply_seeds($1, $2, 'feed', $3) as seeds",
+            [caller.userId, -cost, ref],
           )
         : [{ seeds: profile.seeds }];
     const care = apply(home, now, owner);

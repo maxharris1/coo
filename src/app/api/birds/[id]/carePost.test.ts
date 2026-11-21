@@ -29,7 +29,12 @@ async function signIn(phone: string) {
   return jar;
 }
 
-async function post(action: CareAction, id: string, jar?: FakeJar) {
+async function post(
+  action: CareAction,
+  id: string,
+  jar?: FakeJar,
+  body: unknown = action === "feed" ? { actionId: crypto.randomUUID() } : null,
+) {
   const handler = birdCarePost(
     createJsonRoute(async () => deps),
     action,
@@ -40,7 +45,8 @@ async function post(action: CareAction, id: string, jar?: FakeJar) {
   const res = await handler(
     new NextRequest(`https://coo.test/api/birds/${id}/${action}`, {
       method: "POST",
-      headers: { cookie },
+      headers: { cookie, "content-type": "application/json" },
+      body: body === null ? undefined : JSON.stringify(body),
     }),
     { params: Promise.resolve({ id }) },
   );
@@ -124,6 +130,102 @@ describe("POST /api/birds/[id]/feed", () => {
     expect(await seedsOf(world.max.id)).toBe(2);
     expect((await birdRow(gerald)).belly).toBe(40);
     expect(await ledger(world.max.id, "feed")).toEqual([]);
+  });
+});
+
+describe("POST /api/birds/[id]/feed retries", () => {
+  it("replaying a committed feed must not charge twice", async () => {
+    const jar = await signIn(MAX_PHONE);
+    await setSeeds(world.max.id, 10);
+    await setBird(gerald, "belly = 40");
+    const body = { actionId: crypto.randomUUID() };
+    const first = await post("feed", gerald, jar, body);
+    expect(first.status).toBe(200);
+    const committed = {
+      seeds: await seedsOf(world.max.id),
+      belly: (await birdRow(gerald)).belly,
+      ledger: await ledger(world.max.id, "feed"),
+    };
+
+    const replay = await post("feed", gerald, jar, body);
+
+    expect(replay.status).toBe(200);
+    expect(replay.json.seeds).toBe(first.json.seeds);
+    expect(replay.json.bird).toEqual(first.json.bird);
+    expect({
+      seeds: await seedsOf(world.max.id),
+      belly: (await birdRow(gerald)).belly,
+      ledger: await ledger(world.max.id, "feed"),
+    }).toEqual(committed);
+    expect(committed).toEqual({
+      seeds: 7,
+      belly: 90,
+      ledger: [{ delta: -3 }],
+    });
+  });
+
+  it("replays a committed feed even when the seeds have since run out", async () => {
+    const jar = await signIn(MAX_PHONE);
+    await setSeeds(world.max.id, 3);
+    await setBird(gerald, "belly = 40");
+    const body = { actionId: crypto.randomUUID() };
+    expect((await post("feed", gerald, jar, body)).status).toBe(200);
+
+    const replay = await post("feed", gerald, jar, body);
+
+    expect(replay.status).toBe(200);
+    expect(replay.json).toMatchObject({ seeds: 0, bird: { belly: 90 } });
+    expect(await ledger(world.max.id, "feed")).toEqual([{ delta: -3 }]);
+  });
+
+  it("counts two deliberate feeds with different action ids", async () => {
+    const jar = await signIn(MAX_PHONE);
+    await setSeeds(world.max.id, 10);
+    await setBird(gerald, "belly = 20");
+
+    const first = await post("feed", gerald, jar);
+    const second = await post("feed", gerald, jar);
+
+    expect([first.status, second.status]).toEqual([200, 200]);
+    expect(second.json).toMatchObject({ seeds: 4, bird: { belly: 100 } });
+    expect(await seedsOf(world.max.id)).toBe(4);
+    expect((await birdRow(gerald)).belly).toBe(100);
+    expect(await ledger(world.max.id, "feed")).toEqual([
+      { delta: -3 },
+      { delta: -3 },
+    ]);
+  });
+
+  it.each([
+    ["missing", {}],
+    ["not a uuid", { actionId: "tap-1" }],
+  ])("refuses a feed whose action id is %s", async (_, body) => {
+    const jar = await signIn(MAX_PHONE);
+    const seeds = await seedsOf(world.max.id);
+    await setBird(gerald, "belly = 40");
+
+    const { status, json } = await post("feed", gerald, jar, body);
+
+    expect(status).toBe(400);
+    expect(json.error.code).toBe("invalid");
+    expect(await seedsOf(world.max.id)).toBe(seeds);
+    expect((await birdRow(gerald)).belly).toBe(40);
+  });
+
+  it("answers a replayed action id on someone else's bird with 404", async () => {
+    const jar = await signIn(MAX_PHONE);
+    const body = { actionId: crypto.randomUUID() };
+    expect((await post("feed", gerald, jar, body)).status).toBe(200);
+
+    const { status, json } = await post(
+      "feed",
+      world.priya.birds[0].id,
+      jar,
+      body,
+    );
+
+    expect(status).toBe(404);
+    expect(json.error.code).toBe("not_found");
   });
 });
 
