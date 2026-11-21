@@ -72,21 +72,22 @@ describe("devOnly routes", () => {
   it("stamp serverNow from the deps a handler rebuilt", async () => {
     const later = await makeTestDeps({ db: deps.db });
     later.clock.set(deps.clock.now() + 60_000);
-    const builds: boolean[] = [];
-    const handler = createJsonRoute(
-      async (opts) => {
-        builds.push(opts?.fresh ?? false);
-        return opts?.fresh ? later : deps;
+    const build = vi
+      .fn<() => Promise<TestDeps>>()
+      .mockResolvedValueOnce(deps)
+      .mockResolvedValueOnce(later);
+    const handler = createJsonRoute(build, { appEnv: () => "test" })(
+      "public",
+      { devOnly: true },
+      async ({ rebuild }) => {
+        await rebuild();
+        return {};
       },
-      { appEnv: () => "test" },
-    )("public", { devOnly: true }, async ({ rebuild }) => {
-      await rebuild();
-      return {};
-    });
+    );
     const res = await handler(
       new NextRequest("https://coo.test/api/dev/x", { method: "POST" }),
     );
     expect((await res.json()).serverNow).toBe(later.clock.now());
-    expect(builds).toEqual([false, true]);
+    expect(build).toHaveBeenCalledTimes(2);
   });
 });

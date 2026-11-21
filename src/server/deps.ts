@@ -56,11 +56,9 @@ let photonFor: ReturnType<typeof photon> | undefined;
 let openMeteoFor: ReturnType<typeof openMeteo> | undefined;
 let push: Push | undefined;
 
-export type BuildOptions = { fresh?: boolean };
-
-export async function makeDeps(opts: BuildOptions = {}): Promise<Deps> {
+export async function makeDeps(): Promise<Deps> {
   const db = getDb();
-  if (opts.fresh || !source) source = clockSource(getEnv().APP_ENV);
+  source ??= clockSource(getEnv().APP_ENV);
   const clock = await source(db);
   photonFor ??= photon({ baseUrl: getEnv().GEOCODER_URL });
   openMeteoFor ??= openMeteo({ baseUrl: getEnv().WEATHER_URL });

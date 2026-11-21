@@ -28,6 +28,16 @@ async function onboarded(number: string, name: string) {
   return session;
 }
 
+const ref = () => crypto.randomUUID();
+
+async function grantRefs(id: string) {
+  const rows = await deps.db.query<{ ref_id: string | null }>(
+    "select ref_id from seed_ledger where user_id = $1 and reason = 'dev_grant' order by id",
+    [id],
+  );
+  return rows.map((row) => row.ref_id);
+}
+
 async function account(id: string) {
   const [row] = await deps.db.query<{
     seeds: number;
@@ -45,17 +55,19 @@ async function account(id: string) {
 
 describe("POST /api/dev/grant", () => {
   it("refuses a request without a session as 401", async () => {
-    const { status, json } = await client.post({ seeds: 500 });
+    const { status, json } = await client.post({ seeds: 500, ref: ref() });
     expect(status).toBe(401);
     expect(json.error.code).toBe("unauthenticated");
   });
 
   it.each([
     ["an empty body", {}],
-    ["zero seeds", { seeds: 0 }],
-    ["negative seeds", { seeds: -5 }],
-    ["fractional seeds", { seeds: 1.5 }],
-    ["more than 10,000 seeds", { seeds: 10_001 }],
+    ["a missing ref", { seeds: 500 }],
+    ["a non-uuid ref", { seeds: 500, ref: "retry-1" }],
+    ["zero seeds", { seeds: 0, ref: ref() }],
+    ["negative seeds", { seeds: -5, ref: ref() }],
+    ["fractional seeds", { seeds: 1.5, ref: ref() }],
+    ["more than 10,000 seeds", { seeds: 10_001, ref: ref() }],
   ])("answers %s with 400 invalid", async (_, body) => {
     const { id, jar } = await onboarded("(555) 123-4567", "Max");
     const before = await account(id);
@@ -68,10 +80,10 @@ describe("POST /api/dev/grant", () => {
   it("pays the caller through apply_seeds and returns the new balance", async () => {
     const { id, jar } = await onboarded("(555) 123-4567", "Max");
     const before = await account(id);
-    const first = await client.post({ seeds: 500 }, jar);
+    const first = await client.post({ seeds: 500, ref: ref() }, jar);
     expect(first.status).toBe(200);
     expect(first.json.seeds).toBe(before.seeds + 500);
-    const second = await client.post({ seeds: 500 }, jar);
+    const second = await client.post({ seeds: 500, ref: ref() }, jar);
     expect(second.json.seeds).toBe(before.seeds + 1000);
     const after = await account(id);
     expect(after).toEqual({
@@ -87,7 +99,7 @@ describe("POST /api/dev/grant", () => {
     const mine = await account(id);
     const theirs = await account(other.id);
     const { status, json } = await client.post(
-      { seeds: 500, userId: other.id },
+      { seeds: 500, ref: ref(), userId: other.id },
       jar,
     );
     expect(status).toBe(400);
@@ -100,8 +112,30 @@ describe("POST /api/dev/grant", () => {
     const other = await onboarded("(555) 765-4321", "Brenda");
     const { id, jar } = await onboarded("(555) 123-4567", "Max");
     const theirs = await account(other.id);
-    await client.post({ seeds: 500 }, jar);
+    await client.post({ seeds: 500, ref: ref() }, jar);
     expect((await account(id)).grants).toBe(1);
     expect(await account(other.id)).toEqual(theirs);
+  });
+
+  it("pays a replayed ref once and records the ref on the ledger row", async () => {
+    const { id, jar } = await onboarded("(555) 123-4567", "Max");
+    const before = await account(id);
+    const body = { seeds: 500, ref: ref() };
+    const first = await client.post(body, jar);
+    expect(first.json.seeds).toBe(before.seeds + 500);
+    const replay = await client.post(body, jar);
+    expect(replay.status).toBe(200);
+    expect(replay.json.seeds).toBe(before.seeds + 500);
+    expect((await account(id)).seeds).toBe(before.seeds + 500);
+    expect(await grantRefs(id)).toEqual([body.ref]);
+  });
+
+  it("pays distinct refs separately, each ledger row carrying its ref", async () => {
+    const { id, jar } = await onboarded("(555) 123-4567", "Max");
+    const before = await account(id);
+    const refs = [ref(), ref()];
+    for (const r of refs) await client.post({ seeds: 500, ref: r }, jar);
+    expect((await account(id)).seeds).toBe(before.seeds + 1000);
+    expect(await grantRefs(id)).toEqual(refs);
   });
 });

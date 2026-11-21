@@ -9,7 +9,7 @@ import {
   type Session,
 } from "./auth";
 import { systemClock } from "./clock";
-import { makeDeps, type BuildOptions, type Deps } from "./deps";
+import { makeDeps, type Deps } from "./deps";
 import { AppError, toErrorResponse } from "./errors";
 import type { AuthPort, SessionJar } from "./ports/auth";
 import { requestJar } from "./supabase/cookies";
@@ -83,7 +83,7 @@ type Ctx<A extends Access, S> = {
 
 type RouteArg = { params: Promise<Record<string, string>> };
 
-type Build = (opts?: BuildOptions) => Promise<Deps>;
+type Build = () => Promise<Deps>;
 
 export function createJsonRoute(
   build: Build,
@@ -125,7 +125,7 @@ export function createJsonRoute(
           params,
           req,
           rebuild: async () => {
-            deps = await build({ fresh: true });
+            deps = await build();
             return deps;
           },
         });

@@ -35,7 +35,10 @@ describe("dev routes under APP_ENV=production", () => {
           new NextRequest(`https://coo.test/${relative(DEV, file)}`, {
             method,
             headers: { "content-type": "application/json" },
-            body: method === "GET" ? undefined : JSON.stringify({ seeds: 500 }),
+            body:
+              method === "GET"
+                ? undefined
+                : JSON.stringify({ seeds: 500, ref: crypto.randomUUID() }),
           }),
         );
         expect(res.status).toBe(404);
