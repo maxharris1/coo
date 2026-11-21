@@ -3,7 +3,7 @@ import type { FlightInput, FlightPlan } from "@/lib/flight/engine";
 import { distance, duration, type Pronoun } from "@/lib/format";
 import { settleFlight } from "@/lib/game/care";
 import { deliveryPay } from "@/lib/game/seeds";
-import { startOfLocalDayMs, weekday } from "@/lib/game/time";
+import { startOfLocalDayMs, weekStart, weekday } from "@/lib/game/time";
 import type { BirdStatus } from "@/lib/game/types";
 import type { Db } from "@/server/db";
 import type { Deps } from "@/server/deps";
@@ -85,21 +85,16 @@ async function claim(tx: Db, id: string, nowMs: number) {
   return flight ?? null;
 }
 
-async function paidToday(
-  tx: Db,
-  ownerId: string,
-  flightId: string,
-  dayStartMs: number,
-  landedMs: number,
-) {
+async function arrivedBefore(tx: Db, f: ClaimedDelivery, dayStartMs: number) {
   const [{ n }] = await tx.query<{ n: number }>(
-    `select count(*)::int as n from seed_ledger l join flights f on f.id = l.ref_id
-     where l.user_id = $1 and l.reason = 'delivery' and f.id <> $2 and f.landed_at >= $3 and f.landed_at <= $4`,
+    `select count(*)::int as n from flights
+     where owner_id = $1 and kind = 'delivery' and status in ('flying', 'landed')
+       and arrive_at >= $3 and (arrive_at, id) < ($4, $2)`,
     [
-      ownerId,
-      flightId,
+      f.owner_id,
+      f.id,
       new Date(dayStartMs).toISOString(),
-      new Date(landedMs).toISOString(),
+      f.arrive_at.toISOString(),
     ],
   );
   return n;
@@ -136,6 +131,30 @@ async function postmark(
     f.id,
   ]);
   return seeds.newCity;
+}
+
+async function punchCard(
+  tx: Db,
+  f: ClaimedDelivery,
+  week: string,
+): Promise<number> {
+  await tx.query(
+    `insert into punch_cards (user_id, week_start, deliveries) values ($1, $2, 1)
+     on conflict (user_id, week_start) do update set deliveries = punch_cards.deliveries + 1`,
+    [f.owner_id, week],
+  );
+  const claimed = await tx.query(
+    `update punch_cards set paid = true
+     where user_id = $1 and week_start = $2 and not paid and deliveries >= $3 returning 1`,
+    [f.owner_id, week, seeds.punchCardSize],
+  );
+  if (claimed.length === 0) return 0;
+  await tx.query("select apply_seeds($1, $2, 'punch_card', $3)", [
+    f.owner_id,
+    seeds.punchCardPay,
+    f.id,
+  ]);
+  return seeds.punchCardPay;
 }
 
 async function landOne(
@@ -222,13 +241,7 @@ async function landOne(
 
   const pay = deliveryPay(
     miles,
-    await paidToday(
-      tx,
-      f.owner_id,
-      f.id,
-      startOfLocalDayMs(arriveMs, owner.timezone),
-      arriveMs,
-    ),
+    await arrivedBefore(tx, f, startOfLocalDayMs(arriveMs, owner.timezone)),
     {
       partyHat: bird.gear.includes("party"),
       landedLocalWeekday: weekday(arriveMs, owner.timezone),
@@ -239,11 +252,18 @@ async function landOne(
     pay,
     f.id,
   ]);
-  await tx.query(
-    "update profiles set deliveries_count = deliveries_count + 1 where id = $1",
+  const [{ deliveries_count }] = await tx.query<{ deliveries_count: number }>(
+    "update profiles set deliveries_count = deliveries_count + 1 where id = $1 returning deliveries_count",
     [f.owner_id],
   );
-  const earned = pay + (await postmark(tx, f, arriveIso));
+  await tx.query(
+    "update eggs set status = 'ready' where user_id = $1 and status = 'incubating' and hatch_at_delivery <= $2",
+    [f.owner_id, deliveries_count],
+  );
+  const earned =
+    pay +
+    (await postmark(tx, f, arriveIso)) +
+    (await punchCard(tx, f, weekStart(arriveMs, owner.timezone)));
 
   for (const rule of Object.values(badgeRules))
     await rule.apply(tx, {

@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
+import { addDelivery } from "@/test/fixtures/flights";
+import { addNote } from "@/test/fixtures/notes";
 import {
   insertPlannedDelivery,
   type PlannedDelivery,
@@ -309,5 +311,232 @@ describe("landing a delivery", () => {
       { kind: "landed-in", title: "Gerald has landed Ding." },
       { kind: "landed-out", title: "Gerald delivered your note" },
     ]);
+  });
+
+  describe("the egg", () => {
+    async function layEgg(hatchAt: number, deliveriesSoFar: number) {
+      await deps.db.query(
+        "insert into eggs (user_id, hatch_at_delivery) values ($1, $2)",
+        [world.max.id, hatchAt],
+      );
+      await deps.db.query(
+        "update profiles set deliveries_count = $2 where id = $1",
+        [world.max.id, deliveriesSoFar],
+      );
+    }
+
+    async function eggStatus() {
+      const [egg] = await rows<{ status: string }>(
+        "select status from eggs where user_id = $1",
+        [world.max.id],
+      );
+      return egg.status;
+    }
+
+    it("the fifth delivery sets the egg ready", async () => {
+      await layEgg(5, 4);
+      deps.clock.set(flight.arriveAtMs + MINUTE_MS);
+
+      await tick(deps);
+
+      expect(await eggStatus()).toBe("ready");
+    });
+
+    it("the fourth delivery leaves the egg incubating", async () => {
+      await layEgg(5, 3);
+      deps.clock.set(flight.arriveAtMs + MINUTE_MS);
+
+      await tick(deps);
+
+      expect(await eggStatus()).toBe("incubating");
+    });
+  });
+
+  describe("the punch card", () => {
+    const THIS_MONDAY = "2026-11-16";
+
+    async function card() {
+      return rows<{ week_start: string; deliveries: number; paid: boolean }>(
+        `select to_char(week_start, 'YYYY-MM-DD') as week_start, deliveries, paid
+         from punch_cards where user_id = $1 order by week_start`,
+        [world.max.id],
+      );
+    }
+
+    async function punchPay() {
+      return rows<{ ref_id: string; delta: number }>(
+        "select ref_id, delta from seed_ledger where user_id = $1 and reason = 'punch_card'",
+        [world.max.id],
+      );
+    }
+
+    it("starts this week's card at one", async () => {
+      deps.clock.set(flight.arriveAtMs + MINUTE_MS);
+
+      await tick(deps);
+
+      expect(await card()).toEqual([
+        { week_start: THIS_MONDAY, deliveries: 1, paid: false },
+      ]);
+      expect(await punchPay()).toEqual([]);
+    });
+
+    it("the tenth delivery in a week pays 50 once", async () => {
+      await deps.db.query(
+        "insert into punch_cards (user_id, week_start, deliveries) values ($1, $2, 9)",
+        [world.max.id, THIS_MONDAY],
+      );
+      const [{ seeds: seedsBefore }] = await rows<{ seeds: number }>(
+        "select seeds from profiles where id = $1",
+        [world.max.id],
+      );
+      deps.clock.set(flight.arriveAtMs + MINUTE_MS);
+
+      await tick(deps);
+
+      expect(await card()).toEqual([
+        { week_start: THIS_MONDAY, deliveries: 10, paid: true },
+      ]);
+      expect(await punchPay()).toEqual([
+        { ref_id: flight.flightId, delta: 50 },
+      ]);
+      const [{ seeds }] = await rows<{ seeds: number }>(
+        "select seeds from profiles where id = $1",
+        [world.max.id],
+      );
+      expect(seeds).toBe(seedsBefore + 13 + 25 + 50);
+      const [out] = await rows<{ body: string }>(
+        "select body from notifications where kind = 'landed-out'",
+      );
+      expect(out.body).toMatch(/You earned 88 seeds\.$/);
+
+      const eleventh = await insertPlannedDelivery(
+        deps.db,
+        world,
+        deps.clock.now(),
+        { birdId: world.max.birds[1].id },
+      );
+      deps.clock.set(eleventh.arriveAtMs + MINUTE_MS);
+      await tick(deps);
+
+      expect(await card()).toEqual([
+        { week_start: THIS_MONDAY, deliveries: 11, paid: true },
+      ]);
+      expect(await punchPay()).toEqual([
+        { ref_id: flight.flightId, delta: 50 },
+      ]);
+    });
+
+    it("last week's full card does not count toward this week", async () => {
+      await deps.db.query(
+        "insert into punch_cards (user_id, week_start, deliveries) values ($1, '2026-11-09', 9)",
+        [world.max.id],
+      );
+      deps.clock.set(flight.arriveAtMs + MINUTE_MS);
+
+      await tick(deps);
+
+      expect(await card()).toEqual([
+        { week_start: "2026-11-09", deliveries: 9, paid: false },
+        { week_start: THIS_MONDAY, deliveries: 1, paid: false },
+      ]);
+      expect(await punchPay()).toEqual([]);
+    });
+  });
+
+  describe("the daily pay cap", () => {
+    async function landedEarlier(landedAtMs: number[]) {
+      await deps.db.tx(async (t) => {
+        for (const at of landedAtMs) {
+          const noteId = await addNote(t, world.max, world.priya, at, true);
+          const id = await addDelivery(
+            t,
+            world.max,
+            world.priya,
+            world.max.birds[1].id,
+            noteId,
+            "landed",
+            at - HOUR,
+            at,
+          );
+          await t.query("select apply_seeds($1, 13, 'delivery', $2)", [
+            world.max.id,
+            id,
+          ]);
+        }
+      });
+    }
+
+    async function deliveryPayFor(flightId: string) {
+      const [row] = await rows<{ delta: number }>(
+        "select delta from seed_ledger where reason = 'delivery' and ref_id = $1",
+        [flightId],
+      );
+      return row.delta;
+    }
+
+    const HOUR = 60 * MINUTE_MS;
+    const NY_MIDNIGHT = Date.UTC(2026, 10, 19, 5);
+
+    it("the 11th delivery of the local day pays 2", async () => {
+      await landedEarlier(
+        Array.from(
+          { length: 10 },
+          (_, i) => NY_MIDNIGHT + (i + 1) * 15 * MINUTE_MS,
+        ),
+      );
+      deps.clock.set(flight.arriveAtMs + MINUTE_MS);
+
+      await tick(deps);
+
+      expect(await deliveryPayFor(flight.flightId)).toBe(2);
+    });
+
+    it("the 10th delivery of the local day still pays in full", async () => {
+      await landedEarlier(
+        Array.from(
+          { length: 9 },
+          (_, i) => NY_MIDNIGHT + (i + 1) * 15 * MINUTE_MS,
+        ),
+      );
+      deps.clock.set(flight.arriveAtMs + MINUTE_MS);
+
+      await tick(deps);
+
+      expect(await deliveryPayFor(flight.flightId)).toBe(13);
+    });
+
+    it("the 11th delivery by arrival pays 2 when ticks land the day out of order", async () => {
+      const later = await insertPlannedDelivery(
+        deps.db,
+        world,
+        flight.arriveAtMs + 30 * MINUTE_MS,
+        { to: world.rosa, birdId: world.max.birds[1].id },
+      );
+      await landedEarlier(
+        Array.from(
+          { length: 9 },
+          (_, i) => flight.arriveAtMs + (i + 1) * MINUTE_MS,
+        ),
+      );
+      deps.clock.set(later.arriveAtMs + MINUTE_MS);
+
+      await tick(deps, { userId: world.rosa.id });
+      await tick(deps, { userId: world.priya.id });
+
+      expect(await deliveryPayFor(flight.flightId)).toBe(13);
+      expect(await deliveryPayFor(later.flightId)).toBe(2);
+    });
+
+    it("deliveries before local midnight count toward yesterday", async () => {
+      await landedEarlier(
+        Array.from({ length: 10 }, (_, i) => NY_MIDNIGHT - (i + 1) * MINUTE_MS),
+      );
+      deps.clock.set(flight.arriveAtMs + MINUTE_MS);
+
+      await tick(deps);
+
+      expect(await deliveryPayFor(flight.flightId)).toBe(13);
+    });
   });
 });
