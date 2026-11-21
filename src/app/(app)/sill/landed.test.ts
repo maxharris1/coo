@@ -47,12 +47,18 @@ describe("tripSummary", () => {
   it("words the tail by how the flight went", () => {
     const flight = (delayKind: SyncVisit["flight"]["delayKind"]) =>
       tripSummary(
-        visit({ flight: { distanceMi: 81.2, durationMs: 112 * MINUTE, delayKind } }),
+        visit({
+          flight: { distanceMi: 81.2, durationMs: 112 * MINUTE, delayKind },
+        }),
         philly,
         "mi",
       );
-    expect(flight("none")).toBe("From Priya in Philadelphia. 81 miles in 1h 52m.");
-    expect(flight(null)).toBe("From Priya in Philadelphia. 81 miles in 1h 52m.");
+    expect(flight("none")).toBe(
+      "From Priya in Philadelphia. 81 miles in 1h 52m.",
+    );
+    expect(flight(null)).toBe(
+      "From Priya in Philadelphia. 81 miles in 1h 52m.",
+    );
     expect(flight("major")).toBe(
       "From Priya in Philadelphia. 81 miles in 1h 52m, the long way round.",
     );
@@ -67,7 +73,9 @@ describe("tripSummary", () => {
   it("stops after the sender when the flight has no distance or time", () => {
     expect(
       tripSummary(
-        visit({ flight: { distanceMi: null, durationMs: null, delayKind: null } }),
+        visit({
+          flight: { distanceMi: null, durationMs: null, delayKind: null },
+        }),
         philly,
         "mi",
       ),
@@ -85,7 +93,9 @@ describe("postmark", () => {
 
   it("dates the stamp in the reader's time zone", () => {
     const lateEvening = Date.parse("2026-11-20T03:00:00Z");
-    expect(postmark(lateEvening, philly, "America/New_York").date).toBe("NOV 19");
+    expect(postmark(lateEvening, philly, "America/New_York").date).toBe(
+      "NOV 19",
+    );
     expect(postmark(lateEvening, philly, "Europe/London").date).toBe("NOV 20");
   });
 
