@@ -27,6 +27,10 @@ beforeEach(async () => {
     "update flights set distance_mi = 81.37, delay_kind = 'minor' where id = $1",
     [visit.flightId],
   );
+  await deps.db.query(
+    "update birds set pronoun = 'she', speed_mph = 47.5 where id = $1",
+    [world.max.birds[1].id],
+  );
 });
 
 const brenda = () => world.max.birds[1];
@@ -44,6 +48,8 @@ describe("syncVisits", () => {
           name: brenda().name,
           breed: expect.any(String),
           look: expect.any(String),
+          pronoun: "she",
+          speedMph: 47.5,
           gear: expect.any(Array),
         },
         owner: {
@@ -129,6 +135,19 @@ describe("GET /api/sync visits", () => {
     expect(host.json.visits[0]).toMatchObject({
       id: visit.visitId,
       note: { body: "Test note from Max" },
+    });
+    expect(Object.keys(host.json.visits[0].bird).sort()).toEqual([
+      "breed",
+      "gear",
+      "id",
+      "look",
+      "name",
+      "pronoun",
+      "speedMph",
+    ]);
+    expect(host.json.visits[0].bird).toMatchObject({
+      pronoun: "she",
+      speedMph: 47.5,
     });
 
     for (const phone of ["+15550000001", "+15550000003"]) {
