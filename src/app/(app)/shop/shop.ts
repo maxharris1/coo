@@ -157,8 +157,29 @@ export async function openShop(
   return null;
 }
 
+export function settle(rows: ShopRows, bought: BuyRow): ShopRows {
+  const seeds = rows.seeds - bought.action.price;
+  const reprice =
+    (label: "In the closet" | "In the loft") =>
+    (row: ShopRow): ShopRow[] => {
+      if (row.itemId === bought.itemId)
+        return row.itemId === "perch"
+          ? []
+          : [{ ...row, action: { kind: "owned", label } }];
+      if (row.action.kind === "owned") return [row];
+      const { price } = row.action;
+      return [{ ...row, action: priced(price, seeds >= price, price - seeds) }];
+    };
+  return {
+    seeds,
+    gear: rows.gear.flatMap(reprice("In the closet")),
+    loft: rows.loft.flatMap(reprice("In the loft")),
+  };
+}
+
 export async function completeBuy(
-  itemId: string,
+  bought: BuyRow,
+  rows: ShopRows,
   deps: {
     buy(itemId: string): Promise<Result<unknown>>;
     load(): Promise<Result<Shop>>;
@@ -166,13 +187,13 @@ export async function completeBuy(
     refresh(): void;
     burst(itemId: string): void;
   },
-): Promise<ShopRows | null> {
-  const result = await deps.buy(itemId);
+): Promise<ShopRows> {
+  const result = await deps.buy(bought.itemId);
   if (!result.ok) {
     deps.toast(result.message);
-    return null;
+    return rows;
   }
-  deps.burst(itemId);
+  deps.burst(bought.itemId);
   deps.refresh();
-  return openShop(deps.load, deps.toast);
+  return (await openShop(deps.load, deps.toast)) ?? settle(rows, bought);
 }

@@ -151,33 +151,38 @@ function Burst() {
 function Rows({
   rows,
   burst,
+  orphan = null,
   onBuy,
 }: {
   rows: ShopRow[];
   burst: string | null;
+  orphan?: string | null;
   onBuy: (row: BuyRow) => void;
 }) {
-  return (
-    <ul className={styles.rows}>
-      {rows.map((row) => (
-        <li key={row.itemId} className={styles.row}>
-          <div
-            aria-hidden="true"
-            className={styles.tile}
-            style={{ background: `var(--coo-${TINTS[row.itemId] ?? "sky"})` }}
-          >
-            <ItemIcon itemId={row.itemId} />
-          </div>
-          <div className={styles.text}>
-            <div className={styles.name}>{row.name}</div>
-            <div className={styles.effect}>{row.effect}</div>
-          </div>
-          <Action row={row} onBuy={onBuy} />
-          {burst === row.itemId && <Burst />}
-        </li>
-      ))}
-    </ul>
-  );
+  const items = rows.map((row) => (
+    <li key={row.itemId} className={styles.row}>
+      <div
+        aria-hidden="true"
+        className={styles.tile}
+        style={{ background: `var(--coo-${TINTS[row.itemId] ?? "sky"})` }}
+      >
+        <ItemIcon itemId={row.itemId} />
+      </div>
+      <div className={styles.text}>
+        <div className={styles.name}>{row.name}</div>
+        <div className={styles.effect}>{row.effect}</div>
+      </div>
+      <Action row={row} onBuy={onBuy} />
+      {burst === row.itemId && <Burst key="burst" />}
+    </li>
+  ));
+  if (orphan)
+    items.push(
+      <li key={orphan} aria-hidden="true" className={styles.vacated}>
+        <Burst key="burst" />
+      </li>,
+    );
+  return <ul className={styles.rows}>{items}</ul>;
 }
 
 export function ShopItems({
@@ -191,6 +196,10 @@ export function ShopItems({
   burst: string | null;
   onBuy: (row: BuyRow) => void;
 }) {
+  const orphan =
+    burst && ![...gear, ...loft].some((row) => row.itemId === burst)
+      ? burst
+      : null;
   return (
     <main className={styles.list}>
       <div className={styles.head}>
@@ -201,7 +210,7 @@ export function ShopItems({
       <div className={`${styles.head} ${styles.loftHead}`}>
         <h2 className={styles.heading}>For the loft</h2>
       </div>
-      <Rows rows={loft} burst={burst} onBuy={onBuy} />
+      <Rows rows={loft} burst={burst} orphan={orphan} onBuy={onBuy} />
     </main>
   );
 }

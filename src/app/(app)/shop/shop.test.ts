@@ -356,9 +356,17 @@ describe("completeBuy (part 4 ac-2)", () => {
     };
   };
 
+  const before = shopRows(MOCK);
+  const hat: BuyRow = {
+    itemId: "rainhat",
+    name: "Rain hat",
+    effect: "Rain hat effect",
+    action: { kind: "buy", price: 120 },
+  };
+
   it("bursts from the item, refreshes sync and refetches the shop", async () => {
     const d = deps({ ok: true, data: { me: {} as never, closet: [] } });
-    const rows = await completeBuy("rainhat", d);
+    const rows = await completeBuy(hat, before, d);
     expect(d.calls).toEqual([
       "buy rainhat",
       "burst rainhat",
@@ -370,11 +378,11 @@ describe("completeBuy (part 4 ac-2)", () => {
 
   it("toasts the API's message and changes nothing on failure", async () => {
     const d = deps({ ok: false, message: "Not enough seeds for that." });
-    const rows = await completeBuy("rainhat", d);
+    const rows = await completeBuy(hat, before, d);
     expect(d.calls).toEqual([
       "buy rainhat",
       "toast Not enough seeds for that.",
     ]);
-    expect(rows).toBeNull();
+    expect(rows).toBe(before);
   });
 });

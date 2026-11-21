@@ -41,9 +41,9 @@ export default function ShopPage() {
   }, [burst]);
 
   const onConfirm = async () => {
-    if (state.kind !== "confirming") return;
+    if (state.kind !== "confirming" || !rows) return;
     dispatch({ type: "confirm" });
-    const next = await completeBuy(state.row.itemId, {
+    const next = await completeBuy(state.row, rows, {
       buy: (id) => buyItem(id),
       load: () => loadShop(),
       toast: (message) => live.current && toast(message),
@@ -51,8 +51,8 @@ export default function ShopPage() {
       burst: (id) => live.current && setBurst(id),
     });
     if (!live.current) return;
+    setRows(next);
     dispatch({ type: "settled" });
-    if (next) setRows(next);
   };
 
   if (!rows) return <Loader />;
