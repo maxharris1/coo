@@ -2,7 +2,8 @@ import type { Pronoun } from "@/lib/format";
 
 export type TakeoffHandoff = { flightId: string; pronoun: Pronoun };
 
-const PRONOUNS: readonly unknown[] = ["he", "she", "they"] satisfies Pronoun[];
+const isPronoun = (v: unknown): v is Pronoun =>
+  v === "he" || v === "she" || v === "they";
 const key = (visitId: string) => `coo.sill.takeoff.${visitId}`;
 
 export function saveHandoff(visitId: string, h: TakeoffHandoff): void {
@@ -17,8 +18,8 @@ export function readHandoff(visitId: string): TakeoffHandoff | null {
   try {
     const raw = sessionStorage.getItem(key(visitId));
     const h = raw ? (JSON.parse(raw) as Partial<TakeoffHandoff>) : null;
-    return h && typeof h.flightId === "string" && PRONOUNS.includes(h.pronoun)
-      ? { flightId: h.flightId, pronoun: h.pronoun as Pronoun }
+    return h && typeof h.flightId === "string" && isPronoun(h.pronoun)
+      ? { flightId: h.flightId, pronoun: h.pronoun }
       : null;
   } catch {
     return null;

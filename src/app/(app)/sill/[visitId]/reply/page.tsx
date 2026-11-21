@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import type { GearId, Look } from "@/components/Bird";
+import type { Look } from "@/components/Bird";
 import { Loader } from "@/components/Loader";
 import { useSync } from "@/components/SyncProvider";
 import { useToast } from "@/components/Toasts";
@@ -75,7 +75,7 @@ function ReplyScreen({
       bird={{
         look: visit.bird.look as Look,
         breed: visit.bird.breed,
-        gear: visit.bird.gear as GearId[],
+        gear: visit.bird.gear,
       }}
       note={note}
       counter={count}
