@@ -12,6 +12,7 @@ import {
 } from "@/test/fixtures/plannedFlight";
 import { seedWorld, type World } from "@/test/seedWorld";
 import { authRoutes } from "./auth/handlers";
+import { flightGet } from "./flights/[id]/get";
 import { flightsGet } from "./flights/get";
 import { friendsGet } from "./friends/get";
 import { geoHereGet } from "./geo/here/get";
@@ -32,6 +33,10 @@ const GET_ENDPOINTS: Record<
   "src/app/api/auth/session/route.ts": {
     build: (r) => authRoutes(r).session,
     url: "/api/auth/session",
+  },
+  "src/app/api/flights/[id]/route.ts": {
+    build: flightGet,
+    url: "/api/flights/:flightId",
   },
   "src/app/api/flights/route.ts": { build: flightsGet, url: "/api/flights" },
   "src/app/api/friends/route.ts": { build: friendsGet, url: "/api/friends" },
@@ -98,7 +103,10 @@ describe("a note before its arrival time", () => {
 
     for (const [file, { build, url }] of Object.entries(GET_ENDPOINTS)) {
       const res = await build(createJsonRoute(async () => deps))(
-        new NextRequest(`https://coo.test${url}`, { headers: { cookie } }),
+        new NextRequest(
+          `https://coo.test${url.replace(":flightId", flight.flightId)}`,
+          { headers: { cookie } },
+        ),
       );
       const text = await res.text();
       expect(text, file).not.toContain(noteBody);
