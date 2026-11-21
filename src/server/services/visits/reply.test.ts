@@ -5,6 +5,7 @@ import type { UserId } from "@/server/ports/auth";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
 import { insertWaitingVisit } from "@/test/fixtures/visits";
 import { seedWorld, type World } from "@/test/seedWorld";
+import { setShows } from "../friends";
 import { tick } from "../tick";
 import { replyToVisit } from "./reply";
 
@@ -27,6 +28,18 @@ async function callerFor(id: string): Promise<OnboardedCaller> {
     [id],
   );
   return { userId: id as UserId, profile };
+}
+
+function duringWeather(action: () => Promise<unknown> | void) {
+  const original = deps.weather.samples.bind(deps.weather);
+  let fired = false;
+  deps.weather.samples = async (at) => {
+    if (!fired) {
+      fired = true;
+      await action();
+    }
+    return original(at);
+  };
 }
 
 const reply = async (who: string, body: string, id = visit.visitId) =>
@@ -204,5 +217,49 @@ describe("replyToVisit", () => {
       to_lon: -87.63,
       to_label: "The Loop",
     });
+  });
+
+  it("refuses as conflict and creates nothing when leaves_at passes while weather is sampled (ac-2)", async () => {
+    deps.clock.advance(config.game.visits.waitMinutes * MINUTE - 1);
+    const before = await snapshot();
+    duringWeather(() => deps.clock.advance(2));
+
+    await expect(reply(world.priya.id, "Just in time?")).rejects.toMatchObject({
+      code: "conflict",
+    });
+    expect(await snapshot()).toEqual(before);
+  });
+
+  it("aims the return at a travel loft enabled while weather is sampled (ac-4)", async () => {
+    duringWeather(() =>
+      deps.db.query(
+        `update profiles set travel_on = true, travel_lat = 41, travel_lon = -72,
+           travel_label = 'Travel Block', travel_city = 'Travel City',
+           travel_city_lat = 41.01, travel_city_lon = -72.01
+         where id = $1`,
+        [world.max.id],
+      ),
+    );
+
+    await reply(world.priya.id, "Safe travels");
+
+    const [ret] = await returnFlights();
+    expect(ret).toMatchObject({
+      to_lat: 41,
+      to_lon: -72,
+      to_label: "Travel Block",
+    });
+  });
+
+  it("honours sharing narrowed to city while weather is sampled (ac-4)", async () => {
+    duringWeather(() =>
+      setShows(deps, world.max.id as UserId, world.priya.id as UserId, "city"),
+    );
+
+    await reply(world.priya.id, "Thanks!");
+
+    const [ret] = await returnFlights();
+    expect(ret.to_label).toBe("New York");
+    expect(ret.to_label).not.toBe("East Village");
   });
 });
