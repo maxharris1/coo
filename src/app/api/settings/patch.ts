@@ -1,13 +1,10 @@
-import { z } from "zod";
 import type { createJsonRoute } from "@/server/http";
-import { updateSettings } from "@/server/services/settings";
-
-const BODY = z
-  .object({ installed: z.literal(true), account: z.string().uuid().optional() })
-  .strict();
+import { SETTINGS_BODY, updateSettings } from "@/server/services/settings";
 
 export function settingsPatch(jsonRoute: ReturnType<typeof createJsonRoute>) {
-  return jsonRoute("onboarded", { body: BODY }, ({ deps, caller, input }) =>
-    updateSettings(deps, caller.userId, input),
+  return jsonRoute(
+    "onboarded",
+    { body: SETTINGS_BODY },
+    ({ deps, caller, input }) => updateSettings(deps, caller.userId, input),
   );
 }

@@ -156,6 +156,7 @@ export function toMe(r: Row<"profiles">) {
     name: r.name,
     handle: r.handle,
     inviteCode: r.invite_code,
+    phoneLast4: r.phone_last4,
     seeds: r.seeds,
     perches: r.perches,
     hasBirdbath: r.has_birdbath,
