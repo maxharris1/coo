@@ -28,26 +28,26 @@ const SECTION: Record<
   landed: { mine: "landedToday", incoming: "landedToday" },
 };
 
-type Cursor = { releaseAt: number; id: string };
+type Cursor = { releaseUs: number; id: string };
 
-const CURSOR = /^(\d+):(.+)$/;
+const CURSOR = /^(-?\d+):(.+)$/;
 const UUID = z.uuid();
 
-function encodeCursor({ releaseAt, id }: Cursor): string {
-  return Buffer.from(`${releaseAt}:${id}`).toString("base64url");
+function encodeCursor({ releaseUs, id }: Cursor): string {
+  return Buffer.from(`${releaseUs}:${id}`).toString("base64url");
 }
 
 function decodeCursor(cursor: string): Cursor {
   const match = CURSOR.exec(Buffer.from(cursor, "base64url").toString());
   if (!match) throw new AppError("invalid", "cursor: malformed");
-  const releaseAt = Number(match[1]);
-  if (!Number.isSafeInteger(releaseAt)) {
+  const releaseUs = Number(match[1]);
+  if (!Number.isSafeInteger(releaseUs)) {
     throw new AppError("invalid", "cursor: bad time");
   }
   if (!UUID.safeParse(match[2]).success) {
     throw new AppError("invalid", "cursor: bad id");
   }
-  return { releaseAt, id: match[2] };
+  return { releaseUs, id: match[2] };
 }
 
 async function currentSections(
@@ -80,28 +80,28 @@ async function earlierPage(
   midnight: string,
   cursor: Cursor | undefined,
 ): Promise<Pick<FlightsPage, "earlier" | "nextCursor">> {
-  const rows = await deps.db.query<FlightRow>(
-    `${FLIGHT_SELECT}
-     where (f.owner_id = $1 or f.counterpart_id = $1)
-       and ((f.status = 'landed' and f.landed_at < $2)
-         or (f.status = 'cancelled' and f.owner_id = $1))
-       and ($3::timestamptz is null or (f.release_at, f.id) < ($3, $4::uuid))
-     order by f.release_at desc, f.id desc
-     limit ${PAGE_SIZE + 1}`,
-    [
-      userId,
-      midnight,
-      cursor ? new Date(cursor.releaseAt).toISOString() : null,
-      cursor?.id ?? null,
-    ],
+  const rows = await deps.db.query<FlightRow & { release_us: string }>(
+    `select p.*,
+       (extract(epoch from p.release_at) * 1000000)::bigint::text as release_us
+     from (${FLIGHT_SELECT}
+       where (f.owner_id = $1 or f.counterpart_id = $1)
+         and ((f.status = 'landed' and f.landed_at < $2)
+           or (f.status = 'cancelled' and f.owner_id = $1))
+         and ($3::bigint is null
+           or (f.release_at, f.id)
+             < (timestamptz 'epoch' + $3::bigint * interval '1 microsecond', $4::uuid))
+       order by f.release_at desc, f.id desc
+       limit ${PAGE_SIZE + 1}) p
+     order by p.release_at desc, p.id desc`,
+    [userId, midnight, cursor?.releaseUs ?? null, cursor?.id ?? null],
   );
-  const earlier = rows.slice(0, PAGE_SIZE).map((r) => toFlight(r, userId));
-  const last = earlier.at(-1);
+  const page = rows.slice(0, PAGE_SIZE);
+  const last = page.at(-1);
   return {
-    earlier,
+    earlier: page.map((r) => toFlight(r, userId)),
     nextCursor:
       rows.length > PAGE_SIZE && last
-        ? encodeCursor({ releaseAt: last.releaseAt, id: last.id })
+        ? encodeCursor({ releaseUs: Number(last.release_us), id: last.id })
         : null,
   };
 }

@@ -185,39 +185,50 @@ describe("listFlights", () => {
     expect(everyId(await page(max))).toEqual([mine]);
   });
 
-  it("pages 65 older flights 30, 30, 5 with no repeats and no gaps", async () => {
-    const { max, priya } = world;
-    const base = midnight() - 2 * HOUR_MS;
-    const releases = Array.from({ length: 65 }, (_, i) => base - i * HOUR_MS);
-    releases[30] = releases[31] = releases[29];
-    releases[60] = releases[59];
-    const inserted: string[] = [];
-    for (const releaseMs of releases) {
-      inserted.push(
-        await fly({
-          from: max,
-          to: priya,
-          status: "landed",
-          releaseMs,
-          arriveMs: releaseMs + 30 * MINUTE_MS,
-        }),
+  it.each([
+    ["whole milliseconds", "0"],
+    ["microseconds", "0.000500"],
+  ])(
+    "pages 65 older flights 30, 30, 5 with no repeats and no gaps at %s",
+    async (_, extra) => {
+      const { max, priya } = world;
+      const base = midnight() - 2 * HOUR_MS;
+      const releases = Array.from({ length: 65 }, (_, i) => base - i * HOUR_MS);
+      releases[30] = releases[31] = releases[29];
+      releases[60] = releases[59];
+      const inserted: string[] = [];
+      for (const releaseMs of releases) {
+        inserted.push(
+          await fly({
+            from: max,
+            to: priya,
+            status: "landed",
+            releaseMs,
+            arriveMs: releaseMs + 30 * MINUTE_MS,
+          }),
+        );
+      }
+
+      await deps.db.query(
+        "update flights set release_at = release_at + $1::interval",
+        [`${extra} second`],
       );
-    }
 
-    const pages = await walk(max);
-    const earlier = pages.flatMap((p) => p.earlier);
+      const pages = await walk(max);
+      const earlier = pages.flatMap((p) => p.earlier);
 
-    expect(pages.map((p) => p.earlier.length)).toEqual([30, 30, 5]);
-    expect(new Set(ids(earlier)).size).toBe(65);
-    expect([...ids(earlier)].sort()).toEqual([...inserted].sort());
-    for (const [i, f] of earlier.slice(1).entries()) {
-      const prev = earlier[i];
-      const descending =
-        prev.releaseAt > f.releaseAt ||
-        (prev.releaseAt === f.releaseAt && prev.id > f.id);
-      expect(descending, `${prev.id} before ${f.id}`).toBe(true);
-    }
-  });
+      expect(pages.map((p) => p.earlier.length)).toEqual([30, 30, 5]);
+      expect(new Set(ids(earlier)).size).toBe(65);
+      expect([...ids(earlier)].sort()).toEqual([...inserted].sort());
+      for (const [i, f] of earlier.slice(1).entries()) {
+        const prev = earlier[i];
+        const descending =
+          prev.releaseAt > f.releaseAt ||
+          (prev.releaseAt === f.releaseAt && prev.id > f.id);
+        expect(descending, `${prev.id} before ${f.id}`).toBe(true);
+      }
+    },
+  );
 
   it("keeps paging stable when a flight lands mid-walk", async () => {
     const { max, priya } = world;
@@ -234,6 +245,39 @@ describe("listFlights", () => {
     expect(ids(first.earlier)).toEqual(inserted.slice(0, 30));
     expect(ids(second.earlier)).toEqual(inserted.slice(30));
     expect(second.nextCursor).toBeNull();
+  });
+
+  it("returns every one of 35 older flights released within one millisecond", async () => {
+    const { max, priya } = world;
+    const base = midnight() - 2 * HOUR_MS;
+    const inserted: string[] = [];
+    for (let i = 0; i < 35; i++) {
+      inserted.push(await landed(max, priya, base - i * HOUR_MS));
+    }
+    await deps.db.query(
+      `update flights f set release_at = $1::timestamptz + n * interval '1 microsecond'
+       from (select id, row_number() over (order by release_at) as n from flights) r
+       where r.id = f.id`,
+      [new Date(base).toISOString()],
+    );
+
+    const pages = await walk(max);
+
+    expect(pages.map((p) => ids(p.earlier))).toEqual([
+      inserted.slice(0, 30),
+      inserted.slice(30),
+    ]);
+  });
+
+  it("accepts a cursor at the latest time it can carry", async () => {
+    const cursor = Buffer.from(
+      `${Number.MAX_SAFE_INTEGER}:00000000-0000-4000-8000-000000000001`,
+    ).toString("base64url");
+
+    const p = await page(world.max, cursor);
+
+    expect(p.earlier).toEqual([]);
+    expect(p.nextCursor).toBeNull();
   });
 
   it("shows a cancelled flight in its owner's Earlier only", async () => {
@@ -259,7 +303,7 @@ describe("listFlights", () => {
     ["bad base64", "!!!not base64!!!"],
     ["missing parts", Buffer.from("1700000000000").toString("base64url")],
     [
-      "non-integer ms",
+      "non-integer time",
       Buffer.from("12.5:00000000-0000-4000-8000-000000000001").toString(
         "base64url",
       ),
