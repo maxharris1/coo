@@ -30,6 +30,11 @@ async function noticeHungry(
   id: string,
 ): Promise<string | null> {
   const nowMs = deps.clock.now();
+  await tx.query(
+    `select 1 from profiles where id = (select owner_id from birds where id = $1)
+     for key share`,
+    [id],
+  );
   const [row] = await tx.query<Row<"birds"> & { has_birdbath: boolean }>(
     `select b.*, p.has_birdbath from birds b join profiles p on p.id = b.owner_id
      where b.id = $1 and b.status = 'home' and not b.hungry_notified
