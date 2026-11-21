@@ -39,6 +39,11 @@ const render = (over: Partial<FriendsViewProps> = {}) =>
         guestLinks: [{ id: "g", name: "Maya", where: "Fishtown" }],
       }}
       onCopy={() => {}}
+      sheet={null}
+      onOpen={() => {}}
+      onStep={() => {}}
+      onClose={() => {}}
+      onConfirm={() => {}}
       {...over}
     />,
   );
@@ -82,7 +87,8 @@ describe("Friends screen (ac-1)", () => {
     const rows = render().match(/<li[\s\S]*?<\/li>/g) ?? [];
     expect(rows).toHaveLength(4);
     for (const r of rows) {
-      expect(r).not.toMatch(/<(button|input|select|a)\b/);
+      expect(r).not.toMatch(/<(input|select|a)\b/);
+      expect(r.match(/<button\b/g)).toHaveLength(1);
       expect(r).not.toContain("aria-pressed");
     }
     const labels = rows.map(
@@ -114,5 +120,24 @@ describe("Friends screen (ac-1)", () => {
     const failed = render({ list: { kind: "failed" } });
     expect(failed).toContain("Your invite link");
     expect(failed).not.toContain("They can see");
+  });
+});
+
+describe("friend row sheet (ac-1)", () => {
+  it("makes each friend row a button that opens a sheet", () => {
+    const rows = render().match(/<li[\s\S]*?<\/li>/g) ?? [];
+    for (const r of rows) {
+      expect(r).toMatch(/<button[^>]*type="button"[^>]*aria-haspopup="dialog"/);
+    }
+    expect(render()).not.toContain('role="dialog"');
+  });
+
+  it("draws the sheet for the open friend", () => {
+    const html = render({
+      sheet: { friend: FRIENDS[0], step: "menu", busy: false },
+    });
+    expect(html).toContain('role="dialog"');
+    expect(html).toContain("Priya");
+    expect(html).toContain("Unfriend");
   });
 });
