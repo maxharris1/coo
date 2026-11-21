@@ -48,7 +48,7 @@ function actions(deps: Deps): Record<CareAction, Spec> {
   };
 }
 
-function snapshot(bird: BirdRecord): CareSnapshot {
+export function careSnapshot(bird: BirdRecord): CareSnapshot {
   return {
     belly: bird.belly,
     feathers: bird.feathers,
@@ -65,14 +65,14 @@ function settled(
   nowMs: number,
   owner: CareOwner,
 ): CareSnapshot | null {
-  if (bird.status === "home") return snapshot(bird);
+  if (bird.status === "home") return careSnapshot(bird);
   const { busyKind, busyUntil } = bird;
   if (bird.status !== "busy" || busyUntil === null || busyUntil > nowMs) {
     return null;
   }
   if (busyKind !== "bath" && busyKind !== "nap") return null;
   return {
-    ...wakeEffect[busyKind](snapshot(bird), busyUntil, owner),
+    ...wakeEffect[busyKind](careSnapshot(bird), busyUntil, owner),
     status: "home",
   };
 }
