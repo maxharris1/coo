@@ -38,6 +38,7 @@ export const displayName = (max: number) =>
   z
     .string()
     .trim()
+    .refine((s) => !s.includes("\u0000"))
     .refine((s) => codePointLength(s) >= 1 && codePointLength(s) <= max)
     .refine((s) => !isBlocked(s));
 
