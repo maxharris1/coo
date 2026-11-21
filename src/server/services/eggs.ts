@@ -106,3 +106,31 @@ export async function hatch(
     });
   });
 }
+
+export type EggView = {
+  id: string;
+  status: "incubating" | "ready";
+  deliveriesToGo: number;
+};
+
+async function openEgg(db: Db, userId: string): Promise<EggView | undefined> {
+  const [egg] = await db.query<EggView>(
+    `select e.id, e.status,
+       greatest(0, e.hatch_at_delivery - p.deliveries_count)::int as "deliveriesToGo"
+     from eggs e join profiles p on p.id = e.user_id
+     where e.user_id = $1 and e.status <> 'hatched'`,
+    [userId],
+  );
+  return egg;
+}
+
+export async function hatchOpenEgg(
+  deps: Deps,
+  caller: OnboardedCaller,
+  input: { name: string; pronoun: string },
+): Promise<{ bird: BirdView; egg: EggView | null }> {
+  const egg = await openEgg(deps.db, caller.userId);
+  if (!egg) throw new AppError("conflict", "That egg is not ready to hatch.");
+  const bird = await hatch(deps, caller, { ...input, eggId: egg.id });
+  return { bird, egg: (await openEgg(deps.db, caller.userId)) ?? null };
+}
