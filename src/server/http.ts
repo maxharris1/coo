@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type { z } from "zod";
+import { readAppEnv, type Env } from "@/env";
 import {
   requireOnboarded,
   requireUser,
@@ -77,24 +78,37 @@ type Ctx<A extends Access, S> = {
   input: S extends z.ZodType ? z.infer<S> : undefined;
   params: Record<string, string>;
   req: NextRequest;
+  rebuild: () => Promise<Deps>;
 };
 
 type RouteArg = { params: Promise<Record<string, string>> };
 
-export function createJsonRoute(build: () => Promise<Deps>) {
+type Build = () => Promise<Deps>;
+
+export function createJsonRoute(
+  build: Build,
+  gate: { appEnv?: () => Env["APP_ENV"] | undefined } = {},
+) {
+  const devAllowed = () => {
+    const env = gate.appEnv?.();
+    return env !== undefined && env !== "production";
+  };
   return function jsonRoute<
     A extends Access,
     S extends z.ZodType | undefined = undefined,
     R extends object = object,
   >(
     access: A,
-    opts: { body?: S },
+    opts: { body?: S; devOnly?: true },
     run: (ctx: Ctx<A, S>) => Promise<R>,
   ): (req: NextRequest, route?: RouteArg) => Promise<NextResponse> {
     return async (req, route) => {
       const { jar, commit } = requestJar(req);
       let deps: Deps | undefined;
       try {
+        if (opts.devOnly && !devAllowed()) {
+          throw new AppError("not_found", "Not found");
+        }
         checkOrigin(req);
         checkContentType(req, opts.body);
         deps = await build();
@@ -110,6 +124,10 @@ export function createJsonRoute(build: () => Promise<Deps>) {
           input: input as Ctx<A, S>["input"],
           params,
           req,
+          rebuild: async () => {
+            deps = await build();
+            return deps;
+          },
         });
         return commit(
           NextResponse.json({ ...result, serverNow: deps.clock.now() }),
@@ -125,4 +143,6 @@ export function createJsonRoute(build: () => Promise<Deps>) {
   };
 }
 
-export const jsonRoute = createJsonRoute(makeDeps);
+export const jsonRoute = createJsonRoute(makeDeps, {
+  appEnv: () => readAppEnv(process.env),
+});

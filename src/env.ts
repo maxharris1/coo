@@ -2,6 +2,24 @@ import { z } from "zod";
 
 const required = z.string().min(1);
 
+const deployment = z.object({
+  APP_ENV: z.enum(["development", "preview", "production", "test"]),
+  VERCEL_ENV: z.enum(["development", "preview", "production"]).optional(),
+});
+
+function refuseTestOnVercelProduction(
+  env: z.infer<typeof deployment>,
+  ctx: z.RefinementCtx,
+): void {
+  if (env.APP_ENV === "test" && env.VERCEL_ENV === "production") {
+    ctx.addIssue({
+      code: "custom",
+      path: ["APP_ENV"],
+      message: "APP_ENV=test is refused on Vercel production",
+    });
+  }
+}
+
 export const envSchema = z
   .object({
     NEXT_PUBLIC_SUPABASE_URL: z.url(),
@@ -17,28 +35,35 @@ export const envSchema = z
     LINK_TOKEN_PEPPER: required,
     GEOCODER_URL: z.url().default("https://photon.komoot.io"),
     WEATHER_URL: z.url().default("https://api.open-meteo.com"),
-    APP_ENV: z.enum(["development", "preview", "production", "test"]),
-    VERCEL_ENV: z.enum(["development", "preview", "production"]).optional(),
     TEST_AUTH_SECRET: required.optional(),
   })
-  .superRefine((env, ctx) => {
-    if (env.APP_ENV === "test" && env.VERCEL_ENV === "production") {
-      ctx.addIssue({
-        code: "custom",
-        path: ["APP_ENV"],
-        message: "APP_ENV=test is refused on Vercel production",
-      });
-    }
-  });
+  .extend(deployment.shape)
+  .superRefine(refuseTestOnVercelProduction);
+
+const appEnvSchema = deployment.superRefine(refuseTestOnVercelProduction);
 
 export type Env = z.infer<typeof envSchema>;
 
-export function parseEnv(source: Record<string, string | undefined>): Env {
-  const present = Object.fromEntries(
-    Object.keys(envSchema.shape).flatMap((name) =>
-      source[name] ? [[name, source[name]]] : [],
-    ),
+function presentOnly(
+  source: Record<string, string | undefined>,
+  names: string[],
+): Record<string, string> {
+  return Object.fromEntries(
+    names.flatMap((name) => (source[name] ? [[name, source[name]]] : [])),
   );
+}
+
+export function readAppEnv(
+  source: Record<string, string | undefined>,
+): Env["APP_ENV"] | undefined {
+  const result = appEnvSchema.safeParse(
+    presentOnly(source, Object.keys(deployment.shape)),
+  );
+  return result.success ? result.data.APP_ENV : undefined;
+}
+
+export function parseEnv(source: Record<string, string | undefined>): Env {
+  const present = presentOnly(source, Object.keys(envSchema.shape));
   const result = envSchema.safeParse(present);
   if (result.success) return result.data;
 
