@@ -48,5 +48,15 @@ export function geoClient(
       return { status: res.status, json: await res.json() };
     };
 
-  return { signIn, get, post: send("POST"), patch: send("PATCH") };
+  async function del(jar?: FakeJar) {
+    const res = await handler(
+      new NextRequest(`https://coo.test${path}`, {
+        method: "DELETE",
+        headers: { cookie: cookieHeader(jar) },
+      }),
+    );
+    return { status: res.status, json: await res.json() };
+  }
+
+  return { signIn, get, post: send("POST"), patch: send("PATCH"), del };
 }
