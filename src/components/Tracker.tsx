@@ -142,6 +142,15 @@ function recipient(flight: Flight): string | undefined {
   return flight.counterpart?.name ?? flight.guestName;
 }
 
+function headedTo(flight: Flight): string {
+  if (flight.kind === "return") {
+    return flight.role === "mine" ? "you" : flight.owner.name;
+  }
+  return flight.role === "incoming"
+    ? "you"
+    : (recipient(flight) ?? flight.to.label);
+}
+
 function pins(flight: Flight) {
   if (flight.role === "incoming") {
     return {
@@ -228,10 +237,7 @@ export function trackerView(
     place: placeNear(flight, frac),
     from: flight.from.label,
     to: flight.to.label,
-    friend:
-      flight.role === "incoming"
-        ? "you"
-        : (recipient(flight) ?? flight.to.label),
+    friend: headedTo(flight),
   };
   return {
     state,
