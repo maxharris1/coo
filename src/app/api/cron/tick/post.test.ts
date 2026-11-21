@@ -23,7 +23,7 @@ beforeEach(async () => {
   await seedWorld(deps.db, deps.clock.now());
 });
 
-async function post(headers: Record<string, string> = {}) {
+async function post(headers: Record<string, string> = {}, body?: string) {
   const res = await cronTickPost(
     createJsonRoute(async () => deps),
     () => SECRET,
@@ -31,6 +31,7 @@ async function post(headers: Record<string, string> = {}) {
     new NextRequest("https://coo.test/api/cron/tick", {
       method: "POST",
       headers,
+      body,
     }),
   );
   return { status: res.status, json: await res.json() };
@@ -83,5 +84,18 @@ describe("POST /api/cron/tick", () => {
     expect(Object.keys(json.counts).length).toBeGreaterThan(0);
     expect(Object.values(json.counts).every((n) => n === 0)).toBe(true);
     expect(json.serverNow).toBe(deps.clock.now());
+  });
+
+  it("accepts the request pg_net sends from supabase/migrations/0002_cron.sql", async () => {
+    const { status } = await post(
+      {
+        "content-type": "application/json",
+        authorization: `Bearer ${SECRET}`,
+      },
+      "{}",
+    );
+
+    expect(status).toBe(200);
+    expect(tick).toHaveBeenCalledTimes(1);
   });
 });
