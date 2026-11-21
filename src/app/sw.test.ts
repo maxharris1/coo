@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -13,6 +13,14 @@ const OFFLINE_HTML =
 
 type Handler = (event: unknown) => void;
 type Route = () => Response;
+
+type FakeWindow = {
+  url: string;
+  focused: boolean;
+  navigatedTo?: string;
+  focus: () => Promise<FakeWindow>;
+  navigate: (url: string) => Promise<FakeWindow>;
+};
 
 function harness() {
   const network = {
@@ -80,12 +88,50 @@ function harness() {
     },
   };
 
+  const shown: { title: string; options: NotificationOptions }[] = [];
+  const windows: FakeWindow[] = [];
+  const opened: string[] = [];
+  function openWindowAt(url: string) {
+    const win: FakeWindow = {
+      url: new URL(url, ORIGIN).href,
+      focused: false,
+      async focus() {
+        win.focused = true;
+        return win;
+      },
+      async navigate(to: string) {
+        win.navigatedTo = new URL(to, ORIGIN).href;
+        return win;
+      },
+    };
+    windows.push(win);
+    return win;
+  }
+
   const listeners = new Map<string, Handler>();
   const self = {
     location: new URL(`${ORIGIN}/sw.js`),
     addEventListener: (type: string, fn: Handler) => listeners.set(type, fn),
     skipWaiting: async () => {},
-    clients: { claim: async () => {} },
+    registration: {
+      showNotification: async (title: string, options: NotificationOptions) => {
+        shown.push({ title, options });
+      },
+    },
+    clients: {
+      claim: async () => {},
+      matchAll: async (options: {
+        type?: string;
+        includeUncontrolled?: boolean;
+      }) =>
+        options.type === "window" && options.includeUncontrolled
+          ? [...windows]
+          : [],
+      openWindow: async (url: string) => {
+        opened.push(new URL(url, ORIGIN).href);
+        return null;
+      },
+    },
   };
   runInNewContext(source, {
     self,
@@ -120,7 +166,46 @@ function harness() {
     return response;
   }
 
-  return { network, store, cacheOps, lifecycle, request, listeners };
+  async function push(payload: unknown) {
+    const waits: Promise<unknown>[] = [];
+    listeners.get("push")!({
+      data: { json: () => payload },
+      waitUntil: (p: Promise<unknown>) => waits.push(p),
+    });
+    await Promise.all(waits);
+  }
+
+  async function click(data: unknown) {
+    const waits: Promise<unknown>[] = [];
+    const notification = {
+      data,
+      closed: false,
+      close() {
+        notification.closed = true;
+      },
+    };
+    listeners.get("notificationclick")!({
+      notification,
+      waitUntil: (p: Promise<unknown>) => waits.push(p),
+    });
+    await Promise.all(waits);
+    return notification;
+  }
+
+  return {
+    network,
+    store,
+    cacheOps,
+    lifecycle,
+    request,
+    listeners,
+    push,
+    click,
+    shown,
+    windows,
+    opened,
+    openWindowAt,
+  };
 }
 
 let sw: ReturnType<typeof harness>;
@@ -132,11 +217,13 @@ beforeEach(async () => {
 });
 
 describe("public/sw.js", () => {
-  it("registers install, activate and fetch listeners", () => {
+  it("registers install, activate, fetch, push and notificationclick listeners", () => {
     expect([...sw.listeners.keys()].sort()).toEqual([
       "activate",
       "fetch",
       "install",
+      "notificationclick",
+      "push",
     ]);
   });
 
@@ -229,5 +316,52 @@ describe("public/sw.js", () => {
       return res;
     });
     await expect(fresh.lifecycle("install")).rejects.toThrow();
+  });
+
+  it("shows a push as a notification with its title, body and tag, the 192 icon and the mono badge", async () => {
+    await sw.push({
+      title: "Pip landed",
+      body: "A note from Sam is waiting.",
+      url: "/notes/n1",
+      tag: "landed-in:f1",
+    });
+    expect(sw.shown).toEqual([
+      {
+        title: "Pip landed",
+        options: {
+          body: "A note from Sam is waiting.",
+          tag: "landed-in:f1",
+          data: { url: "/notes/n1" },
+          icon: "/assets/app-icon/icon-192.png",
+          badge: "/assets/app-icon/icon-mono-96.png",
+        },
+      },
+    ]);
+  });
+
+  it("points the push icon and badge at files that exist", () => {
+    for (const file of ["icon-192.png", "icon-mono-96.png"]) {
+      expect(
+        existsSync(
+          new URL(`../../public/assets/app-icon/${file}`, import.meta.url),
+        ),
+        file,
+      ).toBe(true);
+    }
+  });
+
+  it("focuses an open window and navigates it to the url on click", async () => {
+    const win = sw.openWindowAt("/");
+    const notification = await sw.click({ url: "/notes/n1" });
+    expect(notification.closed).toBe(true);
+    expect(win.focused).toBe(true);
+    expect(win.navigatedTo).toBe(`${ORIGIN}/notes/n1`);
+    expect(sw.opened).toEqual([]);
+  });
+
+  it("opens a window at the url on click when none is open", async () => {
+    const notification = await sw.click({ url: "/notes/n1" });
+    expect(notification.closed).toBe(true);
+    expect(sw.opened).toEqual([`${ORIGIN}/notes/n1`]);
   });
 });

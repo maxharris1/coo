@@ -100,3 +100,30 @@ self.addEventListener("fetch", (event) => {
   const kind = classify(event.request);
   if (kind !== "pass") event.respondWith(strategies[kind](event));
 });
+
+self.addEventListener("push", (event) => {
+  const { title, body, url, tag } = event.data.json();
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      tag,
+      data: { url },
+      icon: "/assets/app-icon/icon-192.png",
+      badge: "/assets/app-icon/icon-mono-96.png",
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const { url } = event.notification.data;
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then(async ([win]) => {
+        if (!win) return self.clients.openWindow(url);
+        await win.focus();
+        return win.navigate(url);
+      }),
+  );
+});
