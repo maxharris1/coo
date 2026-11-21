@@ -20,7 +20,7 @@ export type OutfitResult =
 
 type CatalogEntry = { id: GearId; slot: GearSlot; available: boolean };
 
-const isGearId = (v: string): v is GearId =>
+export const isGearId = (v: string): v is GearId =>
   (gearIds as readonly string[]).includes(v);
 const isGearSlot = (v: string): v is GearSlot =>
   (gearSlots as readonly string[]).includes(v);
