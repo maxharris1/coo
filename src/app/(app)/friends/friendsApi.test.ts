@@ -5,6 +5,7 @@ import {
   friendLine,
   loadFriends,
   reportFriend,
+  saveShows,
   unfriend,
 } from "./friendsApi";
 
@@ -112,6 +113,27 @@ describe("friend actions", () => {
     expect(await blockFriend("u1", fetchImpl)).toEqual({
       ok: false,
       message: "Slow down.",
+    });
+  });
+
+  it("saves City/Block with PATCH /api/friends/[id] and returns the server's value", async () => {
+    const { calls, fetchImpl } = recorder(200, {
+      friend: { id: "u1", shows: "block" },
+    });
+    expect(await saveShows("u1", "block", fetchImpl)).toEqual({
+      ok: true,
+      shows: "block",
+    });
+    expect(calls[0].url).toBe("/api/friends/u1");
+    expect(calls[0].init?.method).toBe("PATCH");
+    expect(JSON.parse(String(calls[0].init?.body))).toEqual({ shows: "block" });
+  });
+
+  it("returns the API's message when a City/Block save fails", async () => {
+    const { fetchImpl } = recorder(404, { error: { message: "No such friend" } });
+    expect(await saveShows("u1", "city", fetchImpl)).toEqual({
+      ok: false,
+      message: "No such friend",
     });
   });
 });
