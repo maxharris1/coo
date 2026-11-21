@@ -34,7 +34,7 @@ function routeLine(
   units: Units,
 ): string {
   const city = sharedCity(friend)?.name;
-  const miles = friend?.distanceMi ?? visit.flight.distanceMi;
+  const miles = visit.returnMi;
   if (miles === null) return city ? `${city}.` : "";
   const far = distance(miles, units);
   const pace = duration((miles / visit.bird.speedMph) * HOUR);

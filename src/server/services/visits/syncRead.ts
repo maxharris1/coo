@@ -1,6 +1,8 @@
+import { haversineMi } from "@/lib/flight/engine";
 import type { Pronoun } from "@/lib/format";
 import type { BreedId, GearId } from "@/lib/game/types";
 import type { Deps } from "@/server/deps";
+import { returnRoute } from "../tick/endVisits";
 
 type BirdLite = {
   id: string;
@@ -23,6 +25,7 @@ export type SyncVisit = {
   leavesAt: number;
   status: "waiting";
   snackGiven: boolean;
+  returnMi: number | null;
   flight: {
     distanceMi: number | null;
     durationMs: number | null;
@@ -90,8 +93,15 @@ export async function syncVisits(
     ),
   ]);
 
+  const returnMis = await Promise.all(
+    visitRows.map(async (r) => {
+      const route = await returnRoute(deps.db, r.id);
+      return route && haversineMi(route.from.point, route.to.point);
+    }),
+  );
+
   return {
-    visits: visitRows.map((r) => ({
+    visits: visitRows.map((r, i) => ({
       id: r.id,
       bird: {
         id: r.bird_id,
@@ -112,6 +122,7 @@ export async function syncVisits(
       leavesAt: r.leaves_at.getTime(),
       status: "waiting",
       snackGiven: r.snack_given,
+      returnMi: returnMis[i],
       flight: {
         distanceMi: r.distance_mi,
         durationMs: r.arrive_at

@@ -10,6 +10,8 @@ import { HOUR_MS } from "@/test/fixtures/flights";
 import { insertWaitingVisit } from "@/test/fixtures/visits";
 import { seedWorld, type World } from "@/test/seedWorld";
 import { syncVisits } from "./syncRead";
+import type { OnboardedCaller, Profile } from "@/server/auth";
+import type { UserId } from "@/server/ports/auth";
 
 const WAIT_MS = config.game.visits.waitMinutes * 60_000;
 
@@ -62,6 +64,7 @@ describe("syncVisits", () => {
         leavesAt: now + WAIT_MS,
         status: "waiting",
         snackGiven: false,
+        returnMi: expect.closeTo(82.07, 2),
         flight: { distanceMi: 81.37, durationMs: HOUR_MS, delayKind: "minor" },
       },
     ]);
@@ -156,5 +159,51 @@ describe("GET /api/sync visits", () => {
       expect(other.json.visits).toEqual([]);
       expect(JSON.stringify(other.json)).not.toContain("Test note");
     }
+  });
+});
+
+describe("syncVisits return leg (ac-1)", () => {
+  it("measures the return from where the bird waits after the host travels", async () => {
+    const { setTravel } = await import("../loft");
+    const { listFriends } = await import("../friends");
+    const { replyModel } =
+      await import("@/app/(app)/sill/[visitId]/reply/replyModel");
+    await deps.db.query(
+      "update birds set pronoun = 'they', speed_mph = 53.7 where id = $1",
+      [brenda().id],
+    );
+    await deps.db.query(
+      `update friendships
+          set a_shows = case when a_id = $1 then 'city' else a_shows end,
+              b_shows = case when b_id = $1 then 'city' else b_shows end`,
+      [world.max.id],
+    );
+    await setTravel(deps, world.priya.id as UserId, {
+      on: true,
+      roost: { lat: 34.05, lon: -118.25 },
+    });
+
+    const [waiting] = (await syncVisits(deps, world.priya.id)).visits;
+    const { friends } = await listFriends(deps, world.priya.id as UserId);
+    const max = friends.find((f) => f.id === world.max.id);
+
+    expect(max?.distanceMi).toBeGreaterThan(2000);
+    expect(waiting.returnMi).toBeCloseTo(80.56, 1);
+    expect(replyModel(waiting, max, now, "mi").route).toBe(
+      "New York, 81 miles. About 1h 30m at their pace.",
+    );
+
+    const { replyToVisit } = await import("./reply");
+    const [profile] = await deps.db.query<Profile>(
+      "select * from profiles where id = $1",
+      [world.priya.id],
+    );
+    const { flight } = await replyToVisit(
+      deps,
+      { userId: world.priya.id as UserId, profile } as OnboardedCaller,
+      visit.visitId,
+      "On my way back to New York.",
+    );
+    expect(flight.distanceMi).toBeCloseTo(waiting.returnMi!, 2);
   });
 });

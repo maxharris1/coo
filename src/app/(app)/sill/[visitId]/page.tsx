@@ -10,10 +10,10 @@ import type { FriendRow } from "@/server/services/friends";
 import type { SyncVisit } from "@/server/services/visits/syncRead";
 import { GoneHome, Landed } from "../Landed";
 import { landedState, sharedCity, type SenderCity } from "../landedModel";
+import { useServerNow } from "../useServerNow";
 
 type Departed = { birdName: string; ownerId: string };
 
-const TICK_MS = 1000;
 const UNREACHABLE = "We could not reach the loft. Try again.";
 const departedKey = (id: string) => `coo.sill.departed.${id}`;
 const landedKey = (id: string) => `coo.sill.landed.${id}`;
@@ -80,15 +80,6 @@ async function postSnack(id: string): Promise<string | null> {
   } catch {
     return UNREACHABLE;
   }
-}
-
-function useServerNow(offsetMs: number): number {
-  const [now, setNow] = useState(() => Date.now() + offsetMs);
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now() + offsetMs), TICK_MS);
-    return () => clearInterval(timer);
-  }, [offsetMs]);
-  return now;
 }
 
 function VisitScreen({

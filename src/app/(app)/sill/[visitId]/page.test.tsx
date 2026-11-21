@@ -65,6 +65,7 @@ const visit = (over: Partial<SyncVisit> = {}): SyncVisit => ({
   leavesAt: LEAVES,
   status: "waiting",
   snackGiven: false,
+  returnMi: 81,
   flight: { distanceMi: 81, durationMs: 112 * MIN, delayKind: "minor" },
   ...over,
 });
@@ -133,7 +134,7 @@ const snackCalls = () =>
       body: init?.body,
     }));
 
-const sync = (visits: SyncVisit[] | null): SyncState => ({
+const sync = (visits: SyncVisit[] | null, offsetMs = 0): SyncState => ({
   data:
     visits &&
     ({
@@ -142,11 +143,11 @@ const sync = (visits: SyncVisit[] | null): SyncState => ({
       me: { timezone: "America/New_York", units: "mi" },
     } as unknown as SyncPayload),
   error: null,
-  offsetMs: 0,
+  offsetMs,
   refresh,
 });
 
-async function show(visits: SyncVisit[] | null) {
+async function show(visits: SyncVisit[] | null, offsetMs = 0) {
   if (!root) {
     const container = Object.assign(new EventTarget(), {
       nodeType: 1,
@@ -158,7 +159,7 @@ async function show(visits: SyncVisit[] | null) {
   const r = root;
   await act(async () =>
     r.render(
-      <SyncContext.Provider value={sync(visits)}>
+      <SyncContext.Provider value={sync(visits, offsetMs)}>
         <VisitPage />
       </SyncContext.Provider>,
     ),
@@ -238,6 +239,14 @@ describe("/sill/[visitId] gone-home flip (ac-1)", () => {
     expect(first).toBe(NOW);
     await tick(60_000);
     expect(seen.landed!.nowMs).toBe(NOW + 60_000);
+  });
+
+  it("uses a corrected server clock on the sync that brings it", async () => {
+    vi.setSystemTime(NOW + 60 * MIN);
+    await show([visit()]);
+    await show([visit()], -60 * MIN);
+    expect(seen.landed?.state).toBe("waiting");
+    expect(seen.landed?.nowMs).toBe(NOW);
   });
 
   it("shows gone home, note kept, when the visit drops out of sync", async () => {

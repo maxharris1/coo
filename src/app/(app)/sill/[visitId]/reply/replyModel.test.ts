@@ -24,6 +24,7 @@ const visit = (over: Partial<SyncVisit["bird"]> = {}): SyncVisit => ({
   leavesAt: NOW + 28 * MIN,
   status: "waiting",
   snackGiven: false,
+  returnMi: 81,
   flight: { distanceMi: 80, durationMs: 112 * MIN, delayKind: "none" },
 });
 
@@ -77,9 +78,14 @@ describe("replyModel (ac-1)", () => {
     );
   });
 
-  it("falls back to the outbound leg before the friend list loads", () => {
-    expect(replyModel(visit(), undefined, NOW, "mi").route).toBe(
-      "80 miles. About 1h 52m at her pace.",
+  it("estimates the return leg from where the bird waits, not the host's loft now", () => {
+    const waiting = { ...visit({ pronoun: "they" }), returnMi: 80.56 };
+    const newYork = { ...PRIYA, where: "New York, NY", distanceMi: 2446 };
+    expect(replyModel(waiting, newYork, NOW, "mi").route).toBe(
+      "New York, 81 miles. About 1h 52m at their pace.",
+    );
+    expect(replyModel(waiting, undefined, NOW, "mi").route).toBe(
+      "81 miles. About 1h 52m at their pace.",
     );
   });
 
@@ -111,9 +117,8 @@ describe("replyModel (ac-1)", () => {
   });
 
   it("leaves the estimate out when no distance is known", () => {
-    const v = { ...visit(), flight: { ...visit().flight, distanceMi: null } };
-    const noDistance = { ...PRIYA, distanceMi: null };
-    expect(replyModel(v, noDistance, NOW, "mi").route).toBe("Philadelphia.");
+    const v = { ...visit(), returnMi: null };
+    expect(replyModel(v, PRIYA, NOW, "mi").route).toBe("Philadelphia.");
     expect(replyModel(v, undefined, NOW, "mi").route).toBe("");
   });
 });

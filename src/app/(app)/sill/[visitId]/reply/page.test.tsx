@@ -59,6 +59,7 @@ const VISIT: SyncVisit = {
   leavesAt: NOW + 28 * MIN,
   status: "waiting",
   snackGiven: false,
+  returnMi: 81,
   flight: { distanceMi: 80, durationMs: 112 * MIN, delayKind: "none" },
 };
 
@@ -182,6 +183,14 @@ describe("/sill/[visitId]/reply (ac-1)", () => {
   it("goes by the server clock, not the device clock", async () => {
     await show([VISIT], 28 * MIN);
     expect(seen.replace).toHaveBeenCalledWith("/sill/v1");
+  });
+
+  it("applies the first sync's clock before checking the wait", async () => {
+    vi.setSystemTime(NOW + 60 * MIN);
+    await show(null);
+    await show([VISIT], -60 * MIN);
+    expect(seen.replace).not.toHaveBeenCalled();
+    expect(view().model.wait).toMatch(/^She waits 28 more minutes/);
   });
 
   it("builds the model from the visit and the friend row", async () => {

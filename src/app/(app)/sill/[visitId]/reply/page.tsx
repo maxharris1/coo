@@ -13,17 +13,7 @@ import { friendRow, postReply } from "./replyApi";
 import { counter, replyModel } from "./replyModel";
 import { ReplyView } from "./ReplyView";
 import { saveHandoff } from "./takeoffHandoff";
-
-const TICK_MS = 1000;
-
-function useServerNow(offsetMs: number): number {
-  const [now, setNow] = useState(() => Date.now() + offsetMs);
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now() + offsetMs), TICK_MS);
-    return () => clearInterval(timer);
-  }, [offsetMs]);
-  return now;
-}
+import { useServerNow } from "../../useServerNow";
 
 function ReplyScreen({
   visit,
