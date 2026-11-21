@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { SyncVisit } from "@/server/services/visits/syncRead";
-import { countdownLine, landedState, postmark, tripSummary } from "./landed";
+import {
+  countdownLine,
+  landedState,
+  postmark,
+  tripSummary,
+} from "./landedModel";
 
 const MINUTE = 60_000;
 const created = Date.parse("2026-11-19T15:04:00Z");

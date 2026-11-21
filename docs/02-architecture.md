@@ -173,6 +173,7 @@ same processing for the calling user's own rows before it answers.
 | `APP_ENV` | `development`, `preview`, `production` or `test`. Dev tools exist only outside production. `test` enables the test auth module and is refused when `VERCEL_ENV=production` |
 | `VERCEL_ENV` | Set by Vercel. Test auth refuses to load when it is `production` |
 | `TEST_AUTH_SECRET` | Signs the test auth session cookie. Only with `APP_ENV=test` |
+| `TEST_POSTGRES_URL` | Tests only. A disposable PostgreSQL server where lock-order tests create and drop their own database. Unset skips them. CI sets it |
 
 Provide `.env.example` with every name and no values.
 

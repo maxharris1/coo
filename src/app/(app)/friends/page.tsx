@@ -4,7 +4,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { Loader } from "@/components/Loader";
 import { useSync } from "@/components/SyncProvider";
 import { useToast } from "@/components/Toasts";
-import type { FriendRow } from "@/server/services/friends";
+import type { FriendRow, Shows } from "@/server/services/friends";
 import {
   blockFriend,
   loadFriends,
@@ -14,6 +14,12 @@ import {
 } from "./friendsApi";
 import type { SheetState, SheetStep } from "./FriendSheet";
 import { FriendsView, type ListState } from "./FriendsView";
+import {
+  onShowsSettled,
+  requestShows,
+  showsSaveCount,
+  withShowsSavedSince,
+} from "./showsSaves";
 
 const noSubscribe = () => () => {};
 
@@ -57,14 +63,36 @@ export default function FriendsPage() {
   const [sheet, setSheet] = useState<SheetState | null>(null);
   const toast = useToast();
 
+  useEffect(
+    () =>
+      onShowsSettled((id, r) => {
+        if (!r.ok) {
+          toast(r.message);
+          return;
+        }
+        setList((l) =>
+          l.kind === "ready"
+            ? {
+                ...l,
+                friends: l.friends.map((f) =>
+                  f.id === id ? { ...f, shows: r.shows } : f,
+                ),
+              }
+            : l,
+        );
+      }),
+    [toast],
+  );
+
   useEffect(() => {
     let live = true;
+    const since = showsSaveCount();
     void loadFriends().then((r) => {
       if (!live) return;
       if (r.ok) {
         setList({
           kind: "ready",
-          friends: r.friends,
+          friends: withShowsSavedSince(r.friends, since),
           guestLinks: r.guestLinks,
         });
       } else {
@@ -111,6 +139,15 @@ export default function FriendsPage() {
     });
   };
 
+  const onShows = (id: string, shows: Shows) =>
+    requestShows(
+      id,
+      shows,
+      list.kind === "ready"
+        ? list.friends.find((f) => f.id === id)?.shows
+        : undefined,
+    );
+
   return (
     <FriendsView
       inviteLink={inviteLink}
@@ -122,6 +159,7 @@ export default function FriendsPage() {
       onStep={(step) => setSheet((s) => s && { ...s, step })}
       onClose={() => setSheet(null)}
       onConfirm={onConfirm}
+      onShows={onShows}
     />
   );
 }

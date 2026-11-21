@@ -1,6 +1,8 @@
 import type { Clock } from "@/server/clock";
 
 export class FakeClock implements Clock {
+  readonly offsetMs = 0;
+
   constructor(private ms: number) {}
 
   now(): number {

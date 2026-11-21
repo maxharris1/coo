@@ -1,0 +1,307 @@
+.screen {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  min-height: 100dvh;
+  overflow-x: clip;
+  background: var(--coo-sky);
+  color: var(--coo-ink);
+  font-family: var(--coo-font-body);
+}
+
+.screen a,
+.screen a:hover {
+  color: var(--coo-ink);
+}
+
+.screen a:focus-visible,
+.screen button:focus-visible {
+  outline: 3px solid var(--coo-ink);
+  outline-offset: 2px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: var(--coo-gutter) var(--coo-gutter) 0;
+}
+
+.back {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: var(--coo-touch);
+  height: var(--coo-touch);
+  background: var(--coo-card);
+  border: var(--coo-line);
+  border-radius: 50%;
+  box-shadow: var(--coo-shadow-1);
+}
+
+.backArrow {
+  fill: none;
+  stroke: var(--coo-ink);
+  stroke-width: 2.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.chip {
+  padding: 4px 12px;
+  background: var(--coo-sun);
+  border: var(--coo-line-thin);
+  border-radius: var(--coo-radius-pill);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.intro {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 20px 0;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--coo-font-display);
+  font-size: 34px;
+  font-weight: 400;
+  line-height: 1.02;
+  overflow-wrap: anywhere;
+}
+
+.summary {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.sky {
+  position: relative;
+  flex-shrink: 0;
+  height: 196px;
+}
+
+.rays {
+  position: absolute;
+  top: -50px;
+  left: calc(50% - 165px);
+  width: 330px;
+  height: 330px;
+  opacity: 0.55;
+  animation: coo-spin 60s linear infinite;
+}
+
+.scene {
+  position: absolute;
+  top: 0;
+  left: calc(50% - 195px);
+  display: block;
+  overflow: visible;
+}
+
+.sill {
+  fill: var(--coo-card);
+  stroke: var(--coo-ink);
+  stroke-width: 2.5;
+}
+
+.sillEdge {
+  stroke: var(--coo-ink);
+  stroke-width: 1.6;
+  opacity: 0.4;
+}
+
+.seedDot {
+  fill: var(--coo-sun);
+  stroke: var(--coo-ink);
+  stroke-width: 1.6;
+}
+
+.perch {
+  position: absolute;
+  bottom: 23px;
+  left: calc(50% - 90px);
+}
+
+.paper {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 14px;
+  padding: 0 var(--coo-gutter) 18px;
+  background: var(--coo-paper);
+  border-top: var(--coo-line);
+}
+
+.note {
+  position: relative;
+  margin-top: -14px;
+  padding: 16px 18px 14px;
+  background: var(--coo-card);
+  border: var(--coo-line);
+  border-radius: var(--coo-radius-paper);
+  box-shadow: var(--coo-shadow-2);
+  transform: rotate(0.8deg);
+}
+
+.stamp {
+  position: absolute;
+  top: -40px;
+  right: 8px;
+  transform: rotate(-12deg);
+}
+
+.postmark {
+  display: block;
+}
+
+.stampRing {
+  fill: var(--coo-card);
+  stroke: var(--coo-stamp);
+  stroke-width: 2.5;
+}
+
+.stampDash {
+  fill: none;
+  stroke: var(--coo-stamp);
+  stroke-width: 1.5;
+}
+
+.stampSmall,
+.stampDate {
+  fill: var(--coo-stamp);
+  text-anchor: middle;
+}
+
+.stampSmall {
+  font-family: var(--coo-font-body);
+  font-size: 8.5px;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+
+.stampDate {
+  font-family: var(--coo-font-display);
+  font-size: 17px;
+}
+
+.noteFrom {
+  padding-right: 64px;
+  color: var(--coo-muted);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+
+.noteBody,
+.signOff {
+  margin: 6px 0 0;
+  font-family: var(--coo-font-hand);
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.noteBody {
+  line-height: 1.18;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+
+.signOff {
+  line-height: 1;
+  text-align: right;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: auto;
+}
+
+.primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 60px;
+  padding: 0 12px;
+  background: var(--coo-sun);
+  border: var(--coo-line);
+  border-radius: var(--coo-radius-button);
+  box-shadow: var(--coo-shadow-3);
+  font-family: var(--coo-font-display);
+  font-size: 20px;
+  line-height: 1.1;
+  text-align: center;
+  text-decoration: none;
+}
+
+.snack {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-sizing: border-box;
+  min-height: max(50px, var(--coo-touch));
+  padding: 0 12px;
+  background: var(--coo-card);
+  border: var(--coo-line);
+  border-radius: var(--coo-radius-card);
+  color: var(--coo-ink);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.snack:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.seed {
+  fill: var(--coo-sun);
+  stroke: var(--coo-ink);
+  stroke-width: 2.2;
+  stroke-linejoin: round;
+}
+
+.countdown,
+.gone {
+  margin: 0;
+  font-weight: 800;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.countdown {
+  color: var(--coo-muted);
+  font-size: 12.5px;
+}
+
+.gone {
+  font-size: 15px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rays {
+    animation: none;
+  }
+}
+
+@keyframes coo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

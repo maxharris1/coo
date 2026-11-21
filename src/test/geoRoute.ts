@@ -10,8 +10,9 @@ export function geoClient(
   deps: TestDeps,
   build: (jsonRoute: ReturnType<typeof createJsonRoute>) => Handler,
   path: string,
+  jsonRoute = createJsonRoute(async () => deps),
 ) {
-  const handler = build(createJsonRoute(async () => deps));
+  const handler = build(jsonRoute);
 
   async function signIn(number: string, jar = new FakeJar()) {
     const id = await deps

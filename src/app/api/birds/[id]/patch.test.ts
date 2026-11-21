@@ -185,6 +185,7 @@ describe("PATCH /api/birds/[id] (ac-5)", () => {
     ["an empty body", {}],
     ["a 25 code point name", { name: "a".repeat(25) }],
     ["a blank name", { name: "   " }],
+    ["a name with a NUL", { name: "Gu\u0000s" }],
     ["an unknown key", { name: "Gus", look: "kevin" }],
     ["an invalid pronoun", { pronoun: "it" }],
   ])("refuses %s with 400 invalid and writes nothing", async (_, body) => {

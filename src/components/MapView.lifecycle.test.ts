@@ -4,6 +4,7 @@ import { MapView, type MapViewProps } from "./MapView";
 
 const lib = vi.hoisted(() => {
   const maps: FakeMap[] = [];
+  const calls: string[] = [];
   const liveMarkers = new Set<FakeMarker>();
   let effect: (() => (() => void) | void) | undefined;
 
@@ -17,6 +18,7 @@ const lib = vi.hoisted(() => {
     };
     touchZoomRotate = { disableRotation() {} };
     constructor(readonly options: Record<string, unknown>) {
+      calls.push("new Map");
       maps.push(this);
     }
     on() {
@@ -49,6 +51,10 @@ const lib = vi.hoisted(() => {
 
   return {
     maps,
+    calls,
+    setWorkerUrl: (url: string) => {
+      calls.push(`setWorkerUrl ${url}`);
+    },
     liveMarkers,
     FakeMap,
     FakeMarker,
@@ -64,6 +70,7 @@ vi.mock("maplibre-gl", () => ({
   Map: lib.FakeMap,
   Marker: lib.FakeMarker,
   LngLatBounds: lib.FakeBounds,
+  setWorkerUrl: lib.setWorkerUrl,
 }));
 
 vi.mock("react", async (importOriginal) => ({
@@ -103,6 +110,7 @@ async function mountMap() {
 
 beforeEach(() => {
   lib.maps.length = 0;
+  lib.calls.length = 0;
   lib.liveMarkers.clear();
   vi.stubGlobal("requestAnimationFrame", () => 1);
   vi.stubGlobal("cancelAnimationFrame", () => {});
@@ -129,5 +137,14 @@ it("turns off every input that could tilt the camera", async () => {
   expect(options.touchPitch, "two-finger vertical drag").toBe(false);
   expect(options.dragRotate, "right-drag and ctrl-drag").toBe(false);
   expect(map.keyboardRotation, "shift plus arrow keys").toBe(false);
+  cleanup();
+});
+
+it("points MapLibre at its bundled worker before creating the map", async () => {
+  const { cleanup } = await mountMap();
+  expect(lib.calls).toEqual([
+    expect.stringMatching(/^setWorkerUrl .*maplibre-gl-worker\.mjs$/),
+    "new Map",
+  ]);
   cleanup();
 });

@@ -78,6 +78,10 @@ export function testAuth(
     return ok && Number(expiresAt) > clock.now() ? (userId as UserId) : null;
   }
 
+  function sessionCookie(): string | undefined {
+    return jar.getAll().find((c) => c.name === TEST_SESSION_COOKIE)?.value;
+  }
+
   return {
     async sendCode() {
       log.info("auth.code_sent", { adapter: "test" });
@@ -106,8 +110,13 @@ export function testAuth(
     },
 
     async currentUserId() {
-      const cookie = jar.getAll().find((c) => c.name === TEST_SESSION_COOKIE);
-      return cookie ? verified(cookie.value) : null;
+      const cookie = sessionCookie();
+      return cookie ? verified(cookie) : null;
+    },
+
+    async accessToken() {
+      const cookie = sessionCookie();
+      return cookie && (await verified(cookie)) ? cookie : null;
     },
 
     async signOut() {

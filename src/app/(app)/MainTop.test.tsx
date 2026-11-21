@@ -19,10 +19,11 @@ const bird = (name: string, over: Partial<Bird> = {}): Bird =>
     ...over,
   }) as Bird;
 
-const data = (birds: Bird[], seeds = 240) =>
+const data = (birds: Bird[], seeds = 240, unread = 0) =>
   ({
     me: { seeds, timezone: "America/New_York", loft: null },
     birds,
+    unread,
   }) as unknown as SyncPayload;
 
 const morning = new Date("2026-11-20T14:20:00Z").getTime();
@@ -34,9 +35,9 @@ const mock = [
   bird("Admiral Crumbs", { look: "admiral", gear: ["cap"] }),
 ];
 
-const render = (birds: Bird[], seeds?: number) =>
+const render = (birds: Bird[], seeds?: number, unread?: number) =>
   renderToStaticMarkup(
-    <MainTop data={data(birds, seeds)} nowMs={morning} />,
+    <MainTop data={data(birds, seeds, unread)} nowMs={morning} />,
   ).replaceAll("&#x27;", "'");
 
 describe("the top of Main (ac-1)", () => {
@@ -64,6 +65,21 @@ describe("the top of Main (ac-1)", () => {
     expect(link(render(mock, 1), "/shop")).toContain(
       'aria-label="Seed balance, 1 seed. Open the seed store"',
     );
+  });
+
+  it("shows the unread count from sync on a bell that opens Notifications (ac-3)", () => {
+    const bell = link(render(mock, 240, 3), "/notifications");
+    expect(bell).toContain('aria-label="Notifications, 3 unread"');
+    expect(bell).toMatch(/<span[^>]*>3<\/span>/);
+    expect(link(render(mock, 240, 1), "/notifications")).toContain(
+      'aria-label="Notifications, 1 unread"',
+    );
+  });
+
+  it("shows no badge on the bell at 0 unread (ac-3)", () => {
+    const bell = link(html, "/notifications");
+    expect(bell).toContain('aria-label="Notifications"');
+    expect(bell).not.toContain("<span");
   });
 
   it("greets by time of day with birds home and away counted in words", () => {
@@ -142,5 +158,6 @@ describe("the top of Main (ac-1)", () => {
     );
     expect(css).toMatch(/\.menu \{[^}]*width: var\(--coo-touch\)/);
     expect(css).toMatch(/\.seeds \{[^}]*min-height: var\(--coo-touch\)/);
+    expect(css).toMatch(/\.bell \{[^}]*width: var\(--coo-touch\)/);
   });
 });

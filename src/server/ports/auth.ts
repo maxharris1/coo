@@ -25,5 +25,6 @@ export interface AuthPort {
   sendCode(phone: E164): Promise<void>;
   verifyCode(phone: E164, code: string): Promise<UserId | null>;
   currentUserId(): Promise<UserId | null>;
+  accessToken(): Promise<string | null>;
   signOut(): Promise<void>;
 }

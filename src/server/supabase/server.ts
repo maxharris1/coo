@@ -160,6 +160,17 @@ export function supabaseAuth(
       }
     },
 
+    async accessToken() {
+      try {
+        const { data, error } = await auth.getClaims();
+        if (error || !data) return null;
+        const { data: current } = await auth.getSession();
+        return current.session?.access_token ?? null;
+      } catch {
+        return null;
+      }
+    },
+
     async signOut() {
       const { error } = await auth.signOut();
       if (!error) return;

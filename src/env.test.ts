@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseEnv } from "@/env";
+import { parseEnv, readAppEnv } from "@/env";
 
 const full = {
   NEXT_PUBLIC_SUPABASE_URL: "https://project.supabase.example",
@@ -85,5 +85,27 @@ describe("parseEnv test auth gate", () => {
   it("requires APP_ENV", () => {
     const error = errorFrom(() => parseEnv({ ...full, APP_ENV: undefined }));
     expect(error.message).toContain("missing APP_ENV");
+  });
+});
+
+describe("readAppEnv", () => {
+  it("reads APP_ENV=production with nothing else set", () => {
+    expect(readAppEnv({ APP_ENV: "production" })).toBe("production");
+  });
+
+  it.each([
+    ["missing", {}],
+    ["empty", { APP_ENV: "" }],
+    ["invalid", { APP_ENV: "staging" }],
+    [
+      "test on Vercel production",
+      { APP_ENV: "test", VERCEL_ENV: "production" },
+    ],
+    [
+      "paired with an invalid VERCEL_ENV",
+      { APP_ENV: "preview", VERCEL_ENV: "x" },
+    ],
+  ])("is undefined when APP_ENV is %s", (_, source) => {
+    expect(readAppEnv(source)).toBeUndefined();
   });
 });

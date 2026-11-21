@@ -75,6 +75,19 @@ export function postmark(
   return { date, place: `${stampName(city.name)}${region}` };
 }
 
+export function postmarkLabel(
+  createdAt: number,
+  city: SenderCity | null,
+  timeZone: string,
+): string {
+  const day = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    month: "long",
+    day: "numeric",
+  }).format(createdAt);
+  return `Postmark: Pigeon Post${city ? `, ${city.name}` : ""}, ${day}`;
+}
+
 export function countdownLine(
   visit: Pick<SyncVisit, "bird" | "leavesAt">,
   nowMs: number,

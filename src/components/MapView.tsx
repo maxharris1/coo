@@ -136,117 +136,125 @@ export function MapView({
     const now = () => Date.now() + offsetMs;
     const bearing = bearingDeg(from, to) * (Math.PI / 180);
 
-    void import("maplibre-gl").then(({ Map, Marker, LngLatBounds }) => {
-      const el = container.current;
-      if (cancelled || !el || !birdEl.current) return;
-      if (!loftEl.current || !sillEl.current) return;
-      const m = new Map({
-        container: el,
-        style: styleRef.current,
-        bounds: new LngLatBounds(
-          [from.lon, from.lat],
-          [from.lon, from.lat],
-        ).extend([to.lon, to.lat]),
-        fitBoundsOptions: {
-          padding: { top: 80, left: 48, right: 48, bottom: bottomPadding },
-        },
-        minZoom: 3,
-        maxZoom: 17,
-        maxPitch: 0,
-        dragRotate: false,
-        pitchWithRotate: false,
-        touchPitch: false,
-        attributionControl: {
-          compact: true,
-          customAttribution: config.app.mapAttribution,
-        },
-      });
-      map = m;
-      mapRef.current = m;
-      m.touchZoomRotate.disableRotation();
-      m.keyboard.disableRotation();
-
-      const loft = new Marker({ element: loftEl.current, anchor: "bottom" })
-        .setLngLat([from.lon, from.lat])
-        .addTo(m);
-      const sill = new Marker({ element: sillEl.current, anchor: "bottom" })
-        .setLngLat([to.lon, to.lat])
-        .addTo(m);
-      const start = positionAt(plan, from, to, now());
-      const marker = new Marker({ element: birdEl.current })
-        .setLngLat([start.lon, start.lat])
-        .addTo(m);
-      markers = [loft, sill, marker];
-
-      const drawRoute = (frac: number) => {
-        const { flown, left } = splitRoute(from, to, fracs, frac);
-        (m.getSource("route-flown") as GeoJSONSource | undefined)?.setData(
-          flown,
+    void import("maplibre-gl").then(
+      ({ Map, Marker, LngLatBounds, setWorkerUrl }) => {
+        const el = container.current;
+        if (cancelled || !el || !birdEl.current) return;
+        if (!loftEl.current || !sillEl.current) return;
+        setWorkerUrl(
+          new URL("maplibre-gl/dist/maplibre-gl-worker.mjs", import.meta.url)
+            .href,
         );
-        (m.getSource("route-left") as GeoJSONSource | undefined)?.setData(left);
-      };
-
-      m.on("style.load", () => {
-        const { frac } = positionAt(plan, from, to, now());
-        const { flown, left } = splitRoute(from, to, fracs, frac);
-        m.addSource("route-flown", { type: "geojson", data: flown });
-        m.addSource("route-left", { type: "geojson", data: left });
-        m.addLayer({
-          id: "route-left",
-          type: "line",
-          source: "route-left",
-          layout: { "line-cap": "round" },
-          paint: {
-            "line-color": INK,
-            "line-width": 2,
-            "line-dasharray": [2, 2],
+        const m = new Map({
+          container: el,
+          style: styleRef.current,
+          bounds: new LngLatBounds(
+            [from.lon, from.lat],
+            [from.lon, from.lat],
+          ).extend([to.lon, to.lat]),
+          fitBoundsOptions: {
+            padding: { top: 80, left: 48, right: 48, bottom: bottomPadding },
+          },
+          minZoom: 3,
+          maxZoom: 17,
+          maxPitch: 0,
+          dragRotate: false,
+          pitchWithRotate: false,
+          touchPitch: false,
+          attributionControl: {
+            compact: true,
+            customAttribution: config.app.mapAttribution,
           },
         });
-        m.addLayer({
-          id: "route-flown-casing",
-          type: "line",
-          source: "route-flown",
-          layout: { "line-cap": "round", "line-join": "round" },
-          paint: { "line-color": INK, "line-width": 6 },
-        });
-        m.addLayer({
-          id: "route-flown",
-          type: "line",
-          source: "route-flown",
-          layout: { "line-cap": "round", "line-join": "round" },
-          paint: { "line-color": TOMATO, "line-width": 4 },
-        });
-      });
+        map = m;
+        mapRef.current = m;
+        m.touchZoomRotate.disableRotation();
+        m.keyboard.disableRotation();
 
-      const tick = () => {
-        const p = positionAt(plan, from, to, now());
-        marker.setLngLat([p.lon, p.lat]);
+        const loft = new Marker({ element: loftEl.current, anchor: "bottom" })
+          .setLngLat([from.lon, from.lat])
+          .addTo(m);
+        const sill = new Marker({ element: sillEl.current, anchor: "bottom" })
+          .setLngLat([to.lon, to.lat])
+          .addTo(m);
+        const start = positionAt(plan, from, to, now());
+        const marker = new Marker({ element: birdEl.current })
+          .setLngLat([start.lon, start.lat])
+          .addTo(m);
+        markers = [loft, sill, marker];
+
+        const drawRoute = (frac: number) => {
+          const { flown, left } = splitRoute(from, to, fracs, frac);
+          (m.getSource("route-flown") as GeoJSONSource | undefined)?.setData(
+            flown,
+          );
+          (m.getSource("route-left") as GeoJSONSource | undefined)?.setData(
+            left,
+          );
+        };
+
+        m.on("style.load", () => {
+          const { frac } = positionAt(plan, from, to, now());
+          const { flown, left } = splitRoute(from, to, fracs, frac);
+          m.addSource("route-flown", { type: "geojson", data: flown });
+          m.addSource("route-left", { type: "geojson", data: left });
+          m.addLayer({
+            id: "route-left",
+            type: "line",
+            source: "route-left",
+            layout: { "line-cap": "round" },
+            paint: {
+              "line-color": INK,
+              "line-width": 2,
+              "line-dasharray": [2, 2],
+            },
+          });
+          m.addLayer({
+            id: "route-flown-casing",
+            type: "line",
+            source: "route-flown",
+            layout: { "line-cap": "round", "line-join": "round" },
+            paint: { "line-color": INK, "line-width": 6 },
+          });
+          m.addLayer({
+            id: "route-flown",
+            type: "line",
+            source: "route-flown",
+            layout: { "line-cap": "round", "line-join": "round" },
+            paint: { "line-color": TOMATO, "line-width": 4 },
+          });
+        });
+
+        const tick = () => {
+          const p = positionAt(plan, from, to, now());
+          marker.setLngLat([p.lon, p.lat]);
+          frame = requestAnimationFrame(tick);
+        };
         frame = requestAnimationFrame(tick);
-      };
-      frame = requestAnimationFrame(tick);
 
-      const follow = (always: boolean) => {
-        const p = positionAt(plan, from, to, now());
-        drawRoute(p.frac);
-        if (!followRef.current || (!always && !nearEdge(m, p))) return;
-        m.easeTo({
-          center: [p.lon, p.lat],
-          zoom: zoomForDistance(distanceMi * (1 - p.frac)),
-          offset: [-Math.sin(bearing) * LEAD_PX, Math.cos(bearing) * LEAD_PX],
-          duration: 1500,
-        });
-      };
-      recentre.current = () => follow(true);
-      timer = setInterval(() => follow(false), FOLLOW_EVERY_MS);
+        const follow = (always: boolean) => {
+          const p = positionAt(plan, from, to, now());
+          drawRoute(p.frac);
+          if (!followRef.current || (!always && !nearEdge(m, p))) return;
+          m.easeTo({
+            center: [p.lon, p.lat],
+            zoom: zoomForDistance(distanceMi * (1 - p.frac)),
+            offset: [-Math.sin(bearing) * LEAD_PX, Math.cos(bearing) * LEAD_PX],
+            duration: 1500,
+          });
+        };
+        recentre.current = () => follow(true);
+        timer = setInterval(() => follow(false), FOLLOW_EVERY_MS);
 
-      const stopFollowing = (e: { originalEvent?: unknown }) => {
-        if (!e.originalEvent) return;
-        followRef.current = false;
-        setFollowing(false);
-      };
-      m.on("dragstart", stopFollowing);
-      m.on("zoomstart", stopFollowing);
-    });
+        const stopFollowing = (e: { originalEvent?: unknown }) => {
+          if (!e.originalEvent) return;
+          followRef.current = false;
+          setFollowing(false);
+        };
+        m.on("dragstart", stopFollowing);
+        m.on("zoomstart", stopFollowing);
+      },
+    );
 
     return () => {
       cancelled = true;

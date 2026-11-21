@@ -2,10 +2,10 @@ import { getEnv, type Env } from "@/env";
 import { config, type Config } from "@/lib/config";
 import { openMeteo } from "./adapters/openMeteo";
 import { photon } from "./adapters/photon";
+import { twilio } from "./adapters/twilio";
 import { webPush } from "./adapters/webPush";
 import { clockSource, type Clock } from "./clock";
 import { getDb, type Db } from "./db";
-import { AppError } from "./errors";
 import type { AuthPort, SessionJar } from "./ports/auth";
 import type { Geocoder } from "./ports/geocoder";
 import type { Push } from "./ports/push";
@@ -45,16 +45,11 @@ export function authFor(
     : supabaseAuth(jar, env);
 }
 
-function notWired(port: string): Promise<never> {
-  return Promise.reject(new AppError("internal", `${port} is not wired yet`));
-}
-
-const sms: Sms = { send: () => notWired("sms") };
-
 let source: ReturnType<typeof clockSource> | undefined;
 let photonFor: ReturnType<typeof photon> | undefined;
 let openMeteoFor: ReturnType<typeof openMeteo> | undefined;
 let push: Push | undefined;
+let sms: Sms | undefined;
 
 export async function makeDeps(): Promise<Deps> {
   const db = getDb();
@@ -68,6 +63,11 @@ export async function makeDeps(): Promise<Deps> {
       publicKey: getEnv().NEXT_PUBLIC_VAPID_PUBLIC_KEY,
       privateKey: getEnv().VAPID_PRIVATE_KEY,
     },
+  });
+  sms ??= twilio({
+    accountSid: getEnv().TWILIO_ACCOUNT_SID,
+    authToken: getEnv().TWILIO_AUTH_TOKEN,
+    from: getEnv().TWILIO_FROM,
   });
   return {
     db,

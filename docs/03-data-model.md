@@ -10,7 +10,8 @@ explains it. If the two disagree, the SQL wins; fix this document.
 - Status columns are text with a check constraint.
 - Deleting an `auth.users` row removes the profile and, by cascade, everything the person owns,
   including notes they sent. Notes they received stay with their senders. See "Deleting an account".
-- Row level security is on for every table with no policies, except read-your-own on `events`.
+- Row level security is on for every table with no policies, except read-your-own on `events` and
+  the server role `coo_app` on `tick_health`.
 
 ## Tables
 

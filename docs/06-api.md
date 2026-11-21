@@ -181,8 +181,8 @@ Weather and place names are fetched before the transaction opens, never inside i
 | Endpoint | Does |
 |---|---|
 | `POST /api/cron/tick` | Needs `Authorization: Bearer CRON_SECRET`. Runs the tick. Returns counts |
-| `POST /api/dev/clock` | Not in production. `{ addMs }` or `{ toFlight: id }` (jump to one second after that flight's next segment ends) or `{ reset: true }` |
-| `POST /api/dev/grant` | Not in production. `{ seeds }` |
+| `POST /api/dev/clock` | Not in production. `{ addMs }` or `{ toFlight: id }` (jump to one second after that flight's next segment ends) or `{ reset: true }`, each with `ref` (a uuid per operation, so a retry applies once) |
+| `POST /api/dev/grant` | Not in production. `{ seeds, ref }`. `ref` is a uuid per grant, so a retry pays once |
 
 ## The claim pattern
 

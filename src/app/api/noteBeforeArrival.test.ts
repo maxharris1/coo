@@ -20,8 +20,11 @@ import { flightsGet } from "./flights/get";
 import { friendsGet } from "./friends/get";
 import { geoHereGet } from "./geo/here/get";
 import { geoSearchGet } from "./geo/search/get";
+import { healthGet } from "./health/get";
 import { inviteGet } from "./invite/[code]/get";
+import { notesGet } from "./notes/get";
 import { notificationsGet } from "./notifications/get";
+import { realtimeTokenGet } from "./realtime/token/get";
 import { shopGet } from "./shop/get";
 import { syncGet } from "./sync/get";
 
@@ -58,13 +61,19 @@ const GET_ENDPOINTS: Record<
     build: geoSearchGet,
     url: "/api/geo/search?q=Philadelphia",
   },
+  "src/app/api/health/route.ts": { build: healthGet, url: "/api/health" },
   "src/app/api/invite/[code]/route.ts": {
     build: inviteGet,
     url: "/api/invite/seed-max",
   },
+  "src/app/api/notes/route.ts": { build: notesGet, url: "/api/notes" },
   "src/app/api/notifications/route.ts": {
     build: notificationsGet,
     url: "/api/notifications",
+  },
+  "src/app/api/realtime/token/route.ts": {
+    build: realtimeTokenGet,
+    url: "/api/realtime/token",
   },
   "src/app/api/shop/route.ts": { build: shopGet, url: "/api/shop" },
   "src/app/api/sync/route.ts": { build: syncGet, url: "/api/sync" },

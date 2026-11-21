@@ -83,6 +83,7 @@ vi.mock("maplibre-gl", () => ({
   Map: lib.FakeMap,
   Marker: lib.FakeMarker,
   LngLatBounds: lib.FakeBounds,
+  setWorkerUrl: () => {},
 }));
 
 vi.mock("react", async (importOriginal) => ({
