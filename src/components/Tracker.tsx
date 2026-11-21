@@ -131,11 +131,11 @@ function recipient(flight: Flight): string | undefined {
 }
 
 function subLine(flight: Flight, roost: ReturnType<typeof roostAt>): string {
+  if (flight.role === "incoming") return "Carrying a note for you";
   if (roost && roost.count < COUNTS.length) {
     const to = recipient(flight) ?? flight.to.label;
     return `Night ${COUNTS[roost.index]} of a ${COUNTS[roost.count]}-day flight to ${to}`;
   }
-  if (flight.role === "incoming") return "Carrying a note for you";
   const to = recipient(flight);
   return to ? `Carrying your note to ${to}` : "Carrying your note";
 }
@@ -258,6 +258,7 @@ export function Tracker({
           bird={flight.bird}
           offsetMs={offsetMs}
           bottomPadding={280}
+          night={view.night}
         />
       )}
       <div className={styles.card}>

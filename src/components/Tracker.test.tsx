@@ -194,6 +194,18 @@ describe("Tracker on the Chicago vector at 2 am (ac-2)", () => {
     expect(html).toMatch(/<section[^>]*data-night="false"/);
   });
 
+  it("tells the recipient the bird is carrying their note while it roosts", () => {
+    const flight = flightFrom("chicago-overnight", { role: "incoming" });
+    vi.setSystemTime(nyTime("20", "02:00"));
+    const page = text(
+      renderToStaticMarkup(
+        <Tracker flight={flight} offsetMs={0} timeZone={TZ} />,
+      ),
+    );
+    expect(page).toContain("Carrying a note for you");
+    expect(page).not.toContain("Night one");
+  });
+
   it("reads the roost end in the viewer's time zone", () => {
     const flight = flightFrom("chicago-overnight");
     const view = trackerView(flight, nyTime("20", "02:00"), "America/Chicago");
