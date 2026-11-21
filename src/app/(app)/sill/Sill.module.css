@@ -1,0 +1,88 @@
+.sill {
+  flex: 1;
+  padding: var(--coo-gutter) var(--coo-gutter) 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--coo-paper);
+  color: var(--coo-ink);
+  font-family: var(--coo-font-body);
+}
+
+.title {
+  margin: 0;
+  font-family: var(--coo-font-display);
+  font-size: 28px;
+}
+
+.rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 62px;
+  padding: 8px 12px 8px 8px;
+  background: var(--coo-card);
+  border: var(--coo-line);
+  border-radius: var(--coo-radius-row);
+  color: inherit;
+  text-decoration: none;
+}
+
+.avatar {
+  flex-shrink: 0;
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border: var(--coo-line-thin);
+  border-radius: 50%;
+  background: var(--coo-sky);
+  overflow: hidden;
+}
+
+.rowText {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.rowName {
+  font-weight: 900;
+  font-size: 15px;
+}
+
+.rowLine {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.empty {
+  margin: 0;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.send {
+  align-self: flex-start;
+  min-height: var(--coo-touch);
+  padding: 0 18px;
+  display: flex;
+  align-items: center;
+  background: var(--coo-sun);
+  border: var(--coo-line);
+  border-radius: var(--coo-radius-card);
+  box-shadow: var(--coo-shadow-2);
+  color: inherit;
+  font-weight: 900;
+  text-decoration: none;
+}
