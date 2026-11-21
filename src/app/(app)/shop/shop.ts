@@ -119,3 +119,13 @@ export const buyItem = (itemId: string, fetchImpl: Fetch = fetch) =>
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ itemId }),
   });
+
+export async function openShop(
+  load: () => Promise<Result<Shop>>,
+  toast: (message: string) => void,
+): Promise<ShopRows | null> {
+  const result = await load();
+  if (result.ok) return shopRows(result.data);
+  toast(result.message);
+  return null;
+}
