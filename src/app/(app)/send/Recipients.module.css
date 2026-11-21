@@ -130,6 +130,7 @@
   text-align: left;
   font-family: inherit;
   color: var(--coo-ink);
+  text-decoration: none;
   cursor: pointer;
 }
 
@@ -201,6 +202,14 @@
   background: var(--coo-sky);
 }
 
+.peach {
+  background: var(--coo-peach);
+}
+
+.sand {
+  background: var(--coo-sand);
+}
+
 .mint {
   background: var(--coo-mint);
 }
@@ -227,6 +236,29 @@
   font-size: 12.5px;
   line-height: 1.25;
   overflow-wrap: anywhere;
+}
+
+.pill {
+  flex-shrink: 0;
+  padding: 3px 9px;
+  background: var(--coo-card);
+  border: var(--coo-line-thin);
+  border-radius: 999px;
+  font-weight: 900;
+  font-size: 11.5px;
+}
+
+.fromContacts {
+  min-height: 48px;
+  box-sizing: border-box;
+  background: var(--coo-card);
+  border: var(--coo-line);
+  border-radius: var(--coo-radius-row);
+  font-family: inherit;
+  font-weight: 900;
+  font-size: 15px;
+  color: var(--coo-ink);
+  cursor: pointer;
 }
 
 .someoneNew {

@@ -2,9 +2,15 @@ import { describe, expect, it } from "vitest";
 import type { UserId } from "@/server/ports/auth";
 import type { FriendRow } from "@/server/services/friends";
 import {
+  PREFILL_NAME_KEY,
   canGoNext,
+  canPickContacts,
   fastestReady,
   friendCard,
+  handOffName,
+  matches,
+  pickContacts,
+  sillCard,
   nextHref,
   readyBirds,
   runningLine,
@@ -204,5 +210,76 @@ describe("canGoNext", () => {
 describe("nextHref", () => {
   it("carries every pick to Compose", () => {
     expect(nextHref(["a", "b c"])).toBe("/send/write?to=a&to=b+c");
+  });
+});
+
+describe("sillCard (ac-1)", () => {
+  it("names the owner and says their bird rides home free", () => {
+    expect(
+      sillCard({
+        id: "v1",
+        owner: { id: "u2", name: "Priya", handle: "priya" },
+        bird: { name: "Dumpling" },
+      }),
+    ).toEqual({
+      visitId: "v1",
+      name: "Priya",
+      line: "Dumpling is waiting. A reply rides home free.",
+    });
+  });
+});
+
+describe("matches", () => {
+  it("matches names case-blind and ignores surrounding spaces", () => {
+    expect(matches("Maya Okafor", " oKa ")).toBe(true);
+    expect(matches("Maya Okafor", "")).toBe(true);
+    expect(matches("Maya Okafor", "theo")).toBe(false);
+  });
+});
+
+describe("contacts (ac-1)", () => {
+  it("offers the picker only where navigator.contacts.select exists", () => {
+    expect(canPickContacts({})).toBe(false);
+    expect(canPickContacts({ contacts: {} })).toBe(false);
+    expect(canPickContacts({ contacts: { select: async () => [] } })).toBe(
+      true,
+    );
+  });
+
+  it("asks for names only, several at once, and keeps the first non-blank name of each", async () => {
+    const calls: unknown[] = [];
+    const names = await pickContacts({
+      contacts: {
+        select: async (props: string[], opts: { multiple: boolean }) => {
+          calls.push([props, opts]);
+          return [
+            { name: [" Maya Okafor "] },
+            { name: [] },
+            { name: ["Jordan Bell", "JB"] },
+            {},
+          ];
+        },
+      },
+    });
+    expect(calls).toEqual([[["name"], { multiple: true }]]);
+    expect(names).toEqual(["Maya Okafor", "Jordan Bell"]);
+  });
+
+  it("picks nobody when the picker is cancelled or fails", async () => {
+    const names = await pickContacts({
+      contacts: {
+        select: async () => {
+          throw new Error("InvalidStateError");
+        },
+      },
+    });
+    expect(names).toEqual([]);
+  });
+
+  it("hands the name to NewRecipient in sessionStorage", () => {
+    const store = new Map<string, string>();
+    handOffName({ setItem: (k, v) => void store.set(k, v) }, "Maya Okafor");
+    expect(PREFILL_NAME_KEY).toBe("coo:prefill-name");
+    expect(store.get("coo:prefill-name")).toBe("Maya Okafor");
   });
 });
