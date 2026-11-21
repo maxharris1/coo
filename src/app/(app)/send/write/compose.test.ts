@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { RecipientQuote } from "@/server/services/flights/quote";
-import { counter, pickerOption, stats, type SyncBird } from "./compose";
+import type { FriendRow } from "@/server/services/friends";
+import {
+  canRelease,
+  counter,
+  pickerOption,
+  recipientLine,
+  releaseBird,
+  stats,
+  type SyncBird,
+} from "./compose";
 
 const bird = (over: Partial<SyncBird> = {}): SyncBird =>
   ({
@@ -264,5 +273,73 @@ describe("stats", () => {
 
   it("has no stats for a bird the quote does not cover", () => {
     expect(stats(quote(), "missing", NY, "mi")).toBeNull();
+  });
+});
+
+describe("recipientLine", () => {
+  it.each([
+    [
+      "the mock's line",
+      { where: "Philadelphia", distanceMi: 81.3 },
+      "mi",
+      "Philadelphia, 81 miles as the pigeon flies",
+    ],
+    [
+      "in kilometres",
+      { where: "Philadelphia", distanceMi: 81.3 },
+      "km",
+      "Philadelphia, 131 kilometres as the pigeon flies",
+    ],
+    [
+      "no place name",
+      { where: null, distanceMi: 1 },
+      "mi",
+      "1 mile as the pigeon flies",
+    ],
+    ["no roost", { where: null, distanceMi: null }, "mi", "No roost yet"],
+  ] as const)("%s", (_, place, units, expected) => {
+    const friend = { id: "u2", name: "Priya", handle: "priya", ...place };
+    expect(recipientLine(friend as FriendRow, units)).toBe(expected);
+  });
+});
+
+describe("releaseBird", () => {
+  const flock = (over: Partial<SyncBird>) =>
+    bird({
+      focus: 3,
+      navigation: 3,
+      level: 1,
+      belly: 80,
+      feathers: 80,
+      energy: 80,
+      sulking: false,
+      ...over,
+    });
+
+  it("picks the fastest bird that can fly", () => {
+    const slow = flock({ id: "b1", speedMph: 40 });
+    const fast = flock({ id: "b2", speedMph: 55 });
+    const grounded = flock({ id: "b3", speedMph: 70, canFly: false });
+    expect(releaseBird([slow, fast, grounded])).toBe(fast);
+  });
+
+  it("is null when nobody can fly", () => {
+    expect(releaseBird([bird({ canFly: false })])).toBeNull();
+  });
+});
+
+describe("canRelease", () => {
+  const fits = { text: "5 of 140 characters", over: false };
+  const over = { text: "141 of 140 characters", over: true };
+
+  it.each([
+    ["a note that fits and a ready bird", "Hello", fits, "Gerald", false, true],
+    ["an empty note", "", fits, "Gerald", false, false],
+    ["a note of only spaces", "   ", fits, "Gerald", false, false],
+    ["a note over the limit", "Hello", over, "Gerald", false, false],
+    ["no ready bird", "Hello", fits, null, false, false],
+    ["a release in flight", "Hello", fits, "Gerald", true, false],
+  ] as const)("%s", (_, note, count, birdName, sending, expected) => {
+    expect(canRelease(note, count, birdName, sending)).toBe(expected);
   });
 });

@@ -49,14 +49,22 @@ export function geoClient(
       return { status: res.status, json: await res.json() };
     };
 
-  async function del(jar?: FakeJar) {
+  async function del(jar?: FakeJar, body?: unknown) {
     const res = await handler(
       new NextRequest(`https://coo.test${path}`, {
         method: "DELETE",
-        headers: { cookie: cookieHeader(jar) },
+        headers: {
+          cookie: cookieHeader(jar),
+          ...(body === undefined ? {} : { "content-type": "application/json" }),
+        },
+        body: body === undefined ? undefined : JSON.stringify(body),
       }),
     );
-    return { status: res.status, json: await res.json() };
+    return {
+      status: res.status,
+      json: await res.json(),
+      setCookie: res.headers.get("set-cookie") ?? "",
+    };
   }
 
   return { signIn, get, post: send("POST"), patch: send("PATCH"), del };

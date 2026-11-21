@@ -256,4 +256,27 @@ describe("endVisits", () => {
       }),
     ]);
   });
+
+  it("aims the return at the loft the owner moved to while weather was sampled", async () => {
+    const { setTravel } = await import("../loft");
+    await landPlanned();
+    const samples = deps.weather.samples.bind(deps.weather);
+    let changed = false;
+    vi.spyOn(deps.weather, "samples").mockImplementation(async (at) => {
+      if (!changed) {
+        changed = true;
+        await setTravel(deps, world.max.id as UserId, {
+          on: true,
+          roost: { lat: 42.35, lon: -71.08 },
+        });
+      }
+      return samples(at);
+    });
+
+    deps.clock.advance(30 * MINUTE_MS);
+    await tick(deps);
+
+    const [ret] = await returns();
+    expect(ret.to_label).toBe("Back Bay");
+  });
 });
