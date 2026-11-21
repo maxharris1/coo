@@ -10,7 +10,7 @@ import { type FlightResult, loadFlight } from "./flightApi";
 
 export default function FlightPage() {
   const { id } = useParams<{ id: string }>();
-  const { offsetMs } = useSync();
+  const { data, offsetMs } = useSync();
   const [result, setResult] = useState<FlightResult | null>(null);
 
   useEffect(() => {
@@ -25,9 +25,14 @@ export default function FlightPage() {
 
   if (!result) return <Loader />;
   if (!result.ok) return <FlightError code={result.code} />;
+  const synced = data?.flights.find((f) => f.id === result.flight.id);
+  const flight =
+    data && synced && data.serverNow >= result.serverNow
+      ? synced
+      : result.flight;
   return (
     <Tracker
-      flight={result.flight}
+      flight={flight}
       offsetMs={offsetMs}
       timeZone={Intl.DateTimeFormat().resolvedOptions().timeZone}
     />
