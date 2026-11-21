@@ -1,6 +1,7 @@
 import Link from "next/link";
+import { Bird } from "@/components/Bird";
 import { Loader } from "@/components/Loader";
-import type { AviaryState, EggCard } from "./aviary";
+import type { AviaryState, BreedCard, EggCard } from "./aviary";
 import styles from "./Aviary.module.css";
 
 function EggArt() {
@@ -81,6 +82,35 @@ function EggBody({ egg }: { egg: EggCard }) {
   }
 }
 
+function Breeds({ breeds }: { breeds: BreedCard[] }) {
+  return (
+    <section className={styles.section}>
+      <div className={styles.sectionHead}>
+        <h2 className={styles.sectionTitle}>Who might hatch</h2>
+        <div className={styles.count}>{`${breeds.length} breeds`}</div>
+      </div>
+      <ul className={styles.breeds}>
+        {breeds.map((b) => (
+          <li key={b.id} className={styles.breed}>
+            <div
+              className={styles.breedArt}
+              style={
+                b.id === "tumbler" ? { transform: "rotate(180deg)" } : undefined
+              }
+            >
+              <Bird look={b.id} size={112} title={`${b.name} pigeon`} />
+            </div>
+            <div className={styles.breedName}>{b.name}</div>
+            <div className={styles.breedNote}>{b.note}</div>
+            <div className={styles.trait}>{b.trait}</div>
+            {b.owned && <div className={styles.owned}>In the loft</div>}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 export function AviaryView({
   state,
   onRetry,
@@ -129,6 +159,9 @@ export function AviaryView({
             <EggBody egg={state.top.egg} />
           </div>
         </div>
+      )}
+      {state.kind === "ready" && state.top.breeds.length > 0 && (
+        <Breeds breeds={state.top.breeds} />
       )}
     </main>
   );

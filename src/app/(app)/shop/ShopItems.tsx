@@ -1,7 +1,7 @@
 import type { ReactElement } from "react";
 import { GearIcon } from "@/components/GearIcon";
 import { isGearId } from "@/lib/game/gear";
-import type { ShopRow } from "./shop";
+import type { BuyRow, ShopRow } from "./shop";
 import styles from "./ShopItems.module.css";
 import { INK, SUN, SeedIcon } from "./ShopTop";
 
@@ -96,7 +96,14 @@ function ItemIcon({ itemId }: { itemId: string }) {
   return isGearId(itemId) ? <GearIcon id={itemId} size={38} /> : null;
 }
 
-function Action({ name, action }: Pick<ShopRow, "name" | "action">) {
+function Action({
+  row,
+  onBuy,
+}: {
+  row: ShopRow;
+  onBuy: (row: BuyRow) => void;
+}) {
+  const { name, action } = row;
   switch (action.kind) {
     case "owned":
       return <div className={styles.chip}>{action.label}</div>;
@@ -106,6 +113,7 @@ function Action({ name, action }: Pick<ShopRow, "name" | "action">) {
           type="button"
           aria-label={`Buy ${name} for ${action.price} seeds`}
           className={styles.price}
+          onClick={() => onBuy({ ...row, action })}
         >
           <SeedIcon size={16} fill={CARD} />
           <span>{action.price}</span>
@@ -124,47 +132,85 @@ function Action({ name, action }: Pick<ShopRow, "name" | "action">) {
   }
 }
 
-function Rows({ rows }: { rows: ShopRow[] }) {
+function Burst() {
   return (
-    <ul className={styles.rows}>
-      {rows.map(({ itemId, name, effect, action }) => (
-        <li key={itemId} className={styles.row}>
-          <div
-            aria-hidden="true"
-            className={styles.tile}
-            style={{ background: `var(--coo-${TINTS[itemId] ?? "sky"})` }}
-          >
-            <ItemIcon itemId={itemId} />
-          </div>
-          <div className={styles.text}>
-            <div className={styles.name}>{name}</div>
-            <div className={styles.effect}>{effect}</div>
-          </div>
-          <Action name={name} action={action} />
-        </li>
-      ))}
-    </ul>
+    <span aria-hidden="true" className={styles.burst}>
+      <span className={styles.seed}>
+        <SeedIcon size={16} fill={SUN} />
+      </span>
+      <span className={`${styles.seed} ${styles.seedL}`}>
+        <SeedIcon size={16} fill={SUN} />
+      </span>
+      <span className={`${styles.seed} ${styles.seedU}`}>
+        <SeedIcon size={16} fill={SUN} />
+      </span>
+    </span>
   );
+}
+
+function Rows({
+  rows,
+  burst,
+  orphan = null,
+  onBuy,
+}: {
+  rows: ShopRow[];
+  burst: string | null;
+  orphan?: string | null;
+  onBuy: (row: BuyRow) => void;
+}) {
+  const items = rows.map((row) => (
+    <li key={row.itemId} className={styles.row}>
+      <div
+        aria-hidden="true"
+        className={styles.tile}
+        style={{ background: `var(--coo-${TINTS[row.itemId] ?? "sky"})` }}
+      >
+        <ItemIcon itemId={row.itemId} />
+      </div>
+      <div className={styles.text}>
+        <div className={styles.name}>{row.name}</div>
+        <div className={styles.effect}>{row.effect}</div>
+      </div>
+      <Action row={row} onBuy={onBuy} />
+      {burst === row.itemId && <Burst key="burst" />}
+    </li>
+  ));
+  if (orphan)
+    items.push(
+      <li key={orphan} aria-hidden="true" className={styles.vacated}>
+        <Burst key="burst" />
+      </li>,
+    );
+  return <ul className={styles.rows}>{items}</ul>;
 }
 
 export function ShopItems({
   gear,
   loft,
+  burst,
+  onBuy,
 }: {
   gear: ShopRow[];
   loft: ShopRow[];
+  burst: string | null;
+  onBuy: (row: BuyRow) => void;
 }) {
+  const orphan =
+    burst && ![...gear, ...loft].some((row) => row.itemId === burst)
+      ? burst
+      : null;
   return (
     <main className={styles.list}>
       <div className={styles.head}>
         <h2 className={styles.heading}>Gear for the flock</h2>
         <div className={styles.hint}>Any bird can wear it</div>
       </div>
-      <Rows rows={gear} />
+      <Rows rows={gear} burst={burst} onBuy={onBuy} />
       <div className={`${styles.head} ${styles.loftHead}`}>
         <h2 className={styles.heading}>For the loft</h2>
       </div>
-      <Rows rows={loft} />
+      <Rows rows={loft} burst={burst} orphan={orphan} onBuy={onBuy} />
     </main>
   );
 }

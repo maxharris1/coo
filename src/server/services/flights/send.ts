@@ -10,7 +10,11 @@ import { clockTime, type Pronoun } from "@/lib/format";
 import { careAt, projectCare, type CareOwner } from "@/lib/game/care";
 import { levelFor } from "@/lib/game/levels";
 import { noteLimit, validateBody } from "@/lib/game/notes";
-import { isWeekend } from "@/lib/game/time";
+import {
+  isWeekend,
+  startOfLocalDayMs,
+  startOfNextLocalDayMs,
+} from "@/lib/game/time";
 import type { Deps } from "@/server/deps";
 import { AppError } from "@/server/errors";
 import type { UserId } from "@/server/ports/auth";
@@ -67,9 +71,9 @@ export async function send(
     "select * from birds where id = $1 and owner_id = $2",
     [item.birdId, me],
   );
-  readyToFly(unlocked, input.body);
-
   const now = deps.clock.now();
+  readyToFly(unlocked, input.body, now, owner);
+
   const [{ samples }, names, [them]] = await Promise.all([
     sampleWeather(
       deps,
@@ -96,7 +100,7 @@ export async function send(
 
   const notification = await deps.db.tx(async (tx) => {
     await tx.query(
-      "select 1 from profiles where id = any($1::uuid[]) order by id for share",
+      "select 1 from profiles where id = any($1::uuid[]) order by id for update",
       [[me, friend]],
     );
     await tx.query(
@@ -112,7 +116,7 @@ export async function send(
       "select * from birds where id = $1 and owner_id = $2 for update",
       [item.birdId, me],
     );
-    const { bird, body } = readyToFly(locked, input.body);
+    const { bird, body } = readyToFly(locked, input.body, now, owner);
     const flight = toFlightInput(
       flightId,
       bird,
@@ -134,6 +138,20 @@ export async function send(
     );
     if (claimed.length === 0)
       throw new AppError("conflict", "That bird is not home");
+    const [{ count: sentToday }] = await tx.query<{ count: number }>(
+      `select count(*)::int from flights
+       where owner_id = $1 and kind = 'delivery' and status <> 'cancelled'
+         and created_at >= $2 and created_at < $3`,
+      [
+        me,
+        new Date(startOfLocalDayMs(now, current.mine.timezone)).toISOString(),
+        new Date(
+          startOfNextLocalDayMs(now, current.mine.timezone),
+        ).toISOString(),
+      ],
+    );
+    if (sentToday >= deps.config.game.limits.flightsPerDay)
+      throw new AppError("rate_limited", "Too many requests. Try again later.");
 
     const [note] = await tx.query<{ id: string }>(
       `insert into notes (sender_id, recipient_id, body, created_at)
@@ -219,11 +237,15 @@ async function prepareLeg(
 function readyToFly(
   row: Row<"birds"> | undefined,
   text: string,
+  now: number,
+  owner: CareOwner,
 ): { bird: BirdRecord; body: string } {
   if (!row) throw new AppError("not_found", "No such bird");
   const bird = toBirdRecord(row);
   if (bird.status !== "home")
     throw new AppError("conflict", "That bird is not home");
+  if (!careAt(snapshotOf(bird), now, owner).canFly)
+    throw new AppError("conflict", "That bird is too tired to fly");
   const checked = validateBody(text, noteLimit(bird));
   if (!checked.ok)
     throw new AppError(

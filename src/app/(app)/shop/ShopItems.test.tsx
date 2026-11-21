@@ -61,9 +61,17 @@ const MOCK: ShopRows = {
   ],
 };
 
-const render = (rows: Pick<ShopRows, "gear" | "loft">) =>
+const render = (
+  rows: Pick<ShopRows, "gear" | "loft">,
+  burst: string | null = null,
+) =>
   renderToStaticMarkup(
-    <ShopItems gear={rows.gear} loft={rows.loft} />,
+    <ShopItems
+      gear={rows.gear}
+      loft={rows.loft}
+      burst={burst}
+      onBuy={() => {}}
+    />,
   ).replaceAll("&#x27;", "'");
 
 const cards = (html: string) =>
@@ -274,5 +282,35 @@ describe("/shop price buttons (ac-2)", () => {
 
   it("shows a focus ring on price buttons", () => {
     expect(css).toMatch(/\.price:focus-visible\s*\{[^}]*outline:/);
+  });
+});
+
+describe("/shop seed burst (part 4 ac-2)", () => {
+  const burstCard = (burst: string | null) =>
+    cards(render(MOCK, burst)).filter((card) => card.includes("burst"));
+
+  it("draws no burst until an item is bought", () => {
+    expect(burstCard(null)).toEqual([]);
+  });
+
+  it("plays three seeds from the bought item's row only", () => {
+    const [card, ...rest] = burstCard("rainhat");
+    expect(rest).toEqual([]);
+    expect(card).toContain("Rain hat");
+    const seeds = card.match(/<span class="[^"]*seed[^"]*"/g) ?? [];
+    expect(seeds).toHaveLength(3);
+    expect(card).toMatch(/<span aria-hidden="true" class="[^"]*burst[^"]*"/);
+  });
+
+  it("sends the seeds right, left and up for 1.8 s", () => {
+    expect(rule("seed")).toMatch(/animation:\s*coo-burst 1\.8s ease-out/);
+    expect(rule("seedL")).toMatch(/animation-name:\s*coo-burst-l/);
+    expect(rule("seedU")).toMatch(/animation-name:\s*coo-burst-u/);
+  });
+
+  it("plays no burst under prefers-reduced-motion", () => {
+    expect(css).toMatch(
+      /@media \(prefers-reduced-motion: reduce\) \{\s*\.burst \{\s*display: none;/,
+    );
   });
 });

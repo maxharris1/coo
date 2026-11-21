@@ -6,9 +6,14 @@ export const PLACES = [
 
 export const ZOOMS = [3, 6, 9, 12, 15, 17] as const;
 
+export const MODES = ["day", "night"] as const;
+
+export const MODE_LABELS = { day: "Day", night: "Night" } as const;
+
 export type Place = (typeof PLACES)[number];
 export type Zoom = (typeof ZOOMS)[number];
-export type View = { place: Place; zoom: Zoom };
+export type Mode = (typeof MODES)[number];
+export type View = { place: Place; zoom: Zoom; mode: Mode };
 
 export function parseView(
   params: Record<string, string | string[] | undefined>,
@@ -16,8 +21,9 @@ export function parseView(
   return {
     place: PLACES.find((p) => p.id === params.place) ?? PLACES[0],
     zoom: ZOOMS.find((z) => `${z}` === params.zoom) ?? ZOOMS[0],
+    mode: MODES.find((m) => m === params.mode) ?? MODES[0],
   };
 }
 
-export const viewHref = ({ place, zoom }: View) =>
-  `/dev/map?place=${place.id}&zoom=${zoom}`;
+export const viewHref = ({ place, zoom, mode }: View) =>
+  `/dev/map?place=${place.id}&zoom=${zoom}&mode=${mode}`;

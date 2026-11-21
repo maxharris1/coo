@@ -50,22 +50,31 @@ async function balance(id: string) {
 
 describe("POST /api/shop/buy", () => {
   it("refuses a request without a session as 401", async () => {
-    const { status, json } = await client.post({ itemId: "goggles" });
+    const { status, json } = await client.post({
+      itemId: "goggles",
+      price: 120,
+    });
     expect(status).toBe(401);
     expect(json.error.code).toBe("unauthenticated");
   });
 
   it("refuses a user who has not finished onboarding as 409 not_onboarded", async () => {
     const { jar } = await withProfile("(555) 123-4567", "Max");
-    const { status, json } = await client.post({ itemId: "goggles" }, jar);
+    const { status, json } = await client.post(
+      { itemId: "goggles", price: 120 },
+      jar,
+    );
     expect(status).toBe(409);
     expect(json.error.code).toBe("not_onboarded");
   });
 
   it.each([
     ["an empty body", {}],
-    ["an unknown key", { itemId: "goggles", userId: "someone" }],
-    ["an unknown item", { itemId: "rocket" }],
+    ["an unknown key", { itemId: "goggles", price: 120, userId: "someone" }],
+    ["an unknown item", { itemId: "rocket", price: 0 }],
+    ["a missing price", { itemId: "goggles" }],
+    ["a fractional price", { itemId: "goggles", price: 119.5 }],
+    ["a negative price", { itemId: "goggles", price: -120 }],
   ])("answers %s with 400 invalid", async (_, body) => {
     const { jar } = await onboarded("(555) 123-4567", "Max", 1000);
     const { status, json } = await client.post(body, jar);
@@ -76,7 +85,10 @@ describe("POST /api/shop/buy", () => {
   it("answers a buy the caller cannot afford with 402 insufficient_seeds", async () => {
     const { id, jar } = await onboarded("(555) 123-4567", "Max");
     const before = await balance(id);
-    const { status, json } = await client.post({ itemId: "birdbath" }, jar);
+    const { status, json } = await client.post(
+      { itemId: "birdbath", price: 220 },
+      jar,
+    );
     expect(status).toBe(402);
     expect(json.error.code).toBe("insufficient_seeds");
     expect(await balance(id)).toEqual(before);
@@ -85,7 +97,10 @@ describe("POST /api/shop/buy", () => {
   it("buys gear and returns the account and closet", async () => {
     const { id, jar } = await onboarded("(555) 123-4567", "Max", 1000);
     const before = await balance(id);
-    const { status, json } = await client.post({ itemId: "goggles" }, jar);
+    const { status, json } = await client.post(
+      { itemId: "goggles", price: 120 },
+      jar,
+    );
     expect(status).toBe(200);
     expect(json.me).toMatchObject({ id, seeds: before.seeds - 120 });
     expect(json.closet).toContain("goggles");
@@ -95,8 +110,13 @@ describe("POST /api/shop/buy", () => {
 
   it("answers a second birdbath with 409 conflict", async () => {
     const { jar } = await onboarded("(555) 123-4567", "Max", 1000);
-    expect((await client.post({ itemId: "birdbath" }, jar)).status).toBe(200);
-    const { status, json } = await client.post({ itemId: "birdbath" }, jar);
+    expect(
+      (await client.post({ itemId: "birdbath", price: 220 }, jar)).status,
+    ).toBe(200);
+    const { status, json } = await client.post(
+      { itemId: "birdbath", price: 220 },
+      jar,
+    );
     expect(status).toBe(409);
     expect(json.error.code).toBe("conflict");
   });
@@ -104,20 +124,20 @@ describe("POST /api/shop/buy", () => {
   it("sells perch 4 for 250 and perch 5 for 400, then answers a sixth with 409 conflict", async () => {
     const { id, jar } = await onboarded("(555) 123-4567", "Max", 1000);
     const before = await balance(id);
-    const fourth = await client.post({ itemId: "perch" }, jar);
+    const fourth = await client.post({ itemId: "perch", price: 250 }, jar);
     expect(fourth.status).toBe(200);
     expect(fourth.json.me).toMatchObject({
       perches: 4,
       seeds: before.seeds - 250,
     });
-    const fifth = await client.post({ itemId: "perch" }, jar);
+    const fifth = await client.post({ itemId: "perch", price: 400 }, jar);
     expect(fifth.status).toBe(200);
     expect(fifth.json.me).toMatchObject({
       perches: 5,
       seeds: before.seeds - 650,
     });
     const full = await balance(id);
-    const sixth = await client.post({ itemId: "perch" }, jar);
+    const sixth = await client.post({ itemId: "perch", price: 400 }, jar);
     expect(sixth.status).toBe(409);
     expect(sixth.json.error.code).toBe("conflict");
     const after = await balance(id);
@@ -125,13 +145,31 @@ describe("POST /api/shop/buy", () => {
     expect(after.ledger).toBe(after.seeds);
   });
 
+  it("answers a price the buyer did not see with 409 conflict and charges nothing", async () => {
+    const { id, jar } = await onboarded("(555) 123-4567", "Max", 1000);
+    expect(
+      (await client.post({ itemId: "perch", price: 250 }, jar)).status,
+    ).toBe(200);
+    const before = await balance(id);
+    const { status, json } = await client.post(
+      { itemId: "perch", price: 250 },
+      jar,
+    );
+    expect(status).toBe(409);
+    expect(json.error).toEqual({
+      code: "conflict",
+      message: "The price changed. Take another look.",
+    });
+    expect(await balance(id)).toEqual(before);
+  });
+
   it("charges once for two requests at once", async () => {
     const { id, jar } = await onboarded("(555) 123-4567", "Max", 1000);
     const before = await balance(id);
     const statuses = (
       await Promise.all([
-        client.post({ itemId: "goggles" }, jar),
-        client.post({ itemId: "goggles" }, jar),
+        client.post({ itemId: "goggles", price: 120 }, jar),
+        client.post({ itemId: "goggles", price: 120 }, jar),
       ])
     )
       .map((r) => r.status)
@@ -144,7 +182,7 @@ describe("POST /api/shop/buy", () => {
     const other = await onboarded("(555) 765-4321", "Brenda", 1000);
     const { id, jar } = await onboarded("(555) 123-4567", "Max", 1000);
     const theirs = await balance(other.id);
-    const { json } = await client.post({ itemId: "birdbath" }, jar);
+    const { json } = await client.post({ itemId: "birdbath", price: 220 }, jar);
     expect(json.me.id).toBe(id);
     expect(await balance(other.id)).toEqual(theirs);
   });

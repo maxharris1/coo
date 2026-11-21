@@ -6,6 +6,7 @@ import {
   localDate,
   quietHoursEnd,
   startOfLocalDayMs,
+  startOfNextLocalDayMs,
   weekday,
   weekStart,
 } from "@/lib/game/time";
@@ -41,6 +42,24 @@ describe("local day", () => {
     expect(
       startOfLocalDayMs(nov1 + 24 * HOUR, NY) - startOfLocalDayMs(nov1, NY),
     ).toBe(25 * HOUR);
+  });
+
+  it("ends the day at the next local midnight across both DST changes", () => {
+    expect(startOfNextLocalDayMs(nyEst(2026, 3, 8, 0), NY)).toBe(
+      nyEdt(2026, 3, 9, 0),
+    );
+    expect(startOfNextLocalDayMs(nyEdt(2026, 3, 8, 23, 59), NY)).toBe(
+      nyEdt(2026, 3, 9, 0),
+    );
+    expect(startOfNextLocalDayMs(nyEdt(2026, 11, 1, 0), NY)).toBe(
+      nyEst(2026, 11, 2, 0),
+    );
+    expect(startOfNextLocalDayMs(nyEst(2026, 11, 1, 23, 59), NY)).toBe(
+      nyEst(2026, 11, 2, 0),
+    );
+    expect(
+      startOfNextLocalDayMs(Date.parse("2026-11-21T04:59:59.500Z"), NY),
+    ).toBe(Date.parse("2026-11-21T05:00:00Z"));
   });
 
   it("starts a day whose midnight repeats at the first midnight", () => {

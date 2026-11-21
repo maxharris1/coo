@@ -38,8 +38,13 @@ const BIRDBATH = config.game.loftItems.find((item) => item.id === "birdbath");
 const PERCHES = config.game.perches;
 const PERCH_PRICES: Partial<Record<string, number>> = PERCHES.prices;
 
-function resolvePurchase(itemId: string, owner: Owner): Purchase {
-  const purchase = choose(itemId, owner);
+type BuyInput = { itemId: string; price: number };
+
+function resolvePurchase(input: BuyInput, owner: Owner): Purchase {
+  const purchase = choose(input.itemId, owner);
+  if (purchase.price !== input.price) {
+    throw new AppError("conflict", "The price changed. Take another look.");
+  }
   if (owner.seeds < purchase.price) {
     throw new AppError("insufficient_seeds", "Not enough seeds for that.");
   }
@@ -158,7 +163,7 @@ async function closetOf(db: Db, user: UserId): Promise<GearId[]> {
 export async function buy(
   deps: Deps,
   caller: UserId,
-  input: { itemId: string },
+  input: BuyInput,
 ): Promise<{ me: Me; closet: GearId[] }> {
   const now = deps.clock.now();
   return deps.db.tx(async (db) => {
@@ -167,7 +172,7 @@ export async function buy(
       [caller],
     );
     if (!profile) throw new AppError("not_found", "No such account.");
-    const purchase = resolvePurchase(input.itemId, {
+    const purchase = resolvePurchase(input, {
       seeds: profile.seeds,
       hasBirdbath: profile.has_birdbath,
       perches: profile.perches,
