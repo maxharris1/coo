@@ -155,7 +155,10 @@ export default function PigeonPage() {
               </div>
             ))}
             {dotsFor(bird).map((d) => (
-              <div key={d.ariaLabel} className={styles.ability}>
+              <div
+                key={d.ariaLabel}
+                className={`${styles.ability} ${styles.dotCard}`}
+              >
                 <span className={styles.abilityLabel}>{d.label}</span>
                 <svg
                   role="img"

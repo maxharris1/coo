@@ -218,12 +218,15 @@
 .ability {
   display: flex;
   flex-direction: column;
-  gap: 3px;
   padding: 8px 12px;
   overflow-wrap: anywhere;
   background: var(--coo-card);
   border: var(--coo-line);
   border-radius: var(--coo-radius-tile);
+}
+
+.dotCard {
+  gap: 3px;
 }
 
 .abilityLabel {

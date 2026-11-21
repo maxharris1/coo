@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import type { ReactElement, ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -302,6 +303,48 @@ describe("Pigeon abilities (ac-1)", () => {
     expect(render(payload([gerald({ deliveries: 1, detours: 1 })]))).toContain(
       ">1 delivery. 1 detour. 0 notes lost.<",
     );
+  });
+
+  it("spaces each card like the reference: only the dot cards get a gap", () => {
+    const reference = readFileSync(
+      new URL(
+        "../../../../../reference/screens/html/Pigeon.html",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    const css = readFileSync(
+      new URL("./page.module.css", import.meta.url),
+      "utf8",
+    );
+    const gapOf = (style: string) =>
+      /gap:\s*([^;]+)/.exec(style)?.[1].trim() ?? "0px";
+    const cardGap = (label: string) => {
+      const classes = new RegExp(
+        `<div class="([^"]*)"><span[^>]*>${label}`,
+      ).exec(html)?.[1];
+      const rules = (classes ?? "")
+        .split(" ")
+        .map((token) => /^_(\w+)_[0-9a-f]+$/.exec(token)?.[1])
+        .flatMap((name) =>
+          [...css.matchAll(new RegExp(`\\.${name}\\s*\\{([^}]*)\\}`, "g"))].map(
+            (m) => m[1],
+          ),
+        );
+      return gapOf(rules.join(";"));
+    };
+    const referenceGap = (label: string) =>
+      gapOf(
+        new RegExp(`<div style="([^"]*)"><span[^>]*>${label}`).exec(
+          reference,
+        )?.[1] ?? "missing",
+      );
+    for (const label of ["Speed", "Range", "Navigation", "Focus"]) {
+      expect({ label, gap: cardGap(label) }).toEqual({
+        label,
+        gap: referenceGap(label),
+      });
+    }
   });
 });
 
