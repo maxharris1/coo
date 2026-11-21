@@ -1,0 +1,54 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  --sheet: min(1180px, 100vw);
+  width: var(--sheet);
+  margin-inline: calc((100% - var(--sheet)) / 2);
+  padding: 24px var(--coo-gutter) 48px;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--coo-font-display);
+  font-weight: 400;
+  font-size: 36px;
+  line-height: 1;
+}
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--coo-touch);
+  padding: 0 16px;
+  border: var(--coo-line-thin);
+  border-radius: var(--coo-radius-pill);
+  background: var(--coo-card);
+  box-shadow: var(--coo-shadow-1);
+  color: var(--coo-ink);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.link[aria-current="true"] {
+  background: var(--coo-sun);
+}
+
+.map {
+  height: 70vh;
+  border: var(--coo-line);
+  border-radius: var(--coo-radius-card);
+  overflow: hidden;
+}
+
+.errors {
+  margin: 0;
+  font-size: 13px;
+  color: var(--coo-muted);
+}
