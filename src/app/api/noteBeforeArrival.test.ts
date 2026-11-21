@@ -12,6 +12,7 @@ import {
 } from "@/test/fixtures/plannedFlight";
 import { seedWorld, type World } from "@/test/seedWorld";
 import { authRoutes } from "./auth/handlers";
+import { earnGet } from "./earn/get";
 import { flightGet } from "./flights/[id]/get";
 import { flightsGet } from "./flights/get";
 import { friendsGet } from "./friends/get";
@@ -34,6 +35,7 @@ const GET_ENDPOINTS: Record<
     build: (r) => authRoutes(r).session,
     url: "/api/auth/session",
   },
+  "src/app/api/earn/route.ts": { build: earnGet, url: "/api/earn" },
   "src/app/api/flights/[id]/route.ts": {
     build: flightGet,
     url: "/api/flights/:flightId",
