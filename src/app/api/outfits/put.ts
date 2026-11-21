@@ -1,6 +1,7 @@
 import { z } from "zod";
+import { config } from "@/lib/config";
 import type { createJsonRoute } from "@/server/http";
-import { MAX_OUTFITS, saveOutfits } from "@/server/services/gear";
+import { saveOutfits } from "@/server/services/gear";
 
 const BODY = z
   .object({
@@ -14,7 +15,7 @@ const BODY = z
           })
           .strict(),
       )
-      .max(MAX_OUTFITS),
+      .max(config.game.limits.outfitsMax),
   })
   .strict();
 

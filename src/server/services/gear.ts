@@ -13,9 +13,6 @@ export type OutfitsInput = {
   outfits: { id?: string; name: string; items: string[] }[];
 };
 
-// docs/06-api.md: PUT /api/outfits keeps at most 6.
-export const MAX_OUTFITS = 6;
-
 type Bird = Row<"birds">;
 
 function isHome(bird: Bird, now: number): boolean {
@@ -150,14 +147,16 @@ export async function saveOutfits(
   caller: OnboardedCaller,
   input: OutfitsInput,
 ): Promise<{ outfits: Outfit[] }> {
-  if (input.outfits.length > MAX_OUTFITS) {
-    throw new AppError("invalid", `Save at most ${MAX_OUTFITS} outfits.`);
+  const max = deps.config.game.limits.outfitsMax;
+  if (input.outfits.length > max) {
+    throw new AppError("invalid", `Save at most ${max} outfits.`);
   }
-  const ids = input.outfits.flatMap((o) => (o.id ? [o.id] : []));
+  const wanted = input.outfits.map((o) => ({ ...o, id: o.id?.toLowerCase() }));
+  const ids = wanted.flatMap((o) => (o.id ? [o.id] : []));
   if (new Set(ids).size !== ids.length) {
     throw new AppError("invalid", "An outfit is in the list twice.");
   }
-  for (const { items } of input.outfits) {
+  for (const { items } of wanted) {
     const result = validateOutfit(items, gearIds, []);
     const problem = result.ok
       ? undefined
@@ -167,8 +166,26 @@ export async function saveOutfits(
   }
 
   return deps.db.tx(async (db) => {
+    await db.query("select 1 from profiles where id = $1 for update", [
+      caller.userId,
+    ]);
+    const unclaimed = (
+      await db.query<Row<"outfits">>(
+        "select * from outfits where user_id = $1 order by position, id",
+        [caller.userId],
+      )
+    ).filter((row) => !ids.includes(row.id));
     const rows: Row<"outfits">[] = [];
-    for (const [position, { id, name, items }] of input.outfits.entries()) {
+    for (const [position, { id, name, items }] of wanted.entries()) {
+      const same = id
+        ? -1
+        : unclaimed.findIndex(
+            (row) =>
+              row.name === name &&
+              row.items.length === items.length &&
+              row.items.every((item, i) => item === items[i]),
+          );
+      const reuse = same === -1 ? id : unclaimed.splice(same, 1)[0].id;
       const [row] = await db.query<Row<"outfits">>(
         `insert into outfits (id, user_id, name, items, position)
          values (coalesce($1::uuid, gen_random_uuid()), $2, $3, $4, $5)
@@ -176,7 +193,7 @@ export async function saveOutfits(
            set name = excluded.name, items = excluded.items, position = excluded.position
            where outfits.user_id = excluded.user_id
          returning *`,
-        [id ?? null, caller.userId, name, items, position],
+        [reuse ?? null, caller.userId, name, items, position],
       );
       if (!row) throw new AppError("not_found", "Could not find that outfit.");
       rows.push(row);
