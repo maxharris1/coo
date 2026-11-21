@@ -1,6 +1,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { AppError } from "@/server/errors";
 import type { createJsonRoute } from "@/server/http";
+import { recordTick } from "@/server/services/health";
 import { tick } from "@/server/services/tick";
 
 const sha256 = (s: string) => createHash("sha256").update(s).digest();
@@ -18,6 +19,8 @@ export function cronTickPost(
     if (!secretMatches(req.headers.get("authorization"), secret())) {
       throw new AppError("unauthenticated", "Missing or wrong cron secret.");
     }
-    return tick(deps);
+    const result = await tick(deps);
+    await recordTick(deps);
+    return result;
   });
 }
