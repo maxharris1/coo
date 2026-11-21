@@ -6,6 +6,7 @@ import type { SyncVisit } from "@/server/services/visits/syncRead";
 import {
   countdownLine,
   postmark,
+  postmarkLabel,
   tripSummary,
   type LandedState,
   type SenderCity,
@@ -27,19 +28,6 @@ type LandedProps = {
   snacking: boolean;
   onSnack(): void;
 };
-
-function postmarkLabel(
-  createdAt: number,
-  city: SenderCity | null,
-  timeZone: string,
-): string {
-  const day = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    month: "long",
-    day: "numeric",
-  }).format(createdAt);
-  return `Postmark: Pigeon Post${city ? `, ${city.name}` : ""}, ${day}`;
-}
 
 function Sill({ visit, animate }: { visit: SyncVisit; animate: boolean }) {
   const bird = {
