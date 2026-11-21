@@ -1,4 +1,5 @@
-import { positionAt, type FlightPlan } from "@/lib/flight/engine";
+import { positionAt } from "@/lib/flight/engine";
+import { startOfLocalDayMs } from "@/lib/game/time";
 import type { FlightSections } from "@/server/services/flights/list";
 import type { Flight } from "@/server/services/flights/shape";
 
@@ -15,22 +16,31 @@ const TITLES: Record<keyof FlightSections, string> = {
   landedToday: "Landed today",
 };
 
-type Planned = Flight & { plan: FlightPlan };
-
-const landedByPlan = (f: Flight, nowMs: number): f is Planned =>
+const landedByPlan = (f: Flight, nowMs: number): boolean =>
   f.plan !== undefined &&
   positionAt(f.plan, f.from, f.to, nowMs).state === "landed";
 
-export function flightsView(page: FlightSections, nowMs: number): FlightsView {
+const landedAtMs = (f: Flight): number =>
+  f.plan?.arriveAtMs ?? f.arriveAt ?? f.releaseAt;
+
+export function flightsView(
+  page: FlightSections,
+  nowMs: number,
+  timezone: string,
+): FlightsView {
+  const midnight = startOfLocalDayMs(nowMs, timezone);
   const stillOut = (rows: Flight[]) =>
     rows.filter((f) => !landedByPlan(f, nowMs));
-  const moved = [...page.yours, ...page.incoming]
-    .filter((f) => landedByPlan(f, nowMs))
-    .sort((a, b) => b.plan.arriveAtMs - a.plan.arriveAtMs);
+  const landedToday = [
+    ...[...page.yours, ...page.incoming].filter((f) => landedByPlan(f, nowMs)),
+    ...page.landedToday,
+  ]
+    .filter((f) => landedAtMs(f) >= midnight)
+    .sort((a, b) => landedAtMs(b) - landedAtMs(a));
   const rows: FlightSections = {
     yours: stillOut(page.yours),
     incoming: stillOut(page.incoming),
-    landedToday: [...moved, ...page.landedToday],
+    landedToday,
   };
   const keys = Object.keys(TITLES) as (keyof FlightSections)[];
   return {
