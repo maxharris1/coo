@@ -5,7 +5,10 @@ const PHONE_LIKE = new RegExp(
   "g",
 );
 
+const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
+
 export function redact(text: string): string {
+  if (UUID.test(text)) return text;
   return text.replace(PHONE_LIKE, "[redacted]");
 }
 

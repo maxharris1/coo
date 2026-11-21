@@ -10,7 +10,7 @@ import type { Deps } from "@/server/deps";
 import { badgeRules } from "../badges";
 import { landedInTitle, notificationText, recordNotification } from "../notify";
 import { deliver } from "../notify/deliver";
-import type { Step, StepContext } from "../tick";
+import { eachRow, type Step, type StepContext } from "../tick";
 import { guestLanding } from "./guestLanding";
 
 type Place = { city: string; region?: string | null; country?: string | null };
@@ -64,7 +64,7 @@ async function dueIds(ctx: StepContext): Promise<string[]> {
     `select id from flights
      where kind = 'delivery' and status = 'flying' and arrive_at <= $1
        and ($2::uuid is null or owner_id = $2 or counterpart_id = $2)
-     order by arrive_at limit $3`,
+     order by arrive_at, id limit $3`,
     [
       new Date(ctx.deps.clock.now()).toISOString(),
       ctx.userId ?? null,
@@ -330,17 +330,17 @@ async function landOne(
 }
 
 export const landDeliveries: Step = async (ctx) => {
-  const landed: LandedDelivery[] = [];
-  for (const id of await dueIds(ctx)) {
-    if (ctx.timeUp()) break;
-    const out = await ctx.deps.db.tx((tx) => landOne(ctx.deps, tx, id));
-    if (out) landed.push(out);
-  }
+  const { done: landed, failed } = await eachRow(
+    ctx,
+    "landDeliveries",
+    await dueIds(ctx),
+    (tx, id) => landOne(ctx.deps, tx, id),
+  );
   for (const { notificationIds } of landed)
     for (const n of notificationIds) await deliver(ctx.deps, n);
   await guestLanding(
     ctx,
     landed.filter((l) => l.flight.guest_link_id).map((l) => l.flight),
   );
-  return { count: landed.length };
+  return { count: landed.length, failed };
 };
