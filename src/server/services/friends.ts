@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { haversineMi } from "@/lib/flight/engine";
 import { fill } from "@/lib/format";
 import {
@@ -11,6 +11,7 @@ import type { Db } from "@/server/db";
 import type { Deps } from "@/server/deps";
 import { AppError } from "@/server/errors";
 import type { UserId } from "@/server/ports/auth";
+import { rateLimit } from "@/server/rateLimit";
 import { pair, type Row } from "@/server/rows";
 
 export type Shows = "block" | "city";
@@ -369,4 +370,75 @@ export async function listFriends(
   );
 
   return { friends, guestLinks };
+}
+
+export type ReportTarget = { userId: UserId } | { guestLinkToken: string };
+
+export async function report(
+  deps: Deps,
+  me: UserId,
+  target: ReportTarget,
+  reason: string,
+  pepper: string,
+): Promise<Record<string, never>> {
+  const now = new Date(deps.clock.now()).toISOString();
+  const filed = await deps.db.tx(async (db) => {
+    await db.query("select 1 from profiles where id = $1 for update", [me]);
+    const subject = await reportSubject(db, me, target, pepper);
+
+    if (subject) {
+      const [prior] = await db.query(
+        `select 1 from reports where reporter_id = $1 and ${subject.column} = $2 and reason = $3`,
+        [me, subject.id, reason],
+      );
+      if (prior) return "filed";
+    }
+
+    await rateLimit(
+      db,
+      deps.clock,
+      `reports:${me}`,
+      deps.config.game.limits.reportsPerDay,
+      86400,
+    );
+    if (!subject) return "missing";
+
+    await db.query(
+      `insert into reports (reporter_id, ${subject.column}, reason, created_at) values ($1, $2, $3, $4)`,
+      [me, subject.id, reason, now],
+    );
+    return "filed";
+  });
+
+  if (filed === "missing")
+    throw new AppError(
+      "not_found",
+      "userId" in target ? "No one to report" : "No such link",
+    );
+  return {};
+}
+
+type ReportSubject = {
+  column: "target_user_id" | "guest_link_id";
+  id: string;
+};
+
+async function reportSubject(
+  db: Db,
+  me: UserId,
+  target: ReportTarget,
+  pepper: string,
+): Promise<ReportSubject | null> {
+  if ("userId" in target) {
+    if (!(await friendshipBetween(db, me, target.userId))) return null;
+    return { column: "target_user_id", id: target.userId };
+  }
+  const tokenHash = createHash("sha256")
+    .update(pepper + target.guestLinkToken)
+    .digest("hex");
+  const [link] = await db.query<{ id: string }>(
+    "select id from guest_links where token_hash = $1",
+    [tokenHash],
+  );
+  return link ? { column: "guest_link_id", id: link.id } : null;
 }
