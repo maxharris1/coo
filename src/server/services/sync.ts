@@ -12,6 +12,9 @@ import {
   type BirdRecord,
   type Row,
 } from "@/server/rows";
+import { syncFlights } from "./flights/syncRead";
+import { tick } from "./tick";
+import { syncVisits } from "./visits/syncRead";
 
 export type CannotFly = "away" | "busy" | "tired";
 
@@ -96,41 +99,53 @@ export async function sync(
   caller: OnboardedCaller,
   timezone: string | null,
 ) {
+  await tick(deps, { userId: caller.userId });
   const now = deps.clock.now();
   const profile = await syncTimezone(deps, caller, timezone);
   const id = caller.userId;
   const week = weekStart(now, profile.timezone);
-  const [birds, gear, outfits, eggs, cards, [unread], [friends]] =
-    await Promise.all([
-      deps.db.query<Row<"birds">>(
-        "select * from birds where owner_id = $1 order by hatched_at, id",
-        [id],
-      ),
-      deps.db.query<{ gear_id: string }>(
-        "select gear_id from gear_owned where user_id = $1 order by acquired_at, gear_id",
-        [id],
-      ),
-      deps.db.query<Row<"outfits">>(
-        "select * from outfits where user_id = $1 order by position, id",
-        [id],
-      ),
-      deps.db.query<{ status: string; hatch_at_delivery: number }>(
-        "select status, hatch_at_delivery from eggs where user_id = $1 and status <> 'hatched'",
-        [id],
-      ),
-      deps.db.query<{ deliveries: number; paid: boolean }>(
-        "select deliveries, paid from punch_cards where user_id = $1 and week_start = $2",
-        [id, week],
-      ),
-      deps.db.query<{ count: number }>(
-        "select count(*)::int as count from notifications where user_id = $1 and read_at is null",
-        [id],
-      ),
-      deps.db.query<{ count: number }>(
-        "select count(*)::int as count from friendships where status = 'accepted' and $1 in (a_id, b_id)",
-        [id],
-      ),
-    ]);
+  const [
+    birds,
+    gear,
+    outfits,
+    eggs,
+    cards,
+    [unread],
+    [friends],
+    flights,
+    { visits, myVisiting },
+  ] = await Promise.all([
+    deps.db.query<Row<"birds">>(
+      "select * from birds where owner_id = $1 order by hatched_at, id",
+      [id],
+    ),
+    deps.db.query<{ gear_id: string }>(
+      "select gear_id from gear_owned where user_id = $1 order by acquired_at, gear_id",
+      [id],
+    ),
+    deps.db.query<Row<"outfits">>(
+      "select * from outfits where user_id = $1 order by position, id",
+      [id],
+    ),
+    deps.db.query<{ status: string; hatch_at_delivery: number }>(
+      "select status, hatch_at_delivery from eggs where user_id = $1 and status <> 'hatched'",
+      [id],
+    ),
+    deps.db.query<{ deliveries: number; paid: boolean }>(
+      "select deliveries, paid from punch_cards where user_id = $1 and week_start = $2",
+      [id, week],
+    ),
+    deps.db.query<{ count: number }>(
+      "select count(*)::int as count from notifications where user_id = $1 and read_at is null",
+      [id],
+    ),
+    deps.db.query<{ count: number }>(
+      "select count(*)::int as count from friendships where status = 'accepted' and $1 in (a_id, b_id)",
+      [id],
+    ),
+    syncFlights(deps, id),
+    syncVisits(deps, id),
+  ]);
   const [egg] = eggs;
   const [card] = cards;
   return {
@@ -140,9 +155,9 @@ export async function sync(
     ),
     closet: gear.map((g) => g.gear_id),
     outfits: outfits.map(toOutfit),
-    flights: [],
-    visits: [],
-    myVisiting: [],
+    flights,
+    visits,
+    myVisiting,
     egg: egg
       ? {
           status: egg.status,
