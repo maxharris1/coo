@@ -1,8 +1,9 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { config } from "@/lib/config";
 import { foundObjectFor, offersFor } from "@/lib/game/jobs";
 import { localDate } from "@/lib/game/time";
 import type { OnboardedCaller, Profile } from "@/server/auth";
+import type { Db } from "@/server/db";
 import type { UserId } from "@/server/ports/auth";
 import type { Row } from "@/server/rows";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
@@ -20,6 +21,25 @@ beforeEach(async () => {
   deps = await makeTestDeps();
   world = await seedWorld(deps.db, deps.clock.now());
 });
+
+afterEach(() => vi.restoreAllMocks());
+
+function failQueryInTx(match: (sql: string, params?: unknown[]) => boolean) {
+  const tx = deps.db.tx.bind(deps.db);
+  return vi
+    .spyOn(deps.db, "tx")
+    .mockImplementation(<T>(fn: (db: Db) => Promise<T>) =>
+      tx((t) =>
+        fn({
+          ...t,
+          query: <R>(sql: string, params?: unknown[]) =>
+            match(sql, params)
+              ? t.query<R>("select 1 / 0")
+              : t.query<R>(sql, params),
+        }),
+      ),
+    );
+}
 
 async function callerFor(userId: string): Promise<OnboardedCaller> {
   const [profile] = await deps.db.query<Profile & { onboarded_at: Date }>(
@@ -97,8 +117,9 @@ async function insertRunningJob(
   userId: string,
   birdId: string,
   pay: number,
+  minutes = 30,
 ) {
-  const endsAt = new Date(deps.clock.now() + 30 * MINUTE_MS).toISOString();
+  const endsAt = new Date(deps.clock.now() + minutes * MINUTE_MS).toISOString();
   await deps.db.query(
     `insert into jobs (id, user_id, bird_id, job_id, pay, started_at, ends_at)
      values ($1, $2, $3, 'deli-slip', $4, $5, $6)`,
@@ -221,5 +242,59 @@ describe("finishJobs", () => {
         traded_at: null,
       },
     ]);
+  });
+
+  it("finishes the later jobs and logs the failing job id when one job's payment throws", async () => {
+    const errorLines = vi.spyOn(console, "error").mockImplementation(() => {});
+    const first = jobIdWhere(false);
+    const middle = jobIdWhere(false, new Set([first]));
+    const last = jobIdWhere(false, new Set([first, middle]));
+    const max = world.max.id;
+    const priya = world.priya.id;
+    const maxBefore = await seedsOf(max);
+    const priyaBefore = await seedsOf(priya);
+    await insertRunningJob(first, max, world.max.birds[0].id, 10, 30);
+    await insertRunningJob(middle, max, world.max.birds[1].id, 11, 31);
+    const endsAt = await insertRunningJob(
+      last,
+      priya,
+      world.priya.birds[0].id,
+      12,
+      32,
+    );
+    const failing = failQueryInTx(
+      (sql, params) => sql.includes("apply_seeds") && params?.[2] === middle,
+    );
+    deps.clock.set(endsAt);
+
+    const result = await tick(deps);
+
+    expect(result.counts.finishJobs).toBe(2);
+    expect(result.failed).toEqual({ finishJobs: 1 });
+    expect([
+      await jobStatus(first),
+      await jobStatus(middle),
+      await jobStatus(last),
+    ]).toEqual(["done", "running", "done"]);
+    expect(
+      errorLines.mock.calls.map(([line]) => JSON.parse(line as string)),
+    ).toEqual([
+      expect.objectContaining({
+        event: "tick.row_failed",
+        step: "finishJobs",
+        rowId: middle,
+      }),
+    ]);
+
+    failing.mockRestore();
+    deps.clock.advance(MINUTE_MS);
+    const again = await tick(deps);
+
+    expect(again.counts.finishJobs).toBe(1);
+    expect(await jobStatus(middle)).toBe("done");
+    expect(await seedsOf(max)).toBe(maxBefore + 10 + 11);
+    expect(await seedsOf(priya)).toBe(priyaBefore + 12);
+    expect(await ledger(max, "job")).toHaveLength(2);
+    expect(await ledger(priya, "job")).toEqual([{ delta: 12, ref_id: last }]);
   });
 });

@@ -2,6 +2,7 @@ import { config } from "@/lib/config";
 import { foundObjectFor } from "@/lib/game/jobs";
 import type { Db } from "@/server/db";
 import type { Step, StepContext } from "../tick";
+import { eachRow } from "./rows";
 
 type ClaimedJob = {
   id: string;
@@ -71,11 +72,12 @@ async function finishOne(tx: Db, id: string, nowMs: number) {
 }
 
 export const finishJobs: Step = async (ctx) => {
-  let count = 0;
-  for (const id of await dueIds(ctx)) {
-    if (ctx.timeUp()) break;
-    const nowMs = ctx.deps.clock.now();
-    if (await ctx.deps.db.tx((tx) => finishOne(tx, id, nowMs))) count++;
-  }
-  return { count };
+  const { done, failed } = await eachRow(
+    ctx,
+    "finishJobs",
+    await dueIds(ctx),
+    async (tx, id) =>
+      (await finishOne(tx, id, ctx.deps.clock.now())) ? id : null,
+  );
+  return { count: done.length, failed };
 };
