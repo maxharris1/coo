@@ -116,6 +116,15 @@ export async function smsFallback(
     url: `https://${deps.config.app.domain}${row.url}`,
   });
 
+  const at = (offsetMs = 0) =>
+    new Date(deps.clock.now() + offsetMs).toISOString();
+  const reservation = deps.config.game.limits.smsWindowMinutes * 60_000;
+  const stamp = (db: Db, value: string) =>
+    db.query("update notifications set sms_sent_at = $2 where id = $1", [
+      notificationId,
+      value,
+    ]);
+
   const claim = await deps.db.tx(async (db) => {
     const refused = await refusal(deps, db, row.user_id, notificationId);
     if (refused) return refused;
@@ -123,42 +132,49 @@ export async function smsFallback(
       `update notifications set sms_sent_at = $2
        where id = $1 and sms_sent_at is null and read_at is null
        returning id`,
-      [notificationId, new Date(deps.clock.now()).toISOString()],
+      [notificationId, at(reservation)],
     );
     return claimed.length > 0 ? "texting" : "claimed";
   });
   if (claim !== "texting") return { texted: false, reason: claim };
 
-  const stamp = (db: Db) =>
-    db.query("update notifications set sms_sent_at = $2 where id = $1", [
-      notificationId,
-      new Date(deps.clock.now()).toISOString(),
-    ]);
-  let sending: Promise<SmsOutcome> | undefined;
-  const gated = await deps.db
-    .tx(async (db) => {
-      const refused = await refusal(deps, db, row.user_id, notificationId);
-      if (refused) {
-        await db.query(
-          "update notifications set sms_sent_at = null where id = $1",
-          [notificationId],
+  for (;;) {
+    let sending: Promise<SmsOutcome> | undefined;
+    const gated = await deps.db
+      .tx(async (db) => {
+        const refused = await refusal(deps, db, row.user_id, notificationId);
+        if (refused) {
+          await db.query(
+            "update notifications set sms_sent_at = null where id = $1",
+            [notificationId],
+          );
+          return refused;
+        }
+        const [reserved] = await db.query<{ live: boolean }>(
+          "select sms_sent_at >= $2 as live from notifications where id = $1 for update",
+          [notificationId, at()],
         );
-        return refused;
-      }
-      sending = send(deps, row.user_id, phone, text);
-      await stamp(db);
-      return "sending" as const;
-    })
-    .catch(async (error: unknown) => {
-      if (!sending) throw error;
-      log.warn("sms.stamp_failed", { error: errorName(error) });
-      await stamp(deps.db).catch((retry: unknown) =>
-        log.error("sms.stamp_lost", { error: errorName(retry) }),
-      );
-      return "sending" as const;
-    });
-  if (gated !== "sending") return { texted: false, reason: gated };
-  return sending ?? { texted: false, reason: "failed" };
+        if (!reserved) return "missing" as const;
+        if (!reserved.live) return "lapsed" as const;
+        sending = send(deps, row.user_id, phone, text);
+        await stamp(db, at());
+        return "sending" as const;
+      })
+      .catch(async (error: unknown) => {
+        if (!sending) throw error;
+        log.warn("sms.stamp_failed", { error: errorName(error) });
+        await stamp(deps.db, at()).catch((retry: unknown) =>
+          log.warn("sms.stamp_reserved", { error: errorName(retry) }),
+        );
+        return "sending" as const;
+      });
+    if (gated === "lapsed") {
+      await stamp(deps.db, at(reservation));
+      continue;
+    }
+    if (gated !== "sending") return { texted: false, reason: gated };
+    return sending ?? { texted: false, reason: "failed" };
+  }
 }
 
 function errorName(error: unknown): string {
