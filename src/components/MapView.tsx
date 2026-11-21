@@ -7,7 +7,6 @@ import { config } from "@/lib/config";
 import {
   bearingDeg,
   interpolate,
-  isDaylight,
   positionAt,
   type FlightPlan,
   type LatLon,
@@ -31,6 +30,7 @@ export type MapViewProps = {
   bird: BirdLite;
   offsetMs: number;
   bottomPadding: number;
+  night: boolean;
 };
 
 export const ZOOM_BANDS: readonly { underMi: number; zoom: number }[] = [
@@ -42,7 +42,10 @@ export const ZOOM_BANDS: readonly { underMi: number; zoom: number }[] = [
 ];
 export const FAR_ZOOM = 4.5;
 
-const STOCK_STYLE = "https://tiles.openfreemap.org/styles/liberty";
+const MAP_STYLES = {
+  day: "https://tiles.openfreemap.org/styles/liberty",
+  night: "/map/coo-night.style.json",
+} as const;
 const INK = "#2A2140";
 const TOMATO = "#F4623F";
 const FOLLOW_EVERY_MS = 5000;
@@ -103,6 +106,7 @@ export function MapView({
   bird,
   offsetMs,
   bottomPadding,
+  night,
 }: MapViewProps) {
   const container = useRef<HTMLDivElement>(null);
   const birdEl = useRef<HTMLDivElement>(null);
@@ -111,8 +115,16 @@ export function MapView({
   const followRef = useRef(true);
   const recentre = useRef<() => void>(() => {});
   const [following, setFollowing] = useState(true);
-  const [night, setNight] = useState(false);
+  const style = MAP_STYLES[night ? "night" : "day"];
+  const styleRef = useRef(style);
+  const mapRef = useRef<MapLibreMap | null>(null);
   const west = headsWest(from, to);
+
+  useEffect(() => {
+    if (styleRef.current === style) return;
+    styleRef.current = style;
+    mapRef.current?.setStyle(style, { diff: false });
+  }, [style]);
 
   useEffect(() => {
     let map: MapLibreMap | null = null;
@@ -130,7 +142,7 @@ export function MapView({
       if (!loftEl.current || !sillEl.current) return;
       const m = new Map({
         container: el,
-        style: STOCK_STYLE,
+        style: styleRef.current,
         bounds: new LngLatBounds(
           [from.lon, from.lat],
           [from.lon, from.lat],
@@ -150,6 +162,7 @@ export function MapView({
         },
       });
       map = m;
+      mapRef.current = m;
       m.touchZoomRotate.disableRotation();
       m.keyboard.disableRotation();
 
@@ -173,8 +186,9 @@ export function MapView({
         (m.getSource("route-left") as GeoJSONSource | undefined)?.setData(left);
       };
 
-      m.on("load", () => {
-        const { flown, left } = splitRoute(from, to, fracs, start.frac);
+      m.on("style.load", () => {
+        const { frac } = positionAt(plan, from, to, now());
+        const { flown, left } = splitRoute(from, to, fracs, frac);
         m.addSource("route-flown", { type: "geojson", data: flown });
         m.addSource("route-left", { type: "geojson", data: left });
         m.addLayer({
@@ -214,7 +228,6 @@ export function MapView({
       const follow = (always: boolean) => {
         const p = positionAt(plan, from, to, now());
         drawRoute(p.frac);
-        setNight(!isDaylight(now(), p));
         if (!followRef.current || (!always && !nearEdge(m, p))) return;
         m.easeTo({
           center: [p.lon, p.lat],
@@ -225,7 +238,6 @@ export function MapView({
       };
       recentre.current = () => follow(true);
       timer = setInterval(() => follow(false), FOLLOW_EVERY_MS);
-      setNight(!isDaylight(now(), start));
 
       const stopFollowing = (e: { originalEvent?: unknown }) => {
         if (!e.originalEvent) return;
@@ -243,6 +255,7 @@ export function MapView({
       recentre.current = () => {};
       for (const m of markers) m.remove();
       map?.remove();
+      mapRef.current = null;
     };
   }, [flightId, from, to, plan, distanceMi, offsetMs, bottomPadding]);
 
@@ -253,11 +266,7 @@ export function MapView({
   };
 
   return (
-    <div
-      data-night={night ? "true" : "false"}
-      className={night ? "coo-map-night" : undefined}
-      style={{ position: "relative", width: "100%", height: "100%" }}
-    >
+    <div style={{ position: "relative", width: "100%", height: "100%" }}>
       <div ref={container} style={{ position: "absolute", inset: 0 }} />
       <div style={{ display: "none" }}>
         <div ref={loftEl} aria-label={from.label}>
