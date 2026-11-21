@@ -13,6 +13,7 @@ import { noteLimit, validateBody } from "@/lib/game/notes";
 import { isWeekend } from "@/lib/game/time";
 import type { Deps } from "@/server/deps";
 import { AppError } from "@/server/errors";
+import { rateLimit } from "@/server/rateLimit";
 import type { UserId } from "@/server/ports/auth";
 import { pair, toBirdRecord, type BirdRecord, type Row } from "@/server/rows";
 import {
@@ -67,9 +68,9 @@ export async function send(
     "select * from birds where id = $1 and owner_id = $2",
     [item.birdId, me],
   );
-  readyToFly(unlocked, input.body);
-
   const now = deps.clock.now();
+  readyToFly(unlocked, input.body, now, owner);
+
   const [{ samples }, names, [them]] = await Promise.all([
     sampleWeather(
       deps,
@@ -112,7 +113,7 @@ export async function send(
       "select * from birds where id = $1 and owner_id = $2 for update",
       [item.birdId, me],
     );
-    const { bird, body } = readyToFly(locked, input.body);
+    const { bird, body } = readyToFly(locked, input.body, now, owner);
     const flight = toFlightInput(
       flightId,
       bird,
@@ -134,6 +135,13 @@ export async function send(
     );
     if (claimed.length === 0)
       throw new AppError("conflict", "That bird is not home");
+    await rateLimit(
+      tx,
+      deps.clock,
+      `flights:${me}`,
+      deps.config.game.limits.flightsPerDay,
+      86400,
+    );
 
     const [note] = await tx.query<{ id: string }>(
       `insert into notes (sender_id, recipient_id, body, created_at)
@@ -219,11 +227,15 @@ async function prepareLeg(
 function readyToFly(
   row: Row<"birds"> | undefined,
   text: string,
+  now: number,
+  owner: CareOwner,
 ): { bird: BirdRecord; body: string } {
   if (!row) throw new AppError("not_found", "No such bird");
   const bird = toBirdRecord(row);
   if (bird.status !== "home")
     throw new AppError("conflict", "That bird is not home");
+  if (!careAt(snapshotOf(bird), now, owner).canFly)
+    throw new AppError("conflict", "That bird is too tired to fly");
   const checked = validateBody(text, noteLimit(bird));
   if (!checked.ok)
     throw new AppError(
