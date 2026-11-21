@@ -34,6 +34,7 @@ function idWhere(test: (id: string) => boolean) {
 const finds = (id: string) => foundObjectFor(id, CHANCE) !== null;
 const NO_FIND_ID = idWhere((id) => !finds(id));
 const FIND_ID = idWhere(finds);
+const ON_TIME_ID = uuidFor(1);
 
 type Return = {
   flightId: string;
@@ -337,7 +338,12 @@ describe("landing a return", () => {
   });
 
   it("keeps home recovery from arrival when a birdbath purchase settles the return before the tick", async () => {
-    const r = await insertReturn({ withNote: false });
+    const r = await insertReturn({ withNote: false, id: ON_TIME_ID });
+    const [{ plan }] = await rows<{ plan: { delayKind: string } }>(
+      "select plan from flights where id = $1",
+      [r.flightId],
+    );
+    expect(plan.delayKind).toBe("none");
     await rows("update birds set energy = 70, care_at = $2 where id = $1", [
       r.birdId,
       iso(deps.clock.now()),
