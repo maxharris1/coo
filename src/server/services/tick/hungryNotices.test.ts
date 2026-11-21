@@ -72,7 +72,9 @@ const hoursUntilHungry = (belly: number) =>
 
 describe("hungry notices", () => {
   it("sends none while belly is 30 or more", async () => {
-    deps.clock.advance(((80 - care.hungryBelow) / -care.bellyPerHour) * HOUR_MS);
+    deps.clock.advance(
+      ((80 - care.hungryBelow) / -care.bellyPerHour) * HOUR_MS,
+    );
 
     const { counts } = await tick(deps);
 
