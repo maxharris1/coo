@@ -44,6 +44,7 @@ const render = (over: Partial<FriendsViewProps> = {}) =>
       onStep={() => {}}
       onClose={() => {}}
       onConfirm={() => {}}
+      onShows={() => {}}
       {...over}
     />,
   );
@@ -83,23 +84,43 @@ describe("Friends screen (ac-1)", () => {
     expect(html).toContain("Chicago, 713 mi");
   });
 
-  it("shows each friend's City/Block setting read-only", () => {
+  it("gives each friend a City/Block choice marked with the confirmed value", () => {
     const rows = render().match(/<li[\s\S]*?<\/li>/g) ?? [];
     expect(rows).toHaveLength(4);
-    for (const r of rows) {
-      expect(r).not.toMatch(/<(input|select|a)\b/);
-      expect(r.match(/<button\b/g)).toHaveLength(1);
-      expect(r).not.toContain("aria-pressed");
-    }
-    const labels = rows.map(
-      (r) => /aria-label="([^"]*can see[^"]*)"/.exec(r)?.[1],
+    const groups = rows.map(
+      (r) => /role="radiogroup"[^>]*aria-label="([^"]*)"/.exec(r)?.[1],
     );
-    expect(labels).toEqual([
-      "Priya can see: City",
-      "Theo can see: City",
-      "Rosa can see: Block",
-      "Dev can see: City",
+    expect(groups).toEqual([
+      "What Priya can see",
+      "What Theo can see",
+      "What Rosa can see",
+      "What Dev can see",
     ]);
+    const checked = rows.map((r) =>
+      [
+        ...r.matchAll(
+          /<button[^>]*role="radio"[^>]*aria-checked="(true|false)"[^>]*>(City|Block)</g,
+        ),
+      ].map(([, on, label]) => `${label}:${on}`),
+    );
+    expect(checked).toEqual([
+      ["City:true", "Block:false"],
+      ["City:true", "Block:false"],
+      ["City:false", "Block:true"],
+      ["City:true", "Block:false"],
+    ]);
+  });
+
+  it("keeps the choice outside the button that opens the sheet", () => {
+    const rows = render().match(/<li[\s\S]*?<\/li>/g) ?? [];
+    for (const r of rows) {
+      const opener =
+        /<button[^>]*aria-haspopup="dialog"[^>]*>[\s\S]*?<\/button>/.exec(
+          r,
+        )?.[0];
+      expect(opener).toBeDefined();
+      expect(opener).not.toContain('role="radio"');
+    }
   });
 
   it("says 1 friend in the singular", () => {

@@ -81,16 +81,25 @@ describe("schema", () => {
     priya = await user("priya");
   });
 
-  it("every table has row level security on, and only events has a policy", async () => {
+  it("every table has row level security on, and only events has a browser policy", async () => {
     const off = await db.query(
       "select tablename from pg_tables where schemaname = 'public' and not rowsecurity",
     );
     expect(off).toEqual([]);
     const pol = await db.query(
-      "select tablename, policyname from pg_policies where schemaname = 'public'",
+      "select tablename, policyname, roles from pg_policies where schemaname = 'public' order by tablename",
     );
     expect(pol).toEqual([
-      { tablename: "events", policyname: "events_read_own" },
+      {
+        tablename: "events",
+        policyname: "events_read_own",
+        roles: ["authenticated"],
+      },
+      {
+        tablename: "tick_health",
+        policyname: "tick_health_app",
+        roles: ["coo_app"],
+      },
     ]);
   });
 

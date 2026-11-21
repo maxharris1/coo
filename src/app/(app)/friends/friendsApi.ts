@@ -1,6 +1,10 @@
 import type { Units } from "@/lib/format";
 import { distance } from "@/lib/format";
-import type { FriendRow, WaitingGuestLink } from "@/server/services/friends";
+import type {
+  FriendRow,
+  Shows,
+  WaitingGuestLink,
+} from "@/server/services/friends";
 
 export type FriendsList = {
   friends: FriendRow[];
@@ -29,8 +33,8 @@ async function call(
 ): Promise<{ ok: true; json: unknown } | Failed> {
   try {
     const res = await fetchImpl(path, { cache: "no-store", ...init });
+    if (res.ok) return { ok: true, json: (await res.json()) as unknown };
     const json: unknown = await res.json().catch(() => null);
-    if (res.ok) return { ok: true, json };
     const message = (json as { error?: { message?: unknown } } | null)?.error
       ?.message;
     return {
@@ -47,8 +51,9 @@ export async function loadFriends(
 ): Promise<({ ok: true } & FriendsList) | Failed> {
   const r = await call(fetchImpl, "/api/friends");
   if (!r.ok) return r;
-  const { friends, guestLinks } = r.json as FriendsList;
-  return { ok: true, friends, guestLinks };
+  const body = r.json as Partial<FriendsList> | null;
+  if (!Array.isArray(body?.friends)) return { ok: false, message: UNREACHABLE };
+  return { ok: true, friends: body.friends, guestLinks: body.guestLinks ?? [] };
 }
 
 export type ActionResult = { ok: true } | Failed;
@@ -86,4 +91,22 @@ export function reportFriend(
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ userId: id, reason }),
   });
+}
+
+export async function saveShows(
+  id: string,
+  shows: Shows,
+  fetchImpl: typeof fetch = fetch,
+): Promise<{ ok: true; shows: Shows } | Failed> {
+  const r = await call(fetchImpl, `/api/friends/${id}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ shows }),
+  });
+  if (!r.ok) return r;
+  const saved = (r.json as { friend?: { shows?: unknown } } | null)?.friend
+    ?.shows;
+  return saved === "city" || saved === "block"
+    ? { ok: true, shows: saved }
+    : { ok: false, message: UNREACHABLE };
 }
