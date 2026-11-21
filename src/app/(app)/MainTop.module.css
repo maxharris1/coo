@@ -110,3 +110,26 @@
     animation: none;
   }
 }
+
+@keyframes coo-drift {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(18px);
+  }
+}
+
+@keyframes coo-snooze {
+  0% {
+    transform: translate(0, 0) scale(0.5);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(12px, -26px) scale(1.25);
+    opacity: 0;
+  }
+}
