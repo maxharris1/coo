@@ -4,6 +4,7 @@ import {
   isTimeZone,
   isWeekend,
   localDate,
+  loftTimeZone,
   quietHoursEnd,
   startOfLocalDayMs,
   weekday,
@@ -222,4 +223,15 @@ it("gives equal outputs for equal inputs across a year", () => {
       expect(startOfLocalDayMs(at, tz)).toBeLessThanOrEqual(at);
     }
   }
+});
+
+describe("loft time zone", () => {
+  it("picks the time zone of the nearest zone city", () => {
+    expect(loftTimeZone({ lat: 40.73, lon: -73.9875 })).toBe(NY);
+    expect(loftTimeZone({ lat: -13.83, lon: -171.76 })).toBe("Pacific/Apia");
+  });
+
+  it("measures distance across the antimeridian", () => {
+    expect(loftTimeZone({ lat: -16.85, lon: -179.9 })).toBe("Pacific/Fiji");
+  });
 });

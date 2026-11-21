@@ -1,3 +1,6 @@
+import { haversineMi, type LatLon } from "@/lib/flight/engine";
+import { zoneCities } from "./zoneCities";
+
 export type LocalDate = string & { readonly __brand: "LocalDate" };
 export type IsoWeekday = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 export type QuietHours = { on: boolean; startHour: number; endHour: number };
@@ -103,6 +106,14 @@ export function startOfLocalDayMs(ms: number, tz: string): number {
     midnightAsUtc - offsetMs(midnightAsUtc + DAY_MS, tz),
   ].filter((at) => localDate(at, tz) === day);
   return Math.min(...candidates);
+}
+
+export function loftTimeZone(loft: LatLon): string {
+  let nearest = zoneCities[0];
+  for (const city of zoneCities) {
+    if (haversineMi(loft, city) < haversineMi(loft, nearest)) nearest = city;
+  }
+  return nearest.tz;
 }
 
 export function isTimeZone(tz: string): boolean {

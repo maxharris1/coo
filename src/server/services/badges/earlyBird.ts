@@ -1,15 +1,10 @@
 import { config } from "@/lib/config";
 import { sunTimes } from "@/lib/flight/engine";
-import { localHour } from "@/lib/game/time";
+import { localHour, loftTimeZone, startOfLocalDayMs } from "@/lib/game/time";
 import type { BadgeRule } from "../badges";
 import { setBadgeProgress } from "./award";
 
-const DAY_MS = 86_400_000;
-
-function loftSolarNoonMs(ms: number, lon: number): number {
-  const offsetMs = (lon / 360) * DAY_MS;
-  return Math.floor((ms + offsetMs) / DAY_MS) * DAY_MS + DAY_MS / 2 - offsetMs;
-}
+const NOON_MS = 12 * 3_600_000;
 
 export const earlyBird: BadgeRule = {
   async apply(db, event) {
@@ -30,11 +25,12 @@ export const earlyBird: BadgeRule = {
     if (!row) return;
     const releaseMs = row.release_at.getTime();
     const loft = { lat: row.from_lat, lon: row.from_lon };
+    const loftNoonMs =
+      startOfLocalDayMs(releaseMs, loftTimeZone(loft)) + NOON_MS;
     if (
       localHour(releaseMs, row.timezone) <
         config.game.badges.earlyBirdBeforeHour &&
-      releaseMs >=
-        sunTimes(loftSolarNoonMs(releaseMs, row.from_lon), loft).sunriseMs
+      releaseMs >= sunTimes(loftNoonMs, loft).sunriseMs
     )
       await setBadgeProgress(
         db,

@@ -171,9 +171,13 @@ describe("rfc-1149", () => {
 describe("early-bird", () => {
   const JULY_0630_NEW_YORK = Date.UTC(2026, 6, 15, 10, 30);
   const JULY_0700_NEW_YORK = Date.UTC(2026, 6, 15, 11, 0);
+  const JULY_0030_NEW_YORK = Date.UTC(2026, 6, 15, 4, 30);
   const JULY_0130_NEW_YORK = Date.UTC(2026, 6, 15, 5, 30);
   const DECEMBER_0630_NEW_YORK = Date.UTC(2025, 11, 15, 11, 30);
   const JULY_1900_NEW_YORK = Date.UTC(2026, 6, 15, 23);
+  const JULY_0015_APIA = Date.UTC(2026, 6, 14, 11, 15);
+  const JULY_NOON_APIA = Date.UTC(2026, 6, 14, 23);
+  const APIA = { lat: -13.83, lon: -171.76 };
 
   async function maxLoft() {
     const [loft] = await deps.db.query<{ lat: number; lon: number }>(
@@ -181,6 +185,13 @@ describe("early-bird", () => {
       [world.max.id],
     );
     return loft;
+  }
+
+  async function moveLoft(person: Person, loft: { lat: number; lon: number }) {
+    await deps.db.query(
+      "update profiles set home_lat = $2, home_lon = $3 where id = $1",
+      [person.id, loft.lat, loft.lon],
+    );
   }
 
   async function expectEarned(flight: PlannedDelivery) {
@@ -196,7 +207,9 @@ describe("early-bird", () => {
 
   it("early-bird: earned by a release just after that day's sunrise at the loft", async () => {
     const { sunriseMs } = sunTimes(Date.UTC(2026, 6, 15, 16), await maxLoft());
-    await expectEarned(await landDelivery({ releaseMs: sunriseMs + MINUTE_MS }));
+    await expectEarned(
+      await landDelivery({ releaseMs: sunriseMs + MINUTE_MS }),
+    );
   });
 
   it("early-bird: earned on the loft's date when the owner's time zone is a day ahead", async () => {
@@ -217,6 +230,27 @@ describe("early-bird", () => {
   it("early-bird: not earned after the loft's midnight and before that day's sunrise", async () => {
     await landDelivery({ releaseMs: JULY_0130_NEW_YORK });
     expect(await badge(world.max.id, "early-bird")).toBeNull();
+  });
+
+  it("early-bird: not earned half an hour after the loft's midnight", async () => {
+    await landDelivery({ releaseMs: JULY_0030_NEW_YORK });
+    expect(await badge(world.max.id, "early-bird")).toBeNull();
+  });
+
+  it("early-bird: not earned just after midnight at a loft whose time zone runs a day ahead of its longitude", async () => {
+    await moveLoft(world.max, APIA);
+    await setTimezone(world.max, "Pacific/Apia");
+    await landDelivery({ releaseMs: JULY_0015_APIA });
+    expect(await badge(world.max.id, "early-bird")).toBeNull();
+  });
+
+  it("early-bird: earned just after sunrise on the loft's date at a loft whose time zone runs a day ahead of its longitude", async () => {
+    await moveLoft(world.max, APIA);
+    await setTimezone(world.max, "Asia/Tokyo");
+    const { sunriseMs } = sunTimes(JULY_NOON_APIA, APIA);
+    await expectEarned(
+      await landDelivery({ releaseMs: sunriseMs + MINUTE_MS }),
+    );
   });
 
   it("early-bird: not earned when the owner's time zone puts the release after 7 am", async () => {
