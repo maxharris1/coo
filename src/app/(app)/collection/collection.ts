@@ -1,3 +1,4 @@
+import type { Breed, GearId, Look } from "@/components/Bird";
 import type { Collection } from "@/server/services/collection";
 
 const TINTS = ["sun", "lilac", "sky", "mint"] as const;
@@ -41,6 +42,37 @@ export function badgesView(badges: Badge[]): BadgesView {
   };
 }
 
+const TONES = ["sky", "sun", "lilac", "peach", "mint"] as const;
+
+export type AvatarTone = (typeof TONES)[number];
+
+export type MetBird = {
+  name: string;
+  look: Look;
+  breed: Breed;
+  gear: GearId[];
+  tone: AvatarTone;
+};
+
+export type BirdsView = { shown: MetBird[]; more: number; count: string };
+
+export function birdsView(
+  birdsMet: number,
+  birdsMetRecent: Collection["birdsMetRecent"],
+): BirdsView {
+  return {
+    shown: birdsMetRecent.map((b, i) => ({
+      name: b.name,
+      look: b.look as Look,
+      breed: b.breed as Breed,
+      gear: b.gear as GearId[],
+      tone: TONES[i % TONES.length],
+    })),
+    more: Math.max(birdsMet - birdsMetRecent.length, 0),
+    count: `${birdsMet} met`,
+  };
+}
+
 const UNREACHABLE = "We could not reach the post office. Try again.";
 
 type Result<T> = { ok: true; data: T } | { ok: false; message: string };
@@ -66,9 +98,18 @@ export async function loadCollection(
 
 export async function openCollection(
   load: () => Promise<Result<Collection>>,
-): Promise<{ ok: true; view: BadgesView } | { ok: false; message: string }> {
+): Promise<
+  | { ok: true; view: { badges: BadgesView; birds: BirdsView } }
+  | { ok: false; message: string }
+> {
   const result = await load();
-  return result.ok
-    ? { ok: true, view: badgesView(result.data.badges) }
-    : result;
+  if (!result.ok) return result;
+  const { badges, birdsMet, birdsMetRecent } = result.data;
+  return {
+    ok: true,
+    view: {
+      badges: badgesView(badges),
+      birds: birdsView(birdsMet, birdsMetRecent),
+    },
+  };
 }

@@ -14,7 +14,7 @@ export default function CollectionPage() {
       if (!live) return;
       setState(
         result.ok
-          ? { kind: "ready", badges: result.view }
+          ? { kind: "ready", ...result.view }
           : { kind: "error", message: result.message },
       );
     });

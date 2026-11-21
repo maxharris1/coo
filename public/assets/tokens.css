@@ -24,6 +24,7 @@
   --coo-radius-pill: 999px;
   --coo-line: 2.5px solid var(--coo-ink);
   --coo-line-thin: 2px solid var(--coo-ink);
+  --coo-line-dashed-soft: 2.5px dashed #B9B3C9;
   --coo-shadow-1: 0 3px 0 var(--coo-ink);
   --coo-shadow-2: 0 4px 0 var(--coo-ink);
   --coo-shadow-3: 0 5px 0 var(--coo-ink);
