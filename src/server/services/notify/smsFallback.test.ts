@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { config } from "@/lib/config";
 import { toE164 } from "@/lib/phone";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
@@ -10,7 +10,8 @@ import { seedWorld, type Person, type World } from "@/test/seedWorld";
 import { notify } from "../notify";
 import { tick } from "../tick";
 import { deliver } from "./deliver";
-import { SMS_UNSUBSCRIBED } from "@/server/ports/sms";
+import type { Db } from "@/server/db";
+import { SMS_UNSUBSCRIBED, SmsError } from "@/server/ports/sms";
 import { smsText } from "./smsFallback";
 
 const MINUTE_MS = 60_000;
@@ -62,6 +63,28 @@ async function landedIn() {
     [world.priya.id],
   );
   return row;
+}
+
+function portCalls() {
+  const calls: number[] = [];
+  const send = deps.sms.send.bind(deps.sms);
+  deps.sms.send = (to, body) => {
+    calls.push(deps.clock.now());
+    return send(to, body);
+  };
+  return calls;
+}
+
+function onProfileLock(db: Db, after: () => Promise<void> | void): Db {
+  const wrap = (inner: Db): Db => ({
+    async query<T>(sql: string, params?: unknown[]) {
+      const rows = await inner.query<T>(sql, params);
+      if (/from profiles[\s\S]*for update/.test(sql)) await after();
+      return rows;
+    },
+    tx: (fn) => inner.tx((t) => fn(wrap(t))),
+  });
+  return wrap(db);
 }
 
 async function subscribe(person: Person) {
@@ -188,6 +211,54 @@ describe("SMS fallback", () => {
       expect(deps.sms.sent).toHaveLength(2);
     });
 
+    it("a claim delayed waiting for the profile lock still holds back a landing 15 minutes after the stale time", async () => {
+      await deps.db.query(
+        "update profiles set sms_fallback = false where id = $1",
+        [world.priya.id],
+      );
+      const [first, second] = await landTwo();
+      await deps.db.query(
+        "update profiles set sms_fallback = true where id = $1",
+        [world.priya.id],
+      );
+      const calls = portCalls();
+      const stale = deps.clock.now();
+      let waited = false;
+      deps.db = onProfileLock(deps.db, () => {
+        if (waited) return;
+        waited = true;
+        deps.clock.set(stale + MINUTE_MS);
+      });
+
+      await deliver(deps, first.id);
+      expect(calls).toEqual([stale + MINUTE_MS]);
+
+      deps.clock.set(stale + 15 * MINUTE_MS);
+      await deliver(deps, second.id);
+
+      expect(calls).toEqual([stale + MINUTE_MS]);
+    });
+
+    it("the window length comes from config", async () => {
+      deps.config = {
+        ...config,
+        game: {
+          ...config.game,
+          limits: { ...config.game.limits, smsWindowMinutes: 30 },
+        },
+      };
+      const [texted, dropped] = await landTwo();
+      const sentAt = texted.sms_sent_at!.getTime();
+
+      deps.clock.set(sentAt + 20 * MINUTE_MS);
+      await deliver(deps, dropped.id);
+      expect(deps.sms.sent).toHaveLength(1);
+
+      deps.clock.set(sentAt + 30 * MINUTE_MS);
+      await deliver(deps, dropped.id);
+      expect(deps.sms.sent).toHaveLength(2);
+    });
+
     it("another person's recent text does not hold back this one", async () => {
       await deps.db.query(
         `insert into notifications (user_id, kind, ref_id, title, body, url, created_at, sms_sent_at)
@@ -225,6 +296,67 @@ describe("SMS fallback", () => {
 
       expect(await landedIns()).toHaveLength(2);
       expect(deps.sms.sent).toEqual([]);
+    });
+
+    it("a delivery that read the setting before an unsubscribe committed sends nothing", async () => {
+      const calls: number[] = [];
+      let unsubscribe = () => {};
+      deps.sms.send = async () => {
+        calls.push(deps.clock.now());
+        if (calls.length === 1) {
+          await new Promise<void>((_, reject) => {
+            unsubscribe = () => reject(new SmsError(SMS_UNSUBSCRIBED));
+          });
+        }
+      };
+      await deps.db.query(
+        "update profiles set sms_fallback = false where id = $1",
+        [world.priya.id],
+      );
+      const second = await insertPlannedDelivery(
+        deps.db,
+        world,
+        deps.clock.now(),
+        { from: world.rosa },
+      );
+      deps.clock.set(
+        Math.max(flight.arriveAtMs, second.arriveAtMs) + MINUTE_MS,
+      );
+      await tick(deps);
+      const [one, two] = await landedIns();
+      await deps.db.query(
+        "update profiles set sms_fallback = true where id = $1",
+        [world.priya.id],
+      );
+      const first = deliver(deps, one.id);
+      await vi.waitFor(() => expect(calls).toHaveLength(1));
+
+      deps.clock.set(deps.clock.now() + 15 * MINUTE_MS);
+      let resume = () => {};
+      const resumed = new Promise<void>((r) => (resume = r));
+      let paused = false;
+      const db = deps.db;
+      const secondDeps = {
+        ...deps,
+        db: {
+          query: db.query.bind(db),
+          tx: async <T>(fn: (tx: Db) => Promise<T>) => {
+            paused = true;
+            await resumed;
+            return db.tx(fn);
+          },
+        },
+      };
+      const pending = deliver(secondDeps, two.id);
+      await vi.waitFor(() => expect(paused).toBe(true));
+
+      unsubscribe();
+      await first;
+      expect(await smsFallbackOf(world.priya)).toBe(false);
+      resume();
+      await pending;
+
+      expect(calls).toHaveLength(1);
     });
 
     it("any other send error leaves the setting on", async () => {

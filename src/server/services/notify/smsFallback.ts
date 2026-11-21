@@ -30,7 +30,6 @@ type Names = { bird: string; friend: string };
 type Resolver = (db: Db, refId: string) => Promise<Names | undefined>;
 
 const MAX_LENGTH = 159;
-const SMS_WINDOW_MS = 15 * 60_000;
 
 const resolvers: Partial<Record<SmsKind, Resolver>> = {
   "landed-in": async (db, visitId) => {
@@ -117,18 +116,22 @@ export async function smsFallback(
     url: `https://${deps.config.app.domain}${row.url}`,
   });
 
-  const now = deps.clock.now();
   const claim = await deps.db.tx(async (db) => {
-    await db.query("select 1 from profiles where id = $1 for update", [
-      row.user_id,
-    ]);
+    const [profile] = await db.query<{ sms_fallback: boolean }>(
+      "select sms_fallback from profiles where id = $1 for update",
+      [row.user_id],
+    );
+    if (!profile?.sms_fallback) return "setting-off";
+    const now = deps.clock.now();
     const [{ recent }] = await db.query<{ recent: number }>(
       `select count(*)::int as recent from notifications
        where user_id = $1 and id <> $2 and sms_sent_at > $3`,
       [
         row.user_id,
         notificationId,
-        new Date(now - SMS_WINDOW_MS).toISOString(),
+        new Date(
+          now - deps.config.game.limits.smsWindowMinutes * 60_000,
+        ).toISOString(),
       ],
     );
     if (recent >= deps.config.game.limits.smsPerUserPer15Min) {
