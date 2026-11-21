@@ -114,7 +114,7 @@ function totalMi(flight: Flight): number {
 function placeAt(flight: Flight, nowMs: number): string {
   const events = flight.plan?.events ?? [];
   for (let i = events.length - 1; i >= 0; i--) {
-    const name = flight.placeNames[String(i)];
+    const name = flight.placeNames.events?.[String(i)];
     if (events[i].atMs <= nowMs && name) return name;
   }
   return flight.from.label;

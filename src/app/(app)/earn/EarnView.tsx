@@ -77,6 +77,19 @@ export function EarnView({
       {state.kind === "ready" && (
         <>
           <PunchCard top={state.top} />
+          <section aria-labelledby="earn-pay" className={styles.pay}>
+            <h2 id="earn-pay" className={styles.payTitle}>
+              Every delivery pays
+            </h2>
+            <dl className={styles.payTable}>
+              {state.top.pay.map((row) => (
+                <div key={row.label} className={styles.payRow}>
+                  <dt>{row.label}</dt>
+                  <dd>{row.value}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
           <JobsPanel jobs={state.jobs} found={state.found} />
         </>
       )}

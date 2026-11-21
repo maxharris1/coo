@@ -213,6 +213,8 @@ const OUTSIDE_GROUPS: Record<string, RouteKind> = {
   "/dev/birds": "public",
   "/dev/components": "public",
   "/dev/map": "public",
+  "/privacy": "app",
+  "/terms": "app",
 };
 
 function walk(dir: string): string[] {
