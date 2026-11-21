@@ -26,7 +26,7 @@ export function friendLine(friend: FriendRow, units: Units): string {
   return where ? `${where}, ${far}` : far;
 }
 
-async function call(
+export async function call(
   fetchImpl: typeof fetch,
   path: string,
   init?: RequestInit,
