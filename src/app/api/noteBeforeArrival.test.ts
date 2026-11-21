@@ -23,6 +23,7 @@ import { geoSearchGet } from "./geo/search/get";
 import { inviteGet } from "./invite/[code]/get";
 import { notesGet } from "./notes/get";
 import { notificationsGet } from "./notifications/get";
+import { realtimeTokenGet } from "./realtime/token/get";
 import { shopGet } from "./shop/get";
 import { syncGet } from "./sync/get";
 
@@ -67,6 +68,10 @@ const GET_ENDPOINTS: Record<
   "src/app/api/notifications/route.ts": {
     build: notificationsGet,
     url: "/api/notifications",
+  },
+  "src/app/api/realtime/token/route.ts": {
+    build: realtimeTokenGet,
+    url: "/api/realtime/token",
   },
   "src/app/api/shop/route.ts": { build: shopGet, url: "/api/shop" },
   "src/app/api/sync/route.ts": { build: syncGet, url: "/api/sync" },
