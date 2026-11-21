@@ -56,6 +56,23 @@ describe("twilio", () => {
     });
   });
 
+  it("keeps an accepted send successful when its unused body errors", async () => {
+    const response = new Response(
+      new ReadableStream({
+        start(controller) {
+          controller.error(new TypeError("success-body-terminated"));
+        },
+      }),
+      { status: 201 },
+    );
+    expect(response.ok).toBe(true);
+    vi.stubGlobal("fetch", async () => response);
+
+    await expect(
+      twilio(OPTS).send("+15555550123", "hi"),
+    ).resolves.toBeUndefined();
+  });
+
   it.each([21610, 21211])(
     "throws SmsError with Twilio's error code %i",
     async (code) => {

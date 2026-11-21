@@ -18,7 +18,7 @@ export function twilio(opts: {
         body: new URLSearchParams({ To: to, From: opts.from, Body: body }),
       });
       if (res.ok) {
-        await res.body?.cancel();
+        await res.body?.cancel().catch(() => {});
         return;
       }
       const parsed = errorSchema.safeParse(
