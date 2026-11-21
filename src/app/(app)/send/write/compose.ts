@@ -1,3 +1,4 @@
+import type { Breed, GearId, Look } from "@/components/Bird";
 import type { SyncPayload } from "@/components/sync";
 import { clockTime, distance, duration, type Units } from "@/lib/format";
 import { noteLimit } from "@/lib/game/notes";
@@ -18,6 +19,9 @@ export type PickerOption = {
   id: string;
   name: string;
   speed: string;
+  look: Look;
+  breed: Breed;
+  gear: readonly GearId[];
   chip: string;
   state: PickState;
 };
@@ -90,6 +94,9 @@ export function pickerOption(bird: SyncBird): PickerOption {
     id: bird.id,
     name: bird.name,
     speed: `${Math.round(bird.speedMph)} mph`,
+    look: bird.look as Look,
+    breed: bird.breed,
+    gear: bird.gear as GearId[],
     ...SITUATIONS[situationOf(bird)],
   };
 }

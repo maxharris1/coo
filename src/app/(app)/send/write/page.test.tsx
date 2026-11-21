@@ -48,8 +48,20 @@ const PRIYA = {
   distanceMi: 81.3,
 };
 
+const ALEX = {
+  ...PRIYA,
+  id: "u3",
+  name: "Alex",
+  handle: "alex",
+  where: "Boston",
+  distanceMi: 215,
+};
+
 const FLOCK = {
+  look: "gerald",
   breed: "city",
+  status: "home",
+  hungry: false,
   gear: [],
   focus: 3,
   navigation: 3,
@@ -61,22 +73,70 @@ const FLOCK = {
 };
 
 const BIRDS = [
-  { ...FLOCK, id: "b1", name: "Gerald", speedMph: 45, canFly: true },
+  {
+    ...FLOCK,
+    id: "b1",
+    name: "Gerald",
+    speedMph: 45,
+    canFly: true,
+    gear: ["tube"],
+  },
   { ...FLOCK, id: "b2", name: "Crumbs", speedMph: 52, canFly: true },
   { ...FLOCK, id: "b3", name: "Kevin", speedMph: 70, canFly: false },
+  {
+    ...FLOCK,
+    id: "b4",
+    name: "Pip",
+    speedMph: 30,
+    canFly: true,
+    hungry: true,
+  },
 ];
 
+const RELEASE = Date.parse("2026-11-20T14:32:00Z");
+
+const legFor = (birdIds: string[]) => ({
+  recipient: { friendId: "u2" },
+  distanceMi: 81.3,
+  from: { label: "New York" },
+  to: { label: "Philadelphia" },
+  quotes: birdIds.map((birdId) => ({
+    birdId,
+    releaseAt: RELEASE,
+    durationMs: 108 * 60_000,
+    arriveAt: RELEASE + 108 * 60_000,
+    odds: birdId === "b1" ? 0.94 : 0.81,
+    roostsOvernight: false,
+    factors: [
+      { kind: "clear", text: "Clear skies over Jersey", effect: "none" },
+    ],
+    sunsetAt: RELEASE,
+  })),
+});
+
 let friends: { status: number; body: unknown };
+let quoted: (birdIds: string[]) => Promise<{ status: number; body: unknown }>;
 let released: Promise<{ status: number; body: unknown }>;
 let birds: unknown[];
 let root: Root | null;
 
 const sync = (): SyncState => ({
-  data: { me: { units: "mi" }, birds } as unknown as SyncPayload,
+  data: {
+    me: { units: "mi", timezone: "America/New_York" },
+    birds,
+  } as unknown as SyncPayload,
   error: null,
   offsetMs: 0,
   refresh: () => {},
 });
+
+const page = () => (
+  <SyncContext.Provider value={sync()}>
+    <ToastContext.Provider value={seen.toast}>
+      <ComposePage />
+    </ToastContext.Provider>
+  </SyncContext.Provider>
+);
 
 async function show() {
   const container = Object.assign(new EventTarget(), {
@@ -86,16 +146,13 @@ async function show() {
   }) as unknown as Element;
   const r = createRoot(container);
   root = r;
-  await act(async () =>
-    r.render(
-      <SyncContext.Provider value={sync()}>
-        <ToastContext.Provider value={seen.toast}>
-          <ComposePage />
-        </ToastContext.Provider>
-      </SyncContext.Provider>,
-    ),
-  );
+  await act(async () => r.render(page()));
 }
+
+const sendTo = (friendId: string) => {
+  seen.to = friendId;
+  return act(async () => root?.render(page()));
+};
 
 const view = () => {
   if (!seen.view) throw new Error("ComposeView not shown");
@@ -104,18 +161,31 @@ const view = () => {
 
 const type = (text: string) => act(async () => view().onNote(text));
 
-const fetchMock = vi.fn<typeof fetch>(async (url) => {
+const fetchMock = vi.fn<typeof fetch>(async (url, init) => {
+  const path = String(url);
   const reply =
-    String(url) === "/api/friends"
+    path === "/api/friends"
       ? friends
-      : String(url) === "/api/flights"
+      : path === "/api/flights"
         ? await released
-        : { status: 404, body: {} };
+        : path === "/api/flights/quote"
+          ? await quoted(JSON.parse(String(init?.body)).birdIds)
+          : { status: 404, body: {} };
   return Response.json(reply.body, { status: reply.status });
 });
 
 const flightCalls = () =>
   fetchMock.mock.calls.filter(([url]) => String(url) === "/api/flights");
+
+const quoteBodies = () =>
+  fetchMock.mock.calls
+    .filter(([url]) => String(url) === "/api/flights/quote")
+    .map(([, init]) => JSON.parse(String(init?.body)));
+
+const pick = (id: string) => act(async () => view().onPick(id));
+
+const releaseLabel = () =>
+  view().birds.find((b) => b.id === view().pickedId)?.name ?? null;
 
 beforeEach(() => {
   seen.view = null;
@@ -126,6 +196,10 @@ beforeEach(() => {
   seen.to = "u2";
   fetchMock.mockClear();
   friends = { status: 200, body: { friends: [PRIYA], guestLinks: [] } };
+  quoted = async (birdIds) => ({
+    status: 200,
+    body: { recipients: [legFor(birdIds)] },
+  });
   released = Promise.resolve({
     status: 201,
     body: { flights: [{ id: "f1" }] },
@@ -156,9 +230,11 @@ describe("Compose page (ac-1)", () => {
       },
       note: "",
       counter: { text: "0 of 140 characters", over: false },
-      birdName: "Crumbs",
+      pickedId: "b2",
+      forecastHref: "/send/forecast?to=u2",
       sending: false,
     });
+    expect(releaseLabel()).toBe("Crumbs");
   });
 
   it("counts the note as it is typed", async () => {
@@ -173,7 +249,8 @@ describe("Compose page (ac-1)", () => {
   it("has no bird to release when nobody can fly", async () => {
     birds = [BIRDS[2]];
     await show();
-    expect(view().birdName).toBeNull();
+    expect(view().pickedId).toBeNull();
+    expect(view().stats).toBeNull();
   });
 
   it("waits on the loader until the friends arrive", async () => {
@@ -209,6 +286,138 @@ describe("Compose page (ac-1)", () => {
     };
     await show();
     expect(seen.missing).toBe(
+      "Something went sideways. Nothing was lost. Try again.",
+    );
+  });
+});
+
+describe("Compose page picker (ac-1)", () => {
+  it("offers every bird with its state", async () => {
+    await show();
+    expect(
+      view().birds.map((b) => [b.name, b.speed, b.chip, b.state.kind]),
+    ).toEqual([
+      ["Gerald", "45 mph", "Ready", "ready"],
+      ["Crumbs", "52 mph", "Ready", "ready"],
+      ["Kevin", "70 mph", "Too tired", "blocked"],
+      ["Pip", "30 mph", "Hungry", "hungry"],
+    ]);
+  });
+
+  it("quotes the default bird", async () => {
+    await show();
+    expect(quoteBodies()).toEqual([
+      { recipients: [{ friendId: "u2" }], birdIds: ["b2"] },
+    ]);
+  });
+
+  it("switches Release, the counter's limit and the quote to the picked bird", async () => {
+    await show();
+    await type("Dinner Saturday?");
+    await pick("b1");
+    expect(releaseLabel()).toBe("Gerald");
+    expect(view().counter).toEqual({
+      text: "16 of 280 characters",
+      over: false,
+    });
+    expect(quoteBodies().at(-1)).toEqual({
+      recipients: [{ friendId: "u2" }],
+      birdIds: ["b1"],
+    });
+    expect(view().stats?.odds).toBe("94%");
+  });
+
+  it("lets a hungry bird be picked", async () => {
+    await show();
+    await pick("b4");
+    expect(view().pickedId).toBe("b4");
+    expect(releaseLabel()).toBe("Pip");
+  });
+
+  it("ignores a pick of a blocked bird", async () => {
+    await show();
+    await pick("b3");
+    expect(view().pickedId).toBe("b2");
+    expect(quoteBodies().map((b) => b.birdIds)).toEqual([["b2"]]);
+  });
+
+  it("releases the picked bird", async () => {
+    await show();
+    await pick("b1");
+    await type("Dinner Saturday?");
+    await act(async () => view().onRelease());
+    expect(JSON.parse(String(flightCalls()[0][1]?.body))).toEqual({
+      body: "Dinner Saturday?",
+      sends: [{ friendId: "u2", birdId: "b1" }],
+    });
+  });
+});
+
+describe("Compose page stats (ac-2)", () => {
+  it("shows the quote's stats and forecast line", async () => {
+    await show();
+    expect(view().stats).toEqual({
+      distance: "81 mi",
+      flightTime: "1h 48m",
+      odds: "81%",
+      forecast: "Lands around 11:20 am. Clear skies over Jersey.",
+    });
+  });
+
+  it("drops the old bird's stats while the new quote is on its way", async () => {
+    await show();
+    quoted = () => new Promise(() => {});
+    await pick("b1");
+    expect(view().stats).toBeNull();
+  });
+
+  it("drops the old friend's stats while the new friend's quote is on its way", async () => {
+    friends = { status: 200, body: { friends: [PRIYA, ALEX], guestLinks: [] } };
+    await show();
+    expect(view().stats?.distance).toBe("81 mi");
+    quoted = () => new Promise(() => {});
+    await sendTo("u3");
+    expect(view().recipient.name).toBe("Alex");
+    expect(view().stats).toBeNull();
+  });
+
+  it("shows no stats when the new friend's quote fails", async () => {
+    friends = { status: 200, body: { friends: [PRIYA, ALEX], guestLinks: [] } };
+    await show();
+    expect(view().stats?.distance).toBe("81 mi");
+    quoted = async () => ({
+      status: 500,
+      body: { error: { code: "internal", message: "Quote unavailable" } },
+    });
+    await sendTo("u3");
+    expect(view().recipient.name).toBe("Alex");
+    expect(seen.toast).toHaveBeenCalledExactlyOnceWith("Quote unavailable");
+    expect(view().stats).toBeNull();
+  });
+
+  it("drops the bird's old stats when it is picked again", async () => {
+    await show();
+    expect(view().stats?.odds).toBe("81%");
+    quoted = () => new Promise(() => {});
+    await pick("b1");
+    await pick("b2");
+    expect(view().pickedId).toBe("b2");
+    expect(view().stats).toBeNull();
+  });
+
+  it("toasts the API's message when the quote fails", async () => {
+    quoted = async () => ({
+      status: 500,
+      body: {
+        error: {
+          code: "internal",
+          message: "Something went sideways. Nothing was lost. Try again.",
+        },
+      },
+    });
+    await show();
+    expect(view().stats).toBeNull();
+    expect(seen.toast).toHaveBeenCalledExactlyOnceWith(
       "Something went sideways. Nothing was lost. Try again.",
     );
   });

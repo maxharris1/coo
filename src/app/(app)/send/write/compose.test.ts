@@ -15,6 +15,7 @@ const bird = (over: Partial<SyncBird> = {}): SyncBird =>
   ({
     id: "b1",
     name: "Gerald",
+    look: "gerald",
     breed: "city",
     speedMph: 45,
     gear: [],
@@ -113,8 +114,20 @@ describe("pickerOption", () => {
       id: "b1",
       name: "Gerald",
       speed: "45 mph",
+      look: "gerald",
+      breed: "city",
+      gear: [],
       chip,
       state,
+    });
+  });
+
+  it("carries the bird's look, breed and gear for its face", () => {
+    const b = bird({ look: "kevin", breed: "pouter", gear: ["tube"] });
+    expect(pickerOption(b)).toMatchObject({
+      look: "kevin",
+      breed: "pouter",
+      gear: ["tube"],
     });
   });
 

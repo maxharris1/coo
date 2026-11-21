@@ -1,6 +1,12 @@
 import Link from "next/link";
+import { Bird } from "@/components/Bird";
 import emptyStates from "../../../../../assets/copy/empty-states.json";
-import { canRelease, type Counter } from "./compose";
+import {
+  canRelease,
+  type ComposeStats,
+  type Counter,
+  type PickerOption,
+} from "./compose";
 import styles from "./Compose.module.css";
 
 export type Recipient = { name: string; line: string };
@@ -9,9 +15,13 @@ export type ComposeViewProps = {
   recipient: Recipient;
   note: string;
   counter: Counter;
-  birdName: string | null;
+  birds: PickerOption[];
+  pickedId: string | null;
+  stats: ComposeStats | null;
+  forecastHref: string;
   sending: boolean;
   onNote: (note: string) => void;
+  onPick: (id: string) => void;
   onRelease: () => void;
 };
 
@@ -53,11 +63,17 @@ export function ComposeView({
   recipient,
   note,
   counter,
-  birdName,
+  birds,
+  pickedId,
+  stats,
+  forecastHref,
   sending,
   onNote,
+  onPick,
   onRelease,
 }: ComposeViewProps) {
+  const picked = birds.find((b) => b.id === pickedId) ?? null;
+  const birdName = picked?.name ?? null;
   return (
     <main className={styles.screen}>
       <Header />
@@ -99,6 +115,70 @@ export function ComposeView({
           </div>
         </div>
       </section>
+
+      <section className={styles.picker}>
+        <h2 className={styles.label}>Who&apos;s flying?</h2>
+        <div className={styles.birds}>
+          {birds.map((b) => (
+            <button
+              key={b.id}
+              type="button"
+              className={b.id === pickedId ? styles.picked : styles.bird}
+              aria-pressed={b.id === pickedId}
+              disabled={b.state.kind === "blocked"}
+              onClick={() => onPick(b.id)}
+            >
+              <span className={styles.face}>
+                <span className={styles.faceBird}>
+                  <Bird
+                    look={b.look}
+                    breed={b.breed}
+                    gear={b.gear}
+                    animated={false}
+                    size={94}
+                  />
+                </span>
+              </span>
+              <span className={styles.birdName}>{b.name}</span>
+              <span className={styles.speed}>{b.speed}</span>
+              <span className={styles.chip}>{b.chip}</span>
+              {b.state.kind === "blocked" && (
+                <span className="srOnly">{b.state.reason}</span>
+              )}
+            </button>
+          ))}
+        </div>
+        {picked?.state.kind === "hungry" && (
+          <p role="status" className={styles.warning}>
+            {picked.state.warning}
+          </p>
+        )}
+      </section>
+
+      {stats && (
+        <section className={styles.stats}>
+          <div className={styles.statGrid}>
+            <div className={styles.stat}>
+              <span className={styles.value}>{stats.distance}</span>
+              <span className={styles.statLabel}>Distance</span>
+            </div>
+            <div className={styles.stat}>
+              <span className={styles.value}>{stats.flightTime}</span>
+              <span className={styles.statLabel}>Flight time</span>
+            </div>
+            <div className={styles.stat}>
+              <span className={styles.value}>{stats.odds}</span>
+              <span className={styles.statLabel}>Arrival odds</span>
+            </div>
+          </div>
+          <div className={styles.forecast}>
+            <span>{stats.forecast}</span>
+            <Link href={forecastHref} className={styles.forecastLink}>
+              Forecast
+            </Link>
+          </div>
+        </section>
+      )}
 
       <div className={styles.footer}>
         <button
