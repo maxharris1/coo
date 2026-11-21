@@ -50,3 +50,40 @@ export async function loadFriends(
   const { friends, guestLinks } = r.json as FriendsList;
   return { ok: true, friends, guestLinks };
 }
+
+export type ActionResult = { ok: true } | Failed;
+
+async function perform(
+  fetchImpl: typeof fetch,
+  path: string,
+  init: RequestInit,
+): Promise<ActionResult> {
+  const r = await call(fetchImpl, path, init);
+  return r.ok ? { ok: true } : r;
+}
+
+export function unfriend(
+  id: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<ActionResult> {
+  return perform(fetchImpl, `/api/friends/${id}`, { method: "DELETE" });
+}
+
+export function blockFriend(
+  id: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<ActionResult> {
+  return perform(fetchImpl, `/api/friends/${id}/block`, { method: "POST" });
+}
+
+export function reportFriend(
+  id: string,
+  reason: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<ActionResult> {
+  return perform(fetchImpl, "/api/reports", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ userId: id, reason }),
+  });
+}

@@ -91,6 +91,7 @@ const props: MapViewProps = {
   bird: { id: "b1", name: "Pip", look: "city", gear: [] },
   offsetMs: 0,
   bottomPadding: 150,
+  night: false,
 };
 
 async function mountMap() {
