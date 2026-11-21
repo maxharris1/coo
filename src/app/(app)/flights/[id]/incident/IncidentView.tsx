@@ -6,12 +6,21 @@ import styles from "./Incident.module.css";
 const ILLUSTRATIONS = "/assets/svg/illustrations";
 
 export type IncidentViewProps = {
+  flightId: string;
   report: IncidentReport;
   bird: { name: string; look: Look; breed?: Breed; gear: readonly GearId[] };
+  searching: boolean;
+  onSearch: () => void;
 };
 
-export function IncidentView({ report, bird }: IncidentViewProps) {
-  const { place } = report;
+export function IncidentView({
+  flightId,
+  report,
+  bird,
+  searching,
+  onSearch,
+}: IncidentViewProps) {
+  const { place, search, resend } = report;
   const label = place
     ? `${bird.name}, standing on a statue in ${place}`
     : `${bird.name}, standing on a statue`;
@@ -98,6 +107,32 @@ export function IncidentView({ report, bird }: IncidentViewProps) {
           </div>
         ))}
       </dl>
+
+      <div className={styles.actions}>
+        {search.kind !== "unavailable" && (
+          <button
+            type="button"
+            className={styles.search}
+            disabled={search.kind === "done" || searching}
+            aria-busy={searching || undefined}
+            onClick={onSearch}
+          >
+            <span className={styles.searchTitle}>Send a search party</span>
+            <span className={styles.searchLine}>{search.line}</span>
+          </button>
+        )}
+        <div className={styles.pair}>
+          <Link href={`/flights/${flightId}`} className={styles.secondary}>
+            Wait it out
+          </Link>
+          {resend && (
+            <Link href={resend.href} className={styles.secondary}>
+              {resend.label}
+            </Link>
+          )}
+        </div>
+        <p className={styles.footer}>{report.footer}</p>
+      </div>
     </div>
   );
 }
