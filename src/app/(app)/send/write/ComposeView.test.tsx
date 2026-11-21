@@ -8,12 +8,53 @@ import {
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import emptyStates from "../../../../../assets/copy/empty-states.json";
+import type { PickerOption } from "./compose";
 import { ComposeView, NoRecipient } from "./ComposeView";
 
 type Props = ComponentProps<typeof ComposeView>;
 
 const NOTE =
   "Dinner Saturday? I'll bring the good bread. Do NOT tell Gerald about the bread.";
+
+const GERALD: PickerOption = {
+  id: "b1",
+  name: "Gerald",
+  speed: "45 mph",
+  look: "gerald",
+  breed: "city",
+  gear: [],
+  chip: "Ready",
+  state: { kind: "ready" },
+};
+
+const CRUMBS: PickerOption = {
+  id: "b2",
+  name: "Adm. Crumbs",
+  speed: "52 mph",
+  look: "admiral",
+  breed: "city",
+  gear: [],
+  chip: "Hungry",
+  state: { kind: "hungry", warning: "Hungry. Can fly, but the odds drop." },
+};
+
+const KEVIN: PickerOption = {
+  id: "b3",
+  name: "Kevin",
+  speed: "38 mph",
+  look: "kevin",
+  breed: "city",
+  gear: [],
+  chip: "Napping",
+  state: { kind: "blocked", reason: "Napping. Can't fly yet." },
+};
+
+const STATS = {
+  distance: "81 mi",
+  flightTime: "1h 48m",
+  odds: "94%",
+  forecast: "Lands around 11:20 am. Clear skies over Jersey.",
+};
 
 const props = (over: Partial<Props> = {}): Props => ({
   recipient: {
@@ -22,9 +63,13 @@ const props = (over: Partial<Props> = {}): Props => ({
   },
   note: NOTE,
   counter: { text: "79 of 140 characters", over: false },
-  birdName: "Gerald",
+  birds: [GERALD, CRUMBS, KEVIN],
+  pickedId: "b1",
+  stats: STATS,
+  forecastHref: "/send/forecast?to=u2",
   sending: false,
   onNote: () => {},
+  onPick: () => {},
   onRelease: () => {},
   ...over,
 });
@@ -35,13 +80,19 @@ const render = (over: Partial<Props> = {}) =>
     "'",
   );
 
-const releaseButton = (html: string) => {
-  const button = html
+const buttonWith = (html: string, text: string) => {
+  const chunk = html
     .split("<button")
-    .find((chunk) => chunk.includes("Release"));
-  if (!button) throw new Error("no Release button");
-  return button.slice(0, button.indexOf(">"));
+    .slice(1)
+    .find((c) => c.slice(0, c.indexOf("</button>")).includes(text));
+  if (!chunk) throw new Error(`no button with ${text}`);
+  return {
+    tag: chunk.slice(0, chunk.indexOf(">")),
+    body: chunk.slice(0, chunk.indexOf("</button>")),
+  };
 };
+
+const releaseButton = (html: string) => buttonWith(html, "Release").tag;
 
 const noRested = emptyStates.find((s) => s.state === "No rested birds")!.text;
 
@@ -64,7 +115,9 @@ describe("ComposeView (ac-1)", () => {
 
   it("links back and Change to the address book", () => {
     const html = render();
-    const links = html.match(/<a [^>]*>/g) ?? [];
+    const links = (html.match(/<a [^>]*>/g) ?? []).filter(
+      (link) => !link.includes("forecast"),
+    );
     expect(links).toHaveLength(2);
     for (const link of links) expect(link).toContain('href="/send"');
     expect(html).toContain(">Change</a>");
@@ -76,11 +129,6 @@ describe("ComposeView (ac-1)", () => {
     expect(html).toMatch(/<textarea[^>]*id="note"/);
   });
 
-  it("does not build the bird picker or the stats yet", () => {
-    const html = render();
-    expect(html).not.toContain("Who's flying?");
-    expect(html).not.toContain("Arrival odds");
-  });
 
   it("enables Release for a note that fits and a ready bird", () => {
     expect(releaseButton(render())).not.toContain("disabled");
@@ -94,21 +142,115 @@ describe("ComposeView (ac-1)", () => {
       { counter: { text: "141 of 140 characters", over: true } },
     ],
     ["a release is in flight", { sending: true }],
-    ["no bird is ready", { birdName: null }],
+    ["no bird is ready", { pickedId: null }],
   ] as const)("disables Release when %s", (_, over) => {
     expect(releaseButton(render(over))).toContain("disabled");
   });
 
   it("says nobody is rested when no bird is ready", () => {
-    const html = render({ birdName: null });
+    const html = render({ pickedId: null });
     expect(html).toContain(noRested);
     expect(html).not.toContain("Release Gerald");
   });
 });
 
+describe("ComposeView picker (ac-1)", () => {
+  it("lists every bird under Who's flying? with speed and state", () => {
+    const html = render();
+    expect(html).toMatch(/<h2[^>]*>Who's flying\?<\/h2>/);
+    for (const [name, speed, chip] of [
+      ["Gerald", "45 mph", "Ready"],
+      ["Adm. Crumbs", "52 mph", "Hungry"],
+      ["Kevin", "38 mph", "Napping"],
+    ]) {
+      const { body } = buttonWith(html, name);
+      expect(body).toContain(speed);
+      expect(body).toContain(chip);
+    }
+  });
+
+  it("draws each bird's face", () => {
+    const { body } = buttonWith(render(), "Gerald");
+    expect(body).toContain("<svg");
+  });
+
+  it("marks the picked bird pressed and the others not", () => {
+    const html = render({ pickedId: "b2" });
+    expect(buttonWith(html, "Adm. Crumbs").tag).toContain(
+      'aria-pressed="true"',
+    );
+    expect(buttonWith(html, "Gerald").tag).toContain('aria-pressed="false"');
+    expect(html).toContain("Release Adm. Crumbs");
+  });
+
+  it("disables a blocked bird and says why", () => {
+    const kevin = buttonWith(render(), "Kevin");
+    expect(kevin.tag).toContain("disabled");
+    expect(kevin.body).toContain("Napping. Can't fly yet.");
+  });
+
+  it("keeps ready and hungry birds pickable", () => {
+    const html = render();
+    expect(buttonWith(html, "Gerald").tag).not.toContain("disabled");
+    expect(buttonWith(html, "Adm. Crumbs").tag).not.toContain("disabled");
+  });
+
+  it("warns when the picked bird is hungry", () => {
+    expect(render({ pickedId: "b2" })).toContain(
+      "Hungry. Can fly, but the odds drop.",
+    );
+    expect(render()).not.toContain("Can fly, but the odds drop.");
+  });
+});
+
+describe("ComposeView stats (ac-2)", () => {
+  it("shows the three stats and the forecast line from the quote", () => {
+    const html = render();
+    for (const [value, label] of [
+      ["81 mi", "Distance"],
+      ["1h 48m", "Flight time"],
+      ["94%", "Arrival odds"],
+    ])
+      expect(html).toMatch(
+        new RegExp(`>${value}</span><span[^>]*>${label}</span>`),
+      );
+    expect(html).toContain("Lands around 11:20 am. Clear skies over Jersey.");
+  });
+
+  it("links to the Forecast", () => {
+    expect(render()).toMatch(
+      /<a [^>]*href="\/send\/forecast\?to=u2"[^>]*>Forecast<\/a>/,
+    );
+  });
+
+  it("holds the stats back until the quote arrives", () => {
+    const html = render({ stats: null });
+    expect(html).not.toContain("Arrival odds");
+    expect(html).not.toContain("Lands around");
+  });
+
+  it("lays the screen out in the mock's order", () => {
+    const html = render();
+    const order = [
+      "New pigeon post",
+      "To Priya",
+      "Your note",
+      "Who's flying?",
+      "Arrival odds",
+      ">Forecast<",
+      "Release Gerald",
+      "No take-backs",
+    ].map((text) => html.indexOf(text));
+    expect(order.every((at) => at >= 0)).toBe(true);
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+  });
+});
+
 type Handlers = {
   type?: string;
+  className?: string;
   disabled?: boolean;
+  "aria-pressed"?: boolean;
   children?: ReactNode;
   onChange?: (e: { target: { value: string } }) => void;
   onClick?: () => void;
@@ -129,10 +271,19 @@ describe("ComposeView events (ac-2)", () => {
     expect(onNote).toHaveBeenCalledExactlyOnceWith("Hi Priya");
   });
 
+  it("passes a bird tap to onPick", () => {
+    const onPick = vi.fn();
+    const crumbs = elements(ComposeView(props({ onPick }))).find(
+      (e) => e.props["aria-pressed"] === false && !e.props.disabled,
+    );
+    crumbs?.props.onClick?.();
+    expect(onPick).toHaveBeenCalledExactlyOnceWith("b2");
+  });
+
   it("passes the Release tap to onRelease", () => {
     const onRelease = vi.fn();
     const button = elements(ComposeView(props({ onRelease }))).find(
-      (e) => e.type === "button",
+      (e) => e.props.className?.includes("release"),
     );
     button?.props.onClick?.();
     expect(onRelease).toHaveBeenCalledOnce();
