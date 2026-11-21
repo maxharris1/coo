@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import styles from "./AppShell.module.css";
+import { RealtimeNudge } from "./RealtimeNudge";
 import { chromeFor } from "./shell";
 import { SyncProvider } from "./SyncProvider";
 import { TabBar } from "./TabBar";
@@ -13,6 +14,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   if (chrome === "bare") return children;
   return (
     <SyncProvider>
+      <RealtimeNudge />
       <ToastProvider>
         <div className={chrome === "tabs" ? styles.withTabs : styles.column}>
           {children}

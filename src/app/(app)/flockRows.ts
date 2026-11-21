@@ -157,7 +157,13 @@ export async function feedThenRefresh(
   birdId: string,
   feed: (birdId: string) => Promise<void>,
   refresh: () => void,
+  toast: (message: string) => void,
 ): Promise<void> {
-  await feed(birdId);
-  refresh();
+  try {
+    await feed(birdId);
+  } catch (err) {
+    toast(err instanceof Error ? err.message : String(err));
+  } finally {
+    refresh();
+  }
 }
