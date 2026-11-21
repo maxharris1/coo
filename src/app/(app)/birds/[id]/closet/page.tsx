@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useRef, useState } from "react";
 import { Bird, type GearId, type Look } from "@/components/Bird";
-import { GearIcon } from "@/components/GearIcon";
 import { Loader } from "@/components/Loader";
 import { useSync } from "@/components/SyncProvider";
+import type { SyncPayload } from "@/components/sync";
 import { useToast } from "@/components/Toasts";
-import { feedThenRefresh } from "../../../flockRows";
+import { ClosetTile } from "./ClosetTile";
 import {
   closetCells,
   effectsFor,
@@ -35,62 +36,25 @@ function BackLink({ href, label }: { href: string; label: string }) {
   );
 }
 
-const statusOf = (cell: Exclude<Cell, { kind: "store" }>) => {
-  switch (cell.kind) {
-    case "wearing":
-      return "Wearing";
-    case "owned":
-      return "Owned";
-    case "on":
-      return `On ${cell.birdName}`;
-  }
-};
-
 const byShelf = (cells: Cell[]) => [
   ...cells.filter((c) => c.kind !== "store"),
   ...cells.filter((c) => c.kind === "store"),
 ];
 
-function tile(
-  cell: Cell,
-  next: GearId[] | null,
-  dress: (items: GearId[]) => void,
-) {
-  const icon = <GearIcon id={cell.item} size={40} />;
-  if (cell.kind === "store") {
-    return (
-      <Link
-        key={cell.item}
-        href="/shop"
-        aria-label={`${cell.name}, ${cell.price} seeds in the store`}
-        className={`${styles.tile} ${styles.store}`}
-      >
-        {icon}
-        <span className={styles.tileName}>{cell.name}</span>
-        <span className={styles.tileStatus}>{`${cell.price} seeds`}</span>
-      </Link>
-    );
-  }
-  return (
-    <button
-      key={cell.item}
-      type="button"
-      aria-pressed={cell.kind === "wearing"}
-      className={`${styles.tile} ${cell.kind === "wearing" ? styles.wearing : styles.owned}`}
-      disabled={next === null}
-      onClick={() => next && dress(next)}
-    >
-      {icon}
-      <span className={styles.tileName}>{cell.name}</span>
-      <span className={styles.tileStatus}>{statusOf(cell)}</span>
-    </button>
-  );
-}
-
 export default function ClosetPage() {
   const { id } = useParams<{ id: string }>();
   const { data, error, refresh } = useSync();
   const toast = useToast();
+  const [shown, setShown] = useState<{
+    data: SyncPayload;
+    birdId: string;
+    worn: GearId[];
+  } | null>(null);
+  const saving = useRef<{
+    birdId: string;
+    worn: GearId[];
+    done: Promise<void>;
+  } | null>(null);
   if (!data) {
     if (!error) return <Loader />;
     return (
@@ -114,21 +78,38 @@ export default function ClosetPage() {
     );
   }
 
-  const wardrobe: Wardrobe = {
-    bird,
+  const worn =
+    shown?.data === data && shown.birdId === bird.id
+      ? shown.worn
+      : (bird.gear as GearId[]);
+  const wardrobeFor = (gear: GearId[]): Wardrobe => ({
+    bird: { ...bird, gear },
     birds: data.birds,
     closet: data.closet,
     now: data.serverNow,
-  };
-  const worn = bird.gear as GearId[];
+  });
+  const cells = closetCells(wardrobeFor(worn));
   const effects = effectsFor(worn);
-  const dress = (items: GearId[]) =>
-    void feedThenRefresh(
-      bird.id,
-      (birdId) => putGear(birdId, items),
-      refresh,
-      toast,
-    );
+  const dress = (item: GearId) => {
+    const current =
+      saving.current?.birdId === bird.id ? saving.current.worn : worn;
+    const cell = closetCells(wardrobeFor(current)).find((c) => c.item === item);
+    const next = cell && pick(current, cell);
+    if (!next) return;
+    setShown({ data, birdId: bird.id, worn: next });
+    const done = (saving.current?.done ?? Promise.resolve())
+      .then(() => putGear(bird.id, next))
+      .catch((err: unknown) => {
+        setShown(null);
+        toast(err instanceof Error ? err.message : String(err));
+      })
+      .finally(() => {
+        if (saving.current?.done !== done) return;
+        saving.current = null;
+        refresh();
+      });
+    saving.current = { birdId: bird.id, worn: next, done };
+  };
 
   return (
     <main className={styles.screen}>
@@ -171,9 +152,14 @@ export default function ClosetPage() {
           </p>
         </div>
         <div className={styles.grid}>
-          {byShelf(closetCells(wardrobe)).map((cell) =>
-            tile(cell, pick(worn, cell), dress),
-          )}
+          {byShelf(cells).map((cell) => (
+            <ClosetTile
+              key={cell.item}
+              cell={cell}
+              enabled={pick(worn, cell) !== null}
+              dress={dress}
+            />
+          ))}
         </div>
       </section>
     </main>

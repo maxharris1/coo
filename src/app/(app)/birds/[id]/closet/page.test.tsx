@@ -5,17 +5,43 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Bird } from "@/components/Bird";
 import type { SyncState } from "@/components/SyncProvider";
 import type { SyncPayload } from "@/components/sync";
+import { ClosetTile } from "./ClosetTile";
 import ClosetPage from "./page";
 import { putGear } from "./wear";
 
 const sync = vi.hoisted(() => ({ current: null as unknown }));
+const route = vi.hoisted(() => ({ id: "g" }));
+const hooks = vi.hoisted(() => {
+  const slots: unknown[] = [];
+  let at = 0;
+  return {
+    slots,
+    begin: () => void (at = 0),
+    useState<T>(init: T) {
+      const i = at++;
+      if (!(i in slots)) slots[i] = init;
+      const set = (v: T) => void (slots[i] = v);
+      return [slots[i] as T, set] as const;
+    },
+    useRef<T>(init: T) {
+      const i = at++;
+      if (!(i in slots)) slots[i] = { current: init };
+      return slots[i] as { current: T };
+    },
+  };
+});
 const toasts = vi.hoisted(() => [] as string[]);
 
+vi.mock("react", async (actual) => ({
+  ...(await actual<typeof import("react")>()),
+  useState: hooks.useState,
+  useRef: hooks.useRef,
+}));
 vi.mock("@/components/SyncProvider", () => ({ useSync: () => sync.current }));
 vi.mock("@/components/Toasts", () => ({
   useToast: () => (message: string) => void toasts.push(message),
 }));
-vi.mock("next/navigation", () => ({ useParams: () => ({ id: "g" }) }));
+vi.mock("next/navigation", () => ({ useParams: () => ({ id: route.id }) }));
 
 type ClosetBird = SyncPayload["birds"][number];
 
@@ -63,8 +89,14 @@ const syncWith = (data: SyncPayload | null, error: string | null = null) => {
   sync.current = { data, error, offsetMs: 0, refresh } satisfies SyncState;
 };
 
+const page = () => {
+  hooks.begin();
+  return ClosetPage();
+};
+
 const render = (data: SyncPayload | null, error: string | null = null) => {
   syncWith(data, error);
+  hooks.begin();
   return renderToStaticMarkup(<ClosetPage />);
 };
 
@@ -80,6 +112,8 @@ const elements = (node: ReactNode): ReactElement<Props>[] => {
   if (Array.isArray(node)) return node.flatMap(elements);
   if (!node || typeof node !== "object" || !("props" in node)) return [];
   const el = node as ReactElement<Props>;
+  if (el.type === ClosetTile)
+    return elements(ClosetTile(el.props as Parameters<typeof ClosetTile>[0]));
   return [el, ...elements(el.props.children)];
 };
 
@@ -93,7 +127,7 @@ const text = (node: ReactNode): string => {
 };
 
 const tile = (name: string) => {
-  const found = elements(ClosetPage()).find(
+  const found = elements(page()).find(
     (el) => el.type === "button" && text(el).includes(name),
   );
   if (!found) throw new Error(`no tile for ${name}`);
@@ -107,6 +141,8 @@ const css = readFileSync(new URL("./page.module.css", import.meta.url), "utf8");
 beforeEach(() => {
   refresh = vi.fn();
   toasts.length = 0;
+  hooks.slots.length = 0;
+  route.id = "g";
   vi.unstubAllGlobals();
 });
 
@@ -212,6 +248,91 @@ describe("/birds/[id]/closet (ac-1)", () => {
       expect.objectContaining({ body: JSON.stringify({ items: ["band"] }) }),
     );
     expect(refresh).toHaveBeenCalledOnce();
+  });
+
+  describe("successive taps before the refetch lands (f-1)", () => {
+    const bare = bird({ gear: [] });
+    const deferredFetch = () => {
+      const bodies: unknown[] = [];
+      const answers: (() => void)[] = [];
+      const fetchMock = vi.fn(
+        (_url: string, init?: RequestInit) =>
+          new Promise<Response>((resolve) => {
+            bodies.push(JSON.parse(String(init?.body)));
+            answers.push(() =>
+              resolve(Response.json({ bird: {}, skipped: [] })),
+            );
+          }),
+      );
+      vi.stubGlobal("fetch", fetchMock);
+      const answerAll = async () => {
+        while (answers.length) {
+          answers.shift()!();
+          await flush();
+        }
+      };
+      return { bodies, answerAll };
+    };
+
+    it("keeps goggles when scarf is tapped next", async () => {
+      const { bodies, answerAll } = deferredFetch();
+      syncWith(payload([bare], ["goggles", "scarf"]));
+      tile("goggles").props.onClick?.();
+      tile("scarf").props.onClick?.();
+      await flush();
+      await answerAll();
+      expect(bodies.at(-1)).toEqual({ items: ["goggles", "scarf"] });
+      expect(refresh).toHaveBeenCalledOnce();
+    });
+
+    it("keeps goggles even when both taps come from one render", async () => {
+      const { bodies, answerAll } = deferredFetch();
+      syncWith(payload([bare], ["goggles", "scarf"]));
+      const goggles = tile("goggles");
+      const scarf = tile("scarf");
+      goggles.props.onClick?.();
+      scarf.props.onClick?.();
+      await flush();
+      await answerAll();
+      expect(bodies).toEqual([
+        { items: ["goggles"] },
+        { items: ["goggles", "scarf"] },
+      ]);
+    });
+
+    it("shows the pending selection on the stand and in the grid", () => {
+      deferredFetch();
+      syncWith(payload([bare], ["goggles", "scarf"]));
+      tile("goggles").props.onClick?.();
+      expect(tile("goggles").props["aria-pressed"]).toBe(true);
+      hooks.begin();
+      expect(renderToStaticMarkup(<ClosetPage />)).not.toContain(
+        "Nothing on yet.",
+      );
+    });
+
+    it("does not carry one bird's pending gear to another", async () => {
+      const { bodies, answerAll } = deferredFetch();
+      const otherBare = bird({ id: "k", name: "Kevin", gear: [] });
+      syncWith(payload([bare, otherBare], ["goggles", "scarf"]));
+      tile("goggles").props.onClick?.();
+      route.id = "k";
+      expect(tile("goggles").props["aria-pressed"]).toBe(false);
+      tile("scarf").props.onClick?.();
+      await flush();
+      await answerAll();
+      expect(bodies).toEqual([{ items: ["goggles"] }, { items: ["scarf"] }]);
+    });
+
+    it("drops the pending selection once fresh sync data arrives", async () => {
+      const { answerAll } = deferredFetch();
+      syncWith(payload([bare], ["goggles", "scarf"]));
+      tile("goggles").props.onClick?.();
+      await answerAll();
+      syncWith(payload([bird({ gear: ["scarf"] })], ["goggles", "scarf"]));
+      expect(tile("goggles").props["aria-pressed"]).toBe(false);
+      expect(tile("scarf").props["aria-pressed"]).toBe(true);
+    });
   });
 
   it("toasts the server's refusal and still refetches", async () => {
