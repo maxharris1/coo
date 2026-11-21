@@ -9,7 +9,7 @@ export type NotificationItem = {
   title: string;
   body: string;
   url: string;
-  createdAt: string;
+  createdAt: number;
   read: boolean;
 };
 
@@ -42,7 +42,7 @@ export async function listNotifications(
       title: r.title,
       body: r.body,
       url: r.url,
-      createdAt: r.created_at.toISOString(),
+      createdAt: r.created_at.getTime(),
       read: r.read,
     })),
   };

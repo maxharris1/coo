@@ -49,6 +49,19 @@ describe("GET /api/notifications", () => {
     }
   });
 
+  it("returns createdAt as epoch milliseconds", async () => {
+    await insertNotification(deps.db, world, 1795100400000, {
+      userId: world.max.id,
+      kind: "test",
+      refId: null,
+    });
+    const { jar } = await client.signIn(MAX_PHONE);
+
+    const { json } = await client.get({}, jar);
+
+    expect(json.notifications[0].createdAt).toBe(1795100400000);
+  });
+
   it("hides ref_id from the list", async () => {
     const refId = "00000000-0000-4000-c000-000000000099";
     await seed(world.max.id, refId);

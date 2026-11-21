@@ -99,7 +99,7 @@ describe("listNotifications", () => {
       title: "n2",
       body: "Something happened",
       url: "/",
-      createdAt: new Date(deps.clock.now() + 2000).toISOString(),
+      createdAt: deps.clock.now() + 2000,
       read: false,
     });
   });
