@@ -9,7 +9,7 @@ import {
 } from "@/lib/flight/engine";
 import { careAt, type CareOwner } from "@/lib/game/care";
 import { levelFor } from "@/lib/game/levels";
-import { activeLoft, endpointFor } from "@/lib/game/privacy";
+import { activeLoft, endpointFor, type Shows } from "@/lib/game/privacy";
 import { isWeekend } from "@/lib/game/time";
 import type { Deps } from "@/server/deps";
 import { AppError } from "@/server/errors";
@@ -52,6 +52,8 @@ export type RecipientQuote = {
 };
 
 type Endpoint = { point: LatLon; label: string };
+type Leg = { from: Endpoint; to: Endpoint };
+type Lofts = ReturnType<typeof loftsOf>;
 
 const HOUR_MS = 3_600_000;
 const LOFT_SELECT = LOFT_COLUMNS.join(", ");
@@ -67,31 +69,32 @@ export async function quote(
     `select ${LOFT_SELECT}, has_birdbath, timezone from profiles where id = $1`,
     [me],
   );
-  const home = mine && activeLoft(loftsOf(mine));
-  if (!home) throw new AppError("conflict", "Set up your loft first");
-  const from: Endpoint = { point: home.roost, label: home.label };
+  const myLofts = mine && loftsOf(mine);
+  const roost = myLofts && endpointOf("block", myLofts);
+  if (!roost) throw new AppError("conflict", "Set up your loft first");
   const owner: CareOwner = { hasBirdbath: mine.has_birdbath };
 
   const times = releaseTimes(deps, input.at);
-  const destinations = await Promise.all(
-    input.recipients.map((r) => destinationFor(deps, me, r)),
+  const legs = await Promise.all(
+    input.recipients.map((r) => legFor(deps, me, myLofts, roost, r)),
   );
   const birds = await birdsFor(deps, me, input.birdIds, owner);
 
   const fractions = deps.config.game.weather.sampleFractions;
-  const legs = destinations.flatMap((to) => times.map((t) => ({ to, t })));
   const { samples } = await sampleWeather(
     deps,
-    legs.flatMap(({ to, t }) =>
-      fractions.map((f) => ({
-        ...interpolate(from.point, to.point, f),
-        atMs: t,
-      })),
+    legs.flatMap(({ from, to }) =>
+      times.flatMap((t) =>
+        fractions.map((f) => ({
+          ...interpolate(from.point, to.point, f),
+          atMs: t,
+        })),
+      ),
     ),
   );
 
   return {
-    recipients: destinations.map((to, r) => ({
+    recipients: legs.map(({ from, to }, r) => ({
       recipient: input.recipients[r],
       distanceMi: Math.round(haversineMi(from.point, to.point) * 10) / 10,
       from: { label: from.label },
@@ -126,14 +129,16 @@ function releaseTimes(deps: Deps, at: number[] | undefined): number[] {
   return times;
 }
 
-async function destinationFor(
+async function legFor(
   deps: Deps,
   me: UserId,
+  myLofts: Lofts,
+  roost: Endpoint,
   recipient: QuoteRecipient,
-): Promise<Endpoint> {
+): Promise<Leg> {
   if ("place" in recipient) {
     const place = await resolvePlace(deps, me, recipient.place.placeId);
-    return { point: place.roost, label: place.label };
+    return { from: roost, to: { point: place.roost, label: place.label } };
   }
   const them = recipient.friendId;
   const friendship = await friendshipBetween(deps.db, me, them);
@@ -143,15 +148,18 @@ async function destinationFor(
     `select ${LOFT_SELECT} from profiles where id = $1`,
     [them],
   );
-  const lofts = loftsOf(theirs);
+  const from = endpointOf(friendship.myShows, myLofts);
+  if (!from) throw new AppError("conflict", "Set up your loft first");
+  const to = endpointOf(friendship.theirShows, loftsOf(theirs));
+  if (!to) throw new AppError("conflict", "That friend has no loft yet");
+  return { from, to };
+}
+
+function endpointOf(shows: Shows, lofts: Lofts): Endpoint | null {
   const loft = activeLoft(lofts);
-  const point = endpointFor(friendship.theirShows, lofts);
-  if (!loft || !point)
-    throw new AppError("conflict", "That friend has no loft yet");
-  return {
-    point,
-    label: friendship.theirShows === "city" ? loft.city : loft.label,
-  };
+  const point = endpointFor(shows, lofts);
+  if (!loft || !point) return null;
+  return { point, label: shows === "city" ? loft.city : loft.label };
 }
 
 async function birdsFor(

@@ -173,6 +173,46 @@ describe("quote", () => {
     expect(recipients[0].to.label).toBe("Williamsburg");
   });
 
+  it("review repro: city-only origin", async () => {
+    await setShows(deps, max, world.rosa.id as UserId, "city");
+    await setShows(deps, world.rosa.id as UserId, max, "city");
+
+    const { recipients } = await quote(deps, max, {
+      recipients: [{ friendId: world.rosa.id as UserId }],
+      birdIds: [gerald],
+    });
+
+    const [rosa] = recipients;
+    expect({
+      miles: rosa.distanceMi,
+      from: rosa.from.label,
+      durationMs: rosa.quotes[0].durationMs,
+    }).toEqual({ miles: 0, from: "New York", durationMs: 0 });
+  });
+
+  it("flies from the sender's city centre when the sender shows only the city", async () => {
+    await setShows(deps, max, world.rosa.id as UserId, "city");
+
+    const { recipients } = await quote(deps, max, {
+      recipients: [
+        { friendId: world.rosa.id as UserId },
+        { friendId: world.priya.id as UserId },
+      ],
+      birdIds: [gerald],
+    });
+
+    const [rosa, priya] = recipients;
+    const rosaRoost = { lat: 40.708, lon: -73.9575 };
+    expect(rosa.distanceMi).toBe(
+      Math.round(haversineMi(NEW_YORK_CENTRE, rosaRoost) * 10) / 10,
+    );
+    expect(rosa.from.label).toBe("New York");
+    expect(rosa.to.label).toBe("Williamsburg");
+    expect(JSON.stringify(rosa)).not.toContain("East Village");
+    expect(priya.from.label).toBe("East Village");
+    expect(priya.distanceMi).toBeCloseTo(82.1, 1);
+  });
+
   it("asks the weather port once for every recipient and time", async () => {
     const asked: number[] = [];
     const samples = deps.weather.samples.bind(deps.weather);
