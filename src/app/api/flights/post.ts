@@ -1,8 +1,28 @@
+import { z } from "zod";
+import { config } from "@/lib/config";
 import type { createJsonRoute } from "@/server/http";
-import { AppError } from "@/server/errors";
+import type { UserId } from "@/server/ports/auth";
+import { send } from "@/server/services/flights/send";
+
+const SEND = z.union([
+  z.object({
+    friendId: z.uuid().transform((id) => id as UserId),
+    birdId: z.uuid(),
+  }),
+  z.object({
+    guest: z.object({ name: z.string(), placeId: z.string() }),
+    birdId: z.uuid(),
+  }),
+]);
+
+const BODY = z.object({
+  body: z.string(),
+  sends: z.array(SEND).min(1).max(config.game.limits.recipientsPerSend),
+  releaseAt: z.number().int().optional(),
+});
 
 export function flightsPost(jsonRoute: ReturnType<typeof createJsonRoute>) {
-  return jsonRoute("onboarded", {}, async () => {
-    throw new AppError("not_found", "Flights are not built yet.");
-  });
+  return jsonRoute("onboarded", { body: BODY }, ({ deps, caller, input }) =>
+    send(deps, caller.userId, input),
+  );
 }

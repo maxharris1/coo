@@ -58,23 +58,25 @@ export function startSync({
   timezone: string;
   onResult: (r: SyncResult) => void;
 }): { refresh(): void; stop(): void } {
-  let inFlight = false;
-  let invalidated = false;
+  let state: "idle" | "loading" | "stale" = "idle";
   const lifetime = new AbortController();
 
-  const poll = () => {
-    if (inFlight || lifetime.signal.aborted) return;
-    inFlight = true;
+  const run = () => {
+    state = "loading";
     void load(fetchImpl, timezone, lifetime.signal).then((result) => {
-      inFlight = false;
       if (lifetime.signal.aborted) return;
+      if (state === "stale") return run();
+      state = "idle";
       onResult(result);
-      if (invalidated) refresh();
     });
   };
+  const poll = () => {
+    if (state === "idle" && !lifetime.signal.aborted) run();
+  };
   const refresh = () => {
-    invalidated = inFlight;
-    poll();
+    if (lifetime.signal.aborted) return;
+    if (state === "idle") run();
+    else state = "stale";
   };
   const refreshIfVisible = () => {
     if (doc.visibilityState === "visible") poll();

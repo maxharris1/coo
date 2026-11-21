@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { toE164, type E164 } from "@/lib/phone";
 import { createJsonRoute } from "@/server/http";
+import { health } from "@/server/services/health";
 import { tick } from "@/server/services/tick";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
 import { FakeJar } from "@/test/fakes/jar";
@@ -62,6 +63,7 @@ describe("POST /api/cron/tick", () => {
     expect(status).toBe(401);
     expect(json.error.code).toBe("unauthenticated");
     expect(tick).not.toHaveBeenCalled();
+    expect((await health(deps)).lastTickAt).toBeNull();
   });
 
   it("refuses a signed-in user's session without the secret", async () => {
@@ -84,6 +86,25 @@ describe("POST /api/cron/tick", () => {
     expect(Object.keys(json.counts).length).toBeGreaterThan(0);
     expect(Object.values(json.counts).every((n) => n === 0)).toBe(true);
     expect(json.serverNow).toBe(deps.clock.now());
+  });
+
+  it("records the finished tick as the last good tick", async () => {
+    await post({ authorization: `Bearer ${SECRET}` });
+
+    expect(await health(deps)).toEqual({
+      lastTickAt: deps.clock.now(),
+      ageMs: 0,
+      stale: false,
+    });
+  });
+
+  it("leaves the last good tick alone when the tick throws", async () => {
+    vi.mocked(tick).mockRejectedValueOnce(new Error("boom"));
+
+    const { status } = await post({ authorization: `Bearer ${SECRET}` });
+
+    expect(status).toBe(500);
+    expect((await health(deps)).lastTickAt).toBeNull();
   });
 
   it("accepts the request pg_net sends from supabase/migrations/0002_cron.sql", async () => {

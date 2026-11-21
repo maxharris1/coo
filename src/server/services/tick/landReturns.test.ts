@@ -337,7 +337,7 @@ describe("landing a return", () => {
   });
 
   it("keeps home recovery from arrival when a birdbath purchase settles the return before the tick", async () => {
-    const r = await insertReturn({ withNote: false });
+    const r = await insertReturn({ withNote: false, id: NO_FIND_ID });
     await rows("update birds set energy = 70, care_at = $2 where id = $1", [
       r.birdId,
       iso(deps.clock.now()),

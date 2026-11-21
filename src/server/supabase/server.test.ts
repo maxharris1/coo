@@ -14,7 +14,7 @@ const PHONE_FRAGMENTS = ["5551234567", "555-123-4567", "1234567"];
 const USER_ID = "8f0e7c52-4a8b-4f43-9d0c-1f2e3d4c5b6a";
 
 type Reply = { status: number; body: unknown; headers?: Record<string, string> };
-type Routes = Partial<Record<"otp" | "verify" | "logout" | "token", Reply>>;
+type Routes = Partial<Record<"otp" | "verify" | "logout" | "token" | "user", Reply>>;
 
 function echoingError(status: number, code: string): Reply {
   return {
@@ -216,6 +216,37 @@ describe("supabaseAuth sessions", () => {
   it("has no current user with an empty jar", async () => {
     const auth = supabaseAuth(jar, env, fakeFetch({}));
     await expect(auth.currentUserId()).resolves.toBeNull();
+  });
+
+  it("hands out the session's access token", async () => {
+    const auth = supabaseAuth(
+      jar,
+      env,
+      fakeFetch({
+        verify: { status: 200, body: session },
+        user: { status: 200, body: session.user },
+      }),
+    );
+    await auth.verifyCode(phone, "123456");
+    await expect(auth.accessToken()).resolves.toBe(session.access_token);
+  });
+
+  it("has no access token when the auth server rejects the session", async () => {
+    const auth = supabaseAuth(
+      jar,
+      env,
+      fakeFetch({
+        verify: { status: 200, body: session },
+        user: echoingError(401, "bad_jwt"),
+      }),
+    );
+    await auth.verifyCode(phone, "123456");
+    await expect(auth.accessToken()).resolves.toBeNull();
+  });
+
+  it("has no access token with an empty jar", async () => {
+    const auth = supabaseAuth(jar, env, fakeFetch({}));
+    await expect(auth.accessToken()).resolves.toBeNull();
   });
 
   it("clears the session cookies even when the logout call fails", async () => {

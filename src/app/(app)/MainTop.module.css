@@ -39,6 +39,38 @@
   box-shadow: var(--coo-shadow-1);
 }
 
+.bell {
+  position: relative;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: var(--coo-touch);
+  height: var(--coo-touch);
+  background: var(--coo-card);
+  border: var(--coo-line);
+  border-radius: 50%;
+  box-shadow: var(--coo-shadow-1);
+}
+
+.badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  box-sizing: border-box;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  color: var(--coo-card);
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 16px;
+  text-align: center;
+  background: var(--coo-tomato);
+  border: var(--coo-line-thin);
+  border-radius: var(--coo-radius-pill);
+}
+
 .seeds {
   display: flex;
   align-items: center;
@@ -57,6 +89,7 @@
 }
 
 .menu:focus-visible,
+.bell:focus-visible,
 .seeds:focus-visible {
   outline: 3px solid var(--coo-ink);
   outline-offset: 3px;

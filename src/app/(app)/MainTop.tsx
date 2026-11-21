@@ -208,13 +208,45 @@ function MenuIcon() {
   );
 }
 
+function BellIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+      <g
+        fill="none"
+        stroke={INK}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M12 4 Q18 5 18 13 L20 17 H4 L6 13 Q6 5 12 4 Z" />
+        <path d="M10 20 Q12 22 14 20" />
+      </g>
+    </svg>
+  );
+}
+
 export function MainTop({ data, nowMs }: { data: SyncPayload; nowMs: number }) {
   const { seeds, timezone } = data.me;
+  const { unread } = data;
   return (
     <section className={styles.top}>
       <header className={styles.header}>
         <p className={styles.wordmark}>coo</p>
         <div className={styles.actions}>
+          <Link
+            href="/notifications"
+            className={styles.bell}
+            aria-label={
+              unread > 0 ? `Notifications, ${unread} unread` : "Notifications"
+            }
+          >
+            <BellIcon />
+            {unread > 0 && (
+              <span className={styles.badge} aria-hidden="true">
+                {unread}
+              </span>
+            )}
+          </Link>
           <Link
             href="/more"
             className={styles.menu}

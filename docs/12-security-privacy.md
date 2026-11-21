@@ -54,8 +54,8 @@ own bugs. Therefore:
 - Every service function takes the acting user's id and every query filters by it.
 - "Not yours" and "does not exist" both return `not_found`.
 - Each endpoint has a test that calls it as a different user and expects `not_found` or `forbidden`.
-- Row level security is still enabled on every table with no policy, so the public key in the
-  browser can read nothing except the user's own `events` rows. The schema test checks this.
+- Row level security is still enabled on every table with no browser policy, so the public key in
+  the browser can read nothing except the user's own `events` rows. The schema test checks this.
 
 ## Secrets and tokens
 

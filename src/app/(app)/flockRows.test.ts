@@ -246,7 +246,25 @@ describe("feedThenRefresh (ac-2)", () => {
     const feed = vi.fn(async (id: string) => {
       calls.push(`feed ${id}`);
     });
-    await feedThenRefresh("b1", feed, () => calls.push("refresh"));
+    await feedThenRefresh(
+      "b1",
+      feed,
+      () => calls.push("refresh"),
+      (message) => calls.push(`toast ${message}`),
+    );
     expect(calls).toEqual(["feed b1", "refresh"]);
+  });
+
+  it("toasts a failed feed and still refetches", async () => {
+    const calls: string[] = [];
+    await feedThenRefresh(
+      "b1",
+      async () => {
+        throw new Error("Not enough seeds.");
+      },
+      () => calls.push("refresh"),
+      (message) => calls.push(`toast ${message}`),
+    );
+    expect(calls).toEqual(["toast Not enough seeds.", "refresh"]);
   });
 });
