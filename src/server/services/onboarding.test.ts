@@ -214,6 +214,17 @@ describe("onboard: bad input is invalid and writes nothing (ac-4)", () => {
     ["an unknown time zone", { ...BODY, timezone: "Mars/Olympus" }, "timezone"],
     ["a malformed handle", { ...BODY, handle: "a!" }, "handle"],
     ["a blank name", { ...BODY, name: "   " }, "name"],
+    ["a name with a NUL", { ...BODY, name: "Ma\u0000x" }, "name"],
+    [
+      "a bird name with a NUL",
+      { ...BODY, bird: { ...BODY.bird, name: "\u0000" } },
+      "bird.name",
+    ],
+    [
+      "a second bird name with a NUL",
+      { ...BODY, secondBird: { name: "Pea\u0000", pronoun: "he" } },
+      "secondBird.name",
+    ],
   ])("rejects %s", async (_, body, field) => {
     const user = await newUser();
     await expect(onboard(deps, user, body)).rejects.toMatchObject({

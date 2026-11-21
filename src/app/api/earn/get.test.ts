@@ -2,8 +2,11 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { config } from "@/lib/config";
 import type { UserId } from "@/server/ports/auth";
 import { onboard } from "@/server/services/onboarding";
+import { tick } from "@/server/services/tick";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
+import { insertPlannedDelivery } from "@/test/fixtures/plannedFlight";
 import { geoClient } from "@/test/geoRoute";
+import { seedWorld, type World } from "@/test/seedWorld";
 import { earnGet } from "./get";
 
 const HOUR = 3_600_000;
@@ -169,5 +172,134 @@ describe("GET /api/earn", () => {
     const { json } = await client.get({ userId: other.id }, jar);
     expect(json.seeds).toBe(config.game.start.seeds);
     expect(json.punchCard).toMatchObject({ deliveries: 0 });
+  });
+});
+
+describe("GET /api/earn?flight=", () => {
+  const MINUTE = 60_000;
+  const PHONE = { max: "(555) 000-0001", priya: "(555) 000-0002" };
+  let world: World;
+
+  beforeEach(async () => {
+    world = await seedWorld(deps.db, deps.clock.now());
+  });
+
+  async function seedsOf(id: string) {
+    const [{ seeds }] = await deps.db.query<{ seeds: number }>(
+      "select seeds from profiles where id = $1",
+      [id],
+    );
+    return seeds;
+  }
+
+  async function land(flight: { arriveAtMs: number }) {
+    deps.clock.set(flight.arriveAtMs + MINUTE);
+    await tick(deps);
+  }
+
+  it("lists delivery, new city and punch card lines that sum to the balance change", async () => {
+    const flight = await insertPlannedDelivery(
+      deps.db,
+      world,
+      deps.clock.now(),
+    );
+    await card(world.max.id, "2026-11-16", 9);
+    const before = await seedsOf(world.max.id);
+    await land(flight);
+    const after = await seedsOf(world.max.id);
+
+    const { jar } = await client.signIn(PHONE.max);
+    const { status, json } = await client.get({ flight: flight.flightId }, jar);
+
+    expect(status).toBe(200);
+    expect(json.earned.flightId).toBe(flight.flightId);
+    const lines: { reason: string; seeds: number }[] = json.earned.lines;
+    expect(lines.map((l) => l.reason)).toEqual([
+      "delivery",
+      "new_city",
+      "punch_card",
+    ]);
+    expect(lines[1].seeds).toBe(config.game.seeds.newCity);
+    expect(lines[2].seeds).toBe(config.game.seeds.punchCardPay);
+    expect(lines.reduce((sum, l) => sum + l.seeds, 0)).toBe(after - before);
+    expect(json.seeds).toBe(after);
+    expect(json.punchCard).toMatchObject({ deliveries: 10, paid: true });
+  });
+
+  it("lists only the delivery line for a repeat city", async () => {
+    const first = await insertPlannedDelivery(deps.db, world, deps.clock.now());
+    await land(first);
+    const second = await insertPlannedDelivery(
+      deps.db,
+      world,
+      deps.clock.now(),
+      { birdId: world.max.birds[1].id },
+    );
+    const before = await seedsOf(world.max.id);
+    await land(second);
+    const after = await seedsOf(world.max.id);
+
+    const { jar } = await client.signIn(PHONE.max);
+    const { json } = await client.get({ flight: second.flightId }, jar);
+
+    expect(json.earned).toEqual({
+      flightId: second.flightId,
+      lines: [{ reason: "delivery", seeds: after - before }],
+    });
+  });
+
+  it("gives no lines for the caller's flight that is still flying", async () => {
+    const flight = await insertPlannedDelivery(
+      deps.db,
+      world,
+      deps.clock.now(),
+    );
+    const { jar } = await client.signIn(PHONE.max);
+    const { status, json } = await client.get({ flight: flight.flightId }, jar);
+    expect(status).toBe(200);
+    expect(json.earned).toEqual({ flightId: flight.flightId, lines: [] });
+  });
+
+  it("leaves earned null without a flight query", async () => {
+    const { jar } = await client.signIn(PHONE.max);
+    const { json } = await client.get({}, jar);
+    expect(json.earned).toBeNull();
+  });
+
+  it("refuses someone else's flight, an incoming flight and an unknown id with the same 404", async () => {
+    const priyas = await insertPlannedDelivery(
+      deps.db,
+      world,
+      deps.clock.now(),
+      { from: world.priya, to: world.rosa, birdId: world.priya.birds[0].id },
+    );
+    const incoming = await insertPlannedDelivery(
+      deps.db,
+      world,
+      deps.clock.now(),
+      { from: world.priya, to: world.max, birdId: world.priya.birds[1].id },
+    );
+    await land(incoming);
+    const { jar } = await client.signIn(PHONE.max);
+
+    const refusals = await Promise.all(
+      [
+        priyas.flightId,
+        incoming.flightId,
+        "00000000-0000-4000-a000-0000000000ff",
+      ].map((flight) => client.get({ flight }, jar)),
+    );
+    for (const { status, json } of refusals) {
+      expect(status).toBe(404);
+      expect(json).toEqual(refusals[0].json);
+    }
+    expect(refusals[0].json.error.code).toBe("not_found");
+  });
+
+  it("refuses a malformed flight id as 400", async () => {
+    const { jar } = await client.signIn(PHONE.max);
+    const { status, json } = await client.get({ flight: "nope" }, jar);
+    expect(status).toBe(400);
+    expect(json.error.code).toBe("invalid");
   });
 });

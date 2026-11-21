@@ -1,8 +1,6 @@
 import type { Pronoun } from "@/lib/format";
 import {
-  bathDone,
   feed,
-  napDone,
   projectCare,
   type CareOwner,
   type CareSnapshot,
@@ -11,6 +9,7 @@ import type { OnboardedCaller, Profile } from "@/server/auth";
 import type { Deps } from "@/server/deps";
 import { AppError } from "@/server/errors";
 import { toBirdRecord, type BirdRecord, type Row } from "@/server/rows";
+import { careSnapshot, wakeEffect } from "./care/snapshot";
 import { toBirdView, type BirdView } from "./sync";
 
 export type CareAction = "feed" | "bath" | "nap";
@@ -19,11 +18,6 @@ type Rest = "bath" | "nap";
 type CareFn = typeof feed;
 
 const MINUTE_MS = 60_000;
-
-export const wakeEffect: Record<Rest, CareFn> = {
-  bath: bathDone,
-  nap: napDone,
-};
 
 type Spec = {
   cost: number;
@@ -48,31 +42,19 @@ function actions(deps: Deps): Record<CareAction, Spec> {
   };
 }
 
-function snapshot(bird: BirdRecord): CareSnapshot {
-  return {
-    belly: bird.belly,
-    feathers: bird.feathers,
-    energy: bird.energy,
-    careAtMs: bird.careAt,
-    lastFedAtMs: bird.lastFedAt,
-    hungryNotified: bird.hungryNotified,
-    status: bird.status,
-  };
-}
-
 function settled(
   bird: BirdRecord,
   nowMs: number,
   owner: CareOwner,
 ): CareSnapshot | null {
-  if (bird.status === "home") return snapshot(bird);
+  if (bird.status === "home") return careSnapshot(bird);
   const { busyKind, busyUntil } = bird;
   if (bird.status !== "busy" || busyUntil === null || busyUntil > nowMs) {
     return null;
   }
   if (busyKind !== "bath" && busyKind !== "nap") return null;
   return {
-    ...wakeEffect[busyKind](snapshot(bird), busyUntil, owner),
+    ...wakeEffect[busyKind](careSnapshot(bird), busyUntil, owner),
     status: "home",
   };
 }

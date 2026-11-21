@@ -53,19 +53,20 @@ describe("clockSource", () => {
     },
   );
 
-  it("caches the offset for 5 seconds", async () => {
-    const now = vi.spyOn(Date, "now").mockReturnValue(T0);
-    await dbWithOffset(HOUR);
-    const source = clockSource("development");
-    expect((await source(db)).now()).toBe(T0 + HOUR);
-
-    await db.query("update dev_clock set offset_ms = $1", [2 * HOUR]);
-    now.mockReturnValue(T0 + 4_999);
-    expect((await source(db)).now()).toBe(T0 + 4_999 + HOUR);
-
-    now.mockReturnValue(T0 + 5_000);
-    expect((await source(db)).now()).toBe(T0 + 5_000 + 2 * HOUR);
-  });
+  it.each(["development", "preview", "test"] as const)(
+    "%s shows a committed offset to every prewarmed source at once",
+    async (env) => {
+      vi.spyOn(Date, "now").mockReturnValue(T0);
+      await dbWithOffset(0);
+      const writer = clockSource(env);
+      const reader = clockSource(env);
+      expect((await writer(db)).now()).toBe(T0);
+      expect((await reader(db)).now()).toBe(T0);
+      await db.query("update dev_clock set offset_ms = offset_ms + $1", [HOUR]);
+      expect((await reader(db)).now()).toBe(T0 + HOUR);
+      expect((await writer(db)).now()).toBe(T0 + HOUR);
+    },
+  );
 });
 
 describe("offsetClock", () => {

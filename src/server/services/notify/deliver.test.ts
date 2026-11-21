@@ -119,6 +119,7 @@ describe("deliver", () => {
     expect(await deliver(deps, id)).toEqual({
       pushed: false,
       reason: "no-subscription",
+      sms: { texted: false, reason: "missing" },
     });
     expect((await stored(id)).push_sent_at).toBeNull();
   });

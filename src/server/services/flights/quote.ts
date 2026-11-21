@@ -54,7 +54,7 @@ export type RecipientQuote = {
   quotes: BirdQuote[];
 };
 
-type Endpoint = { point: LatLon; label: string };
+export type Endpoint = { point: LatLon; label: string };
 type Leg = { from: Endpoint; to: Endpoint };
 type Lofts = ReturnType<typeof loftsOf>;
 
@@ -132,7 +132,7 @@ function releaseTimes(deps: Deps, at: number[] | undefined): number[] {
   return times;
 }
 
-async function legFor(
+export async function legFor(
   deps: Deps,
   me: UserId,
   myLofts: Lofts,
@@ -158,7 +158,7 @@ async function legFor(
   return { from, to };
 }
 
-function endpointOf(shows: Shows, lofts: Lofts): Endpoint | null {
+export function endpointOf(shows: Shows, lofts: Lofts): Endpoint | null {
   const loft = activeLoft(lofts);
   const point = endpointFor(shows, lofts);
   if (!loft || !point) return null;
@@ -192,7 +192,7 @@ async function birdsFor(
   return wanted.map((id) => byId.get(id)!);
 }
 
-function snapshotOf(b: BirdRecord) {
+export function snapshotOf(b: BirdRecord) {
   return {
     belly: b.belly,
     feathers: b.feathers,
