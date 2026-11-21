@@ -175,6 +175,41 @@ describe("delay notices", () => {
     ]);
   });
 
+  it("notifies the owner and the counterpart once for a return flight", async () => {
+    await withDelay("major");
+    await deps.db.query("update flights set kind = 'return' where id = $1", [
+      flightId,
+    ]);
+    deps.clock.set(delayStartMs + MINUTE_MS);
+
+    expect(await step()).toEqual({ count: 1 });
+    deps.clock.set(delayStartMs + 2 * MINUTE_MS);
+    expect(await step()).toEqual({ count: 0 });
+
+    expect((await notices()).map((n) => [n.user_id, n.kind])).toEqual([
+      [world.max.id, "delayed"],
+      [world.priya.id, "delayed-in"],
+    ]);
+    expect(await notified()).toBe(true);
+  });
+
+  it("sends a flagged return flight's missing counterpart notice once", async () => {
+    await withDelay("major");
+    await deps.db.query(
+      "update flights set kind = 'return', delay_notified = true where id = $1",
+      [flightId],
+    );
+    deps.clock.set(delayStartMs + MINUTE_MS);
+
+    expect(await step()).toEqual({ count: 1 });
+    deps.clock.set(delayStartMs + 2 * MINUTE_MS);
+    expect(await step()).toEqual({ count: 0 });
+
+    expect((await notices()).map((n) => [n.user_id, n.kind])).toEqual([
+      [world.priya.id, "delayed-in"],
+    ]);
+  });
+
   it("waits until the delay segment has started", async () => {
     await withDelay("major");
     deps.clock.set(delayStartMs - MINUTE_MS);

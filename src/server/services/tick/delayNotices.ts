@@ -11,7 +11,6 @@ import type { Step, StepContext } from "../tick";
 
 type Candidate = {
   id: string;
-  kind: "delivery" | "return";
   owner_id: string;
   counterpart_id: string | null;
   bird_id: string;
@@ -25,9 +24,14 @@ async function candidates(
   nowMs: number,
 ): Promise<Candidate[]> {
   return ctx.deps.db.query<Candidate>(
-    `select id, kind, owner_id, counterpart_id, bird_id, from_label, plan, place_names
+    `select id, owner_id, counterpart_id, bird_id, from_label, plan, place_names
      from flights
-     where status = 'flying' and delay_kind = 'major' and not delay_notified
+     where status = 'flying' and delay_kind = 'major'
+       and (not delay_notified or (counterpart_id is not null and not exists (
+         select 1 from notifications n
+         where n.user_id = flights.counterpart_id and n.kind = 'delayed-in'
+           and n.ref_id = flights.id
+       )))
        and ($1::uuid is null or owner_id = $1 or counterpart_id = $1)
        and exists (
          select 1 from jsonb_array_elements(plan->'segments') s
@@ -53,13 +57,16 @@ async function notifyOne(
   nowMs: number,
   f: Candidate,
   delay: Segment,
-): Promise<string[] | null> {
-  const claimed = await tx.query(
-    `update flights set delay_notified = true
-     where id = $1 and status = 'flying' and not delay_notified returning id`,
+): Promise<string[]> {
+  const [flight] = await tx.query<{ delay_notified: boolean }>(
+    "select delay_notified from flights where id = $1 and status = 'flying' for update",
     [f.id],
   );
-  if (claimed.length === 0) return null;
+  if (!flight) return [];
+  if (!flight.delay_notified)
+    await tx.query("update flights set delay_notified = true where id = $1", [
+      f.id,
+    ]);
   const [bird] = await tx.query<{ name: string; pronoun: Pronoun }>(
     "select name, pronoun from birds where id = $1",
     [f.bird_id],
@@ -73,15 +80,14 @@ async function notifyOne(
     userId: string;
     kind: NotifyKind;
     vars: Record<string, string>;
-  }[] = [
-    {
+  }[] = [];
+  if (!flight.delay_notified)
+    notices.push({
       userId: f.owner_id,
       kind: "delayed",
       vars: { ...vars, lastSeen: lastSeen(f, delay) },
-    },
-  ];
-  // A return flight's counterpart is the replier, who is not waiting on this bird.
-  if (f.counterpart_id && f.kind === "delivery")
+    });
+  if (f.counterpart_id)
     notices.push({
       userId: f.counterpart_id,
       kind: "delayed-in",
@@ -111,7 +117,7 @@ export const delayNotices: Step = async (ctx) => {
     );
     if (!delay) continue;
     const ids = await ctx.deps.db.tx((tx) => notifyOne(tx, nowMs, f, delay));
-    if (!ids) continue;
+    if (ids.length === 0) continue;
     count++;
     notificationIds.push(...ids);
   }
