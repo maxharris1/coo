@@ -99,6 +99,8 @@ const props: MapViewProps = {
   offsetMs: 0,
   bottomPadding: 150,
   night: false,
+  loftLabel: "Your loft",
+  sillLabel: "Priya, Philly",
 };
 
 async function mountMap() {

@@ -221,3 +221,46 @@ describe("Tracker on the Chicago vector at 2 am (ac-2)", () => {
     });
   });
 });
+
+describe("Tracker chrome and pins (ac-4)", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  function render(flight: Flight): string {
+    vi.setSystemTime(at(flight, 0.5));
+    return renderToStaticMarkup(
+      <Tracker flight={flight} offsetMs={0} timeZone={TZ} />,
+    );
+  }
+
+  it("has a back link and names the bird and recipient in the top bar", () => {
+    const html = render(flightFrom("calm-short"));
+    const back = html.match(/<a [^>]*aria-label="Back to flights"[^>]*>/)?.[0];
+    expect(back).toContain('href="/flights"');
+    expect(text(html)).toContain("Gerald → Priya In the air");
+  });
+
+  it("labels my loft and the recipient's sill on the map", () => {
+    const page = text(render(flightFrom("calm-short")));
+    expect(page).toContain("Your loft");
+    expect(page).toContain("Priya, Philly");
+  });
+
+  it("labels the sender's loft and my sill on an incoming flight", () => {
+    const html = render(flightFrom("calm-short", { role: "incoming" }));
+    const page = text(html);
+    expect(page).toContain("Max, Brooklyn");
+    expect(page).toContain("Your sill");
+    expect(page).toContain("Gerald → You");
+  });
+
+  it("names a guest recipient when there is no counterpart", () => {
+    const page = text(
+      render(
+        flightFrom("calm-short", { counterpart: undefined, guestName: "Rosa" }),
+      ),
+    );
+    expect(page).toContain("Gerald → Rosa");
+    expect(page).toContain("Rosa, Philly");
+  });
+});
