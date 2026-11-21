@@ -9,7 +9,7 @@ import {
   tripSummary,
   type LandedState,
   type SenderCity,
-} from "./landed";
+} from "./landedModel";
 import { Postmark } from "./Postmark";
 import styles from "./Landed.module.css";
 

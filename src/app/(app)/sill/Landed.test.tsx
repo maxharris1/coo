@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { config } from "@/lib/config";
 import type { SyncVisit } from "@/server/services/visits/syncRead";
 import { GoneHome, Landed } from "./Landed";
-import type { LandedState } from "./landed";
+import type { LandedState } from "./landedModel";
 import { Postmark } from "./Postmark";
 
 const MINUTE = 60_000;
