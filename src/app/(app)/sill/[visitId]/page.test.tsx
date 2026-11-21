@@ -93,6 +93,25 @@ const storage = (m: Map<string, string>) => ({
   removeItem: (k: string) => void m.delete(k),
 });
 
+const quotaFull = (m: Map<string, string>) => ({
+  ...storage(m),
+  setItem: () => {
+    throw new DOMException(
+      "The quota has been exceeded.",
+      "QuotaExceededError",
+    );
+  },
+});
+
+function blockStorage(name: "localStorage" | "sessionStorage") {
+  Object.defineProperty(globalThis, name, {
+    configurable: true,
+    get: () => {
+      throw new DOMException("The operation is insecure.", "SecurityError");
+    },
+  });
+}
+
 function fakeFetch(url: RequestInfo | URL) {
   if (String(url) === "/api/friends") {
     return Promise.resolve(Response.json({ friends, guestLinks: [] }));
@@ -324,5 +343,49 @@ describe("/sill/[visitId] landing and snack (ac-2)", () => {
     expect(refresh).not.toHaveBeenCalled();
     expect(seen.landed?.visit.snackGiven).toBe(false);
     expect(seen.landed?.snacking).toBe(false);
+  });
+});
+
+describe("/sill/[visitId] with storage unavailable (ac-2)", () => {
+  async function stillUsable() {
+    expect(seen.landed?.state).toBe("waiting");
+    expect(seen.landed?.animate).toBe(true);
+
+    await act(async () => seen.landed!.onSnack());
+
+    expect(snackCalls()).toEqual([
+      { url: "/api/visits/v1/snack", method: "POST", body: "{}" },
+    ]);
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(seen.landed?.visit.snackGiven).toBe(true);
+  }
+
+  it("keeps the first view and snack when storage writes hit the quota", async () => {
+    vi.stubGlobal("localStorage", quotaFull(stores.local));
+    vi.stubGlobal("sessionStorage", quotaFull(stores.session));
+    await show([visit()]);
+    await stillUsable();
+  });
+
+  it("keeps the first view and snack when storage is blocked", async () => {
+    blockStorage("localStorage");
+    blockStorage("sessionStorage");
+    await show([visit()]);
+    await stillUsable();
+  });
+
+  it("shows gone home when the visit drops out of sync with storage blocked", async () => {
+    blockStorage("localStorage");
+    blockStorage("sessionStorage");
+    await show([visit()]);
+    await show([]);
+    expect(seen.landed?.state).toBe("gone");
+  });
+
+  it("sends an unseen visit back to the sill when storage is blocked", async () => {
+    blockStorage("sessionStorage");
+    seen.visitId = "unknown";
+    await show([visit()]);
+    expect(seen.replace).toHaveBeenCalledWith("/sill");
   });
 });

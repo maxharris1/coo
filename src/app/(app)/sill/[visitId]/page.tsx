@@ -17,22 +17,37 @@ const UNREACHABLE = "We could not reach the loft. Try again.";
 const departedKey = (id: string) => `coo.sill.departed.${id}`;
 const landedKey = (id: string) => `coo.sill.landed.${id}`;
 
+function bestEffort<T>(run: () => T, fallback: T): T {
+  try {
+    return run();
+  } catch {
+    return fallback;
+  }
+}
+
 function remember(visit: SyncVisit) {
   const departed: Departed = {
     birdName: visit.bird.name,
     ownerId: visit.owner.id,
   };
-  sessionStorage.setItem(departedKey(visit.id), JSON.stringify(departed));
+  bestEffort(
+    () =>
+      sessionStorage.setItem(departedKey(visit.id), JSON.stringify(departed)),
+    undefined,
+  );
 }
 
 function recall(id: string): Departed | null {
-  const raw = sessionStorage.getItem(departedKey(id));
-  return raw ? (JSON.parse(raw) as Departed) : null;
+  return bestEffort(() => {
+    const raw = sessionStorage.getItem(departedKey(id));
+    return raw ? (JSON.parse(raw) as Departed) : null;
+  }, null);
 }
 
 const landedBefore = (id: string) =>
-  localStorage.getItem(landedKey(id)) !== null;
-const markLanded = (id: string) => localStorage.setItem(landedKey(id), "1");
+  bestEffort(() => localStorage.getItem(landedKey(id)) !== null, false);
+const markLanded = (id: string) =>
+  bestEffort(() => localStorage.setItem(landedKey(id), "1"), undefined);
 
 const reducedMotion = () =>
   window.matchMedia("(prefers-reduced-motion: reduce)").matches;
