@@ -1,0 +1,220 @@
+.flock {
+  flex: 1;
+  margin-top: -2px;
+  padding: var(--coo-gutter) var(--coo-gutter) 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--coo-paper);
+  border-top: var(--coo-line);
+  color: var(--coo-ink);
+  font-family: var(--coo-font-body);
+}
+
+.incoming {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 62px;
+  padding: 8px 12px;
+  background: var(--coo-sun);
+  border: var(--coo-line);
+  border-radius: var(--coo-radius-card);
+  box-shadow: var(--coo-shadow-2);
+  color: inherit;
+  text-decoration: none;
+}
+
+.incomingText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.incomingTitle {
+  font-weight: 900;
+  font-size: 15px;
+}
+
+.incomingLine {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.perches {
+  min-height: var(--coo-touch);
+  margin: -12px 0;
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 900;
+  color: inherit;
+  white-space: nowrap;
+}
+
+.rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 50px;
+  padding: 4px 12px 4px 8px;
+  background: var(--coo-card);
+  border: var(--coo-line);
+  border-radius: var(--coo-radius-row);
+}
+
+.avatar {
+  position: relative;
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border: var(--coo-line-thin);
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.avatarBird {
+  position: absolute;
+  left: -43px;
+  top: -15px;
+}
+
+.rowLink {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  color: inherit;
+  text-decoration: none;
+}
+
+.rowLink::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.rowLink:focus-visible {
+  outline: none;
+}
+
+.rowLink:focus-visible::after {
+  outline: 3px solid var(--coo-ink);
+  outline-offset: 2px;
+}
+
+.name {
+  font-weight: 900;
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+
+.line {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--coo-muted);
+}
+
+.chip,
+.feed {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border: var(--coo-line-thin);
+  border-radius: var(--coo-radius-pill);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 900;
+  color: var(--coo-ink);
+  white-space: nowrap;
+}
+
+.feed {
+  position: relative;
+  z-index: 1;
+  padding: 6px 14px;
+  background: var(--coo-tomato);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.feed::before {
+  content: "";
+  position: absolute;
+  inset: -8px -4px;
+}
+
+.feed:active {
+  transform: translateY(2px);
+}
+
+.slot {
+  min-height: 50px;
+  border: 2.5px dashed var(--coo-muted);
+  border-radius: var(--coo-radius-row);
+}
+
+.eggSlot {
+  border-color: var(--coo-ink);
+  background: var(--coo-card);
+}
+
+.slotLink {
+  min-height: 45px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 14px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.sky {
+  background: var(--coo-sky);
+}
+
+.sun {
+  background: var(--coo-sun);
+}
+
+.lilac {
+  background: var(--coo-lilac);
+}
+
+.peach {
+  background: var(--coo-peach);
+}
+
+.mint {
+  background: var(--coo-mint);
+}
+
+.sand {
+  background: var(--coo-sand);
+}
