@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import day from "../../../../public/map/coo-day.style.json";
 import facts from "./liberty-facts.json";
+import qa from "./qa-views.json";
+import { PLACES, ZOOMS } from "./views";
 
 type Layer = {
   id: string;
@@ -9,6 +11,7 @@ type Layer = {
   source?: string;
   "source-layer"?: string;
   minzoom?: number;
+  maxzoom?: number;
   filter?: unknown;
   layout?: Record<string, unknown>;
   paint?: Record<string, unknown>;
@@ -165,6 +168,59 @@ describe("day style zooms and sparseness", () => {
       expect(JSON.stringify(layer.filter ?? null), layer.id).not.toMatch(
         /rail|transit/,
       );
+    }
+  });
+});
+
+describe("day style at the representative QA views", () => {
+  const FEATURE_TOKENS: Record<string, string[]> = {
+    parks: ["mint"],
+    "major-roads": ["card", "ink"],
+    water: ["sky", "ink"],
+  };
+
+  it("covers parks, major roads and water at every place", () => {
+    for (const feature of Object.keys(FEATURE_TOKENS)) {
+      const places = qa.views
+        .filter((v) => v.feature === feature)
+        .map((v) => v.place);
+      expect(new Set(places), feature).toEqual(
+        new Set(PLACES.map((p) => p.id)),
+      );
+    }
+  });
+
+  it.each(qa.views)(
+    "draws $feature at $place z$zoom in the token colours",
+    ({ feature, place, zoom, layers: ids }) => {
+      expect(PLACES.map((p) => p.id)).toContain(place);
+      expect(ZOOMS).toContain(zoom);
+      const allowed = FEATURE_TOKENS[feature].map((t) => tokens[t]);
+      for (const id of ids) {
+        const layer = byId(id);
+        expect(layer.minzoom ?? 0, id).toBeLessThanOrEqual(zoom);
+        expect(layer.maxzoom ?? 24, id).toBeGreaterThan(zoom);
+        const colours = Object.entries(layer.paint ?? {}).filter(([prop]) =>
+          prop.endsWith("-color"),
+        );
+        expect(colours.length, id).toBeGreaterThan(0);
+        for (const [prop, value] of colours) {
+          expect(allowed, `${id} ${prop}`).toContain(value);
+        }
+      }
+    },
+  );
+
+  it("counts only motorways, trunks and primaries as major roads", () => {
+    const ids = qa.views
+      .filter((v) => v.feature === "major-roads")
+      .flatMap((v) => v.layers);
+    for (const id of new Set(ids)) {
+      expect(classesIn(byId(id).filter).sort(), id).toEqual([
+        "motorway",
+        "primary",
+        "trunk",
+      ]);
     }
   });
 });
