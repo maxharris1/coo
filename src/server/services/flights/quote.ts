@@ -204,7 +204,7 @@ function snapshotOf(b: BirdRecord) {
   };
 }
 
-function quoteOne(
+export function quoteInput(
   bird: BirdRecord,
   owner: CareOwner,
   from: LatLon,
@@ -212,9 +212,9 @@ function quoteOne(
   releaseAt: number,
   weather: [WeatherSample, WeatherSample, WeatherSample],
   hazards: { hawk: boolean; fair: boolean },
-): BirdQuote {
+): FlightInput {
   const care = careAt(snapshotOf(bird), releaseAt, owner);
-  const input: FlightInput = {
+  return {
     flightId: `quote:${bird.id}:${releaseAt}`,
     from,
     to,
@@ -235,6 +235,18 @@ function quoteOne(
     hazards,
     delayEndOverrideMs: releaseAt,
   };
+}
+
+function quoteOne(
+  bird: BirdRecord,
+  owner: CareOwner,
+  from: LatLon,
+  to: LatLon,
+  releaseAt: number,
+  weather: [WeatherSample, WeatherSample, WeatherSample],
+  hazards: { hawk: boolean; fair: boolean },
+): BirdQuote {
+  const input = quoteInput(bird, owner, from, to, releaseAt, weather, hazards);
   const plan = computeFlightPlan(input);
   return {
     birdId: bird.id,

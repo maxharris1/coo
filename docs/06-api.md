@@ -5,6 +5,10 @@ they need a signed-in user with a finished profile; otherwise `401 unauthenticat
 `409 not_onboarded`. Every body is validated with zod. Every response includes `serverNow`
 (epoch ms). Ids are UUID strings. Times are epoch ms.
 
+## Idempotency
+
+A replayed action (same `actionId`) applies no second charge or effect and returns the current state.
+
 ## Errors
 
 `{ "error": { "code", "message" } }` with these codes:
@@ -139,7 +143,7 @@ Weather and place names are fetched before the transaction opens, never inside i
 | Endpoint | Body | Does |
 |---|---|---|
 | `PATCH /api/birds/[id]` | `{ name?, pronoun? }` | Rename |
-| `POST /api/birds/[id]/feed` | | Home birds only. 3 seeds, belly +50 |
+| `POST /api/birds/[id]/feed` | `{ actionId }` | Home birds only. 3 seeds, belly +50. `actionId` is a uuid made once per tap. See Idempotency |
 | `POST /api/birds/[id]/bath` | | Home only. Busy 10 minutes, feathers 100 |
 | `POST /api/birds/[id]/nap` | | Home only. Busy 30 minutes, energy +50 at the end |
 | `PUT /api/birds/[id]/gear` | `{ items: string[] }` | Home only. Validates ownership, one per slot, not worn by another bird (taking an item from another home bird is allowed and removes it there) |

@@ -12,6 +12,7 @@ import { makeTestDeps, type TestDeps } from "@/test/deps";
 import { FakeClock } from "@/test/fakes/clock";
 import { insertPlannedDelivery } from "@/test/fixtures/plannedFlight";
 import { seedWorld, type World } from "@/test/seedWorld";
+import { tick } from "../tick";
 import { sendSearchParty } from "./searchParty";
 
 const MINUTE = 60_000;
@@ -334,5 +335,49 @@ describe("sendSearchParty", () => {
         "00000000-0000-4000-a000-00000000ffff",
       );
     });
+  });
+});
+
+describe("scenario 4: delay and search party", () => {
+  it("tells the owner of the delay once, finds the bird for 20 seeds and refuses a second search", async () => {
+    const original = await storeInput(vectorInput("delay-major"));
+    expect(original.delayKind).toBe("major");
+    const delay = delayOf(original);
+    const owner = world.max.id;
+    const seedsBefore = await seedsOf(owner);
+
+    deps.clock.set(delay.startMs);
+    const first = await tick(deps);
+    deps.clock.advance(MINUTE);
+    const second = await tick(deps);
+    const notices = await deps.db.query<{ user_id: string; kind: string }>(
+      "select user_id, kind from notifications where ref_id = $1 order by kind",
+      [flightId],
+    );
+    expect(first.counts.delayNotices).toBe(1);
+    expect(second.counts.delayNotices).toBe(0);
+    expect(notices).toEqual([
+      { user_id: owner, kind: "delayed" },
+      { user_id: world.priya.id, kind: "delayed-in" },
+    ]);
+
+    const result = await sendSearchParty(
+      deps,
+      await callerFor(owner),
+      flightId,
+    );
+    expect(result.outcome).toBe("found");
+    expect(result.seeds).toBe(seedsBefore - 20);
+    expect(await seedsOf(owner)).toBe(seedsBefore - 20);
+    expect(result.flight.arriveAt).toBeLessThan(original.arriveAtMs);
+    const after = await snapshot();
+    expect(after.flight.arrive_at.getTime()).toBe(result.flight.arriveAt);
+
+    deps.clock.advance(MINUTE);
+    await expect(
+      sendSearchParty(deps, await callerFor(owner), flightId),
+    ).rejects.toMatchObject({ code: "conflict" });
+    expect(await seedsOf(owner)).toBe(seedsBefore - 20);
+    expect(await snapshot()).toEqual(after);
   });
 });

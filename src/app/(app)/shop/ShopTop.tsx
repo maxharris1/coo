@@ -1,14 +1,15 @@
 import Link from "next/link";
 import styles from "./ShopTop.module.css";
 
-const INK = "#2A2140";
+export const INK = "#2A2140";
+export const SUN = "#FFC93C";
 
-function SeedIcon() {
+export function SeedIcon({ size, fill }: { size: number; fill: string }) {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
       <path
         d="M12 3 C17 7 19 12 12 21 C5 12 7 7 12 3 Z"
-        fill="#FFC93C"
+        fill={fill}
         stroke={INK}
         strokeWidth="2.4"
         strokeLinejoin="round"
@@ -28,7 +29,7 @@ export function ShopTop({ seeds }: { seeds: number }) {
           aria-label={`You have ${seeds} ${seeds === 1 ? "seed" : "seeds"}`}
           className={styles.balance}
         >
-          <SeedIcon />
+          <SeedIcon size={22} fill={SUN} />
           <span>{seeds}</span>
         </div>
       </header>
