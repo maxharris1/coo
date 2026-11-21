@@ -25,12 +25,19 @@ const HOUR_MS = 3_600_000;
 
 type Town = Pick<GeoName, "city" | "state" | "country">;
 
-async function cityCentre(deps: Deps, town: Town): Promise<Point | null> {
+async function cityCentre(
+  deps: Deps,
+  town: Town,
+  attempts: number,
+): Promise<Point | null> {
   const query = [town.city, town.state, town.country]
     .filter(Boolean)
     .join(", ");
-  const [top] = await deps.geocoder.search(query).catch(() => []);
-  return top ? { lat: top.lat, lon: top.lon } : null;
+  for (let i = 0; i < attempts; i++) {
+    const [top] = await deps.geocoder.search(query).catch(() => []);
+    if (top) return { lat: top.lat, lon: top.lon };
+  }
+  return null;
 }
 
 async function describeRoost(
@@ -40,7 +47,13 @@ async function describeRoost(
     label,
     town: held,
     centre = false,
-  }: { label?: string; town?: Town; centre?: boolean } = {},
+    needsCityCentre = false,
+  }: {
+    label?: string;
+    town?: Town;
+    centre?: boolean;
+    needsCityCentre?: boolean;
+  } = {},
 ): Promise<LoftPlace> {
   const name = await deps.geocoder
     .reverse(roost.lat, roost.lon)
@@ -55,7 +68,10 @@ async function describeRoost(
     state: held?.state ?? name.state,
     country: held?.country ?? name.country,
   };
-  const middle = await cityCentre(deps, town);
+  const middle = await cityCentre(deps, town, needsCityCentre ? 2 : 1);
+  if (needsCityCentre && !middle) {
+    throw new AppError("invalid", PLACE_NOT_FOUND);
+  }
   if (!centre) return { roost, label: roostName, city, cityCentre: middle };
   if (!middle || !town.city) throw new AppError("invalid", PLACE_NOT_FOUND);
   return { roost: middle, label: town.city, city, cityCentre: middle };
@@ -121,7 +137,9 @@ export async function setTravel(
   userId: UserId,
   input: TravelInput,
 ): Promise<LoftResult> {
-  const place = input.on ? await describeRoost(deps, input.roost) : null;
+  const place = input.on
+    ? await describeRoost(deps, input.roost, { needsCityCentre: true })
+    : null;
   const now = deps.clock.now();
   const hours = deps.config.game.travel.minHoursBetweenChanges;
   return deps.db.tx(async (db) => {
