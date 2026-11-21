@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { config } from "@/lib/config";
-import { badgesView } from "./collection";
+import { badgesView, birdsView } from "./collection";
 import { CollectionView } from "./CollectionView";
 import CollectionPage from "./page";
 
@@ -24,6 +24,19 @@ const BADGES = badgesView(
   })),
 );
 
+const BIRDS = birdsView(
+  11,
+  ["Kevin", "Pip", "Lou", "Biscuit", "Gerald"].map((name) => ({
+    name,
+    look: "gerald",
+    breed: "city",
+    gear: [],
+  })),
+);
+
+const ready = (birds = BIRDS) =>
+  ({ kind: "ready", badges: BADGES, birds }) as const;
+
 const view = (state: Parameters<typeof CollectionView>[0]["state"]) =>
   renderToStaticMarkup(<CollectionView state={state} onRetry={() => {}} />);
 
@@ -39,7 +52,7 @@ describe("/collection loading", () => {
 });
 
 describe("/collection header", () => {
-  const html = view({ kind: "ready", badges: BADGES });
+  const html = view(ready());
 
   it("titles the page Collection", () => {
     expect(html).toMatch(
@@ -67,7 +80,7 @@ describe("/collection header", () => {
 });
 
 describe("/collection badges", () => {
-  const html = view({ kind: "ready", badges: BADGES });
+  const html = view(ready());
 
   it("heads the section Badges with the earned count", () => {
     expect(html).toMatch(/<h2[^>]*>Badges<\/h2>/);
@@ -140,6 +153,69 @@ describe("/collection badges", () => {
     );
     expect(rule("disc")).toMatch(/width:\s*42px/);
     expect(rule("disc")).toMatch(/height:\s*42px/);
+  });
+});
+
+describe("/collection birds you have met", () => {
+  const html = view(ready());
+
+  it("heads the section with how many birds I have met", () => {
+    expect(html).toMatch(/<h2[^>]*>Birds you have met<\/h2>/);
+    expect(html).toContain(">11 met<");
+  });
+
+  it("shows each recent bird as an avatar named for the bird", () => {
+    for (const name of ["Kevin", "Pip", "Lou", "Biscuit", "Gerald"]) {
+      expect(html).toMatch(
+        new RegExp(`<svg[^>]*role="img"[^>]*aria-label="${name}"`),
+      );
+    }
+    expect(html.match(/<svg[^>]*role="img"/g)).toHaveLength(5);
+  });
+
+  it("sums up the birds not shown in a chip", () => {
+    expect(html).toMatch(
+      /<div[^>]*role="img"[^>]*aria-label="6 more met"[^>]*>\+6<\/div>/,
+    );
+  });
+
+  it("drops the chip when every bird met is shown", () => {
+    const all = view(ready(birdsView(5, BIRDS.shown)));
+    expect(all).not.toContain("more met");
+    expect(all).not.toContain(">+");
+  });
+
+  it("keeps the heading and count with no birds met", () => {
+    const none = view(ready(birdsView(0, [])));
+    expect(none).toMatch(/<h2[^>]*>Birds you have met<\/h2>/);
+    expect(none).toContain(">0 met<");
+    expect(none).not.toMatch(/<svg[^>]*role="img"/);
+    expect(none).not.toContain("more met");
+  });
+
+  it("crops each bird to a 50 px ink-ringed circle", () => {
+    expect(rule("avatar")).toMatch(/width:\s*50px/);
+    expect(rule("avatar")).toMatch(/height:\s*50px/);
+    expect(rule("avatar")).toMatch(/border:\s*var\(--coo-line-thin\)/);
+    expect(rule("avatar")).toMatch(/border-radius:\s*50%/);
+    expect(rule("avatar")).toMatch(/overflow:\s*hidden/);
+    expect(css).toMatch(/\.peach\s*{[^}]*var\(--coo-peach\)/);
+  });
+
+  it("draws the chip as a dashed 50 px circle in muted 900 text", () => {
+    expect(rule("more")).toMatch(/width:\s*50px/);
+    expect(rule("more")).toMatch(/height:\s*50px/);
+    expect(rule("more")).toMatch(/border:\s*2\.5px dashed var\(--coo-muted\)/);
+    expect(rule("more")).toMatch(/border-radius:\s*50%/);
+    expect(rule("more")).toMatch(/color:\s*var\(--coo-muted\)/);
+    expect(rule("more")).toMatch(/font-weight:\s*900/);
+    expect(rule("more")).toMatch(/font-size:\s*14px/);
+  });
+
+  it("lines the birds up in a row 8 px apart", () => {
+    expect(rule("met")).toMatch(/display:\s*flex/);
+    expect(rule("met")).toMatch(/gap:\s*8px/);
+    expect(rule("met")).toMatch(/align-items:\s*center/);
   });
 });
 

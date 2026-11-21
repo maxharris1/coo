@@ -1,9 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 import { config } from "@/lib/config";
 import type { Collection } from "@/server/services/collection";
-import { badgesView, loadCollection, openCollection } from "./collection";
+import {
+  badgesView,
+  birdsView,
+  loadCollection,
+  openCollection,
+} from "./collection";
 
 type Badge = Collection["badges"][number];
+type Met = Collection["birdsMetRecent"][number];
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), {
@@ -30,10 +36,26 @@ const MOCK = badges({
   "rfc-1149": { progress: 4 },
 });
 
+const met = (name: string, look = "gerald", gear: string[] = []): Met => ({
+  name,
+  look,
+  breed: "city",
+  gear,
+});
+
+const RECENT = [
+  met("Kevin", "kevin"),
+  met("Pip", "dumpling", ["scarf"]),
+  met("Lou", "admiral"),
+  met("Biscuit", "fantail"),
+  met("Gerald"),
+];
+
 const collection = (list: Badge[]): Collection => ({
   postmarks: [],
   badges: list,
-  birdsMet: 0,
+  birdsMet: 11,
+  birdsMetRecent: RECENT,
 });
 
 describe("badgesView", () => {
@@ -103,6 +125,42 @@ describe("badgesView", () => {
   });
 });
 
+describe("birdsView", () => {
+  it("counts every bird met without a denominator", () => {
+    expect(birdsView(11, RECENT).count).toBe("11 met");
+    expect(birdsView(0, []).count).toBe("0 met");
+  });
+
+  it("shows the recent birds in order, tinted sky, sun, lilac, peach, mint", () => {
+    expect(birdsView(11, RECENT).shown).toEqual([
+      { name: "Kevin", look: "kevin", breed: "city", gear: [], tone: "sky" },
+      {
+        name: "Pip",
+        look: "dumpling",
+        breed: "city",
+        gear: ["scarf"],
+        tone: "sun",
+      },
+      { name: "Lou", look: "admiral", breed: "city", gear: [], tone: "lilac" },
+      {
+        name: "Biscuit",
+        look: "fantail",
+        breed: "city",
+        gear: [],
+        tone: "peach",
+      },
+      { name: "Gerald", look: "gerald", breed: "city", gear: [], tone: "mint" },
+    ]);
+  });
+
+  it("counts the birds met beyond the ones shown", () => {
+    expect(birdsView(11, RECENT).more).toBe(6);
+    expect(birdsView(5, RECENT).more).toBe(0);
+    expect(birdsView(2, RECENT.slice(0, 2)).more).toBe(0);
+    expect(birdsView(0, [])).toEqual({ shown: [], more: 0, count: "0 met" });
+  });
+});
+
 describe("loadCollection", () => {
   it("reads GET /api/collection", async () => {
     const body = collection(MOCK);
@@ -116,11 +174,14 @@ describe("loadCollection", () => {
 });
 
 describe("openCollection", () => {
-  it("hands back the badges view when the load succeeds", async () => {
+  it("hands back the badges and birds views when the load succeeds", async () => {
     const result = await openCollection(() =>
       loadCollection(async () => json(200, collection(MOCK))),
     );
-    expect(result).toEqual({ ok: true, view: badgesView(MOCK) });
+    expect(result).toEqual({
+      ok: true,
+      view: { badges: badgesView(MOCK), birds: birdsView(11, RECENT) },
+    });
   });
 
   it("passes the API's message through when the load is refused", async () => {

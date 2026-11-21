@@ -42,6 +42,26 @@ async function setPostmark(userId: string, city: string, earnedAtMs: number) {
   );
 }
 
+async function meet(userId: string, birdId: string, firstAtMs: number) {
+  await deps.db.query(
+    `insert into bird_meetings (user_id, bird_id, first_at)
+     values ($1, $2, to_timestamp($3 / 1000.0))`,
+    [userId, birdId, firstAtMs],
+  );
+}
+
+async function addBird(
+  ownerId: string,
+  bird: { name: string; look: string; breed: string; gear: string[] },
+) {
+  const [{ id }] = await deps.db.query<{ id: string }>(
+    `insert into birds (owner_id, name, look, breed, gear, speed_mph, focus, navigation)
+     values ($1, $2, $3, $4, $5, 40, 3, 3) returning id`,
+    [ownerId, bird.name, bird.look, bird.breed, bird.gear],
+  );
+  return id;
+}
+
 async function land(opts: DeliveryOpts) {
   const flight = await insertPlannedDelivery(
     deps.db,
@@ -135,7 +155,48 @@ describe("getCollection", () => {
   });
 
   it("starts with no birds met", async () => {
-    expect((await collectionOf(world.priya.id)).birdsMet).toBe(0);
+    const { birdsMet, birdsMetRecent } = await collectionOf(world.priya.id);
+    expect(birdsMet).toBe(0);
+    expect(birdsMetRecent).toEqual([]);
+  });
+
+  it("lists the five birds I met most recently, newest first, with how each looks", async () => {
+    const now = deps.clock.now();
+    const pom = await addBird(world.rosa.id, {
+      name: "Pom",
+      look: "pouter",
+      breed: "pouter",
+      gear: ["beanie", "scarf"],
+    });
+    const fig = await addBird(world.rosa.id, {
+      name: "Fig",
+      look: "king",
+      breed: "king",
+      gear: [],
+    });
+    await meet(world.priya.id, world.max.birds[0].id, now - 6 * DAY_MS);
+    await meet(world.priya.id, world.max.birds[1].id, now - 5 * DAY_MS);
+    await meet(world.priya.id, world.rosa.birds[0].id, now - 4 * DAY_MS);
+    await meet(world.priya.id, fig, now - 3 * DAY_MS);
+    await meet(world.priya.id, world.rosa.birds[1].id, now - 2 * DAY_MS);
+    await meet(world.priya.id, pom, now - DAY_MS);
+
+    const { birdsMet, birdsMetRecent } = await collectionOf(world.priya.id);
+
+    expect(birdsMet).toBe(6);
+    expect(birdsMetRecent.map((b) => b.name)).toEqual([
+      "Pom",
+      world.rosa.birds[1].name,
+      "Fig",
+      world.rosa.birds[0].name,
+      world.max.birds[1].name,
+    ]);
+    expect(birdsMetRecent[0]).toEqual({
+      name: "Pom",
+      look: "pouter",
+      breed: "pouter",
+      gear: ["beanie", "scarf"],
+    });
   });
 
   it("counts a bird that lands on my sill twice as one bird met", async () => {
@@ -173,7 +234,13 @@ describe("getCollection", () => {
       birdId: world.max.birds[1].id,
     });
 
-    expect((await collectionOf(world.priya.id)).birdsMet).toBe(1);
-    expect((await collectionOf(world.max.id)).birdsMet).toBe(0);
+    const priya = await collectionOf(world.priya.id);
+    const max = await collectionOf(world.max.id);
+    expect(priya.birdsMet).toBe(1);
+    expect(priya.birdsMetRecent.map((b) => b.name)).toEqual([
+      world.max.birds[1].name,
+    ]);
+    expect(max.birdsMet).toBe(0);
+    expect(max.birdsMetRecent).toEqual([]);
   });
 });

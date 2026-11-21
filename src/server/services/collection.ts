@@ -4,6 +4,8 @@ import type { UserId } from "@/server/ports/auth";
 
 type BadgeId = Config["badges"]["badges"][number]["id"];
 
+const RECENT_BIRDS = 5;
+
 export type Collection = {
   postmarks: {
     city: string;
@@ -21,6 +23,12 @@ export type Collection = {
     earnedAt: number | null;
   }[];
   birdsMet: number;
+  birdsMetRecent: {
+    name: string;
+    look: string;
+    breed: string;
+    gear: string[];
+  }[];
 };
 
 export async function getCollection(
@@ -48,6 +56,16 @@ export async function getCollection(
     "select count(*)::int as count from bird_meetings where user_id = $1",
     [userId],
   );
+  const birdsMetRecent = await deps.db.query<
+    Collection["birdsMetRecent"][number]
+  >(
+    `select b.name, b.look, b.breed, b.gear from bird_meetings m
+     join birds b on b.id = m.bird_id
+     where m.user_id = $1
+     order by m.first_at desc, m.bird_id
+     limit $2`,
+    [userId, RECENT_BIRDS],
+  );
 
   const rows = new Map(badgeRows.map((r) => [r.badge_id, r]));
   return {
@@ -70,5 +88,6 @@ export async function getCollection(
       };
     }),
     birdsMet: count,
+    birdsMetRecent,
   };
 }
