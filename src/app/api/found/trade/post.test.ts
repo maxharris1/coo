@@ -108,13 +108,21 @@ describe("POST /api/found/trade", () => {
     const { status, json } = await client.post({}, max.jar);
 
     expect(status).toBe(200);
-    expect(json).toEqual({ seeds: before + sum, traded: sum });
+    expect(json).toEqual({
+      seeds: before + sum,
+      traded: sum,
+      serverNow: deps.clock.now(),
+    });
     expect(await seedsOf(max.id)).toBe(before + sum);
     expect(await foundObjects(deps, await callerFor(max.id))).toEqual([]);
 
     const again = await client.post({}, max.jar);
     expect(again.status).toBe(200);
-    expect(again.json).toEqual({ seeds: before + sum, traded: 0 });
+    expect(again.json).toEqual({
+      seeds: before + sum,
+      traded: 0,
+      serverNow: deps.clock.now(),
+    });
     expect(await seedsOf(max.id)).toBe(before + sum);
   });
 
@@ -125,7 +133,11 @@ describe("POST /api/found/trade", () => {
     const { status, json } = await client.post({}, max.jar);
 
     expect(status).toBe(200);
-    expect(json).toEqual({ seeds: before, traded: 0 });
+    expect(json).toEqual({
+      seeds: before,
+      traded: 0,
+      serverNow: deps.clock.now(),
+    });
   });
 
   it("never trades someone else's found objects", async () => {
