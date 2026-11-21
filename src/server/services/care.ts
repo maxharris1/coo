@@ -1,8 +1,6 @@
 import type { Pronoun } from "@/lib/format";
 import {
-  bathDone,
   feed,
-  napDone,
   projectCare,
   type CareOwner,
   type CareSnapshot,
@@ -11,6 +9,7 @@ import type { OnboardedCaller, Profile } from "@/server/auth";
 import type { Deps } from "@/server/deps";
 import { AppError } from "@/server/errors";
 import { toBirdRecord, type BirdRecord, type Row } from "@/server/rows";
+import { careSnapshot, wakeEffect } from "./care/snapshot";
 import { toBirdView, type BirdView } from "./sync";
 
 export type CareAction = "feed" | "bath" | "nap";
@@ -19,11 +18,6 @@ type Rest = "bath" | "nap";
 type CareFn = typeof feed;
 
 const MINUTE_MS = 60_000;
-
-export const wakeEffect: Record<Rest, CareFn> = {
-  bath: bathDone,
-  nap: napDone,
-};
 
 type Spec = {
   cost: number;
@@ -45,18 +39,6 @@ function actions(deps: Deps): Record<CareAction, Spec> {
       apply: projectCare,
       rest: { kind: "nap", minutes: care.napMinutes },
     },
-  };
-}
-
-export function careSnapshot(bird: BirdRecord): CareSnapshot {
-  return {
-    belly: bird.belly,
-    feathers: bird.feathers,
-    energy: bird.energy,
-    careAtMs: bird.careAt,
-    lastFedAtMs: bird.lastFedAt,
-    hungryNotified: bird.hungryNotified,
-    status: bird.status,
   };
 }
 

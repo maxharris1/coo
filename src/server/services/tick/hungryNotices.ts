@@ -3,7 +3,7 @@ import { careAt } from "@/lib/game/care";
 import type { Db } from "@/server/db";
 import type { Deps } from "@/server/deps";
 import { toBirdRecord, type Row } from "@/server/rows";
-import { careSnapshot } from "../care";
+import { careSnapshot } from "../care/snapshot";
 import { notificationText, recordNotification } from "../notify";
 import { deliver } from "../notify/deliver";
 import type { Step, StepContext } from "../tick";

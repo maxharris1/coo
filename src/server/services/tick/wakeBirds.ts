@@ -1,7 +1,7 @@
 import type { Db } from "@/server/db";
 import type { Deps } from "@/server/deps";
 import { toBirdRecord, type Row } from "@/server/rows";
-import { careSnapshot, wakeEffect } from "../care";
+import { careSnapshot, wakeEffect } from "../care/snapshot";
 import type { Step, StepContext } from "../tick";
 
 async function dueIds(ctx: StepContext): Promise<string[]> {
