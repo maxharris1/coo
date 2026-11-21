@@ -193,6 +193,62 @@ describe("/shop gear and loft lists (ac-1)", () => {
     expect(rule("short")).toMatch(/flex-shrink:\s*0/);
     expect(rule("tile")).toMatch(/flex-shrink:\s*0/);
   });
+
+  it("keeps the mock's outer tile and row height under the global border-box reset", () => {
+    const mock = readFileSync(
+      new URL("../../../../reference/screens/html/Shop.html", import.meta.url),
+      "utf8",
+    );
+    const tokens = readFileSync(
+      new URL("../../../../public/assets/tokens.css", import.meta.url),
+      "utf8",
+    );
+    const resolve = (decl: string) =>
+      decl.replace(
+        /var\((--coo-[\w-]+)\)/g,
+        (_, name: string) =>
+          tokens.match(new RegExp(`${name}:\\s*([^;]+);`))?.[1] ?? "",
+      );
+    const px = (decl: string, prop: string) =>
+      Number(
+        resolve(decl).match(
+          new RegExp(`(?:^|[;{\\s])${prop}:\\s*([\\d.]+)px`),
+        )?.[1] ?? 0,
+      );
+    const padY = (decl: string) => {
+      const [top, , bottom = top] = resolve(decl)
+        .match(/(?:^|[;{\s])padding:\s*([^;]+);/)![1]
+        .trim()
+        .split(/\s+/)
+        .map(parseFloat);
+      return top + bottom;
+    };
+    const outerHeight = (decl: string, globalBorderBox: boolean) => {
+      const borderBox = /box-sizing:\s*border-box/.test(decl)
+        ? true
+        : /box-sizing:\s*content-box/.test(decl)
+          ? false
+          : globalBorderBox;
+      const border = 2 * px(decl, "border");
+      return borderBox ? px(decl, "height") : px(decl, "height") + border;
+    };
+    const [mockRow, mockTile] = mock
+      .match(
+        /<div style="(display: flex; align-items: center; gap: 12px; min-height: 62px;[^"]*)"><div aria-hidden="true" style="([^"]*)"/,
+      )!
+      .slice(1);
+    const rowHeight = (row: string, tile: number) =>
+      Math.max(px(row, "min-height"), tile + padY(row) + 2 * px(row, "border"));
+
+    const mockTileOuter = outerHeight(mockTile, false);
+    const tileOuter = outerHeight(rule("tile"), true);
+    expect(mockTileOuter).toBe(52);
+    expect(tileOuter).toBe(mockTileOuter);
+    expect(rowHeight(rule("row"), tileOuter)).toBe(
+      rowHeight(mockRow, mockTileOuter),
+    );
+    expect(rowHeight(rule("row"), tileOuter)).toBe(69);
+  });
 });
 
 describe("/shop price buttons (ac-2)", () => {
