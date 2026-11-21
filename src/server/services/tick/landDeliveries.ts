@@ -85,21 +85,16 @@ async function claim(tx: Db, id: string, nowMs: number) {
   return flight ?? null;
 }
 
-async function paidToday(
-  tx: Db,
-  ownerId: string,
-  flightId: string,
-  dayStartMs: number,
-  landedMs: number,
-) {
+async function arrivedBefore(tx: Db, f: ClaimedDelivery, dayStartMs: number) {
   const [{ n }] = await tx.query<{ n: number }>(
-    `select count(*)::int as n from seed_ledger l join flights f on f.id = l.ref_id
-     where l.user_id = $1 and l.reason = 'delivery' and f.id <> $2 and f.landed_at >= $3 and f.landed_at <= $4`,
+    `select count(*)::int as n from flights
+     where owner_id = $1 and kind = 'delivery' and status in ('flying', 'landed')
+       and arrive_at >= $3 and (arrive_at, id) < ($4, $2)`,
     [
-      ownerId,
-      flightId,
+      f.owner_id,
+      f.id,
       new Date(dayStartMs).toISOString(),
-      new Date(landedMs).toISOString(),
+      f.arrive_at.toISOString(),
     ],
   );
   return n;
@@ -246,13 +241,7 @@ async function landOne(
 
   const pay = deliveryPay(
     miles,
-    await paidToday(
-      tx,
-      f.owner_id,
-      f.id,
-      startOfLocalDayMs(arriveMs, owner.timezone),
-      arriveMs,
-    ),
+    await arrivedBefore(tx, f, startOfLocalDayMs(arriveMs, owner.timezone)),
     {
       partyHat: bird.gear.includes("party"),
       landedLocalWeekday: weekday(arriveMs, owner.timezone),

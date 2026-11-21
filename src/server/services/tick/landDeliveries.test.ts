@@ -506,6 +506,28 @@ describe("landing a delivery", () => {
       expect(await deliveryPayFor(flight.flightId)).toBe(13);
     });
 
+    it("the 11th delivery by arrival pays 2 when ticks land the day out of order", async () => {
+      const later = await insertPlannedDelivery(
+        deps.db,
+        world,
+        flight.arriveAtMs + 30 * MINUTE_MS,
+        { to: world.rosa, birdId: world.max.birds[1].id },
+      );
+      await landedEarlier(
+        Array.from(
+          { length: 9 },
+          (_, i) => flight.arriveAtMs + (i + 1) * MINUTE_MS,
+        ),
+      );
+      deps.clock.set(later.arriveAtMs + MINUTE_MS);
+
+      await tick(deps, { userId: world.rosa.id });
+      await tick(deps, { userId: world.priya.id });
+
+      expect(await deliveryPayFor(flight.flightId)).toBe(13);
+      expect(await deliveryPayFor(later.flightId)).toBe(2);
+    });
+
     it("deliveries before local midnight count toward yesterday", async () => {
       await landedEarlier(
         Array.from({ length: 10 }, (_, i) => NY_MIDNIGHT - (i + 1) * MINUTE_MS),
