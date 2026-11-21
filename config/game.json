@@ -206,6 +206,7 @@
     "geoSearchPerMinute": 30,
     "reportsPerDay": 10,
     "smsPerUserPer15Min": 1,
+    "smsWindowMinutes": 15,
     "guestViewsPerMinutePerIp": 30
   },
   "weather": {
