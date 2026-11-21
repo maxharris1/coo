@@ -1,3 +1,4 @@
+import type { Pronoun } from "@/lib/format";
 import {
   bathDone,
   feed,
@@ -13,6 +14,7 @@ import { toBirdRecord, type BirdRecord, type Row } from "@/server/rows";
 import { toBirdView, type BirdView } from "./sync";
 
 export type CareAction = "feed" | "bath" | "nap";
+export type RenameInput = { name?: string; pronoun?: Pronoun };
 type Rest = "bath" | "nap";
 type CareFn = typeof feed;
 
@@ -144,4 +146,23 @@ export async function careAction(
     );
     return { bird: toBirdView(toBirdRecord(updated), now, owner), seeds };
   });
+}
+
+export async function renameBird(
+  deps: Deps,
+  caller: OnboardedCaller,
+  birdId: string,
+  input: RenameInput,
+): Promise<{ bird: BirdView }> {
+  const [row] = await deps.db.query<Row<"birds">>(
+    `update birds set name = coalesce($3, name), pronoun = coalesce($4, pronoun)
+     where id = $1 and owner_id = $2 returning *`,
+    [birdId, caller.userId, input.name ?? null, input.pronoun ?? null],
+  );
+  if (!row) throw new AppError("not_found", "Could not find that bird.");
+  return {
+    bird: toBirdView(toBirdRecord(row), deps.clock.now(), {
+      hasBirdbath: caller.profile.has_birdbath,
+    }),
+  };
 }
