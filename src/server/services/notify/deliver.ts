@@ -21,7 +21,7 @@ export type DeliverOutcome =
     }
   | { pushed: true; sent: number; removed: number };
 
-type Setting = Extract<keyof Row<"profiles">, `notify_${string}`>;
+export type Setting = Extract<keyof Row<"profiles">, `notify_${string}`>;
 
 const GONE = new Set([404, 410]);
 
@@ -33,7 +33,7 @@ function isSetting(column: string | null): column is Setting {
   );
 }
 
-function settings(deps: Deps): ReadonlyMap<string, Setting> {
+export function settings(deps: Deps): ReadonlyMap<string, Setting> {
   return new Map(
     Object.entries(deps.config.copy.notifications).flatMap(([kind, copy]) =>
       typeof copy === "object" && isSetting(copy.setting)

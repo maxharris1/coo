@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
 import { seedWorld, type World } from "@/test/seedWorld";
-import { notificationText, notify, type NotifyRow } from "./notify";
+import {
+  landedInTitle,
+  notificationText,
+  notify,
+  type NotifyRow,
+} from "./notify";
 import { deliver } from "./notify/deliver";
 
 vi.mock("./notify/deliver", () => ({
@@ -101,5 +106,19 @@ describe("notificationText", () => {
       body: "There is a note from Max on your sill.",
       url: "/sill/v1",
     });
+  });
+});
+
+describe("landedInTitle", () => {
+  it("appends Ding. when the landing bird wears the ankle bell", () => {
+    expect(landedInTitle("Gerald has landed", ["bell"])).toBe(
+      "Gerald has landed Ding.",
+    );
+  });
+
+  it("leaves the title alone without the bell", () => {
+    expect(landedInTitle("Gerald has landed", ["party"])).toBe(
+      "Gerald has landed",
+    );
   });
 });
