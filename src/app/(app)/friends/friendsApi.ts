@@ -1,6 +1,10 @@
 import type { Units } from "@/lib/format";
 import { distance } from "@/lib/format";
-import type { FriendRow, WaitingGuestLink } from "@/server/services/friends";
+import type {
+  FriendRow,
+  Shows,
+  WaitingGuestLink,
+} from "@/server/services/friends";
 
 export type FriendsList = {
   friends: FriendRow[];
@@ -86,4 +90,21 @@ export function reportFriend(
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ userId: id, reason }),
   });
+}
+
+export async function saveShows(
+  id: string,
+  shows: Shows,
+  fetchImpl: typeof fetch = fetch,
+): Promise<{ ok: true; shows: Shows } | Failed> {
+  const r = await call(fetchImpl, `/api/friends/${id}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ shows }),
+  });
+  if (!r.ok) return r;
+  return {
+    ok: true,
+    shows: (r.json as { friend: { shows: Shows } }).friend.shows,
+  };
 }

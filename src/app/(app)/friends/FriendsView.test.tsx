@@ -97,9 +97,11 @@ describe("Friends screen (ac-1)", () => {
       "What Dev can see",
     ]);
     const checked = rows.map((r) =>
-      [...r.matchAll(/<button[^>]*role="radio"[^>]*aria-checked="(true|false)"[^>]*>(City|Block)</g)].map(
-        ([, on, label]) => `${label}:${on}`,
-      ),
+      [
+        ...r.matchAll(
+          /<button[^>]*role="radio"[^>]*aria-checked="(true|false)"[^>]*>(City|Block)</g,
+        ),
+      ].map(([, on, label]) => `${label}:${on}`),
     );
     expect(checked).toEqual([
       ["City:true", "Block:false"],
@@ -112,7 +114,10 @@ describe("Friends screen (ac-1)", () => {
   it("keeps the choice outside the button that opens the sheet", () => {
     const rows = render().match(/<li[\s\S]*?<\/li>/g) ?? [];
     for (const r of rows) {
-      const opener = /<button[^>]*aria-haspopup="dialog"[^>]*>[\s\S]*?<\/button>/.exec(r)?.[0];
+      const opener =
+        /<button[^>]*aria-haspopup="dialog"[^>]*>[\s\S]*?<\/button>/.exec(
+          r,
+        )?.[0];
       expect(opener).toBeDefined();
       expect(opener).not.toContain('role="radio"');
     }

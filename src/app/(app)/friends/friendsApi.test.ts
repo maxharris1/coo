@@ -130,7 +130,9 @@ describe("friend actions", () => {
   });
 
   it("returns the API's message when a City/Block save fails", async () => {
-    const { fetchImpl } = recorder(404, { error: { message: "No such friend" } });
+    const { fetchImpl } = recorder(404, {
+      error: { message: "No such friend" },
+    });
     expect(await saveShows("u1", "city", fetchImpl)).toEqual({
       ok: false,
       message: "No such friend",

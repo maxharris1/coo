@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Loader } from "@/components/Loader";
 import { useSync } from "@/components/SyncProvider";
 import { useToast } from "@/components/Toasts";
-import type { FriendRow } from "@/server/services/friends";
+import type { FriendRow, Shows } from "@/server/services/friends";
 import {
   blockFriend,
   loadFriends,
   reportFriend,
+  saveShows,
   unfriend,
   type ActionResult,
 } from "./friendsApi";
@@ -56,6 +57,7 @@ export default function FriendsPage() {
   const [list, setList] = useState<ListState>({ kind: "loading" });
   const [sheet, setSheet] = useState<SheetState | null>(null);
   const toast = useToast();
+  const saves = useRef(new Map<string, { next: Shows | null }>());
 
   useEffect(() => {
     let live = true;
@@ -111,6 +113,44 @@ export default function FriendsPage() {
     });
   };
 
+  const onShows = (id: string, shows: Shows) => {
+    const queued = saves.current.get(id);
+    if (queued) {
+      queued.next = shows;
+      return;
+    }
+    if (
+      list.kind !== "ready" ||
+      list.friends.find((f) => f.id === id)?.shows === shows
+    )
+      return;
+    const entry: { next: Shows | null } = { next: null };
+    saves.current.set(id, entry);
+    const send = (value: Shows) => {
+      void saveShows(id, value).then((r) => {
+        if (r.ok) {
+          setList((l) =>
+            l.kind === "ready"
+              ? {
+                  ...l,
+                  friends: l.friends.map((f) =>
+                    f.id === id ? { ...f, shows: r.shows } : f,
+                  ),
+                }
+              : l,
+          );
+        } else {
+          toast(r.message);
+        }
+        const { next } = entry;
+        entry.next = null;
+        if (next !== null && (!r.ok || next !== r.shows)) send(next);
+        else saves.current.delete(id);
+      });
+    };
+    send(shows);
+  };
+
   return (
     <FriendsView
       inviteLink={inviteLink}
@@ -122,6 +162,7 @@ export default function FriendsPage() {
       onStep={(step) => setSheet((s) => s && { ...s, step })}
       onClose={() => setSheet(null)}
       onConfirm={onConfirm}
+      onShows={onShows}
     />
   );
 }

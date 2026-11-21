@@ -21,6 +21,7 @@ export type FriendsViewProps = {
   onStep: (step: SheetStep) => void;
   onClose: () => void;
   onConfirm: (reason: string) => void;
+  onShows: (id: string, shows: Shows) => void;
 };
 
 const TONES = [styles.blush, styles.sky, styles.mint, styles.lilac];
@@ -54,18 +55,20 @@ function FriendItem({
   tone,
   units,
   onOpen,
+  onShows,
 }: {
   friend: FriendRow;
   tone: string;
   units: Units;
   onOpen: (friend: FriendRow) => void;
+  onShows: (id: string, shows: Shows) => void;
 }) {
   return (
-    <li>
+    <li className={styles.row}>
       <button
         type="button"
         aria-haspopup="dialog"
-        className={styles.row}
+        className={styles.opener}
         onClick={() => onOpen(friend)}
       >
         <span aria-hidden="true" className={`${styles.avatar} ${tone}`}>
@@ -75,26 +78,29 @@ function FriendItem({
           <span className={styles.name}>{friend.name}</span>
           <span className={styles.line}>{friendLine(friend, units)}</span>
         </span>
-        <span
-          role="img"
-          aria-label={`${friend.name} can see: ${LABELS[friend.shows]}`}
-          className={styles.toggle}
-        >
-          {SHOWS.map((shows) => (
-            <span
-              key={shows}
-              aria-hidden="true"
-              className={
-                shows === friend.shows
-                  ? `${styles.choice} ${styles.on}`
-                  : styles.choice
-              }
-            >
-              {LABELS[shows]}
-            </span>
-          ))}
-        </span>
       </button>
+      <div
+        role="radiogroup"
+        aria-label={`What ${friend.name} can see`}
+        className={styles.toggle}
+      >
+        {SHOWS.map((shows) => (
+          <button
+            key={shows}
+            type="button"
+            role="radio"
+            aria-checked={shows === friend.shows}
+            className={
+              shows === friend.shows
+                ? `${styles.choice} ${styles.on}`
+                : styles.choice
+            }
+            onClick={() => onShows(friend.id, shows)}
+          >
+            {LABELS[shows]}
+          </button>
+        ))}
+      </div>
     </li>
   );
 }
@@ -109,6 +115,7 @@ export function FriendsView({
   onStep,
   onClose,
   onConfirm,
+  onShows,
 }: FriendsViewProps) {
   const sms = `sms:?&body=${encodeURIComponent(
     `Trade pigeons with me on ${config.app.name}: ${inviteLink}`,
@@ -181,6 +188,7 @@ export function FriendsView({
                   tone={TONES[i % TONES.length]}
                   units={units}
                   onOpen={onOpen}
+                  onShows={onShows}
                 />
               ))}
             </ul>
