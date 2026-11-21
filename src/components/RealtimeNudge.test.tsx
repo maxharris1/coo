@@ -94,9 +94,13 @@ let userId: string;
 let tokenResponse: () => Response;
 let notifications: NotificationItem[];
 let notificationsResponse: () => Response | Promise<Response>;
+let syncHeld: Promise<void>;
 const fetch = vi.fn<typeof globalThis.fetch>(async (url) => {
-  if (url === "/api/sync")
-    return json(200, { serverNow: 0, me: { id: userId }, visits: [] });
+  if (url === "/api/sync") {
+    const id = userId;
+    await syncHeld;
+    return json(200, { serverNow: 0, me: { id }, visits: [] });
+  }
   if (url === "/api/realtime/token") return tokenResponse();
   if (url === "/api/notifications") return notificationsResponse();
   throw new Error(`unexpected fetch ${String(url)}`);
@@ -106,8 +110,11 @@ const calls = (path: string) =>
 const syncCalls = () => calls("/api/sync");
 const toast = vi.fn<(message: string) => void>();
 
-const item = (over: Partial<NotificationItem>): NotificationItem => ({
-  id: "n1",
+let testId: string;
+const item = ({
+  id = "n1",
+  ...over
+}: Partial<NotificationItem>): NotificationItem => ({
   kind: "landed-in",
   title: "Pip landed in your loft",
   body: "",
@@ -115,6 +122,7 @@ const item = (over: Partial<NotificationItem>): NotificationItem => ({
   createdAt: 0,
   read: false,
   ...over,
+  id: `${testId}-${id}`,
 });
 
 let root: Root | null = null;
@@ -147,6 +155,8 @@ const insert = (kind: string) =>
 beforeEach(() => {
   vi.useFakeTimers();
   userId = `user-${++userCount}`;
+  testId = userId;
+  syncHeld = Promise.resolve();
   nav.path = "/";
   realtime.state.accessToken = null;
   realtime.state.channels = [];
@@ -391,5 +401,34 @@ describe("landing toasts (ac-6)", () => {
     notificationsResponse = () => json(200, { notifications });
     await insert("notification");
     expect(toast.mock.calls).toEqual([["Rue landed"]]);
+  });
+
+  it("toasts a landing once when another tab swaps the account before sync catches up", async () => {
+    await mount();
+    const first = userId;
+
+    userId = `user-${++userCount}`;
+    let releaseSync!: () => void;
+    syncHeld = new Promise((resolve) => {
+      releaseSync = resolve;
+    });
+    notifications = [item({ title: "Pip landed for Priya" })];
+    await insert("notification");
+    expect(toast.mock.calls).toEqual([["Pip landed for Priya"]]);
+    expect(realtime.state.channels.map((c) => c.name)).toEqual([
+      `events:${first}`,
+    ]);
+
+    await act(async () => {
+      releaseSync();
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(realtime.state.channels.map((c) => c.name)).toEqual([
+      `events:${first}`,
+      `events:${userId}`,
+    ]);
+    await insert("notification");
+    expect(calls("/api/notifications"), "the new channel looked").toBe(2);
+    expect(toast.mock.calls).toEqual([["Pip landed for Priya"]]);
   });
 });

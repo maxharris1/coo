@@ -7,7 +7,7 @@ import { SyncContext } from "./SyncProvider";
 import { useToast } from "./Toasts";
 
 const LANDED = new Set(["landed-in", "landed-out"]);
-const toasted = new Map<string, Set<string>>();
+const toasted = new Set<string>();
 
 async function fetchRealtimeToken(): Promise<string | null> {
   try {
@@ -40,13 +40,11 @@ export function RealtimeNudge() {
   useEffect(() => {
     if (!meId || !refresh) return;
     let active = true;
-    const seen = toasted.get(meId) ?? new Set<string>();
-    toasted.set(meId, seen);
     const toastLanding = async () => {
       const item = await fetchNewestUnread();
-      if (!active || !item || !LANDED.has(item.kind) || seen.has(item.id))
+      if (!active || !item || !LANDED.has(item.kind) || toasted.has(item.id))
         return;
-      seen.add(item.id);
+      toasted.add(item.id);
       toast(item.title);
     };
     const supabase = browserSupabase(fetchRealtimeToken);
