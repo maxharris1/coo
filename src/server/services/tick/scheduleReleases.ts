@@ -144,7 +144,7 @@ async function releaseOne(
     if (JSON.stringify(current) !== JSON.stringify(leg))
       throw new Error(`flight ${f.id} endpoints changed before release`);
 
-    if (!current || !weather || !names) {
+    if (!current || !weather || !names || !locked.counterpart_id) {
       await tx.query(
         "update flights set status = 'cancelled' where id = $1 and status = 'scheduled'",
         [f.id],
@@ -159,7 +159,7 @@ async function releaseOne(
       );
       return { notificationId: null };
     }
-    const counterpartId = locked.counterpart_id as string;
+    const counterpartId = locked.counterpart_id;
     const from = current.from.point;
     const to = current.to.point;
 
