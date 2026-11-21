@@ -1,12 +1,6 @@
--- Coo: the once-a-minute tick, run by Supabase (pg_cron + pg_net).
--- NOT covered by the automated schema test: these extensions only exist on Supabase.
--- Before applying, store two secrets in Supabase Vault:
---   select vault.create_secret('https://YOUR-APP-DOMAIN/api/cron/tick', 'coo_tick_url');
---   select vault.create_secret('THE-SAME-VALUE-AS-CRON_SECRET', 'coo_cron_secret');
--- Check the current Supabase Cron docs when you apply this; the function names below are from
--- the documentation at the time of writing.
-create extension if not exists pg_cron;
-create extension if not exists pg_net;
+-- Before applying, store coo_tick_url, coo_cron_secret and coo_vercel_protection_bypass in Supabase Vault, as docs/deploy.md shows.
+create extension if not exists pg_cron with schema pg_catalog;
+create extension if not exists pg_net with schema extensions;
 
 select cron.schedule(
   'coo-tick',
@@ -16,7 +10,8 @@ select cron.schedule(
     url := (select decrypted_secret from vault.decrypted_secrets where name = 'coo_tick_url'),
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'coo_cron_secret')
+      'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'coo_cron_secret'),
+      'x-vercel-protection-bypass', (select decrypted_secret from vault.decrypted_secrets where name = 'coo_vercel_protection_bypass')
     ),
     body := '{}'::jsonb,
     timeout_milliseconds := 25000

@@ -112,6 +112,7 @@ describe("POST /api/cron/tick", () => {
       {
         "content-type": "application/json",
         authorization: `Bearer ${SECRET}`,
+        "x-vercel-protection-bypass": "bypass-value",
       },
       "{}",
     );
