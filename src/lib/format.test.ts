@@ -290,10 +290,16 @@ describe("greeting", () => {
         NY,
         flock("flying", "visiting", "busy", "home", "home"),
       ),
-    ).toBe("Morning. Two birds home, three out on jobs.");
+    ).toBe("Morning. Three birds home, two out on jobs.");
     expect(greeting(morning, NY, flock("flying"))).toBe(
       "Morning. No birds home, one out on a job.",
     );
     expect(greeting(morning, NY, flock())).toBe("Morning. No birds yet.");
+  });
+
+  it("counts napping and bathing birds as home, since only flying or visiting birds are away", () => {
+    expect(
+      greeting(at("2026-11-20T14:20:00Z"), NY, flock("busy", "busy")),
+    ).toBe("Morning. Two birds home.");
   });
 });

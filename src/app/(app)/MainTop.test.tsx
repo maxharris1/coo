@@ -101,6 +101,32 @@ describe("the top of Main (ac-1)", () => {
     );
   });
 
+  it("keeps napping and bathing birds home, with no OUT tag", () => {
+    const nap = bird("Gerald", { status: "busy", busyKind: "nap" });
+    const bath = bird("Brenda", { status: "busy", busyKind: "bath" });
+    const both = render([nap, bath]);
+    expect(both).toMatch(/<h1[^>]*>Morning. Two birds home.<\/h1>/);
+    expect(both).not.toContain(">OUT</text>");
+    expect(both.match(/data-ledge-bird/g)).toHaveLength(2);
+
+    for (const busy of [nap, bath]) {
+      const alone = render([busy]);
+      expect(alone).not.toContain(">OUT</text>");
+      expect(alone.match(/data-ledge-bird/g)).toHaveLength(1);
+      const tired = render([{ ...busy, tired: true }]);
+      expect(tired).not.toContain(">OUT</text>");
+      expect(tired).toContain("data-sleeper");
+    }
+  });
+
+  it("still hangs the OUT tag for a flying or visiting bird", () => {
+    for (const status of ["flying", "visiting"] as const) {
+      const html = render([bird("Brenda", { status })]);
+      expect(html).toContain(">OUT</text>");
+      expect(html).not.toContain("data-ledge-bird");
+    }
+  });
+
   it("uses only tokens for colour in its stylesheet", () => {
     const css = readFileSync(
       new URL("./MainTop.module.css", import.meta.url),

@@ -150,7 +150,11 @@ const NUMBER_WORDS = [
   "twelve",
 ];
 
-const AWAY: ReadonlySet<BirdStatus> = new Set(["flying", "visiting", "busy"]);
+const AWAY: ReadonlySet<BirdStatus> = new Set(["flying", "visiting"]);
+
+export function isAway(status: BirdStatus): boolean {
+  return AWAY.has(status);
+}
 
 const hourFormatters = new Map<string, Intl.DateTimeFormat>();
 
@@ -187,7 +191,7 @@ export function greeting(
   timeZone: string,
   birds: readonly { status: BirdStatus }[],
 ): string {
-  const away = birds.filter((b) => AWAY.has(b.status)).length;
+  const away = birds.filter((b) => isAway(b.status)).length;
   const home = birds.length - away;
   const homePart = `${inWords(home)} ${home === 1 ? "bird" : "birds"} home`;
   const awayPart =

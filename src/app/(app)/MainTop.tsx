@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Bird, type GearId, type Look } from "@/components/Bird";
 import type { SyncPayload } from "@/components/sync";
-import { greeting } from "@/lib/format";
+import { greeting, isAway } from "@/lib/format";
 import styles from "./MainTop.module.css";
 
 type FlockBird = SyncPayload["birds"][number];
@@ -12,7 +12,6 @@ const LEDGE_SPOTS = [
   { x: 192, y: 112, scale: 0.82 },
   { x: 288, y: 116, scale: 0.78 },
 ];
-const AWAY = new Set<FlockBird["status"]>(["flying", "visiting", "busy"]);
 
 function listNames(names: string[]): string {
   return names.length < 2
@@ -39,10 +38,10 @@ function describeScene(
 }
 
 function LoftScene({ birds }: { birds: FlockBird[] }) {
-  const home = birds.filter((b) => !AWAY.has(b.status));
+  const home = birds.filter((b) => !isAway(b.status));
   const sleeper = home.find((b) => b.tired);
   const ledge = home.filter((b) => b !== sleeper).slice(0, LEDGE_SPOTS.length);
-  const away = birds.find((b) => AWAY.has(b.status));
+  const away = birds.find((b) => isAway(b.status));
 
   return (
     <svg
