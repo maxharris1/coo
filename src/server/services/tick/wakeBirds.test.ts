@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { config } from "@/lib/config";
+import type { Db } from "@/server/db";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
 import { seedWorld, type World } from "@/test/seedWorld";
 import { tick } from "../tick";
@@ -16,6 +17,25 @@ beforeEach(async () => {
   world = await seedWorld(deps.db, deps.clock.now());
   gerald = world.max.birds[0].id;
 });
+
+afterEach(() => vi.restoreAllMocks());
+
+function failQueryInTx(match: (sql: string, params?: unknown[]) => boolean) {
+  const tx = deps.db.tx.bind(deps.db);
+  return vi
+    .spyOn(deps.db, "tx")
+    .mockImplementation(<T>(fn: (db: Db) => Promise<T>) =>
+      tx((t) =>
+        fn({
+          ...t,
+          query: <R>(sql: string, params?: unknown[]) =>
+            match(sql, params)
+              ? t.query<R>("select 1 / 0")
+              : t.query<R>(sql, params),
+        }),
+      ),
+    );
+}
 
 async function rest(
   id: string,
@@ -154,5 +174,43 @@ describe("wake birds", () => {
     expect(counts.wakeBirds).toBe(1);
     expect((await bird(kevin)).status).toBe("home");
     expect((await bird(gerald)).status).toBe("busy");
+  });
+
+  it("wakes the later birds and logs the failing bird id when one bird throws", async () => {
+    const errorLines = vi.spyOn(console, "error").mockImplementation(() => {});
+    const brenda = world.max.birds[1].id;
+    const kevin = world.priya.birds[0].id;
+    const values = { feathers: 20, energy: 60 };
+    await rest(gerald, "bath", care.bathMinutes, values);
+    await rest(brenda, "bath", care.bathMinutes + 1, values);
+    const until = await rest(kevin, "bath", care.bathMinutes + 2, values);
+    const failing = failQueryInTx(
+      (sql, params) =>
+        sql.includes("b.busy_kind in ('bath', 'nap')") &&
+        params?.[0] === gerald,
+    );
+    deps.clock.set(until + MINUTE_MS);
+
+    const result = await tick(deps);
+
+    expect(result.counts.wakeBirds).toBe(2);
+    expect(result.failed).toEqual({ wakeBirds: 1 });
+    expect((await bird(gerald)).status).toBe("busy");
+    expect((await bird(brenda)).status).toBe("home");
+    expect((await bird(kevin)).status).toBe("home");
+    expect(
+      errorLines.mock.calls.map(([line]) => JSON.parse(line as string)),
+    ).toEqual([
+      expect.objectContaining({
+        event: "tick.row_failed",
+        step: "wakeBirds",
+        rowId: gerald,
+      }),
+    ]);
+
+    failing.mockRestore();
+    const again = await tick(deps);
+    expect(again.counts.wakeBirds).toBe(1);
+    expect((await bird(gerald)).status).toBe("home");
   });
 });

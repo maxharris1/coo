@@ -1,7 +1,8 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { config } from "@/lib/config";
 import { computeFlightPlan, type FlightInput } from "@/lib/flight/engine";
 import { foundObjectFor } from "@/lib/game/jobs";
+import type { Db } from "@/server/db";
 import type { UserId } from "@/server/ports/auth";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
 import { addNote } from "@/test/fixtures/notes";
@@ -20,6 +21,8 @@ beforeEach(async () => {
   deps = await makeTestDeps();
   world = await seedWorld(deps.db, deps.clock.now());
 });
+
+afterEach(() => vi.restoreAllMocks());
 
 const iso = (ms: number) => new Date(ms).toISOString();
 
@@ -45,12 +48,14 @@ type Return = {
 };
 
 async function insertReturn(
-  opts: { withNote: boolean; id?: string } = { withNote: true },
+  opts: { withNote: boolean; id?: string; birdId?: string } = {
+    withNote: true,
+  },
 ): Promise<Return> {
   const nowMs = deps.clock.now();
   const owner = world.max;
   const host = world.priya;
-  const birdId = owner.birds[0].id;
+  const birdId = opts.birdId ?? owner.birds[0].id;
   return deps.db.tx(async (t) => {
     const noteId = opts.withNote
       ? await addNote(t, host, owner, nowMs, false)
@@ -377,6 +382,55 @@ describe("landing a return", () => {
 
     expect(result.counts.landReturns).toBe(0);
     expect(await snapshot()).toEqual(before);
+  });
+  it("lands the later return and logs the failing flight id when one return throws", async () => {
+    const errorLines = vi.spyOn(console, "error").mockImplementation(() => {});
+    const a = await insertReturn({ withNote: false, id: uuidFor(101) });
+    deps.clock.advance(MINUTE_MS);
+    const b = await insertReturn({
+      withNote: false,
+      id: uuidFor(102),
+      birdId: world.max.birds[1].id,
+    });
+    const [failing, later] = [a, b].sort((x, y) => x.arriveAtMs - y.arriveAtMs);
+    expect(failing.arriveAtMs).toBeLessThan(later.arriveAtMs);
+    const tx = deps.db.tx.bind(deps.db);
+    vi.spyOn(deps.db, "tx").mockImplementation(((
+      fn: (t: Db) => Promise<unknown>,
+    ) =>
+      tx((t) =>
+        fn({
+          ...t,
+          query: (sql, params) =>
+            sql.includes("set status = 'landed'") &&
+            params?.[0] === failing.flightId
+              ? t.query("select 1 / 0")
+              : t.query(sql, params),
+        }),
+      )) as Db["tx"]);
+    deps.clock.set(later.arriveAtMs);
+
+    const result = await tick(deps);
+
+    expect(result.counts.landReturns).toBe(1);
+    expect(result.failed).toEqual({ landReturns: 1 });
+    expect(
+      await rows(
+        "select id, status from flights where kind = 'return' order by arrive_at",
+      ),
+    ).toEqual([
+      { id: failing.flightId, status: "flying" },
+      { id: later.flightId, status: "landed" },
+    ]);
+    expect(
+      errorLines.mock.calls.map(([line]) => JSON.parse(line as string)),
+    ).toEqual([
+      expect.objectContaining({
+        event: "tick.row_failed",
+        step: "landReturns",
+        rowId: failing.flightId,
+      }),
+    ]);
   });
 });
 

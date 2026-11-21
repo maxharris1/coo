@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FlightPlan } from "@/lib/flight/engine";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
 import { insertPlannedDelivery } from "@/test/fixtures/plannedFlight";
@@ -110,6 +110,8 @@ beforeEach(async () => {
     deps.clock.now(),
   ));
 });
+
+afterEach(() => vi.restoreAllMocks());
 
 describe("delay notices", () => {
   it("notifies the owner and the recipient once a major delay has started", async () => {
@@ -230,4 +232,45 @@ describe("delay notices", () => {
       expect(await notified()).toBe(false);
     },
   );
+
+  it("notifies the other flights and logs the failing flight id when one flight throws", async () => {
+    const errorLines = vi.spyOn(console, "error").mockImplementation(() => {});
+    const failingId = flightId;
+    await withDelay("major");
+    ({ flightId } = await insertPlannedDelivery(
+      deps.db,
+      world,
+      deps.clock.now(),
+      { birdId: world.max.birds[1].id },
+    ));
+    await withDelay("major");
+    const healthyId = flightId;
+    await deps.db.query(
+      "update flights set release_at = release_at + interval '1 minute' where id = $1",
+      [healthyId],
+    );
+    vi.spyOn(deps.db, "tx").mockImplementationOnce(async () => {
+      throw new Error("boom");
+    });
+    deps.clock.set(delayStartMs + MINUTE_MS);
+
+    expect(await step()).toEqual({ count: 1, failed: 1 });
+
+    expect((await notices()).map((n) => [n.ref_id, n.kind])).toEqual([
+      [healthyId, "delayed"],
+      [healthyId, "delayed-in"],
+    ]);
+    expect(await notified()).toBe(true);
+    flightId = failingId;
+    expect(await notified()).toBe(false);
+    expect(
+      errorLines.mock.calls.map(([line]) => JSON.parse(line as string)),
+    ).toEqual([
+      expect.objectContaining({
+        event: "tick.row_failed",
+        step: "delayNotices",
+        rowId: failingId,
+      }),
+    ]);
+  });
 });

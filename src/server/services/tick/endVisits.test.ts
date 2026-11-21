@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { OnboardedCaller, Profile } from "@/server/auth";
 import type { UserId } from "@/server/ports/auth";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
@@ -17,6 +17,8 @@ beforeEach(async () => {
   deps = await makeTestDeps();
   world = await seedWorld(deps.db, deps.clock.now());
 });
+
+afterEach(() => vi.restoreAllMocks());
 
 type ReturnRow = {
   id: string;
@@ -214,5 +216,44 @@ describe("endVisits", () => {
 
     expect(result.counts.endVisits).toBe(0);
     expect(await returns()).toEqual([]);
+  });
+  it("ends the later visit and logs the failing visit id when one visit throws", async () => {
+    const errorLines = vi.spyOn(console, "error").mockImplementation(() => {});
+    const failing = await insertWaitingVisit(deps.db, world, deps.clock.now(), {
+      birdId: world.max.birds[0].id,
+    });
+    deps.clock.advance(MINUTE_MS);
+    const later = await insertWaitingVisit(deps.db, world, deps.clock.now());
+    const query = deps.db.query.bind(deps.db);
+    vi.spyOn(deps.db, "query").mockImplementation((sql, params) =>
+      sql.includes("as from_lat") && params?.[0] === failing.visitId
+        ? query("select 1 / 0")
+        : query(sql, params),
+    );
+    deps.clock.advance(30 * MINUTE_MS);
+
+    const result = await tick(deps);
+
+    expect(result.counts.endVisits).toBe(1);
+    expect(result.failed).toEqual({ endVisits: 1 });
+    const [ret] = await returns();
+    expect(ret.bird_id).toBe(later.birdId);
+    expect(await visitOf(later.birdId)).toEqual({
+      status: "left",
+      return_flight_id: ret.id,
+    });
+    expect(await visitOf(failing.birdId)).toEqual({
+      status: "waiting",
+      return_flight_id: null,
+    });
+    expect(
+      errorLines.mock.calls.map(([line]) => JSON.parse(line as string)),
+    ).toEqual([
+      expect.objectContaining({
+        event: "tick.row_failed",
+        step: "endVisits",
+        rowId: failing.visitId,
+      }),
+    ]);
   });
 });
