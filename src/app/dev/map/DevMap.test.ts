@@ -60,7 +60,7 @@ it("shows the full attribution, not the compact button", async () => {
   });
 });
 
-it("loads the Coo day style at the chosen place and zoom", async () => {
+it("loads the day style at the chosen place and zoom", async () => {
   const { map } = await mount();
   expect(map.options).toMatchObject({
     style: "/map/coo-day.style.json",

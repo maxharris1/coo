@@ -211,6 +211,7 @@ const OUTSIDE_GROUPS: Record<string, RouteKind> = {
   "/": "app",
   "/dev/birds": "public",
   "/dev/components": "public",
+  "/dev/map": "public",
 };
 
 function walk(dir: string): string[] {
