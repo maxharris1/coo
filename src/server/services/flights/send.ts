@@ -10,10 +10,9 @@ import { clockTime, type Pronoun } from "@/lib/format";
 import { careAt, projectCare, type CareOwner } from "@/lib/game/care";
 import { levelFor } from "@/lib/game/levels";
 import { noteLimit, validateBody } from "@/lib/game/notes";
-import { isWeekend } from "@/lib/game/time";
+import { isWeekend, startOfLocalDayMs } from "@/lib/game/time";
 import type { Deps } from "@/server/deps";
 import { AppError } from "@/server/errors";
-import { rateLimit } from "@/server/rateLimit";
 import type { UserId } from "@/server/ports/auth";
 import { pair, toBirdRecord, type BirdRecord, type Row } from "@/server/rows";
 import {
@@ -97,7 +96,7 @@ export async function send(
 
   const notification = await deps.db.tx(async (tx) => {
     await tx.query(
-      "select 1 from profiles where id = any($1::uuid[]) order by id for share",
+      "select 1 from profiles where id = any($1::uuid[]) order by id for update",
       [[me, friend]],
     );
     await tx.query(
@@ -135,13 +134,17 @@ export async function send(
     );
     if (claimed.length === 0)
       throw new AppError("conflict", "That bird is not home");
-    await rateLimit(
-      tx,
-      deps.clock,
-      `flights:${me}`,
-      deps.config.game.limits.flightsPerDay,
-      86400,
+    const [{ count: sentToday }] = await tx.query<{ count: number }>(
+      `select count(*)::int from flights
+       where owner_id = $1 and kind = 'delivery' and status <> 'cancelled'
+         and created_at >= $2`,
+      [
+        me,
+        new Date(startOfLocalDayMs(now, current.mine.timezone)).toISOString(),
+      ],
     );
+    if (sentToday >= deps.config.game.limits.flightsPerDay)
+      throw new AppError("rate_limited", "Too many requests. Try again later.");
 
     const [note] = await tx.query<{ id: string }>(
       `insert into notes (sender_id, recipient_id, body, created_at)
