@@ -12,6 +12,11 @@ export type EarnTop = {
   pay: PayRow[];
 };
 
+export type EarnState =
+  | { kind: "loading" }
+  | { kind: "failed"; message: string }
+  | { kind: "ready"; top: EarnTop; jobs: Earn["jobs"]; found: Earn["found"] };
+
 const MONTHS = [
   "JAN",
   "FEB",

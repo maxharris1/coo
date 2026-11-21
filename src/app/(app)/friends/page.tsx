@@ -4,6 +4,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { Loader } from "@/components/Loader";
 import { useSync } from "@/components/SyncProvider";
 import { useToast } from "@/components/Toasts";
+import { asUnits } from "@/lib/format";
 import type { FriendRow, Shows } from "@/server/services/friends";
 import {
   blockFriend,
@@ -151,7 +152,7 @@ export default function FriendsPage() {
   return (
     <FriendsView
       inviteLink={inviteLink}
-      units={data.me.units === "km" ? "km" : "mi"}
+      units={asUnits(data.me.units)}
       list={list}
       onCopy={onCopy}
       sheet={sheet}

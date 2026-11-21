@@ -158,7 +158,12 @@ function renderTracker(flight: Flight) {
   lib.hooks.ref = 0;
   lib.hooks.effect = 0;
   lib.hooks.pending = [];
-  const tree = Tracker({ flight, offsetMs: 0, timeZone: "America/New_York" });
+  const tree = Tracker({
+    flight,
+    offsetMs: 0,
+    timeZone: "America/New_York",
+    units: "mi",
+  });
   const map = findMapView(tree);
   if (!map) throw new Error("Tracker rendered no MapView");
   MapView(map.props as Parameters<typeof MapView>[0]);

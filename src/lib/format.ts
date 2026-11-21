@@ -55,9 +55,23 @@ export function duration(ms: number): string {
   return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, "0")}m`;
 }
 
+export function asUnits(value: string | undefined): Units {
+  return value === "km" ? "km" : "mi";
+}
+
+export function inUnits(miles: number, units: Units): number {
+  return miles * scales[units].perMile;
+}
+
+export function shortDistance(miles: number, units: Units): string {
+  const local = inUnits(miles, units);
+  if (local < SMALL_BELOW) return distance(miles, units);
+  return `${Math.round(local)} ${units}`;
+}
+
 export function distance(miles: number, units: Units): string {
   const scale = scales[units];
-  const local = miles * scale.perMile;
+  const local = inUnits(miles, units);
   const [n, words] =
     local < SMALL_BELOW
       ? [

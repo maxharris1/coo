@@ -194,7 +194,7 @@ it("hands the tracker the new arrival after a search party and a sync refresh", 
   expect(
     positionAt(server.plan!, server.from, server.to, oneSecondLate).state,
   ).toBe("landed");
-  expect(trackerView(after, oneSecondLate, TZ).state).toBe("landed");
+  expect(trackerView(after, oneSecondLate, TZ, "mi").state).toBe("landed");
 });
 
 it("keeps a fetched flight that is newer than the last sync", async () => {
@@ -247,7 +247,7 @@ it("keeps the synced search-party plan over a slower GET that read the old plan"
   );
   expect(flight.arriveAt, "tracker arrival").toBe(server.arriveAt);
   const oneSecondLate = server.arriveAt! + SECOND;
-  expect(trackerView(flight, oneSecondLate, TZ).state).toBe("landed");
+  expect(trackerView(flight, oneSecondLate, TZ, "mi").state).toBe("landed");
 });
 
 it("keeps a fetched search-party plan over a slower sync that read the old plan", async () => {
@@ -267,5 +267,5 @@ it("keeps a fetched search-party plan over a slower sync that read the old plan"
   expect(fetched.arriveAt).toBe(server.arriveAt);
   expect(flight.arriveAt, "tracker arrival").toBe(server.arriveAt);
   const oneSecondLate = server.arriveAt! + SECOND;
-  expect(trackerView(flight, oneSecondLate, TZ).state).toBe("landed");
+  expect(trackerView(flight, oneSecondLate, TZ, "mi").state).toBe("landed");
 });

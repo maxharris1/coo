@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Loader } from "@/components/Loader";
 import { useSync } from "@/components/SyncProvider";
 import { useToast } from "@/components/Toasts";
+import { asUnits, type Units } from "@/lib/format";
 import type { FriendRow } from "@/server/services/friends";
 import type { SyncVisit } from "@/server/services/visits/syncRead";
 import { GoneHome, Landed } from "../Landed";
@@ -94,12 +95,14 @@ function VisitScreen({
   visit,
   live,
   timeZone,
+  units,
   offsetMs,
   refresh,
 }: {
   visit: SyncVisit;
   live: boolean;
   timeZone: string;
+  units: Units;
   offsetMs: number;
   refresh(): void;
 }) {
@@ -137,6 +140,7 @@ function VisitScreen({
       city={city}
       nowMs={nowMs}
       timeZone={timeZone}
+      units={units}
       animate={animate}
       snacking={snacking}
       onSnack={() => void snack()}
@@ -174,6 +178,7 @@ export default function VisitPage() {
         timeZone={
           data?.me.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone
         }
+        units={asUnits(data?.me.units)}
         offsetMs={offsetMs}
         refresh={refresh}
       />
