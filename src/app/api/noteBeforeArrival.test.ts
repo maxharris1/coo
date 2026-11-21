@@ -12,6 +12,7 @@ import {
 } from "@/test/fixtures/plannedFlight";
 import { seedWorld, type World } from "@/test/seedWorld";
 import { authRoutes } from "./auth/handlers";
+import { aviaryGet } from "./aviary/get";
 import { collectionGet } from "./collection/get";
 import { flightGet } from "./flights/[id]/get";
 import { flightsGet } from "./flights/get";
@@ -35,6 +36,7 @@ const GET_ENDPOINTS: Record<
     build: (r) => authRoutes(r).session,
     url: "/api/auth/session",
   },
+  "src/app/api/aviary/route.ts": { build: aviaryGet, url: "/api/aviary" },
   "src/app/api/collection/route.ts": {
     build: collectionGet,
     url: "/api/collection",
