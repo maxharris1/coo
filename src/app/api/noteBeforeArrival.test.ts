@@ -20,6 +20,7 @@ import { flightsGet } from "./flights/get";
 import { friendsGet } from "./friends/get";
 import { geoHereGet } from "./geo/here/get";
 import { geoSearchGet } from "./geo/search/get";
+import { guestGet } from "./guest/[token]/get";
 import { healthGet } from "./health/get";
 import { inviteGet } from "./invite/[code]/get";
 import { notesGet } from "./notes/get";
@@ -60,6 +61,14 @@ const GET_ENDPOINTS: Record<
   "src/app/api/geo/search/route.ts": {
     build: geoSearchGet,
     url: "/api/geo/search?q=Philadelphia",
+  },
+  "src/app/api/guest/[token]/route.ts": {
+    build: (r) => guestGet(r, () => "test-pepper"),
+    url: "/api/guest/AAAAAAAAAAAAAAAA",
+  },
+  "src/app/api/guest/route.ts": {
+    build: (r) => guestGet(r, () => "test-pepper"),
+    url: "/api/guest",
   },
   "src/app/api/health/route.ts": { build: healthGet, url: "/api/health" },
   "src/app/api/invite/[code]/route.ts": {
