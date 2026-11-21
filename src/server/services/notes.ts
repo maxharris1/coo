@@ -119,7 +119,7 @@ export async function listNotes(
     `select n.id, n.sender_id, n.body, n.created_at, n.delivered_at, n.returned_at,
        ${SORT_KEY}::text as sort_key,
        p.id as with_id, p.name as with_name, p.handle as with_handle,
-       g.recipient_name as guest_name,
+       case when g.status = 'claimed' then null else g.recipient_name end as guest_name,
        b.id as bird_id, b.name as bird_name, b.look as bird_look,
        f.distance_mi, f.release_at, coalesce(f.landed_at, f.arrive_at) as end_at
      from notes n

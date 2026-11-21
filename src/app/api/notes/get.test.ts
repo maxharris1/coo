@@ -168,6 +168,44 @@ describe("GET /api/notes", () => {
     expect(json.notes.map((n: Listed) => n.id)).not.toContain(fromRosa);
   });
 
+  it("shows a deleted guest claimer as a former friend", async () => {
+    const noteId = await deps.db.tx(async (t) => {
+      const [{ id: linkId }] = await t.query<{ id: string }>(
+        `insert into guest_links (token_hash, sender_id, recipient_name, dest_lat, dest_lon, dest_label,
+           status, claimed_by, claimed_at)
+         values ('hash', $1, 'Old guest name', 40.7, -74, 'Brooklyn', 'claimed', $2, $3)
+         returning id`,
+        [world.max.id, world.rosa.id, new Date(now).toISOString()],
+      );
+      const [{ id }] = await t.query<{ id: string }>(
+        `insert into notes (sender_id, recipient_id, guest_link_id, body, created_at, delivered_at)
+         values ($1, $2, $3, 'Hi', $4, $4) returning id`,
+        [world.max.id, world.rosa.id, linkId, new Date(now).toISOString()],
+      );
+      return id;
+    });
+    const before = await list("max");
+    expect(before.json.notes).toEqual([
+      expect.objectContaining({
+        id: noteId,
+        with: expect.objectContaining({ id: world.rosa.id }),
+      }),
+    ]);
+    expect(before.json.notes[0].with.name).not.toBe("Old guest name");
+
+    await deps.db.query("delete from auth.users where id = $1", [
+      world.rosa.id,
+    ]);
+    const after = await list("max");
+    expect(after.json.notes).toEqual([
+      expect.objectContaining({
+        id: noteId,
+        direction: "sent",
+        with: { id: null, name: "a former friend", handle: null },
+      }),
+    ]);
+  });
+
   it("shows my guest note by the guest's name, and as returned once it comes back", async () => {
     const noteId = await deps.db.tx(async (t) => {
       const [{ id: linkId }] = await t.query<{ id: string }>(
