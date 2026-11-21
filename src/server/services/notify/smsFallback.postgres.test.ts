@@ -45,10 +45,17 @@ const STAMP = "update notifications set sms_sent_at = $2 where id = $1";
 
 type StampFault = "update-error" | "rollback";
 
-function holdFirstCommit(base: pg.Pool, fault?: StampFault) {
+const GATE = /for update/;
+
+function holdFirstCommit(
+  base: pg.Pool,
+  fault?: StampFault,
+  onGateReply?: () => void,
+) {
   const holding = gate();
   const released = gate();
   let first = true;
+  let replyHook = onGateReply;
   let armed = fault !== undefined;
   const connect = async () => {
     const client = await base.connect();
@@ -64,6 +71,15 @@ function holdFirstCommit(base: pg.Pool, fault?: StampFault) {
         return client.query("ROLLBACK");
       }
       const result = await client.query(sql, params);
+      if (
+        !first &&
+        replyHook &&
+        GATE.test(sql) &&
+        sql.includes("sms_sent_at")
+      ) {
+        replyHook();
+        replyHook = undefined;
+      }
       if (first && sql === "COMMIT") {
         first = false;
         holding.open();
@@ -224,6 +240,46 @@ describe.skipIf(!url)("SMS fallback on PostgreSQL", () => {
       expect(Number(stamped)).toBeGreaterThanOrEqual(committedAt + MINUTE_MS);
     });
   });
+
+  it.each([
+    { replyAt: 14, secondAt: 29, calls: [14] },
+    { replyAt: 16, secondAt: 30, calls: [30] },
+  ])(
+    "a send gate whose reservation read replies at minute $replyAt never starts a text the durable stamp predates",
+    async ({ replyAt, secondAt, calls: expected }) => {
+      await withTwoLandings(
+        async ({ conn, deps, landings: [first, second] }) => {
+          const committedAt = deps.clock.now();
+          const held = holdFirstCommit(conn, undefined, () =>
+            deps.clock.set(committedAt + replyAt * MINUTE_MS),
+          );
+          const late = { ...deps, db: held.db };
+          const calls = portCalls(deps);
+
+          const delivering = deliver(late, first).catch(() => undefined);
+          await held.holding;
+          await rejectStampRefresh(conn);
+          deps.clock.set(committedAt + MINUTE_MS);
+          held.release();
+          await delivering;
+
+          deps.clock.set(committedAt + secondAt * MINUTE_MS);
+          await deliver(late, second);
+
+          const [{ stamped }] = await deps.db.query<{ stamped: number }>(
+            "select extract(epoch from sms_sent_at) * 1000 as stamped from notifications where id = $1",
+            [first],
+          );
+          expect(calls).toEqual(
+            expected.map((minute) => committedAt + minute * MINUTE_MS),
+          );
+          if (expected[0] === replyAt) {
+            expect(Number(stamped)).toBeGreaterThanOrEqual(calls[0]);
+          }
+        },
+      );
+    },
+  );
 
   it("a claim whose COMMIT acknowledgment is held past its reservation texts nothing when the reservation cannot be renewed", async () => {
     await withTwoLandings(async ({ conn, deps, landings: [first, second] }) => {

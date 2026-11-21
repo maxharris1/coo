@@ -150,12 +150,17 @@ export async function smsFallback(
           );
           return refused;
         }
-        const [reserved] = await db.query<{ live: boolean }>(
-          "select sms_sent_at >= $2 as live from notifications where id = $1 for update",
-          [notificationId, at()],
+        const [reserved] = await db.query<{ until: Date | string | null }>(
+          "select sms_sent_at as until from notifications where id = $1 for update",
+          [notificationId],
         );
         if (!reserved) return "missing" as const;
-        if (!reserved.live) return "lapsed" as const;
+        if (
+          reserved.until === null ||
+          new Date(reserved.until).getTime() < deps.clock.now()
+        ) {
+          return "lapsed" as const;
+        }
         sending = send(deps, row.user_id, phone, text);
         await stamp(db, at());
         return "sending" as const;
