@@ -80,6 +80,8 @@ It returns `lastTickAt`, `ageMs`, `stale` and `serverNow`. `stale` should be `fa
 
 ## Change a secret
 
+To change a secret in Vault, run this with its name and the new value:
+
 ```sql
 select vault.update_secret(
   (select id from vault.secrets where name = '<name>'),
@@ -88,6 +90,20 @@ select vault.update_secret(
 ```
 
 The next run uses the new value. You do not need to reschedule.
+
+`coo_cron_secret` and `CRON_SECRET` in Vercel are one value. The app checks `CRON_SECRET`, so change both, in this order:
+
+1. Set the new `CRON_SECRET` in Vercel.
+2. Redeploy.
+3. When the new deployment is live, run the query above for `coo_cron_secret` right away.
+
+Ticks between the redeploy and the Vault update get 401. `/api/health` turns stale only after 5 minutes without a good tick.
+
+`coo_vercel_protection_bypass` must match the "Protection Bypass for Automation" secret in Vercel Deployment Protection. If you create a new bypass secret there, update `coo_vercel_protection_bypass` in Vault with it.
+
+`coo_tick_url` lives only in Vault. Update it when the production address changes.
+
+After a change, re-run the `net._http_response` query from step 5. The status code should be 200, not 401. Then run the `/api/health` check from step 5. `stale` should be `false`.
 
 ## Stop the tick
 

@@ -113,4 +113,19 @@ describe("docs/deploy.md", () => {
     expect(deploy).toContain("net._http_response");
     expect(deploy).toContain("/api/health");
   });
+
+  it("rotates each shared secret on both sides and checks the tick still authenticates", () => {
+    const rotation = deploy.slice(
+      deploy.indexOf("## Change a secret"),
+      deploy.indexOf("## Stop the tick"),
+    );
+
+    expect(rotation).toContain("coo_cron_secret");
+    expect(rotation).toContain("`CRON_SECRET`");
+    expect(rotation).toMatch(/[Rr]edeploy/);
+    expect(rotation).toContain("coo_vercel_protection_bypass");
+    expect(rotation).toContain("Protection Bypass for Automation");
+    expect(rotation).toContain("net._http_response");
+    expect(rotation).toContain("/api/health");
+  });
 });
