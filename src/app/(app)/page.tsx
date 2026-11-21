@@ -6,6 +6,7 @@ import { feedBird } from "./feed";
 import { Flock } from "./Flock";
 import { feedThenRefresh } from "./flockRows";
 import { MainTop } from "./MainTop";
+import { PushAsk } from "./PushAsk";
 
 export default function MainPage() {
   const { data, refresh } = useSync();
@@ -17,6 +18,7 @@ export default function MainPage() {
         data={data}
         onFeed={(id) => void feedThenRefresh(id, feedBird, refresh)}
       />
+      <PushAsk />
     </>
   );
 }
