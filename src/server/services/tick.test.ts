@@ -3,6 +3,7 @@ import { makeTestDeps, type TestDeps } from "@/test/deps";
 import { insertPlannedDelivery } from "@/test/fixtures/plannedFlight";
 import { seedWorld, type World } from "@/test/seedWorld";
 import type { recordNotification } from "./notify";
+import type { deliver } from "./notify/deliver";
 import { tick, type Step } from "./tick";
 import type { guestLanding } from "./tick/guestLanding";
 
@@ -11,11 +12,16 @@ const spies = vi.hoisted(() => ({
   finishJobs: vi.fn<Step>(async () => ({ count: 0 })),
   guestLanding: vi.fn<typeof guestLanding>(async () => {}),
   failingRef: { id: null as string | null },
+  deliver: vi.fn<typeof deliver>(),
 }));
 
 vi.mock("./tick/landReturns", () => ({ landReturns: spies.landReturns }));
 vi.mock("./tick/finishJobs", () => ({ finishJobs: spies.finishJobs }));
 vi.mock("./tick/guestLanding", () => ({ guestLanding: spies.guestLanding }));
+vi.mock("./notify/deliver", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./notify/deliver")>()),
+  deliver: spies.deliver,
+}));
 vi.mock("./notify", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./notify")>();
   return {
@@ -49,6 +55,11 @@ beforeEach(async () => {
   vi.clearAllMocks();
   spies.landReturns.mockImplementation(async () => ({ count: 0 }));
   spies.failingRef.id = null;
+  const actual =
+    await vi.importActual<typeof import("./notify/deliver")>(
+      "./notify/deliver",
+    );
+  spies.deliver.mockImplementation(actual.deliver);
   deps = await makeTestDeps();
   world = await seedWorld(deps.db, deps.clock.now());
 });
@@ -218,6 +229,54 @@ describe("tick", () => {
     expect(retry.counts.landDeliveries).toBe(1);
     expect(retry.failed).toEqual({});
     expect((await flightStatus(ids))[bad]).toBe("landed");
+  });
+
+  it("delivers the other notices and keeps the landing count when one notice throws, logging its flight id", async () => {
+    const errors = captureErrors();
+    const ids = await seedDueDeliveries(2);
+    const [first] = await deps.db.query<{ id: string }>(
+      "select id from flights where id = any($1::uuid[]) order by arrive_at, id limit 1",
+      [ids],
+    );
+    spies.deliver.mockImplementationOnce(async () => {
+      throw new Error("profile query failed");
+    });
+
+    const result = await tick(deps);
+
+    expect(result.counts.landDeliveries).toBe(2);
+    expect(result.failed).toEqual({ landDeliveries: 1 });
+    expect(Object.keys(result.counts)).toEqual(STEP_ORDER);
+    expect(spies.deliver).toHaveBeenCalledTimes(4);
+    expect(errors()).toEqual([
+      expect.objectContaining({
+        level: "error",
+        event: "tick.row_failed",
+        step: "landDeliveries",
+        rowId: first.id,
+        error: { name: "Error", message: "profile query failed" },
+      }),
+    ]);
+  });
+
+  it("keeps the landing count when the guest landing hook throws, logging the flight ids", async () => {
+    const errors = captureErrors();
+    await seedDueDeliveries(1);
+    spies.guestLanding.mockImplementationOnce(async () => {
+      throw new Error("guest hook failed");
+    });
+
+    const result = await tick(deps);
+
+    expect(result.counts.landDeliveries).toBe(1);
+    expect(result.failed).toEqual({ landDeliveries: 1 });
+    expect(errors()).toEqual([
+      expect.objectContaining({
+        event: "tick.row_failed",
+        step: "landDeliveries",
+        rowIds: [],
+      }),
+    ]);
   });
 
   it("runs the later steps when one step throws, and logs the step", async () => {

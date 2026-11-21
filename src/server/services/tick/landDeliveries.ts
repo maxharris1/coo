@@ -7,6 +7,7 @@ import { startOfLocalDayMs, weekStart, weekday } from "@/lib/game/time";
 import type { BirdStatus } from "@/lib/game/types";
 import type { Db } from "@/server/db";
 import type { Deps } from "@/server/deps";
+import { log } from "@/server/log";
 import { badgeRules } from "../badges";
 import { landedInTitle, notificationText, recordNotification } from "../notify";
 import { deliver } from "../notify/deliver";
@@ -336,11 +337,31 @@ export const landDeliveries: Step = async (ctx) => {
     await dueIds(ctx),
     (tx, id) => landOne(ctx.deps, tx, id),
   );
-  for (const { notificationIds } of landed)
-    for (const n of notificationIds) await deliver(ctx.deps, n);
-  await guestLanding(
-    ctx,
-    landed.filter((l) => l.flight.guest_link_id).map((l) => l.flight),
-  );
-  return { count: landed.length, failed };
+  let postCommitFailed = 0;
+  for (const { flight, notificationIds } of landed)
+    for (const n of notificationIds)
+      try {
+        await deliver(ctx.deps, n);
+      } catch (error) {
+        postCommitFailed++;
+        log.error("tick.row_failed", {
+          step: "landDeliveries",
+          rowId: flight.id,
+          error,
+        });
+      }
+  const guests = landed
+    .filter((l) => l.flight.guest_link_id)
+    .map((l) => l.flight);
+  try {
+    await guestLanding(ctx, guests);
+  } catch (error) {
+    postCommitFailed++;
+    log.error("tick.row_failed", {
+      step: "landDeliveries",
+      rowIds: guests.map((f) => f.id),
+      error,
+    });
+  }
+  return { count: landed.length, failed: failed + postCommitFailed };
 };
