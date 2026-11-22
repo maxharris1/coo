@@ -3,6 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SyncContext, type SyncState } from "@/components/SyncProvider";
 import type { SyncPayload } from "@/components/sync";
+import { snap } from "@/lib/game/privacy";
 import type { Me } from "@/server/rows";
 import type { SettingsViewProps } from "./SettingsView";
 import SettingsPage from "./page";
@@ -33,6 +34,7 @@ vi.mock("@/components/Toasts", () => ({
 const ME = {
   id: "me-1",
   name: "Max",
+  handle: "max",
   units: "mi",
   phoneLast4: "0142",
   installed: true,
@@ -50,6 +52,8 @@ const ME = {
 } as Me;
 
 let patchResponse: () => Response;
+let travelResponse: () => Response;
+let deleteResponse: () => Response;
 let events: string[];
 let bodies: unknown[];
 let root: Root;
@@ -64,6 +68,14 @@ function fakeFetch(url: RequestInfo | URL, init?: RequestInit) {
   if (String(url) === "/api/settings" && method === "PATCH") {
     bodies.push(JSON.parse(String(init?.body)));
     return Promise.resolve(patchResponse());
+  }
+  if (String(url) === "/api/loft/travel" && method === "POST") {
+    bodies.push(JSON.parse(String(init?.body)));
+    return Promise.resolve(travelResponse());
+  }
+  if (String(url) === "/api/account" && method === "DELETE") {
+    bodies.push(JSON.parse(String(init?.body)));
+    return Promise.resolve(deleteResponse());
   }
   return Promise.reject(new Error(`unexpected ${method} ${String(url)}`));
 }
@@ -105,6 +117,8 @@ beforeEach(() => {
   view.toasts.length = 0;
   view.pushed.length = 0;
   patchResponse = () => Response.json({ me: ME });
+  travelResponse = () => Response.json({ travelling: true });
+  deleteResponse = () => Response.json({ deleted: true });
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal(
     "window",
@@ -202,5 +216,107 @@ describe("/settings saves (ac-2)", () => {
     await act(async () => view.props!.onSignOut());
     expect(events).toEqual(["POST /api/auth/sign-out"]);
     expect(view.pushed).toEqual(["/welcome"]);
+  });
+});
+
+const HERE = { latitude: 40.712776, longitude: -73.935242 };
+
+function stubGeolocation(fails = false) {
+  vi.stubGlobal("navigator", {
+    geolocation: {
+      getCurrentPosition: (
+        ok: (p: { coords: typeof HERE }) => void,
+        no: (e: Error) => void,
+      ) => (fails ? no(new Error("denied")) : ok({ coords: HERE })),
+    },
+  });
+}
+
+describe("/settings travel (ac-1)", () => {
+  it("opens and closes the sheet through the view", async () => {
+    await mount();
+    expect(view.props!.sheet).toBeNull();
+    await act(async () => view.props!.onSheet("travel"));
+    expect(view.props!.sheet).toBe("travel");
+    await act(async () => view.props!.onSheet(null));
+    expect(view.props!.sheet).toBeNull();
+  });
+
+  it("turning travel on posts the snapped location, refreshes and closes the sheet", async () => {
+    stubGeolocation();
+    await mount();
+    await act(async () => view.props!.onSheet("travel"));
+    await act(async () => view.props!.onTravel(true));
+    const point = snap(HERE.latitude, HERE.longitude);
+    expect(point).not.toEqual({ lat: HERE.latitude, lon: HERE.longitude });
+    expect(bodies).toEqual([{ on: true, lat: point.lat, lon: point.lon }]);
+    expect(events).toEqual(["POST /api/loft/travel", "refresh"]);
+    expect(view.props!.sheet).toBeNull();
+  });
+
+  it("turning travel off posts on false and refreshes", async () => {
+    await mount();
+    await act(async () => view.props!.onTravel(false));
+    expect(bodies).toEqual([{ on: false }]);
+    expect(events).toEqual(["POST /api/loft/travel", "refresh"]);
+  });
+
+  it("a conflict within 12 hours toasts the API's message and does not refresh", async () => {
+    stubGeolocation();
+    travelResponse = () =>
+      Response.json(
+        {
+          error: {
+            code: "conflict",
+            message: "You can change travel again in 12 hours.",
+          },
+        },
+        { status: 409 },
+      );
+    await mount();
+    await act(async () => view.props!.onSheet("travel"));
+    await act(async () => view.props!.onTravel(true));
+    expect(view.toasts).toEqual(["You can change travel again in 12 hours."]);
+    expect(events).toEqual(["POST /api/loft/travel"]);
+    expect(view.props!.sheet).toBe("travel");
+  });
+
+  it("without a location, toasts and sends nothing", async () => {
+    stubGeolocation(true);
+    await mount();
+    await act(async () => view.props!.onTravel(true));
+    expect(view.toasts).toHaveLength(1);
+    expect(events).toEqual([]);
+  });
+});
+
+describe("/settings delete my account (ac-2)", () => {
+  it("sends the typed handle as confirm, then goes to the welcome page", async () => {
+    await mount();
+    await act(async () => view.props!.onSheet("delete"));
+    await act(async () => view.props!.onDelete("max"));
+    expect(events).toEqual(["DELETE /api/account"]);
+    expect(bodies).toEqual([{ confirm: "max" }]);
+    expect(view.pushed).toEqual(["/welcome"]);
+  });
+
+  it("a wrong handle toasts the API's message and stays put", async () => {
+    deleteResponse = () =>
+      Response.json(
+        {
+          error: {
+            code: "invalid",
+            message: "confirm: type your handle to delete",
+          },
+        },
+        { status: 400 },
+      );
+    await mount();
+    await act(async () => view.props!.onSheet("delete"));
+    await act(async () => view.props!.onDelete("maxx"));
+    expect(bodies).toEqual([{ confirm: "maxx" }]);
+    expect(view.toasts).toEqual(["confirm: type your handle to delete"]);
+    expect(view.pushed).toEqual([]);
+    expect(view.props!.sheet).toBe("delete");
   });
 });
