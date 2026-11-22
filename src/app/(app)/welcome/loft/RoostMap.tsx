@@ -2,7 +2,7 @@
 
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef } from "react";
-import { config } from "@/lib/config";
+import { mountMap, type MountedMap } from "@/components/mountMap";
 import { STOCK_STYLE, type Roost } from "./roost";
 import styles from "./page.module.css";
 
@@ -14,30 +14,28 @@ export function RoostMap({ roost }: { roost: Roost }) {
   const { lat, lon } = roost;
 
   useEffect(() => {
-    let map: import("maplibre-gl").Map | null = null;
+    let mounted: MountedMap | null = null;
     let cancelled = false;
-    void import("maplibre-gl").then(({ Map, Marker, setWorkerUrl }) => {
+    void import("maplibre-gl").then((lib) => {
       if (cancelled || !container.current || !pin.current) return;
-      setWorkerUrl(
-        new URL("maplibre-gl/dist/maplibre-gl-worker.mjs", import.meta.url)
-          .href,
-      );
-      map = new Map({
-        container: container.current,
-        style: STOCK_STYLE,
-        center: [lon, lat],
-        zoom: BLOCK_ZOOM,
-        interactive: false,
-        attributionControl: {
-          compact: true,
-          customAttribution: config.app.mapAttribution,
+      mounted = mountMap(
+        lib,
+        container.current,
+        {
+          style: STOCK_STYLE,
+          center: [lon, lat],
+          zoom: BLOCK_ZOOM,
+          interactive: false,
         },
-      });
-      new Marker({ element: pin.current }).setLngLat([lon, lat]).addTo(map);
+        { compact: true },
+      );
+      new lib.Marker({ element: pin.current })
+        .setLngLat([lon, lat])
+        .addTo(mounted.map);
     });
     return () => {
       cancelled = true;
-      map?.remove();
+      mounted?.dispose();
     };
   }, [lat, lon]);
 

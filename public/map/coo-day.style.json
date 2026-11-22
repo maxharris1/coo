@@ -9,7 +9,8 @@
   "sources": {
     "openmaptiles": {
       "type": "vector",
-      "url": "https://tiles.openfreemap.org/planet"
+      "url": "https://tiles.openfreemap.org/planet",
+      "maxzoom": 14
     }
   },
   "glyphs": "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",

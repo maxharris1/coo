@@ -74,9 +74,15 @@ const classesIn = (filter: unknown): string[] => {
 
 describe("day style against the stock OpenFreeMap style", () => {
   it("uses the stock sources, glyphs and sprite", () => {
-    expect(day.sources).toEqual({ openmaptiles: facts.openmaptiles });
+    expect(day.sources).toEqual({
+      openmaptiles: { ...facts.openmaptiles, maxzoom: 14 },
+    });
     expect(day.glyphs).toBe(facts.glyphs);
     expect(day.sprite).toBe(facts.sprite);
+  });
+
+  it("caps the planet source at z14, the deepest tiles OpenFreeMap serves", () => {
+    expect(day.sources.openmaptiles.maxzoom).toBe(14);
   });
 
   it("reads only source layers the tiles have", () => {

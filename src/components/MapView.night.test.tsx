@@ -181,6 +181,13 @@ beforeEach(() => {
   lib.hooks.effects = [];
   lib.maps.length = 0;
   vi.stubGlobal("requestAnimationFrame", () => 1);
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe() {}
+      disconnect() {}
+    },
+  );
   vi.stubGlobal("cancelAnimationFrame", () => {});
 });
 
