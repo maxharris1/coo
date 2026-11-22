@@ -140,6 +140,19 @@ describe("onboardingBody (ac-1)", () => {
       bird: { name: "Gerry", look: "gerald", pronoun: "he" },
     });
   });
+
+  it("names a blank pigeon after the current look", () => {
+    const blank = firstBird(start, { type: "rename", name: "   " });
+    expect(onboardingBody(blank, "UTC").bird).toMatchObject({
+      name: "Gerald",
+      look: "gerald",
+    });
+    const onBrenda = firstBird(blank, { type: "step", by: 1 });
+    expect(onboardingBody(onBrenda, "UTC").bird).toMatchObject({
+      name: "Brenda",
+      look: "brenda",
+    });
+  });
 });
 
 describe("submitOnboarding (ac-1)", () => {

@@ -1,14 +1,21 @@
 import type { ReactElement } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { firstBird, initialFirstBird, type FirstBirdAction } from "./choices";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  firstBird,
+  initialFirstBird,
+  type FirstBirdAction,
+  type FirstBirdState,
+} from "./choices";
 import { FirstBird } from "./FirstBird";
 
 const push = vi.fn();
 const dispatched: FirstBirdAction[] = [];
-const state = firstBird(
-  firstBird(initialFirstBird(), { type: "rename", name: "Gerry" }),
-  { type: "yourName", name: "Max" },
-);
+const named = (pigeon: string) =>
+  firstBird(firstBird(initialFirstBird(), { type: "rename", name: pigeon }), {
+    type: "yourName",
+    name: "Max",
+  });
+let state: FirstBirdState;
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 vi.mock("react", async (original) => ({
@@ -21,6 +28,10 @@ const adopt = () =>
   (
     FirstBird() as ReactElement<{ onSubmit: () => Promise<void> }>
   ).props.onSubmit();
+
+beforeEach(() => {
+  state = named("Gerry");
+});
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -46,6 +57,25 @@ describe("Adopt on /welcome/bird (ac-1)", () => {
     });
     expect(posts[0].body).not.toHaveProperty("secondBird");
     expect(dispatched).toEqual([{ type: "send" }]);
+    expect(push).toHaveBeenCalledExactlyOnceWith("/welcome/loft");
+  });
+
+  it("names a blank pigeon after its look, then goes to the loft", async () => {
+    state = named("   ");
+    const posts: unknown[] = [];
+    vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
+      posts.push(JSON.parse(String(init.body)));
+      return Response.json({ me: {}, birds: [] });
+    });
+
+    await adopt();
+
+    expect(posts).toEqual([
+      expect.objectContaining({
+        name: "Max",
+        bird: { name: "Gerald", look: "gerald", pronoun: "they" },
+      }),
+    ]);
     expect(push).toHaveBeenCalledExactlyOnceWith("/welcome/loft");
   });
 

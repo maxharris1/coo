@@ -149,7 +149,7 @@ export const onboardingBody = (
   name: state.yourName.trim(),
   timezone,
   bird: {
-    name: state.name.trim(),
+    name: state.name.trim() || FIRST_BIRD.looks[state.index].name,
     look: FIRST_BIRD.looks[state.index].look,
     pronoun: state.pronoun,
   },
