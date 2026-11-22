@@ -11,7 +11,7 @@ import { seedWorld, type World } from "@/test/seedWorld";
 import { send } from "./send";
 
 const BODY = "Bring the good bagels on Sunday";
-const ZED = "00000000-0000-4000-8000-000000000009" as UserId;
+const ZED = "00000000-0000-4000-a000-0000000000ed" as UserId;
 const MABEL = "00000000-0000-4000-b000-000000000013";
 
 let deps: TestDeps;
@@ -278,6 +278,44 @@ describe("sendMany through send", () => {
     expect(await counts()).toEqual(before);
   });
 
+  it("refuses the same bird spelled in two cases as invalid and creates nothing", async () => {
+    const before = await counts();
+
+    expect(
+      (
+        await refusal(
+          send(deps, max, {
+            body: BODY,
+            sends: [
+              { friendId: priya, birdId: gerald },
+              { friendId: rosa, birdId: gerald.toUpperCase() },
+            ],
+          }),
+        )
+      ).code,
+    ).toBe("invalid");
+
+    expect(await counts()).toEqual(before);
+  });
+
+  it("refuses the same friend spelled in two cases as invalid and creates nothing", async () => {
+    const before = await counts();
+
+    expect(
+      await refusal(
+        send(deps, max, {
+          body: BODY,
+          sends: [
+            { friendId: ZED, birdId: gerald },
+            { friendId: ZED.toUpperCase() as UserId, birdId: brenda },
+          ],
+        }),
+      ),
+    ).toEqual({ code: "invalid", message: "sends: each friend once" });
+
+    expect(await counts()).toEqual(before);
+  });
+
   it("refuses a note that fits one bird's tube but not another's, naming the bird", async () => {
     await wearTube(gerald);
     const { baseLimit, tubeLimit } = config.game.notes;
@@ -390,6 +428,25 @@ describe("several sends through POST /api/flights", () => {
     const before = await counts();
 
     const { status, json } = await post({ body: BODY, sends: threeSends() });
+
+    expect(status).toBe(200);
+    expect(json.flights).toHaveLength(3);
+    expect(await counts()).toMatchObject({
+      notes: before.notes + 3,
+      flights: before.flights + 3,
+    });
+  });
+
+  it("answers 200 with three flights when the ids are uppercase", async () => {
+    const before = await counts();
+
+    const { status, json } = await post({
+      body: BODY,
+      sends: threeSends().map((s) => ({
+        friendId: s.friendId.toUpperCase(),
+        birdId: s.birdId.toUpperCase(),
+      })),
+    });
 
     expect(status).toBe(200);
     expect(json.flights).toHaveLength(3);

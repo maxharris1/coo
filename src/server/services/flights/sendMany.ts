@@ -229,7 +229,10 @@ function checkBatch(sends: SendItem[], max: number): FriendSend[] {
   const items = sends.map((s) => {
     if ("guest" in s)
       throw new AppError("invalid", "sends: send to someone new on its own");
-    return s;
+    return {
+      friendId: s.friendId.toLowerCase() as UserId,
+      birdId: s.birdId.toLowerCase(),
+    };
   });
   if (new Set(items.map((i) => i.birdId)).size < items.length)
     throw new AppError("invalid", "sends: one bird per friend");
