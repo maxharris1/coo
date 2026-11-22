@@ -1,6 +1,6 @@
 import birds from "../../../../../public/assets/data/birds.json";
 import type { Look } from "@/components/Bird";
-import { freeBirdName, sameBirdName } from "@/lib/birdName";
+import { sameBirdName } from "@/lib/birdName";
 import { config } from "@/lib/config";
 
 export type Pronoun = "he" | "she" | "they";
@@ -31,12 +31,10 @@ export const FIRST_BIRD = {
 };
 
 export type FirstBirdState = {
-  panel: "bird" | "roommate";
   index: number;
   name: string;
   named: boolean;
   pronoun: Pronoun;
-  roommate: { name: string; pronoun: Pronoun; named: boolean };
   yourName: string;
   sending: boolean;
   error: string | null;
@@ -47,25 +45,16 @@ export type FirstBirdAction =
   | { type: "rename"; name: string }
   | { type: "shuffle"; pick: number }
   | { type: "pronoun"; pronoun: Pronoun }
-  | { type: "adopt" }
-  | { type: "back" }
-  | { type: "roommate"; name: string }
-  | { type: "roommatePronoun"; pronoun: Pronoun }
   | { type: "yourName"; name: string }
   | { type: "send" }
   | { type: "failed"; message: string }
   | { type: "dismiss" };
 
-export const roommateLook = ({ index }: Pick<FirstBirdState, "index">) =>
-  FIRST_BIRD.looks[(index + 1) % FIRST_BIRD.looks.length];
-
 export const initialFirstBird = (): FirstBirdState => ({
-  panel: "bird",
   index: 0,
   name: FIRST_BIRD.looks[0].name,
   named: false,
   pronoun: "they",
-  roommate: { name: "", pronoun: "they", named: false },
   yourName: "",
   sending: false,
   error: null,
@@ -86,45 +75,13 @@ export function firstBird(
       return { ...state, name: action.name, named: action.name.trim() !== "" };
     case "shuffle": {
       const others = config.quirks.defaultNames.filter(
-        (n) =>
-          !sameBirdName(n, state.name) &&
-          !(state.roommate.named && sameBirdName(n, state.roommate.name)),
+        (n) => !sameBirdName(n, state.name),
       );
       const name = others[Math.floor(action.pick * others.length)];
       return { ...state, name, named: true };
     }
     case "pronoun":
       return { ...state, pronoun: action.pronoun };
-    case "adopt": {
-      const name = state.name.trim() || FIRST_BIRD.looks[state.index].name;
-      const roommate = state.roommate.named
-        ? state.roommate
-        : {
-            ...state.roommate,
-            name: freeBirdName(
-              roommateLook(state).name,
-              [name],
-              config.quirks.defaultNames,
-            ),
-          };
-      return { ...state, panel: "roommate", name, roommate };
-    }
-    case "back":
-      return { ...state, panel: "bird", error: null };
-    case "roommate":
-      return {
-        ...state,
-        roommate: {
-          ...state.roommate,
-          name: action.name,
-          named: action.name.trim() !== "",
-        },
-      };
-    case "roommatePronoun":
-      return {
-        ...state,
-        roommate: { ...state.roommate, pronoun: action.pronoun },
-      };
     case "yourName":
       return { ...state, yourName: action.name };
     case "send":

@@ -92,7 +92,7 @@ async function signUpFromLink(
   const { userId, fetchImpl } = await newUserFetch();
   const afterCode = afterSignIn("/welcome/install");
 
-  const bird = firstBird(firstBird(initialFirstBird(), { type: "adopt" }), {
+  const bird = firstBird(initialFirstBird(), {
     type: "yourName",
     name: pendingLink()?.name ?? "",
   });
