@@ -6,6 +6,7 @@ import type { Db } from "@/server/db";
 import type { Deps } from "@/server/deps";
 import { AppError } from "@/server/errors";
 import { toBirdRecord, type Row } from "@/server/rows";
+import { assertBirdNameFree } from "./birdNames";
 import { displayName, pronoun } from "./onboarding";
 import { toBirdView, type BirdView } from "./sync";
 
@@ -67,6 +68,7 @@ export async function hatch(
       if (birds.length >= profile.perches) {
         throw new AppError("conflict", "Every perch is taken.");
       }
+      await assertBirdNameFree(db, caller.userId, body.name);
       const chick = rollHatchling(
         egg.id,
         birds.map((b) => b.breed),

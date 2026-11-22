@@ -1,3 +1,4 @@
+import { sameBirdName } from "@/lib/birdName";
 import type { Pronoun } from "@/lib/format";
 import {
   feed,
@@ -9,6 +10,7 @@ import type { OnboardedCaller, Profile } from "@/server/auth";
 import type { Deps } from "@/server/deps";
 import { AppError } from "@/server/errors";
 import { toBirdRecord, type BirdRecord, type Row } from "@/server/rows";
+import { assertBirdNameFree } from "./birdNames";
 import { careSnapshot, wakeEffect } from "./care/snapshot";
 import { toBirdView, type BirdView } from "./sync";
 
@@ -136,12 +138,25 @@ export async function renameBird(
   birdId: string,
   input: RenameInput,
 ): Promise<{ bird: BirdView }> {
-  const [row] = await deps.db.query<Row<"birds">>(
-    `update birds set name = coalesce($3, name), pronoun = coalesce($4, pronoun)
-     where id = $1 and owner_id = $2 returning *`,
-    [birdId, caller.userId, input.name ?? null, input.pronoun ?? null],
-  );
-  if (!row) throw new AppError("not_found", "Could not find that bird.");
+  const row = await deps.db.tx(async (db) => {
+    await db.query("select 1 from profiles where id = $1 for update", [
+      caller.userId,
+    ]);
+    const [bird] = await db.query<Pick<Row<"birds">, "name">>(
+      "select name from birds where id = $1 and owner_id = $2",
+      [birdId, caller.userId],
+    );
+    if (!bird) throw new AppError("not_found", "Could not find that bird.");
+    if (input.name !== undefined && !sameBirdName(input.name, bird.name)) {
+      await assertBirdNameFree(db, caller.userId, input.name, birdId);
+    }
+    const [updated] = await db.query<Row<"birds">>(
+      `update birds set name = coalesce($2, name), pronoun = coalesce($3, pronoun)
+       where id = $1 returning *`,
+      [birdId, input.name ?? null, input.pronoun ?? null],
+    );
+    return updated;
+  });
   return {
     bird: toBirdView(toBirdRecord(row), deps.clock.now(), {
       hasBirdbath: caller.profile.has_birdbath,

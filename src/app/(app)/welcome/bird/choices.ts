@@ -1,5 +1,6 @@
 import birds from "../../../../../public/assets/data/birds.json";
 import type { Look } from "@/components/Bird";
+import { freeBirdName, sameBirdName } from "@/lib/birdName";
 import { config } from "@/lib/config";
 
 export type Pronoun = "he" | "she" | "they";
@@ -84,7 +85,11 @@ export function firstBird(
     case "rename":
       return { ...state, name: action.name, named: action.name.trim() !== "" };
     case "shuffle": {
-      const others = config.quirks.defaultNames.filter((n) => n !== state.name);
+      const others = config.quirks.defaultNames.filter(
+        (n) =>
+          !sameBirdName(n, state.name) &&
+          !(state.roommate.named && sameBirdName(n, state.roommate.name)),
+      );
       const name = others[Math.floor(action.pick * others.length)];
       return { ...state, name, named: true };
     }
@@ -94,7 +99,14 @@ export function firstBird(
       const name = state.name.trim() || FIRST_BIRD.looks[state.index].name;
       const roommate = state.roommate.named
         ? state.roommate
-        : { ...state.roommate, name: roommateLook(state).name };
+        : {
+            ...state.roommate,
+            name: freeBirdName(
+              roommateLook(state).name,
+              [name],
+              config.quirks.defaultNames,
+            ),
+          };
       return { ...state, panel: "roommate", name, roommate };
     }
     case "back":

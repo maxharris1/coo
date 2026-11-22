@@ -9,6 +9,7 @@ import {
   roommateLook,
   submitOnboarding,
 } from "./choices";
+import { sameBirdName } from "@/lib/birdName";
 
 const start = initialFirstBird();
 
@@ -179,5 +180,54 @@ describe("submitOnboarding (ac-5)", () => {
     });
     expect(result.ok).toBe(false);
     expect(result.ok || result.message).toMatch(/\S/);
+  });
+});
+
+describe("the roommate never shares the first bird's name (#695)", () => {
+  const onLook = (index: number) =>
+    Array.from({ length: index }).reduce<typeof start>(
+      (s) => firstBird(s, { type: "step", by: 1 }),
+      start,
+    );
+
+  it("starting on Kevin with the first bird named Gerald gives a roommate that is not Gerald", () => {
+    const kevin = firstBird(start, { type: "step", by: -1 });
+    expect(kevin.index).toBe(2);
+    const named = firstBird(kevin, { type: "rename", name: "Gerald" });
+
+    const adopted = firstBird(named, { type: "adopt" });
+
+    expect(adopted.name).toBe("Gerald");
+    expect(sameBirdName(adopted.roommate.name, "Gerald")).toBe(false);
+    expect(adopted.roommate.name.trim()).not.toBe("");
+  });
+
+  it.each(FIRST_BIRD.looks.map((_, i) => i))(
+    "on look %i, naming the first bird after the roommate look gives a different roommate",
+    (index) => {
+      const onIt = onLook(index);
+      expect(onIt.index).toBe(index);
+      const clash = roommateLook(onIt).name.toUpperCase();
+      const named = firstBird(onIt, { type: "rename", name: ` ${clash} ` });
+
+      const adopted = firstBird(named, { type: "adopt" });
+
+      expect(sameBirdName(adopted.roommate.name, clash)).toBe(false);
+    },
+  );
+
+  it("keeps the roommate look's name when it does not clash", () => {
+    const adopted = firstBird(start, { type: "adopt" });
+    expect(adopted.roommate.name).toBe(roommateLook(start).name);
+  });
+
+  it("shuffle never lands on the roommate's name or the current name", () => {
+    const withRoommate = firstBird(start, { type: "roommate", name: "pickle" });
+    for (let i = 0; i < 200; i++) {
+      const pick = i / 200;
+      const { name } = firstBird(withRoommate, { type: "shuffle", pick });
+      expect(sameBirdName(name, "Pickle")).toBe(false);
+      expect(sameBirdName(name, start.name)).toBe(false);
+    }
   });
 });

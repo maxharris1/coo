@@ -140,6 +140,24 @@ describe("GET /api/sync", () => {
       expect(body).not.toContain(leak);
   });
 
+  it("still returns both of two legacy birds that share a name", async () => {
+    const [gerald, brenda] = world.max.birds.map((b) => b.id);
+    await base.db.query("update birds set name = 'Gerald' where id = $1", [
+      brenda,
+    ]);
+    const { jar } = await signIn(MAX_PHONE);
+
+    const { status, json } = await sync(jar);
+
+    expect(status).toBe(200);
+    expect(
+      json.birds.map((b: { id: string; name: string }) => [b.id, b.name]),
+    ).toEqual([
+      [gerald, "Gerald"],
+      [brenda, "Gerald"],
+    ]);
+  });
+
   it("is 401 without a session and still carries serverNow", async () => {
     const { status, json } = await sync();
     expect(status).toBe(401);

@@ -165,6 +165,22 @@ describe("hatch", () => {
     expect(await eggsOf(world.max.id)).toMatchObject([{ status: "ready" }]);
   });
 
+  it("refuses a name already in the flock, ignoring case and spaces, and leaves the egg ready", async () => {
+    const eggId = await layEgg(world.max.id);
+
+    await expect(
+      hatch(deps, max, { eggId, name: "BRENDA ", pronoun: "she" }),
+    ).rejects.toMatchObject({
+      code: "conflict",
+      message: "You already have a bird called Brenda.",
+    });
+    expect(await birdsOf(world.max.id)).toHaveLength(2);
+    expect(await eggsOf(world.max.id)).toMatchObject([{ status: "ready" }]);
+
+    const bird = await hatch(deps, max, { eggId, ...name });
+    expect(bird.name).toBe("Pretzel");
+  });
+
   it("hatches a breed the user does not own, with abilities inside its ranges", async () => {
     const owned: BreedId[] = ["fantail", "pouter", "frillback", "jacobin"];
     await deps.db.query("update profiles set perches = 5 where id = $1", [
