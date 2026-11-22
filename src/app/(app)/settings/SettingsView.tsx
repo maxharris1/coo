@@ -4,6 +4,7 @@ import { config } from "@/lib/config";
 import type { Units } from "@/lib/format";
 import type { Me } from "@/server/rows";
 import type { SettingsInput } from "@/server/services/settings";
+import type { PlaceResult } from "../welcome/loft/roost";
 import styles from "./Settings.module.css";
 
 type SwitchKey =
@@ -20,10 +21,13 @@ export type Sheet = "travel" | "delete" | null;
 export type SettingsViewProps = {
   me: Me;
   sheet: Sheet;
+  places: PlaceResult[];
   onSave: (change: Change) => void;
   onSignOut: () => void;
   onSheet: (sheet: Sheet) => void;
   onTravel: (on: boolean) => void;
+  onSearch: (query: string) => void;
+  onPlace: (placeId: string) => void;
   onDelete: (handle: string) => void;
 };
 
@@ -141,9 +145,19 @@ function Dialog({ label, children }: { label: string; children: ReactNode }) {
 }
 
 function TravelSheet({
+  places,
   onTravel,
+  onSearch,
+  onPlace,
   onSheet,
-}: Pick<SettingsViewProps, "onTravel" | "onSheet">) {
+}: Pick<
+  SettingsViewProps,
+  "places" | "onTravel" | "onSearch" | "onPlace" | "onSheet"
+>) {
+  const search = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    onSearch(String(new FormData(e.currentTarget).get("q") ?? ""));
+  };
   return (
     <Dialog label="I'm away from home">
       <p className={styles.sheetNote}>
@@ -153,6 +167,36 @@ function TravelSheet({
         Your flock comes with you. Birds already flying land where they were
         sent.
       </p>
+      <form role="search" className={styles.sheetForm} onSubmit={search}>
+        <label htmlFor="travel-search" className={styles.sheetNote}>
+          Pick a place
+        </label>
+        <input
+          type="search"
+          id="travel-search"
+          name="q"
+          enterKeyHint="search"
+          autoComplete="off"
+          placeholder="Back Bay, Boston"
+          className={styles.input}
+        />
+      </form>
+      {places.length > 0 && (
+        <ul className={styles.results}>
+          {places.map((p) => (
+            <li key={p.placeId}>
+              <button
+                type="button"
+                className={styles.result}
+                onClick={() => onPlace(p.placeId)}
+              >
+                <span className={styles.resultLabel}>{p.label}</span>
+                <span className={styles.resultSub}>{p.sublabel}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
       <div className={styles.answers}>
         <button
           type="button"
@@ -216,10 +260,13 @@ function DeleteSheet({
 export function SettingsView({
   me,
   sheet,
+  places,
   onSave,
   onSignOut,
   onSheet,
   onTravel,
+  onSearch,
+  onPlace,
   onDelete,
 }: SettingsViewProps) {
   const travelling = me.loft?.travelling ?? false;
@@ -334,7 +381,13 @@ export function SettingsView({
       </footer>
 
       {sheet === "travel" && (
-        <TravelSheet onTravel={onTravel} onSheet={onSheet} />
+        <TravelSheet
+          places={places}
+          onTravel={onTravel}
+          onSearch={onSearch}
+          onPlace={onPlace}
+          onSheet={onSheet}
+        />
       )}
       {sheet === "delete" && (
         <DeleteSheet handle={me.handle} onDelete={onDelete} onSheet={onSheet} />

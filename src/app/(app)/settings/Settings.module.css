@@ -272,6 +272,45 @@ a.row {
   color: var(--coo-ink);
 }
 
+.results {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.result {
+  width: 100%;
+  min-height: var(--coo-touch);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 8px 14px;
+  background: var(--coo-card);
+  border: var(--coo-line-thin);
+  border-radius: var(--coo-radius-row);
+  color: var(--coo-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.resultLabel {
+  font-weight: 900;
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+
+.resultSub {
+  font-weight: 700;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
 .answers {
   display: grid;
   grid-template-columns: 1fr 1fr;

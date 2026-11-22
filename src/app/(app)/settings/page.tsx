@@ -8,10 +8,13 @@ import type { SyncPayload } from "@/components/sync";
 import { useToast } from "@/components/Toasts";
 import type { Me } from "@/server/rows";
 import { call } from "../friends/friendsApi";
-import { position } from "../welcome/loft/roost";
+import {
+  NO_LOCATION,
+  position,
+  searchPlaces,
+  type PlaceResult,
+} from "../welcome/loft/roost";
 import { SettingsView, type Change, type Sheet } from "./SettingsView";
-
-const NO_LOCATION = "We could not get your location. Try again.";
 
 type Held = { base: SyncPayload | null; change: Change };
 
@@ -35,6 +38,7 @@ export default function SettingsPage() {
   const router = useRouter();
   const [held, setHeld] = useState<Held>({ base: null, change: {} });
   const [sheet, setSheet] = useState<Sheet>(null);
+  const [places, setPlaces] = useState<PlaceResult[]>([]);
 
   if (!data) return <Loader />;
   const base = data;
@@ -65,24 +69,42 @@ export default function SettingsPage() {
     else toast(r.message);
   };
 
-  const onTravel = async (on: boolean) => {
-    const point = on ? await position().catch(() => null) : null;
-    if (on && !point) {
-      toast(NO_LOCATION);
-      return;
-    }
+  const onSheet = (next: Sheet) => {
+    setSheet(next);
+    setPlaces([]);
+  };
+
+  const travel = async (body: object) => {
     const r = await call(fetch, "/api/loft/travel", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(point ? { on: true, ...point } : { on: false }),
+      body: JSON.stringify(body),
     });
     if (!r.ok) {
       toast(r.message);
       return;
     }
     refresh();
-    setSheet(null);
+    onSheet(null);
   };
+
+  const onTravel = async (on: boolean) => {
+    if (!on) return travel({ on: false });
+    const point = await position().catch(() => null);
+    if (!point) return toast(NO_LOCATION);
+    return travel({ on: true, ...point });
+  };
+
+  const onSearch = async (query: string) => {
+    const q = query.trim();
+    if (!q) return;
+    const r = await searchPlaces(q);
+    if (!r.ok) return toast(r.message);
+    setPlaces(r.data.results);
+    if (r.data.message) toast(r.data.message);
+  };
+
+  const onPlace = (placeId: string) => travel({ on: true, placeId });
 
   const onDelete = async (handle: string) => {
     const r = await call(fetch, "/api/account", {
@@ -99,10 +121,13 @@ export default function SettingsPage() {
     <SettingsView
       me={me}
       sheet={sheet}
+      places={places}
       onSave={onSave}
       onSignOut={onSignOut}
-      onSheet={setSheet}
+      onSheet={onSheet}
       onTravel={onTravel}
+      onSearch={onSearch}
+      onPlace={onPlace}
       onDelete={onDelete}
     />
   );

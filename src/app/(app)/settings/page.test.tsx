@@ -54,6 +54,7 @@ const ME = {
 let patchResponse: () => Response;
 let travelResponse: () => Response;
 let deleteResponse: () => Response;
+let searchResponse: () => Response;
 let events: string[];
 let bodies: unknown[];
 let root: Root;
@@ -72,6 +73,9 @@ function fakeFetch(url: RequestInfo | URL, init?: RequestInit) {
   if (String(url) === "/api/loft/travel" && method === "POST") {
     bodies.push(JSON.parse(String(init?.body)));
     return Promise.resolve(travelResponse());
+  }
+  if (String(url).startsWith("/api/geo/search?") && method === "GET") {
+    return Promise.resolve(searchResponse());
   }
   if (String(url) === "/api/account" && method === "DELETE") {
     bodies.push(JSON.parse(String(init?.body)));
@@ -119,6 +123,7 @@ beforeEach(() => {
   patchResponse = () => Response.json({ me: ME });
   travelResponse = () => Response.json({ travelling: true });
   deleteResponse = () => Response.json({ deleted: true });
+  searchResponse = () => Response.json({ results: PLACES });
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal(
     "window",
@@ -219,6 +224,15 @@ describe("/settings saves (ac-2)", () => {
   });
 });
 
+const PLACES = [
+  {
+    placeId: "0b6a1b4e-4a56-4d8e-9f1c-8f8e5b2b9a10",
+    label: "Back Bay",
+    sublabel: "Boston, MA",
+    kind: "neighbourhood",
+  },
+];
+
 const HERE = { latitude: 40.712776, longitude: -73.935242 };
 
 function stubGeolocation(fails = false) {
@@ -285,8 +299,73 @@ describe("/settings travel (ac-1)", () => {
     stubGeolocation(true);
     await mount();
     await act(async () => view.props!.onTravel(true));
-    expect(view.toasts).toEqual(["We could not get your location. Try again."]);
+    expect(view.toasts).toEqual([
+      "We could not get your location. Try a search instead.",
+    ]);
     expect(events).toEqual([]);
+  });
+
+  it("searching shows the places found in the sheet", async () => {
+    await mount();
+    await act(async () => view.props!.onSheet("travel"));
+    expect(view.props!.places).toEqual([]);
+    await act(async () => view.props!.onSearch("  back bay "));
+    expect(events).toEqual(["GET /api/geo/search?q=back+bay"]);
+    expect(view.props!.places).toEqual(PLACES);
+  });
+
+  it("a search that finds nothing toasts the API's message", async () => {
+    searchResponse = () =>
+      Response.json({ results: [], message: "No such place." });
+    await mount();
+    await act(async () => view.props!.onSheet("travel"));
+    await act(async () => view.props!.onSearch("zzz"));
+    expect(view.props!.places).toEqual([]);
+    expect(view.toasts).toEqual(["No such place."]);
+  });
+
+  it("an empty search sends nothing", async () => {
+    await mount();
+    await act(async () => view.props!.onSearch("   "));
+    expect(events).toEqual([]);
+  });
+
+  it("with location denied, a picked place still turns travel on, refreshes and closes the sheet", async () => {
+    stubGeolocation(true);
+    await mount();
+    await act(async () => view.props!.onSheet("travel"));
+    await act(async () => view.props!.onTravel(true));
+    await act(async () => view.props!.onSearch("Back Bay"));
+    await act(async () => view.props!.onPlace(PLACES[0].placeId));
+    expect(bodies).toEqual([{ on: true, placeId: PLACES[0].placeId }]);
+    expect(events).toEqual([
+      "GET /api/geo/search?q=Back+Bay",
+      "POST /api/loft/travel",
+      "refresh",
+    ]);
+    expect(view.props!.sheet).toBeNull();
+    expect(view.props!.places).toEqual([]);
+  });
+
+  it("a picked place inside 12 hours toasts the API's conflict and keeps the sheet", async () => {
+    travelResponse = () =>
+      Response.json(
+        {
+          error: {
+            code: "conflict",
+            message: "Travel can only change once every 12 hours.",
+          },
+        },
+        { status: 409 },
+      );
+    await mount();
+    await act(async () => view.props!.onSheet("travel"));
+    await act(async () => view.props!.onPlace(PLACES[0].placeId));
+    expect(view.toasts).toEqual([
+      "Travel can only change once every 12 hours.",
+    ]);
+    expect(events).toEqual(["POST /api/loft/travel"]);
+    expect(view.props!.sheet).toBe("travel");
   });
 });
 

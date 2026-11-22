@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { config } from "@/lib/config";
 import type { Me } from "@/server/rows";
+import type { PlaceResult } from "../welcome/loft/roost";
 import { SettingsView, type Sheet } from "./SettingsView";
 
 vi.mock("next/link", () => ({
@@ -34,11 +35,29 @@ const ME = {
   },
 } as Me;
 
-const render = (me: Me = ME, sheet: Sheet = null) =>
+const PLACES: PlaceResult[] = [
+  {
+    placeId: "p-1",
+    label: "Back Bay",
+    sublabel: "Boston, MA",
+    kind: "neighbourhood",
+  },
+  {
+    placeId: "p-2",
+    label: "Fishtown",
+    sublabel: "Philadelphia, PA",
+    kind: "neighbourhood",
+  },
+];
+
+const render = (me: Me = ME, sheet: Sheet = null, places: PlaceResult[] = []) =>
   renderToStaticMarkup(
     <SettingsView
       me={me}
       sheet={sheet}
+      places={places}
+      onSearch={() => {}}
+      onPlace={() => {}}
       onSave={() => {}}
       onSignOut={() => {}}
       onSheet={() => {}}
@@ -191,6 +210,37 @@ describe("SettingsView travel and delete (ac-1, ac-2)", () => {
     expect(html).toMatch(/<button[^>]*>Use my location<\/button>/);
     expect(html).toMatch(/<button[^>]*>Cancel<\/button>/);
     expect(html).not.toContain("Type your handle to delete");
+  });
+
+  it("travel offers the docs/07 place search", () => {
+    const dialog = render(ME, "travel").split('role="dialog"')[1];
+    expect(dialog).toMatch(
+      /<input|role="search"|Search|Pick a place|Choose a place/,
+    );
+  });
+
+  it("travel sheet has a labelled place search beside Use my location", () => {
+    const dialog = render(ME, "travel").split('role="dialog"')[1];
+    const form = /<form[^>]*role="search"[^>]*>(.*?)<\/form>/.exec(dialog);
+    expect(form).not.toBeNull();
+    const label = /<label[^>]*for="([^"]+)"[^>]*>Pick a place<\/label>/.exec(
+      form![1],
+    );
+    expect(label).not.toBeNull();
+    const input = new RegExp(`<input[^>]*id="${label![1]}"[^>]*>`).exec(
+      form![1],
+    )?.[0];
+    expect(input).toContain('type="search"');
+    expect(input).toContain('name="q"');
+    expect(dialog).toMatch(/<button[^>]*>Use my location<\/button>/);
+  });
+
+  it("travel sheet lists searched places as buttons, and no list without results", () => {
+    expect(render(ME, "travel")).not.toContain("<ul");
+    const words = text(render(ME, "travel", PLACES));
+    expect(words).toContain("Back Bay Boston, MA");
+    expect(words).toContain("Fishtown Philadelphia, PA");
+    expect(render(ME, null, PLACES)).not.toContain("Back Bay");
   });
 
   it("offers Delete my account in Account, before Sign out", () => {
