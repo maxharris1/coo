@@ -201,6 +201,7 @@ Build these from the components on the Components sheet, in the same style. Copy
 | Join | `/join/[code]` | Public. "{name} wants to trade pigeons with you." Signed in: button "Add {name}". Signed out: "Get a pigeon" → sign-in, then back here |
 | Notifications | `/notifications` | Reached from a bell in the Main header. List of notification rows with icon, title, body, time |
 | Hatch moment | `/aviary/hatch` | The egg wobble and crack sequence from the Motion sheet, the new bird, its breed card, name field, pronoun chips, "Welcome home" |
+| Adopt roommate | `/aviary/roommate` | Reached from the Loft. "{first bird} has a roommate" over the next starter look, a name field prefilled with a free name that skips the first bird's, pronoun chips, "Adopt {name}" → back to the Loft. A loft not owed a roommate sees "No roommate waiting", "Nobody new is moving in right now." and "Back to the loft" |
 | Scheduled state | tracker | The tracker for a scheduled flight: map at the loft, "Leaves at 7:00 am", a Cancel button |
 | Travel sheet | Settings | Search or use location, the 12 hour note, "Your flock comes with you. Birds already flying land where they were sent." |
 | Link expired | `/b/[slug]` | "That link has expired. The bird went home with the note." |
