@@ -3,8 +3,11 @@ import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastContext } from "@/components/Toasts";
+import { snap } from "@/lib/game/privacy";
 import type { PlaceResult } from "../../welcome/loft/roost";
 import { PREFILL_NAME_KEY } from "../recipients";
+import { pinKey } from "../write/guest";
+import { nextHref } from "./newRecipient";
 import type { NewRecipientView } from "./NewRecipientView";
 import NewRecipientPage from "./page";
 
@@ -32,8 +35,12 @@ const PHILLY: PlaceResult = {
   kind: "city",
 };
 
+const START = snap(39.9726, -75.1349);
+const PHILLY_START = snap(39.9526, -75.1652);
+
 let stored: Map<string, string>;
 let answer: (q: string) => Promise<Response>;
+let place: (placeId: string) => Promise<Response>;
 let fetchMock: ReturnType<
   typeof vi.fn<(url: RequestInfo | URL) => Promise<Response>>
 >;
@@ -72,10 +79,19 @@ const tick = (ms: number) =>
 
 const type = (q: string) => act(async () => view().onQuery(q));
 
+const requested = (path: string) =>
+  fetchMock.mock.calls
+    .map(([url]) => new URL(String(url), "http://x"))
+    .filter((u) => u.pathname === path);
+
 const searched = () =>
-  fetchMock.mock.calls.map(([url]) =>
-    new URL(String(url), "http://x").searchParams.get("q"),
-  );
+  requested("/api/geo/search").map((u) => u.searchParams.get("q"));
+
+const pick = async (result: PlaceResult) => {
+  await type(result.label.slice(0, 4));
+  await tick(300);
+  await act(async () => view().onPick(result));
+};
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -85,9 +101,16 @@ beforeEach(() => {
   toast = vi.fn<(message: string) => void>();
   answer = () =>
     Promise.resolve(Response.json({ results: [FISHTOWN, PHILLY] }));
-  fetchMock = vi.fn((url: RequestInfo | URL) =>
-    answer(new URL(String(url), "http://x").searchParams.get("q") ?? ""),
-  );
+  place = (placeId) =>
+    Promise.resolve(
+      Response.json({ start: placeId === "p1" ? START : PHILLY_START }),
+    );
+  fetchMock = vi.fn((url: RequestInfo | URL) => {
+    const u = new URL(String(url), "http://x");
+    return u.pathname === "/api/geo/place"
+      ? place(u.searchParams.get("placeId") ?? "")
+      : answer(u.searchParams.get("q") ?? "");
+  });
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal(
     "window",
@@ -163,7 +186,10 @@ describe("NewRecipient page search", () => {
     await type("Fish");
     await tick(300);
     await act(async () => view().onPick(FISHTOWN));
-    expect(view().pickedId).toBe("p1");
+    expect(view().picked).toMatchObject({
+      placeId: "p1",
+      label: "Fishtown, Philadelphia",
+    });
     expect(view().query).toBe("Fishtown, Philadelphia");
     expect(view().search).toMatchObject({
       kind: "results",
@@ -179,7 +205,7 @@ describe("NewRecipient page search", () => {
     await tick(300);
     await act(async () => view().onPick(FISHTOWN));
     await type("Fishtown, Phila");
-    expect(view().pickedId).toBeNull();
+    expect(view().picked).toBeNull();
   });
 
   it("ignores an answer that arrives after the query moved on", async () => {
@@ -225,5 +251,150 @@ describe("NewRecipient page search", () => {
     await tick(1000);
     expect(view().search).toEqual({ kind: "idle" });
     expect(searched()).toEqual([]);
+  });
+});
+
+describe("NewRecipient page pin", () => {
+  it("drops the pin at the place's snapped start and hands nothing on yet", async () => {
+    stored.set(pinKey("p1"), JSON.stringify(snap(40, -75)));
+    await show();
+    await pick(FISHTOWN);
+    expect(
+      requested("/api/geo/place").map((u) => u.searchParams.get("placeId")),
+    ).toEqual(["p1"]);
+    expect(view().picked).toEqual({
+      placeId: "p1",
+      label: "Fishtown, Philadelphia",
+      spot: { start: START, pin: START },
+    });
+    expect(stored.has(pinKey("p1"))).toBe(false);
+  });
+
+  it("readies Next before the starting point arrives", async () => {
+    place = () => new Promise(() => {});
+    await show();
+    await act(async () => view().onName("Maya"));
+    await pick(FISHTOWN);
+    expect(view().picked).toEqual({
+      placeId: "p1",
+      label: "Fishtown, Philadelphia",
+      spot: null,
+    });
+  });
+
+  it("hands a moved pin to Compose through the session, never the link", async () => {
+    await show();
+    await act(async () => view().onName("Maya"));
+    await pick(FISHTOWN);
+    const raw = { lat: 39.97513, lon: -75.13121 };
+    await act(async () => view().onPin(raw));
+    expect(JSON.parse(stored.get(pinKey("p1"))!)).toEqual(
+      snap(raw.lat, raw.lon),
+    );
+    expect(view().picked?.spot).toEqual({
+      start: START,
+      pin: snap(raw.lat, raw.lon),
+    });
+    const href = new URL(
+      nextHref({ name: view().name, placeId: view().picked!.placeId }),
+      "http://x",
+    );
+    expect([...href.searchParams.keys()]).toEqual(["guest", "place"]);
+  });
+
+  it("forgets the handed-off pin once it is moved back to the start", async () => {
+    await show();
+    await pick(FISHTOWN);
+    await act(async () => view().onPin({ lat: 39.9751, lon: -75.1312 }));
+    await act(async () => view().onPin(START));
+    expect(stored.has(pinKey("p1"))).toBe(false);
+    expect(view().picked?.spot).toEqual({ start: START, pin: START });
+  });
+
+  it("ignores a starting point that lands after the pick was dropped", async () => {
+    const late: Record<string, (r: Response) => void> = {};
+    place = (id) => new Promise((resolve) => (late[id] = resolve));
+    await show();
+    await pick(FISHTOWN);
+    await type("Fishtown, Phila");
+    await act(async () => late.p1(Response.json({ start: START })));
+    expect(view().picked).toBeNull();
+  });
+
+  it("ignores a starting point that lands after another place was picked", async () => {
+    const late: Record<string, (r: Response) => void> = {};
+    place = (id) => new Promise((resolve) => (late[id] = resolve));
+    await show();
+    await pick(FISHTOWN);
+    await act(async () => view().onPick(PHILLY));
+    await act(async () => late.p2(Response.json({ start: PHILLY_START })));
+    await act(async () => late.p1(Response.json({ start: START })));
+    expect(view().picked).toEqual({
+      placeId: "p2",
+      label: "Philadelphia, PA",
+      spot: { start: PHILLY_START, pin: PHILLY_START },
+    });
+  });
+
+  it("keeps the moved pin when an older lookup for the same place lands late", async () => {
+    const late: ((r: Response) => void)[] = [];
+    place = () => new Promise((resolve) => late.push(resolve));
+    await show();
+    await pick(FISHTOWN);
+    await act(async () => view().onPick(PHILLY));
+    await act(async () => view().onPick(FISHTOWN));
+    const [firstFishtown, , lastFishtown] = late;
+    await act(async () => lastFishtown(Response.json({ start: START })));
+    const moved = snap(39.976, -75.13);
+    await act(async () => view().onPin(moved));
+    await act(async () => firstFishtown(Response.json({ start: START })));
+    expect(view().picked?.spot).toEqual({ start: START, pin: moved });
+    expect(JSON.parse(stored.get(pinKey("p1"))!)).toEqual(moved);
+  });
+
+  it("keeps the moved pin when picking the same place twice and the first lookup lands last", async () => {
+    const late: ((r: Response) => void)[] = [];
+    place = () => new Promise((resolve) => late.push(resolve));
+    await show();
+    await pick(FISHTOWN);
+    await act(async () => view().onPick(FISHTOWN));
+    const [first, second] = late;
+    await act(async () => second(Response.json({ start: START })));
+    const moved = snap(39.976, -75.13);
+    await act(async () => view().onPin(moved));
+    await act(async () => first(Response.json({ start: START })));
+    expect(view().picked?.spot).toEqual({ start: START, pin: moved });
+  });
+
+  it("stays quiet when a lookup that was superseded fails", async () => {
+    const late: ((r: Response) => void)[] = [];
+    place = () => new Promise((resolve) => late.push(resolve));
+    await show();
+    await pick(FISHTOWN);
+    await act(async () => view().onPick(PHILLY));
+    await act(async () => late[1](Response.json({ start: PHILLY_START })));
+    await act(async () =>
+      late[0](Response.json({ error: { message: "slow" } }, { status: 503 })),
+    );
+    expect(toast).not.toHaveBeenCalled();
+    expect(view().picked?.spot).toEqual({
+      start: PHILLY_START,
+      pin: PHILLY_START,
+    });
+  });
+
+  it("toasts the reason and keeps the pick when the starting point fails", async () => {
+    const message =
+      "The map is slow to answer right now. Try again in a moment.";
+    place = () =>
+      Promise.resolve(Response.json({ error: { message } }, { status: 503 }));
+    await show();
+    await pick(FISHTOWN);
+    expect(toast).toHaveBeenCalledExactlyOnceWith(message);
+    expect(view().picked).toEqual({
+      placeId: "p1",
+      label: "Fishtown, Philadelphia",
+      spot: null,
+    });
   });
 });

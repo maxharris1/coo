@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
+import { snap } from "@/lib/game/privacy";
 import type { PlaceResult } from "../../welcome/loft/roost";
 import { PREFILL_NAME_KEY } from "../recipients";
+import { pinKey } from "../write/guest";
 import {
   canGoNext,
   keepResultsFor,
   HELPER,
   nextHref,
+  savePin,
   searchFor,
   steps,
   takePrefillName,
@@ -16,6 +19,7 @@ const fakeStorage = (seed: Record<string, string> = {}) => {
   const map = new Map(Object.entries(seed));
   return {
     getItem: (key: string) => map.get(key) ?? null,
+    setItem: (key: string, value: string) => void map.set(key, value),
     removeItem: (key: string) => void map.delete(key),
   };
 };
@@ -143,5 +147,34 @@ describe("keepResultsFor", () => {
     const failed: Settled = { kind: "failed", query: "Fish" };
     expect(keepResultsFor(failed, "Fishtown")).toBe(failed);
     expect(keepResultsFor(null, "Fishtown")).toBeNull();
+  });
+});
+
+describe("savePin", () => {
+  const start = snap(39.9726, -75.1349);
+
+  it("hands a moved pin to Compose, snapped, under the place's key", () => {
+    const storage = fakeStorage();
+    savePin(storage, "p1", { start, pin: { lat: 39.9751, lon: -75.1312 } });
+    expect(JSON.parse(storage.getItem(pinKey("p1"))!)).toEqual(
+      snap(39.9751, -75.1312),
+    );
+  });
+
+  it("writes nothing for a pin left at the start, clearing a stale one", () => {
+    const storage = fakeStorage({
+      [pinKey("p1")]: JSON.stringify(snap(40, -75)),
+    });
+    savePin(storage, "p1", { start, pin: start });
+    expect(storage.getItem(pinKey("p1"))).toBeNull();
+  });
+
+  it("treats a pin on the start's grid cell as unmoved", () => {
+    const storage = fakeStorage();
+    savePin(storage, "p1", {
+      start,
+      pin: { lat: start.lat + 1e-6, lon: start.lon - 1e-6 },
+    });
+    expect(storage.getItem(pinKey("p1"))).toBeNull();
   });
 });

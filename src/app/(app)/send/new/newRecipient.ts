@@ -1,5 +1,7 @@
+import { snap, type Point } from "@/lib/game/privacy";
 import type { PlaceResult } from "../../welcome/loft/roost";
 import { PREFILL_NAME_KEY } from "../recipients";
+import { pinKey } from "../write/guest";
 
 export const NAME_MAX = 30;
 
@@ -10,6 +12,10 @@ export const HELPER: Record<PlaceResult["kind"], string> = {
 };
 
 export type Guest = { name: string; placeId: string };
+
+export type Spot = { start: Point; pin: Point };
+
+export type Picked = { placeId: string; label: string; spot: Spot | null };
 
 export type Search =
   | { kind: "idle" }
@@ -33,6 +39,20 @@ export function canGoNext(name: string, placeId: string | null): boolean {
 
 export function nextHref({ name, placeId }: Guest): string {
   return `/send/write?${new URLSearchParams({ guest: name.trim(), place: placeId })}`;
+}
+
+export function savePin(
+  storage: Pick<Storage, "setItem" | "removeItem">,
+  placeId: string,
+  { start, pin }: Spot,
+): void {
+  const from = snap(start.lat, start.lon);
+  const to = snap(pin.lat, pin.lon);
+  if (to.lat === from.lat && to.lon === from.lon) {
+    storage.removeItem(pinKey(placeId));
+  } else {
+    storage.setItem(pinKey(placeId), JSON.stringify(to));
+  }
 }
 
 export function steps(name: string): { heading: string; lines: string[] } {

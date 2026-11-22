@@ -1,13 +1,21 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Loader } from "@/components/Loader";
 import { useToast } from "@/components/Toasts";
-import { searchPlaces, type PlaceResult } from "../../welcome/loft/roost";
+import { snap, type Point } from "@/lib/game/privacy";
+import {
+  placeStart,
+  searchPlaces,
+  type PlaceResult,
+} from "../../welcome/loft/roost";
+import { pinKey } from "../write/guest";
 import {
   keepResultsFor,
+  savePin,
   searchFor,
   takePrefillName,
+  type Picked,
   type Settled,
 } from "./newRecipient";
 import { NewRecipientView } from "./NewRecipientView";
@@ -21,7 +29,8 @@ function NewRecipient() {
   const [name, setName] = useState(() => takePrefillName(sessionStorage));
   const [query, setQuery] = useState("");
   const [settled, setSettled] = useState<Settled | null>(null);
-  const [picked, setPicked] = useState<PlaceResult | null>(null);
+  const [picked, setPicked] = useState<Picked | null>(null);
+  const latestPick = useRef<Picked | null>(null);
 
   const q = query.trim();
   const settledQuery = settled?.query;
@@ -51,10 +60,28 @@ function NewRecipient() {
     if (picked && next !== picked.label) setPicked(null);
   };
 
-  const onPick = (place: PlaceResult) => {
-    setPicked(place);
-    setQuery(place.label);
-    setSettled((s) => keepResultsFor(s, place.label));
+  const onPick = ({ placeId, label }: PlaceResult) => {
+    const pick: Picked = { placeId, label, spot: null };
+    latestPick.current = pick;
+    setPicked(pick);
+    setQuery(label);
+    setSettled((s) => keepResultsFor(s, label));
+    sessionStorage.removeItem(pinKey(placeId));
+    void placeStart(placeId).then((r) => {
+      if (latestPick.current !== pick) return;
+      if (!r.ok) return toast(r.message);
+      const { start } = r.data;
+      setPicked((p) =>
+        p === pick ? { ...pick, spot: { start, pin: start } } : p,
+      );
+    });
+  };
+
+  const onPin = ({ lat, lon }: Point) => {
+    if (!picked?.spot) return;
+    const spot = { ...picked.spot, pin: snap(lat, lon) };
+    setPicked({ ...picked, spot });
+    savePin(sessionStorage, picked.placeId, spot);
   };
 
   return (
@@ -62,10 +89,11 @@ function NewRecipient() {
       name={name}
       query={query}
       search={searchFor(query, settled)}
-      pickedId={picked?.placeId ?? null}
+      picked={picked}
       onName={setName}
       onQuery={onQuery}
       onPick={onPick}
+      onPin={onPin}
     />
   );
 }

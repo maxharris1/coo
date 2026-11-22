@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { PinMap } from "@/components/PinMap";
+import { snap, type Point } from "@/lib/game/privacy";
 import emptyStates from "../../../../../assets/copy/empty-states.json";
 import type { PlaceResult } from "../../welcome/loft/roost";
 import {
@@ -7,6 +9,7 @@ import {
   NAME_MAX,
   nextHref,
   steps,
+  type Picked,
   type Search,
 } from "./newRecipient";
 import styles from "./NewRecipient.module.css";
@@ -15,10 +18,11 @@ export type NewRecipientViewProps = {
   name: string;
   query: string;
   search: Search;
-  pickedId: string | null;
+  picked: Picked | null;
   onName: (name: string) => void;
   onQuery: (query: string) => void;
   onPick: (place: PlaceResult) => void;
+  onPin: (point: Point) => void;
 };
 
 const PLACE_NOT_FOUND =
@@ -28,7 +32,9 @@ function Places({
   search,
   pickedId,
   onPick,
-}: Pick<NewRecipientViewProps, "search" | "pickedId" | "onPick">) {
+}: Pick<NewRecipientViewProps, "search" | "onPick"> & {
+  pickedId: string | null;
+}) {
   switch (search.kind) {
     case "idle":
     case "failed":
@@ -86,12 +92,14 @@ export function NewRecipientView({
   name,
   query,
   search,
-  pickedId,
+  picked,
   onName,
   onQuery,
   onPick,
+  onPin,
 }: NewRecipientViewProps) {
   const { heading, lines } = steps(name);
+  const pickedId = picked?.placeId ?? null;
   return (
     <main className={styles.screen}>
       <header className={styles.header}>
@@ -135,6 +143,14 @@ export function NewRecipientView({
           onChange={(e) => onQuery(e.target.value)}
         />
         <Places search={search} pickedId={pickedId} onPick={onPick} />
+        {picked?.spot && (
+          <PinMap
+            start={picked.spot.pin}
+            label={picked.label}
+            settle={snap}
+            onMove={onPin}
+          />
+        )}
       </div>
 
       <section className={styles.field}>
