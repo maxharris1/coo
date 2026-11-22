@@ -10,6 +10,7 @@ import type { Wearer } from "@/lib/game/seeds";
 import type { RecipientQuote } from "@/server/services/flights/quote";
 import type { FriendRow } from "@/server/services/friends";
 import { loadFriends } from "../../friends/friendsApi";
+import { clearDraft, saveDraft } from "../forecast/draft";
 import {
   counter,
   pickerOption,
@@ -85,6 +86,11 @@ function Compose() {
     };
   }, [quoteFriend, quoteBird, toast]);
 
+  useEffect(() => {
+    if (quoteFriend && quoteBird)
+      saveDraft({ friendId: quoteFriend, birdId: quoteBird, body: note });
+  }, [quoteFriend, quoteBird, note]);
+
   if (!data || friends.kind === "loading") return <Loader />;
   if (friends.kind === "failed")
     return <NoRecipient message={friends.message} />;
@@ -101,6 +107,7 @@ function Compose() {
       birdId: bird.id,
     });
     if (r.ok) {
+      clearDraft(friend.id);
       router.push(`/send/takeoff/${r.flightId}`);
       return;
     }

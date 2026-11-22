@@ -16,6 +16,12 @@ const seen = vi.hoisted(() => ({
   push: vi.fn(),
   toast: vi.fn(),
   to: "u2" as string | null,
+  drafts: new Map<string, unknown>(),
+}));
+
+vi.mock("../forecast/draft", () => ({
+  saveDraft: (d: { friendId: string }) => seen.drafts.set(d.friendId, d),
+  clearDraft: (friendId: string) => seen.drafts.delete(friendId),
 }));
 
 vi.mock("./ComposeView", () => ({
@@ -194,6 +200,7 @@ beforeEach(() => {
   seen.push.mockClear();
   seen.toast.mockClear();
   seen.to = "u2";
+  seen.drafts.clear();
   fetchMock.mockClear();
   friends = { status: 200, body: { friends: [PRIYA], guestLinks: [] } };
   quoted = async (birdIds) => ({
@@ -467,5 +474,70 @@ describe("Compose page release (ac-2)", () => {
     );
     expect(seen.push).not.toHaveBeenCalled();
     expect(view()).toMatchObject({ note: "Dinner Saturday?", sending: false });
+  });
+});
+
+describe("Compose page draft for the forecast", () => {
+  it("hands the note and the picked bird to the forecast as it is typed", async () => {
+    await show();
+    expect(seen.drafts.get("u2")).toEqual({
+      friendId: "u2",
+      birdId: "b2",
+      body: "",
+    });
+    await type("Dinner Saturday?");
+    await pick("b1");
+    expect(seen.drafts.get("u2")).toEqual({
+      friendId: "u2",
+      birdId: "b1",
+      body: "Dinner Saturday?",
+    });
+  });
+
+  it("writes no draft without a friend or a bird that can fly", async () => {
+    seen.to = "nobody";
+    await show();
+    expect(seen.drafts.size).toBe(0);
+    seen.to = "u2";
+    birds = [BIRDS[2]];
+    await act(async () => root?.render(page()));
+    expect(seen.drafts.size).toBe(0);
+  });
+
+  it("drafts for the friend the note is now addressed to", async () => {
+    friends = { status: 200, body: { friends: [PRIYA, ALEX], guestLinks: [] } };
+    await show();
+    await type("Dinner Saturday?");
+    await sendTo("u3");
+    expect(seen.drafts.get("u3")).toEqual({
+      friendId: "u3",
+      birdId: "b2",
+      body: "Dinner Saturday?",
+    });
+  });
+
+  it("clears the draft once the bird is released", async () => {
+    await show();
+    await type("Dinner Saturday?");
+    await act(async () => view().onRelease());
+    expect(seen.push).toHaveBeenCalledExactlyOnceWith("/send/takeoff/f1");
+    expect(seen.drafts.has("u2")).toBe(false);
+  });
+
+  it("keeps the draft when the release fails", async () => {
+    released = Promise.resolve({
+      status: 409,
+      body: {
+        error: { code: "conflict", message: "Crumbs is not home right now." },
+      },
+    });
+    await show();
+    await type("Dinner Saturday?");
+    await act(async () => view().onRelease());
+    expect(seen.drafts.get("u2")).toEqual({
+      friendId: "u2",
+      birdId: "b2",
+      body: "Dinner Saturday?",
+    });
   });
 });
