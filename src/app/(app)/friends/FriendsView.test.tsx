@@ -28,6 +28,11 @@ const FRIENDS = [
   row("d", "Dev", "city", "Chicago", 713),
 ];
 
+const friendRows = (html: string) =>
+  /aria-labelledby="friends-count"[\s\S]*?<\/section>/
+    .exec(html)?.[0]
+    .match(/<li[\s\S]*?<\/li>/g) ?? [];
+
 const render = (over: Partial<FriendsViewProps> = {}) =>
   renderToStaticMarkup(
     <FriendsView
@@ -85,7 +90,7 @@ describe("Friends screen (ac-1)", () => {
   });
 
   it("gives each friend a City/Block choice marked with the confirmed value", () => {
-    const rows = render().match(/<li[\s\S]*?<\/li>/g) ?? [];
+    const rows = friendRows(render());
     expect(rows).toHaveLength(4);
     const groups = rows.map(
       (r) => /role="radiogroup"[^>]*aria-label="([^"]*)"/.exec(r)?.[1],
@@ -112,7 +117,7 @@ describe("Friends screen (ac-1)", () => {
   });
 
   it("keeps the choice outside the button that opens the sheet", () => {
-    const rows = render().match(/<li[\s\S]*?<\/li>/g) ?? [];
+    const rows = friendRows(render());
     for (const r of rows) {
       const opener =
         /<button[^>]*aria-haspopup="dialog"[^>]*>[\s\S]*?<\/button>/.exec(
@@ -131,9 +136,13 @@ describe("Friends screen (ac-1)", () => {
     ).toContain(">1 friend</h2>");
   });
 
-  it("renders nothing for waiting guest links yet", () => {
-    expect(render()).not.toContain("Maya");
-    expect(render()).not.toContain("Waiting on a link");
+  it("lists guest links still waiting under the friends", () => {
+    const html = render();
+    expect(html).toContain("Waiting on a link");
+    expect(html.indexOf("Waiting on a link")).toBeGreaterThan(
+      html.indexOf("Dev"),
+    );
+    expect(html).toContain("Maya");
   });
 
   it("shows the loader while the list loads and no list after a failure", () => {
@@ -146,7 +155,7 @@ describe("Friends screen (ac-1)", () => {
 
 describe("friend row sheet (ac-1)", () => {
   it("makes each friend row a button that opens a sheet", () => {
-    const rows = render().match(/<li[\s\S]*?<\/li>/g) ?? [];
+    const rows = friendRows(render());
     for (const r of rows) {
       expect(r).toMatch(/<button[^>]*type="button"[^>]*aria-haspopup="dialog"/);
     }
