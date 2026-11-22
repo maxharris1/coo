@@ -23,6 +23,7 @@ import { geoSearchGet } from "./geo/search/get";
 import { guestGet } from "./guest/[token]/get";
 import { healthGet } from "./health/get";
 import { inviteGet } from "./invite/[code]/get";
+import { jobGet } from "./jobs/[id]/get";
 import { loftForecastGet } from "./loft/forecast/get";
 import { notesGet } from "./notes/get";
 import { notificationsGet } from "./notifications/get";
@@ -83,6 +84,10 @@ const GET_ENDPOINTS: Record<
   "src/app/api/invite/[code]/route.ts": {
     build: inviteGet,
     url: "/api/invite/seed-max",
+  },
+  "src/app/api/jobs/[id]/route.ts": {
+    build: jobGet,
+    url: "/api/jobs/00000000-0000-4000-8000-000000000000",
   },
   "src/app/api/loft/forecast/route.ts": {
     build: loftForecastGet,
