@@ -1,0 +1,29 @@
+.page {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 16px;
+  min-height: 60dvh;
+  padding: var(--coo-gutter);
+  text-align: center;
+}
+
+.message {
+  margin: 0;
+  font-weight: 800;
+  font-size: 17px;
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--coo-touch);
+  padding: 0 20px;
+  background: var(--coo-sun);
+  border: var(--coo-line);
+  border-radius: var(--coo-radius-button);
+  box-shadow: var(--coo-shadow-2);
+  color: var(--coo-ink);
+  font-weight: 900;
+  text-decoration: none;
+}
