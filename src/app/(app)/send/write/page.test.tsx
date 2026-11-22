@@ -137,6 +137,8 @@ let friends: { status: number; body: unknown };
 let quoted: (body: QuoteBody) => Promise<{ status: number; body: unknown }>;
 let released: Promise<{ status: number; body: unknown }>;
 let birds: unknown[];
+let woke: { status: number; body: unknown };
+let onRefresh: () => void;
 let root: Root | null;
 
 const sync = (): SyncState => ({
@@ -146,7 +148,7 @@ const sync = (): SyncState => ({
   } as unknown as SyncPayload,
   error: null,
   offsetMs: 0,
-  refresh: () => {},
+  refresh: () => onRefresh(),
 });
 
 const page = () => (
@@ -189,7 +191,9 @@ const fetchMock = vi.fn<typeof fetch>(async (url, init) => {
         ? await released
         : path === "/api/flights/quote"
           ? await quoted(JSON.parse(String(init?.body)))
-          : { status: 404, body: {} };
+          : path.endsWith("/wake")
+            ? woke
+            : { status: 404, body: {} };
   return Response.json(reply.body, { status: reply.status });
 });
 
@@ -230,6 +234,8 @@ beforeEach(() => {
     body: { flights: [{ id: "f1" }] },
   });
   birds = BIRDS;
+  woke = { status: 200, body: {} };
+  onRefresh = () => {};
   root = null;
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal(
@@ -381,6 +387,76 @@ describe("Compose page picker (ac-1)", () => {
       body: "Dinner Saturday?",
       sends: [{ friendId: "u2", birdId: "b1" }],
     });
+  });
+});
+
+describe("Compose page wake", () => {
+  const DOT = {
+    ...FLOCK,
+    id: "b5",
+    name: "Dot",
+    speedMph: 60,
+    canFly: false,
+    status: "busy",
+    busyKind: "nap",
+  };
+
+  const wakeDot = async (after: Record<string, unknown>) => {
+    birds = [BIRDS[2], DOT];
+    const refreshed = new Promise<void>((resolve) => {
+      onRefresh = () => {
+        birds = [
+          BIRDS[2],
+          { ...DOT, status: "home", busyKind: null, ...after },
+        ];
+        resolve();
+      };
+    });
+    await show();
+    expect(view().birds.find((b) => b.id === "b5")).toMatchObject({
+      chip: "Napping",
+      state: { kind: "blocked" },
+      wakes: true,
+    });
+    await act(async () => {
+      view().onWake("b5");
+      await refreshed;
+    });
+    await act(async () => root?.render(page()));
+    return fetchMock.mock.calls
+      .filter(([url]) => String(url).startsWith("/api/birds/"))
+      .map(([url, init]) => `${init?.method} ${String(url)}`);
+  };
+
+  it("wakes the napper, refreshes, and the bird is ready to pick", async () => {
+    const calls = await wakeDot({ canFly: true });
+    expect(calls).toEqual(["POST /api/birds/b5/wake"]);
+    expect(view().birds.find((b) => b.id === "b5")).toMatchObject({
+      chip: "Ready",
+      state: { kind: "ready" },
+      wakes: false,
+    });
+    expect(row().pickedId).toBe("b5");
+    expect(seen.toast).not.toHaveBeenCalled();
+  });
+
+  it("shows a woken bird that cannot fly yet as too tired", async () => {
+    await wakeDot({ tired: true, canFly: false });
+    expect(view().birds.find((b) => b.id === "b5")).toMatchObject({
+      chip: "Too tired",
+      state: { kind: "blocked" },
+    });
+    expect(row().pickedId).toBeNull();
+  });
+
+  it("toasts the server's message and still refreshes when the wake fails", async () => {
+    woke = {
+      status: 409,
+      body: { error: { code: "conflict", message: "Dot is not napping." } },
+    };
+    const calls = await wakeDot({ canFly: true });
+    expect(calls).toEqual(["POST /api/birds/b5/wake"]);
+    expect(seen.toast).toHaveBeenCalledExactlyOnceWith("Dot is not napping.");
   });
 });
 

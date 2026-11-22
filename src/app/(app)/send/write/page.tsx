@@ -10,6 +10,8 @@ import { noteLimit } from "@/lib/game/notes";
 import type { Wearer } from "@/lib/game/seeds";
 import type { RecipientQuote } from "@/server/services/flights/quote";
 import type { FriendRow } from "@/server/services/friends";
+import { postCare } from "../../feed";
+import { feedThenRefresh } from "../../flockRows";
 import { loadFriends } from "../../friends/friendsApi";
 import { clearDraft, saveDraft } from "../forecast/draft";
 import {
@@ -38,7 +40,7 @@ function Compose() {
   const friendIds = [...new Set(useSearchParams().getAll("to"))];
   const router = useRouter();
   const toast = useToast();
-  const { data } = useSync();
+  const { data, refresh } = useSync();
   const [friends, setFriends] = useState<Friends>({ kind: "loading" });
   const [note, setNote] = useState("");
   const [sending, setSending] = useState(false);
@@ -159,6 +161,14 @@ function Compose() {
           setSwaps({ key, rows: swapBird(rows, friendId, birdId) });
       }}
       onRelease={() => void onRelease()}
+      onWake={(birdId) =>
+        void feedThenRefresh(
+          birdId,
+          (id) => postCare(id, "wake"),
+          refresh,
+          toast,
+        )
+      }
     />
   );
 }

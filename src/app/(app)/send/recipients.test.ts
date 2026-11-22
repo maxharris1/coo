@@ -181,11 +181,7 @@ describe("runningLine", () => {
   it.each([
     [0, 2, "Pick who it's for. 2 birds are ready."],
     [0, 1, "Pick who it's for. 1 bird is ready."],
-    [
-      0,
-      0,
-      "Everyone is asleep or eating. Feed someone, or wait for a nap to end.",
-    ],
+    [0, 0, "Everyone is asleep or eating. Feed someone, or wake a napper."],
     [1, 2, "1 picked. That takes 1 bird, and 2 are ready."],
     [2, 2, "2 picked. That takes 2 birds, and 2 are ready."],
     [3, 1, "3 picked. That takes 3 birds, and 1 is ready."],
