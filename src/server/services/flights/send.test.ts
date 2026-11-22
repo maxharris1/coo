@@ -1,11 +1,15 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   computeFlightPlan,
   type FlightInput,
   type FlightPlan,
 } from "@/lib/flight/engine";
+import { flightsPost } from "@/app/api/flights/post";
+import type { Db } from "@/server/db";
 import type { UserId } from "@/server/ports/auth";
+import { tick } from "@/server/services/tick";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
+import { geoClient } from "@/test/geoRoute";
 import { addDelivery, HOUR_MS } from "@/test/fixtures/flights";
 import { addNote } from "@/test/fixtures/notes";
 import { seedWorld, type World } from "@/test/seedWorld";
@@ -436,5 +440,191 @@ describe("send", () => {
         expect(bird.status).toBe("home");
       },
     );
+  });
+});
+
+describe("same-city send through POST /api/flights", () => {
+  let rosa: UserId;
+
+  beforeEach(async () => {
+    rosa = world.rosa.id as UserId;
+    await setShows(deps, max, rosa, "city");
+    await setShows(deps, rosa, max, "city");
+  });
+
+  type Fault = (sql: string) => Promise<void> | void;
+
+  function watchSend({
+    inside,
+    afterCommit,
+  }: {
+    inside?: Fault;
+    afterCommit?: Fault;
+  }) {
+    const db = deps.db;
+    let committed = false;
+    const watched: Db = {
+      async query<T>(sql: string, params?: unknown[]) {
+        if (committed) await afterCommit?.(sql);
+        return db.query<T>(sql, params);
+      },
+      async tx(fn) {
+        let sending = false;
+        const out = await db.tx((t) => {
+          const inner: Db = {
+            async query<T>(sql: string, params?: unknown[]) {
+              if (sql.includes("insert into flights")) sending = true;
+              if (sending) await inside?.(sql);
+              return t.query<T>(sql, params);
+            },
+            tx: (nested) => nested(inner),
+          };
+          return fn(inner);
+        });
+        committed ||= sending;
+        return out;
+      },
+    };
+    deps = { ...deps, db: watched };
+  }
+
+  async function postToRosa() {
+    const client = geoClient(deps, flightsPost, "/api/flights");
+    const { jar } = await client.signIn("+15550000001");
+    const res = await client.post(
+      { body: BODY, sends: [{ friendId: rosa, birdId: gerald }] },
+      jar,
+    );
+    return { ...res, cookies: jar.getAll().map(({ value }) => value) };
+  }
+
+  async function onlyFlight() {
+    const rows = await deps.db.query<{
+      id: string;
+      status: string;
+      distance_mi: number;
+      release_at: Date;
+      arrive_at: Date;
+    }>(
+      "select id, status, distance_mi, release_at, arrive_at from flights where owner_id = $1 and counterpart_id = $2",
+      [max, rosa],
+    );
+    expect(rows).toHaveLength(1);
+    return rows[0];
+  }
+
+  it("answers 200 with the zero-distance flight", async () => {
+    const { status, json } = await postToRosa();
+
+    expect(status).toBe(200);
+    const row = await onlyFlight();
+    expect(row.distance_mi).toBe(0);
+    expect(row.arrive_at.getTime()).toBe(row.release_at.getTime());
+    expect(json.flights).toHaveLength(1);
+    expect(json.flights[0]).toMatchObject({
+      id: row.id,
+      role: "mine",
+      distanceMi: 0,
+    });
+    expect(["flying", "landed"]).toContain(json.flights[0].status);
+  });
+
+  it("answers 200 when the tick lands the flight right after the commit", async () => {
+    const base = deps;
+    let landed = false;
+    watchSend({
+      afterCommit: async () => {
+        if (landed) return;
+        landed = true;
+        await tick(base);
+      },
+    });
+
+    const { status, json } = await postToRosa();
+
+    expect(status).toBe(200);
+    const row = await onlyFlight();
+    expect(row.status).toBe("landed");
+    expect(json.flights[0]).toMatchObject({ id: row.id, distanceMi: 0 });
+    expect(["flying", "landed"]).toContain(json.flights[0].status);
+  });
+
+  it("answers 200 with the flight and logs only ids when deliver fails after the commit", async () => {
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    watchSend({
+      afterCommit: (sql) => {
+        if (sql.includes("from notifications n"))
+          throw new Error(`deliver broke on ${BODY} for +15550000003`);
+      },
+    });
+
+    const { status, json, cookies } = await postToRosa();
+
+    expect(status).toBe(200);
+    const row = await onlyFlight();
+    expect(json.flights.map((f: { id: string }) => f.id)).toEqual([row.id]);
+    const [{ notes, notifications }] = await deps.db.query<{
+      notes: number;
+      notifications: number;
+    }>(
+      `select (select count(*)::int from notes where recipient_id = $1) as notes,
+         (select count(*)::int from notifications where user_id = $1 and kind = 'incoming' and ref_id = $2) as notifications`,
+      [rosa, row.id],
+    );
+    expect({ notes, notifications }).toEqual({ notes: 1, notifications: 1 });
+
+    const lines = errors.mock.calls.map(([line]) => String(line));
+    const failed = lines.filter((line) => line.includes("send.notify_failed"));
+    expect(failed).toHaveLength(1);
+    const [notification] = await deps.db.query<{ id: string }>(
+      "select id from notifications where ref_id = $1",
+      [row.id],
+    );
+    expect(JSON.parse(failed[0])).toMatchObject({
+      level: "error",
+      event: "send.notify_failed",
+      notificationId: notification.id,
+      flightId: row.id,
+    });
+    for (const secret of [BODY, "5550000001", "5550000003", ...cookies])
+      expect(failed[0]).not.toContain(secret);
+    errors.mockRestore();
+  });
+
+  it("answers 200 with the flight when every query after the commit fails", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    let poolDown = true;
+    watchSend({
+      afterCommit: () => {
+        if (poolDown) throw new Error("pool is gone");
+      },
+    });
+
+    const { status, json } = await postToRosa();
+    poolDown = false;
+
+    expect(status).toBe(200);
+    expect(json.flights[0]).toMatchObject({
+      id: (await onlyFlight()).id,
+      status: "flying",
+    });
+    vi.restoreAllMocks();
+  });
+
+  it("commits nothing when reading the new flight fails inside the transaction", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const before = await counts();
+    watchSend({
+      inside: (sql) => {
+        if (sql.includes("f.note_id is not null as has_note"))
+          throw new Error("read failed");
+      },
+    });
+
+    const { status } = await postToRosa();
+
+    expect(status).toBe(500);
+    expect(await counts()).toEqual(before);
+    vi.restoreAllMocks();
   });
 });
