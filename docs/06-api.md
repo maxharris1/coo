@@ -176,6 +176,7 @@ Weather and place names are fetched before the transaction opens, never inside i
 | `POST /api/found/trade` | | Trades all found objects |
 | `GET /api/aviary` | | Perches, egg, breeds with `owned` |
 | `POST /api/eggs/hatch` | `{ name, pronoun }` | Needs a ready egg and a free perch. Returns the new bird |
+| `POST /api/birds/roommate` | `{ name, pronoun }` | Onboarded owners with fewer starter birds than `start.birds` and a free perch. Adds the next starter (stats `start.birds[1]`, the start look after the first bird's) for free. `conflict` when none is owed, no perch is free, or the name is taken. Returns `{ bird }` |
 | `GET /api/collection` | | Postmarks, badges with progress, birds met |
 | `GET /api/notes?friendId=&cursor=` | | Shoebox: delivered notes sent and received, newest first, with the bird and trip summary |
 

@@ -5,6 +5,7 @@ import { freeBirdName, sameBirdName } from "@/lib/birdName";
 import { isBlocked } from "@/lib/blocklist";
 import type { Config } from "@/lib/config";
 import { handleBase } from "@/lib/handle";
+import { nextStarterLook } from "@/lib/starter";
 import type { Db } from "@/server/db";
 import type { Deps } from "@/server/deps";
 import { AppError } from "@/server/errors";
@@ -114,9 +115,8 @@ async function claimProfile(
   throw new AppError("internal", "Could not find a free handle");
 }
 
-function secondBird(config: Config, body: Body) {
-  const { looks } = config.game.start;
-  const look = looks[(looks.indexOf(body.bird.look) + 1) % looks.length];
+function secondBird(config: Config, body: Body): StarterBird {
+  const look = nextStarterLook(body.bird.look);
   const name =
     body.secondBird?.name ??
     freeBirdName(
@@ -127,39 +127,58 @@ function secondBird(config: Config, body: Body) {
   return { name, look, pronoun: body.secondBird?.pronoun ?? "they" };
 }
 
+export type StarterBird = {
+  name: string;
+  look: string;
+  pronoun: "he" | "she" | "they";
+};
+
+export async function insertStarterBird(
+  db: Db,
+  config: Config,
+  owner: UserId,
+  bird: StarterBird,
+  stats: Config["game"]["start"]["birds"][number],
+  now: string,
+): Promise<Row<"birds">> {
+  const { care } = config.game.start;
+  const { fears, loves } = config.quirks;
+  const pick = (list: string[]) => list[randomInt(list.length)];
+  const [row] = await db.query<Row<"birds">>(
+    `insert into birds (owner_id, name, look, pronoun, speed_mph, focus, navigation, quirks,
+       belly, feathers, energy, care_at, last_fed_at, hatched_at)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $12, $12)
+     returning *`,
+    [
+      owner,
+      bird.name,
+      bird.look,
+      bird.pronoun,
+      stats.speedMph,
+      stats.focus,
+      stats.navigation,
+      [pick(fears), pick(loves)],
+      care.belly,
+      care.feathers,
+      care.energy,
+      now,
+    ],
+  );
+  return row;
+}
+
 async function stockAccount(
   db: Db,
   config: Config,
   user: UserId,
   body: Body,
-  second: ReturnType<typeof secondBird>,
+  second: StarterBird,
   now: string,
 ): Promise<void> {
   const { start, eggs } = config.game;
-  const { fears, loves } = config.quirks;
-  const pick = (list: string[]) => list[randomInt(list.length)];
   const birds = [body.bird, second];
   for (const [i, bird] of birds.entries()) {
-    const stats = start.birds[i];
-    await db.query(
-      `insert into birds (owner_id, name, look, pronoun, speed_mph, focus, navigation, quirks,
-         belly, feathers, energy, care_at, last_fed_at, hatched_at)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $12, $12)`,
-      [
-        user,
-        bird.name,
-        bird.look,
-        bird.pronoun,
-        stats.speedMph,
-        stats.focus,
-        stats.navigation,
-        [pick(fears), pick(loves)],
-        start.care.belly,
-        start.care.feathers,
-        start.care.energy,
-        now,
-      ],
-    );
+    await insertStarterBird(db, config, user, bird, start.birds[i], now);
   }
   await db.query(
     "insert into gear_owned (user_id, gear_id, acquired_at) select $1, unnest($2::text[]), $3",
