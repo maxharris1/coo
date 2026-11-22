@@ -165,4 +165,24 @@ describe("moving the roost pin", () => {
     expect(posts).toEqual([["/api/loft", "POST", settled]]);
     expect(push).toHaveBeenCalledWith("/");
   });
+
+  it("after a failed move, 'This is home' saves the roost the pin still shows", async () => {
+    const shown = { lat: 40.73, lon: -73.9875 };
+    let state = loft(picked, {
+      type: "located",
+      roost: { ...shown, label: "East Village", city: "New York, NY" },
+      pending: shown,
+    });
+    vi.stubGlobal("fetch", async () => {
+      throw new Error("offline");
+    });
+    current.state = state;
+
+    await actions().move(settled);
+
+    for (const [action] of dispatch.mock.calls) state = loft(state, action);
+    expect(state.error).not.toBeNull();
+    expect(state.pending).toEqual(shown);
+    expect({ lat: state.roost?.lat, lon: state.roost?.lon }).toEqual(shown);
+  });
 });

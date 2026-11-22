@@ -185,7 +185,6 @@ export function LoftForm({
             {`Your roost: ${[roost.label, roost.city].filter(Boolean).join(", ")}`}
           </p>
           <PinMap
-            key={`${roost.lat},${roost.lon}`}
             start={roost}
             label={roost.label}
             settle={snap}

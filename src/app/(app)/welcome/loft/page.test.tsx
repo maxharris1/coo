@@ -95,7 +95,10 @@ describe("/welcome/loft", () => {
     const view = render(located);
     expect(view).toContain("Your roost: Williamsburg, Brooklyn, NY");
     expect(view).toMatch(
-      /role="img"[^>]*aria-label="Map of Williamsburg with your roost pin"/,
+      /role="group"[^>]*aria-label="Map of Williamsburg with your roost pin"/,
+    );
+    expect(view).toMatch(
+      /<div[^>]*role="button"[^>]*tabindex="0"[^>]*aria-label="Roost pin at Williamsburg. Arrow keys move it one block."/,
     );
     expect(view).toContain("We keep the roost, not your address.");
     expect(view).toMatch(/<button[^>]*>Use my town centre instead<\/button>/);

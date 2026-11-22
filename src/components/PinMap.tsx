@@ -2,13 +2,25 @@
 
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef } from "react";
+import type { KeyboardEvent } from "react";
+import type { Marker } from "maplibre-gl";
 import { mountMap, type MountedMap } from "@/components/mountMap";
+import { config } from "@/lib/config";
 import type { Point } from "@/lib/game/privacy";
 import styles from "./PinMap.module.css";
 
 export const STOCK_STYLE = "https://tiles.openfreemap.org/styles/liberty";
 
 const BLOCK_ZOOM = 15;
+
+const { gridLatDeg, gridLonDeg } = config.game.roost;
+
+const NUDGES: Record<string, Point> = {
+  ArrowUp: { lat: gridLatDeg, lon: 0 },
+  ArrowDown: { lat: -gridLatDeg, lon: 0 },
+  ArrowLeft: { lat: 0, lon: -gridLonDeg },
+  ArrowRight: { lat: 0, lon: gridLonDeg },
+};
 
 export type PinMapProps = {
   start: Point;
@@ -20,62 +32,93 @@ export type PinMapProps = {
 export function PinMap({ start, label, onMove, settle }: PinMapProps) {
   const container = useRef<HTMLDivElement>(null);
   const pin = useRef<HTMLDivElement>(null);
-  const handlers = useRef({ onMove, settle });
+  const placed = useRef<{ mounted: MountedMap; marker: Marker } | null>(null);
+  const latest = useRef({ start, onMove, settle });
+  const editable = Boolean(onMove);
   const { lat, lon } = start;
 
   useEffect(() => {
-    handlers.current = { onMove, settle };
+    latest.current = { start, onMove, settle };
   });
 
+  const ask = (lat: number, lon: number) => {
+    const { start, onMove, settle } = latest.current;
+    placed.current?.marker.setLngLat([start.lon, start.lat]);
+    onMove?.(settle ? settle(lat, lon) : { lat, lon });
+  };
+
   useEffect(() => {
-    let mounted: MountedMap | null = null;
     let cancelled = false;
     void import("maplibre-gl").then((lib) => {
       if (cancelled || !container.current || !pin.current) return;
-      mounted = mountMap(
+      const { start, onMove } = latest.current;
+      const at: [number, number] = [start.lon, start.lat];
+      const mounted = mountMap(
         lib,
         container.current,
         {
           style: STOCK_STYLE,
-          center: [lon, lat],
+          center: at,
           zoom: BLOCK_ZOOM,
-          interactive: Boolean(handlers.current.onMove),
+          interactive: Boolean(onMove),
         },
         { compact: true },
       );
-      if (!handlers.current.onMove) {
-        new lib.Marker({ element: pin.current })
-          .setLngLat([lon, lat])
+      if (!onMove) {
+        const marker = new lib.Marker({ element: pin.current })
+          .setLngLat(at)
           .addTo(mounted.map);
+        placed.current = { mounted, marker };
         return;
       }
       const marker = new lib.Marker({ element: pin.current, draggable: true })
-        .setLngLat([lon, lat])
+        .setLngLat(at)
         .addTo(mounted.map);
-      const moveTo = ({ lat, lng }: { lat: number; lng: number }) => {
-        const { onMove, settle } = handlers.current;
-        const point = settle ? settle(lat, lng) : { lat, lon: lng };
-        marker.setLngLat([point.lon, point.lat]);
-        onMove?.(point);
-      };
-      marker.on("dragend", () => moveTo(marker.getLngLat()));
-      mounted.map.on("click", (e) => moveTo(e.lngLat));
+      marker.on("dragend", () => {
+        const { lat, lng } = marker.getLngLat();
+        ask(lat, lng);
+      });
+      mounted.map.on("click", (e) => ask(e.lngLat.lat, e.lngLat.lng));
+      placed.current = { mounted, marker };
     });
     return () => {
       cancelled = true;
-      mounted?.dispose();
+      placed.current?.mounted.dispose();
+      placed.current = null;
     };
+  }, []);
+
+  useEffect(() => {
+    if (!placed.current) return;
+    placed.current.marker.setLngLat([lon, lat]);
+    placed.current.mounted.map.setCenter([lon, lat]);
   }, [lat, lon]);
+
+  const nudge = (e: KeyboardEvent) => {
+    const step = NUDGES[e.key];
+    if (!step) return;
+    e.preventDefault();
+    ask(lat + step.lat, lon + step.lon);
+  };
 
   return (
     <div
       className={styles.map}
-      role="img"
+      role={editable ? "group" : "img"}
       aria-label={`Map of ${label} with your roost pin`}
     >
       <div ref={container} className={styles.mapCanvas} />
       <div className={styles.pinHolder}>
-        <div ref={pin} className={styles.pin}>
+        <div
+          ref={pin}
+          className={styles.pin}
+          {...(editable && {
+            role: "button",
+            tabIndex: 0,
+            "aria-label": `Roost pin at ${label}. Arrow keys move it one block.`,
+            onKeyDown: nudge,
+          })}
+        >
           <svg viewBox="0 0 32 32" width="32" height="32" aria-hidden="true">
             <circle
               cx="16"
