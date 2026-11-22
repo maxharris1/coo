@@ -6,12 +6,23 @@ import type { GeoHit } from "@/server/ports/geocoder";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
 import { resolvePlace, searchPlaces } from "./places";
 
+const uuid = vi.hoisted(() => ({ pinned: null as string | null }));
+
+vi.mock("node:crypto", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:crypto")>();
+  return {
+    ...actual,
+    randomUUID: () => uuid.pinned ?? actual.randomUUID(),
+  };
+});
+
 const ME = "11111111-1111-4111-8111-111111111111" as UserId;
 const OTHER = "22222222-2222-4222-8222-222222222222" as UserId;
 
 let deps: TestDeps;
 
 beforeEach(async () => {
+  uuid.pinned = null;
   deps = await makeTestDeps();
 });
 
@@ -79,33 +90,41 @@ const BEDFORD: GeoHit = {
 };
 
 const ADDRESS_TEXT = /Bedford|123|Apartment|4B|11211/;
+const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+
+const withoutIds = (value: unknown) =>
+  JSON.stringify(value, (_key, v: unknown) =>
+    typeof v === "string" ? v.replace(UUID, "<id>") : v,
+  );
 
 describe("searchPlaces keeps no address (f-1)", () => {
-  it("returns, stores and resolves an address hit as its neighbourhood", async () => {
-    vi.spyOn(deps.geocoder, "search").mockResolvedValue([BEDFORD]);
+  it.each([null, "53b12328-9d52-445e-b853-813b98b39b1d"])(
+    "returns, stores and resolves an address hit as its neighbourhood (place id %s)",
+    async (pinned) => {
+      uuid.pinned = pinned;
+      vi.spyOn(deps.geocoder, "search").mockResolvedValue([BEDFORD]);
 
-    const response = await searchPlaces(deps, ME, "123 Bedford Avenue");
-    const stored = await deps.db.query("select * from geo_cache");
-    const place = await resolvePlace(deps, ME, response.results[0].placeId);
+      const response = await searchPlaces(deps, ME, "123 Bedford Avenue");
+      const stored = await deps.db.query("select * from geo_cache");
+      const place = await resolvePlace(deps, ME, response.results[0].placeId);
 
-    expect(response.results).toEqual([
-      {
-        placeId: expect.any(String),
+      expect(response.results).toEqual([
+        {
+          placeId: expect.any(String),
+          label: "Williamsburg",
+          sublabel: "New York, NY",
+          kind: "neighbourhood",
+        },
+      ]);
+      expect(place).toMatchObject({
         label: "Williamsburg",
         sublabel: "New York, NY",
         kind: "neighbourhood",
-      },
-    ]);
-    expect(place).toMatchObject({
-      label: "Williamsburg",
-      sublabel: "New York, NY",
-      kind: "neighbourhood",
-      roost: { lat: 40.718, lon: -73.9575 },
-    });
-    expect(JSON.stringify({ response, stored, place })).not.toMatch(
-      ADDRESS_TEXT,
-    );
-  });
+        roost: { lat: 40.718, lon: -73.9575 },
+      });
+      expect(withoutIds({ response, stored, place })).not.toMatch(ADDRESS_TEXT);
+    },
+  );
 
   it("drops an address hit that has no neighbourhood or city", async () => {
     vi.spyOn(deps.geocoder, "search").mockResolvedValue([
@@ -116,7 +135,7 @@ describe("searchPlaces keeps no address (f-1)", () => {
 
     expect(response.results).toEqual([]);
     expect(await deps.db.query("select * from geo_cache")).toEqual([]);
-    expect(JSON.stringify(response)).not.toMatch(ADDRESS_TEXT);
+    expect(withoutIds(response)).not.toMatch(ADDRESS_TEXT);
   });
 });
 

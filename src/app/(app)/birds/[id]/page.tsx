@@ -6,6 +6,7 @@ import { Bird, type GearId, type Look } from "@/components/Bird";
 import { Loader } from "@/components/Loader";
 import { useSync } from "@/components/SyncProvider";
 import { useToast } from "@/components/Toasts";
+import { asUnits } from "@/lib/format";
 import { postCare } from "../../feed";
 import {
   feedThenRefresh,
@@ -148,7 +149,7 @@ export default function PigeonPage() {
         <section className={styles.section}>
           <h2 className={styles.heading}>{lines.can}</h2>
           <div className={styles.abilities}>
-            {abilitiesFor(bird).map((a) => (
+            {abilitiesFor(bird, asUnits(data.me.units)).map((a) => (
               <div key={a.label} className={styles.ability}>
                 <span className={styles.abilityLabel}>{a.label}</span>
                 <span className={styles.abilityValue}>{a.value}</span>
