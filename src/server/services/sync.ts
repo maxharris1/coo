@@ -13,6 +13,7 @@ import {
   type Row,
 } from "@/server/rows";
 import { syncFlights } from "./flights/syncRead";
+import { syncPhoneLast4 } from "./onboarding";
 import { tick } from "./tick";
 import { syncVisits } from "./visits/syncRead";
 
@@ -101,7 +102,17 @@ export async function sync(
 ) {
   await tick(deps, { userId: caller.userId });
   const now = deps.clock.now();
-  const profile = await syncTimezone(deps, caller, timezone);
+  const filled = await syncPhoneLast4(deps.db, caller.userId);
+  const profile = await syncTimezone(
+    deps,
+    filled
+      ? {
+          ...caller,
+          profile: { ...caller.profile, phone_last4: filled.phone_last4 },
+        }
+      : caller,
+    timezone,
+  );
   const id = caller.userId;
   const week = weekStart(now, profile.timezone);
   const [

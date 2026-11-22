@@ -1,9 +1,14 @@
 import { NextRequest } from "next/server";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { config } from "@/lib/config";
+import { snap } from "@/lib/game/privacy";
 import { toE164, type E164 } from "@/lib/phone";
+import type { Profile } from "@/server/auth";
 import type { Db } from "@/server/db";
 import { createJsonRoute } from "@/server/http";
+import type { UserId } from "@/server/ports/auth";
+import { setLoft } from "@/server/services/loft";
+import { onboard } from "@/server/services/onboarding";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
 import { FakeJar } from "@/test/fakes/jar";
 import { seedWorld, type World } from "@/test/seedWorld";
@@ -62,7 +67,32 @@ async function timezoneOf(id: string) {
 }
 
 const profileUpdates = () =>
-  statements.filter((s) => /update\s+profiles/i.test(s));
+  statements.filter((s) => /update\s+profiles\s+set\s+timezone/i.test(s));
+
+async function phoneLast4Of(id: string) {
+  const [row] = await deps.db.query<{ phone_last4: string | null }>(
+    "select phone_last4 from profiles where id = $1",
+    [id],
+  );
+  return row.phone_last4;
+}
+
+async function onboardWithLoft(id: UserId) {
+  await onboard(deps, id, {
+    name: "Ada",
+    timezone: "America/New_York",
+    bird: { name: "Gerald", look: "gerald", pronoun: "he" },
+  });
+  const [profile] = await deps.db.query<Profile>(
+    "select * from profiles where id = $1",
+    [id],
+  );
+  await setLoft(
+    deps,
+    { userId: id, profile },
+    { roost: snap(40.71427, -73.96143) },
+  );
+}
 
 describe("GET /api/sync", () => {
   it("returns Max's two birds with computed care and nothing of Priya's", async () => {
@@ -227,6 +257,71 @@ describe("GET /api/sync", () => {
       deliveries: 0,
       size: config.game.seeds.punchCardSize,
       paid: false,
+    });
+  });
+
+  describe("me.phoneLast4", () => {
+    it("is the last four digits of the Auth phone for a newly onboarded user (ac-1)", async () => {
+      const { id, jar } = await signIn("+15551234567");
+      await onboardWithLoft(id);
+
+      const { status, json } = await sync(jar);
+
+      expect(status).toBe(200);
+      expect(json.me.phoneLast4).toBe("4567");
+      const [row] = await deps.db.query<{ stored: string; auth: string }>(
+        `select p.phone_last4 as stored, right(u.phone, 4) as auth
+           from profiles p join auth.users u on u.id = p.id
+          where p.id = $1`,
+        [id],
+      );
+      expect(row.stored).toBe(row.auth);
+    });
+
+    it("fills an old null profile and follows a phone change in Auth (ac-2)", async () => {
+      const { jar } = await signIn(MAX_PHONE);
+      expect(await phoneLast4Of(world.max.id)).toBeNull();
+
+      const first = await sync(jar);
+      expect(first.json.me.phoneLast4).toBe("0001");
+      expect(await phoneLast4Of(world.max.id)).toBe("0001");
+
+      await deps.db.query("update auth.users set phone = $2 where id = $1", [
+        world.max.id,
+        "15559876543",
+      ]);
+      const next = await sync(jar);
+      expect(next.json.me.phoneLast4).toBe("6543");
+      expect(await phoneLast4Of(world.max.id)).toBe("6543");
+    });
+
+    it("never puts the full number in a response or a log line, and never touches another user (ac-3)", async () => {
+      const captured: unknown[][] = [];
+      for (const method of ["log", "info", "warn", "error"] as const)
+        vi.spyOn(console, method).mockImplementation((...args) => {
+          captured.push(args);
+        });
+      try {
+        const { id, jar } = await signIn("+15551234567");
+        await onboardWithLoft(id);
+        const mine = await sync(jar);
+        const max = await sync((await signIn(MAX_PHONE)).jar);
+
+        expect(mine.json.me.phoneLast4).toBe("4567");
+        expect(max.json.me.phoneLast4).toBe("0001");
+        expect(await phoneLast4Of(world.priya.id)).toBeNull();
+        for (const body of [
+          JSON.stringify(mine.json),
+          JSON.stringify(max.json),
+        ])
+          for (const full of ["5551234567", "5550000001", "5550000002"])
+            expect(body).not.toContain(full);
+        const logged = JSON.stringify(captured.flat().map(String));
+        for (const full of ["5551234567", "5550000001"])
+          expect(logged).not.toContain(full);
+      } finally {
+        vi.restoreAllMocks();
+      }
     });
   });
 });
