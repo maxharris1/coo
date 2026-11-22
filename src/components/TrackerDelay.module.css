@@ -1,0 +1,22 @@
+.banner {
+  display: block;
+  min-height: var(--coo-touch);
+  padding: 10px 12px;
+  background: var(--coo-peach);
+  border: var(--coo-line-thin);
+  border-radius: var(--coo-radius-tile);
+  box-shadow: var(--coo-shadow-1);
+  color: var(--coo-ink);
+  font-size: 14px;
+  line-height: 1.35;
+  text-decoration: none;
+}
+
+.title {
+  font-weight: 900;
+}
+
+.action {
+  font-weight: 800;
+  text-decoration: underline;
+}

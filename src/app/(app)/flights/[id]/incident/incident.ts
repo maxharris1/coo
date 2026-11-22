@@ -49,6 +49,17 @@ const RESULT: Record<NonNullable<Flight["searchParty"]>, string> = {
 
 const times = (n: number) => `${n} ${n === 1 ? "time" : "times"}`;
 
+export function majorDelayOpen(flight: Flight, nowMs: number): boolean {
+  const delay = flight.plan?.segments.find((s) => s.kind === "delay");
+  return (
+    flight.role === "mine" &&
+    flight.plan?.delayKind === "major" &&
+    delay !== undefined &&
+    nowMs >= delay.startMs &&
+    nowMs < delay.endMs
+  );
+}
+
 function searchState(
   flight: Flight,
   nowMs: number,
@@ -60,14 +71,7 @@ function searchState(
       line: fill(RESULT[flight.searchParty], {}, pronoun),
     };
   }
-  const delay = flight.plan?.segments.find((s) => s.kind === "delay");
-  const open =
-    flight.role === "mine" &&
-    flight.plan?.delayKind === "major" &&
-    delay !== undefined &&
-    nowMs >= delay.startMs &&
-    nowMs < delay.endMs;
-  if (!open) return { kind: "unavailable" };
+  if (!majorDelayOpen(flight, nowMs)) return { kind: "unavailable" };
   const odds = Math.round(searchSuccessChance * 10);
   return {
     kind: "available",

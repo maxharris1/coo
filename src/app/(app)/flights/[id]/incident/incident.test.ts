@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import vectors from "../../../../../../reference/flight-engine/vectors.json";
-import type { FlightInput, FlightPlan } from "@/lib/flight/engine";
+import type { FlightPlan } from "@/lib/flight/engine";
 import { placeNames } from "@/server/services/flights/placeNames";
 import {
   FLIGHT_SELECT,
@@ -9,41 +9,17 @@ import {
   type FlightRow,
 } from "@/server/services/flights/shape";
 import { makeTestDeps } from "@/test/deps";
+import {
+  DELAY,
+  delayedFlight as flight,
+  DURING,
+  INPUT,
+  PLAN,
+  syncBird as bird,
+} from "@/test/fixtures/delayedFlight";
 import { insertFlyingDelivery } from "@/test/fixtures/flights";
 import { seedWorld } from "@/test/seedWorld";
-import type { SyncBird } from "../../../send/write/compose";
 import { incidentReport, type IncidentContext } from "./incident";
-
-const MAJOR = vectors.vectors.find((v) => v.name === "delay-major")!;
-const INPUT = MAJOR.input as FlightInput;
-const PLAN = MAJOR.plan as FlightPlan;
-const DELAY = PLAN.segments.find((s) => s.kind === "delay")!;
-const DURING = DELAY.startMs + 60_000;
-
-const bird = (over: Partial<SyncBird> = {}): SyncBird =>
-  ({
-    id: "kevin",
-    name: "Kevin",
-    pronoun: "he",
-    detours: 4,
-    breed: "city",
-    speedMph: 45,
-    level: 1,
-    focus: 2,
-    navigation: 3,
-    belly: 80,
-    feathers: 80,
-    energy: 80,
-    sulking: false,
-    gear: [],
-    status: "flying",
-    busyKind: null,
-    busyUntil: null,
-    hungry: false,
-    tired: false,
-    canFly: false,
-    ...over,
-  }) as SyncBird;
 
 const KEVIN = bird();
 const GERALD = bird({
@@ -53,38 +29,6 @@ const GERALD = bird({
   canFly: true,
   detours: 0,
 });
-
-function flight(over: Partial<Flight> = {}): Flight {
-  return {
-    id: INPUT.flightId,
-    kind: "delivery",
-    status: "flying",
-    bird: { id: "kevin", name: "Kevin", look: "kevin", gear: [] },
-    owner: { id: "u1", name: "Max", handle: "max" },
-    counterpart: { id: "theo", name: "Theo", handle: "theo" },
-    from: { ...INPUT.from, label: "Brooklyn" },
-    to: { ...INPUT.to, label: "Philly" },
-    releaseAt: INPUT.departAtMs,
-    arriveAt: PLAN.arriveAtMs,
-    distanceMi: PLAN.distanceMi,
-    plan: PLAN,
-    input: INPUT,
-    placeNames: {
-      deciles: [
-        "New York, NY",
-        "Jersey City, NJ",
-        "Trenton, NJ",
-        ...Array(7).fill(null),
-        "Philadelphia, PA",
-      ],
-      events: {},
-      dest: null,
-    },
-    role: "mine",
-    hasNote: true,
-    ...over,
-  };
-}
 
 const ctx = (over: Partial<IncidentContext> = {}): IncidentContext => ({
   birds: [KEVIN, GERALD],
