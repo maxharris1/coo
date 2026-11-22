@@ -72,10 +72,34 @@ describe("setLandingText", () => {
     expect(await storedPhone()).toBeNull();
   });
 
-  it("allows three attempts per link, then rate_limited", async () => {
+  it("allows the configured attempts per link, then rate_limited", async () => {
+    const ceiling = deps.config.game.guestLinks.notifyAttemptsPerLink;
+    expect(ceiling).toBe(3);
     const { token } = await sendGuestFlight(deps, world);
-    await refusal(leave(token, "nope"));
-    await refusal(leave(token, "still nope"));
+    for (let attempt = 1; attempt < ceiling; attempt++)
+      await refusal(leave(token, "nope"));
+    await leave(token, "212 555 0142");
+
+    expect((await refusal(leave(token, "212 555 0142"))).code).toBe(
+      "rate_limited",
+    );
+  });
+
+  it("takes the attempt ceiling from config", async () => {
+    deps = {
+      ...deps,
+      config: {
+        ...deps.config,
+        game: {
+          ...deps.config.game,
+          guestLinks: {
+            ...deps.config.game.guestLinks,
+            notifyAttemptsPerLink: 1,
+          },
+        },
+      },
+    };
+    const { token } = await sendGuestFlight(deps, world);
     await leave(token, "212 555 0142");
 
     expect((await refusal(leave(token, "212 555 0142"))).code).toBe(

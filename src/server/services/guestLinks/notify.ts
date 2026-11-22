@@ -4,7 +4,6 @@ import { AppError } from "@/server/errors";
 import { rateLimit } from "@/server/rateLimit";
 import { findLiveLink, guestIpLimit } from "./get";
 
-const ATTEMPTS_PER_LINK = 3;
 const ONE_BUCKET_SECONDS = 1000 * 365 * 86_400;
 
 export async function setLandingText(
@@ -21,7 +20,7 @@ export async function setLandingText(
     deps.db,
     deps.clock,
     `guest-notify:${link.id}`,
-    ATTEMPTS_PER_LINK,
+    deps.config.game.guestLinks.notifyAttemptsPerLink,
     ONE_BUCKET_SECONDS,
   );
   const phone = toE164(input.phone);
