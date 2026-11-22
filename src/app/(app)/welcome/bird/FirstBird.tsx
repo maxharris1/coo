@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useReducer, useRef } from "react";
-import type { Dispatch, FormEvent, PointerEvent } from "react";
+import type { Dispatch, PointerEvent } from "react";
 import { useRouter } from "next/navigation";
 import { pendingLink } from "@/app/(public)/b/[slug]/linkSignUp";
 import { Bird } from "@/components/Bird";
@@ -12,7 +12,6 @@ import {
   firstBird,
   initialFirstBird,
   onboardingBody,
-  roommateLook,
   submitOnboarding,
   type FirstBirdAction,
   type FirstBirdState,
@@ -72,80 +71,13 @@ type PanelProps = {
   dispatch: Dispatch<FirstBirdAction>;
 };
 
-export function Roommate({
-  state,
-  dispatch,
-  onSubmit,
-}: PanelProps & { onSubmit: () => void }) {
-  const { look, name: lookName } = roommateLook(state);
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    if (!state.sending) onSubmit();
-  };
-
-  return (
-    <form className={styles.form} onSubmit={submit}>
-      <h2 className={styles.subtitle}>{`${state.name} has a roommate`}</h2>
-      <div className={styles.stage}>
-        <HatchScene className={styles.scene} />
-        <div className={styles.bird}>
-          <Bird look={look} size={203} title={lookName} />
-        </div>
-      </div>
-
-      <div className={styles.field}>
-        <label htmlFor="roommate-name" className={styles.label}>
-          Name the roommate
-        </label>
-        <input
-          id="roommate-name"
-          type="text"
-          autoComplete="off"
-          required
-          className={styles.name}
-          value={state.roommate.name}
-          onChange={(e) => dispatch({ type: "roommate", name: e.target.value })}
-        />
-      </div>
-
-      <PronounChips
-        name="roommate-pronoun"
-        value={state.roommate.pronoun}
-        onChange={(pronoun) => dispatch({ type: "roommatePronoun", pronoun })}
-      />
-
-      {state.error !== null && (
-        <div className={styles.toast} role="alert">
-          <p>{state.error}</p>
-          <button
-            type="button"
-            className={styles.toastClose}
-            aria-label="Dismiss"
-            onClick={() => dispatch({ type: "dismiss" })}
-          >
-            OK
-          </button>
-        </div>
-      )}
-
-      <div className={styles.footer}>
-        <button type="submit" className={styles.adopt} disabled={state.sending}>
-          {`Adopt ${state.roommate.name.trim() || lookName}`}
-        </button>
-        <button
-          type="button"
-          className={styles.back}
-          onClick={() => dispatch({ type: "back" })}
-        >
-          Back
-        </button>
-      </div>
-    </form>
-  );
-}
-
-function RoommateStep({ state, dispatch }: PanelProps) {
+export function FirstBird() {
   const router = useRouter();
+  const [state, dispatch] = useReducer(firstBird, undefined, initialFirstBird);
+  useEffect(() => {
+    const link = pendingLink();
+    if (link) dispatch({ type: "yourName", name: link.name });
+  }, []);
   const send = async () => {
     dispatch({ type: "send" });
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -153,20 +85,14 @@ function RoommateStep({ state, dispatch }: PanelProps) {
     if (result.ok) router.push("/welcome/loft");
     else dispatch({ type: "failed", message: result.message });
   };
-  return <Roommate state={state} dispatch={dispatch} onSubmit={send} />;
+  return <FirstBirdForm state={state} dispatch={dispatch} onSubmit={send} />;
 }
 
-export function FirstBird() {
-  const [state, dispatch] = useReducer(firstBird, undefined, initialFirstBird);
-  useEffect(() => {
-    const link = pendingLink();
-    if (link) dispatch({ type: "yourName", name: link.name });
-  }, []);
-  const Panel = state.panel === "roommate" ? RoommateStep : FirstPanel;
-  return <Panel state={state} dispatch={dispatch} />;
-}
-
-function FirstPanel({ state, dispatch }: PanelProps) {
+export function FirstBirdForm({
+  state,
+  dispatch,
+  onSubmit,
+}: PanelProps & { onSubmit: () => void }) {
   const swipeFrom = useRef<number | null>(null);
   const { look, name: lookName } = FIRST_BIRD.looks[state.index];
   const count = FIRST_BIRD.looks.length;
@@ -187,7 +113,7 @@ function FirstPanel({ state, dispatch }: PanelProps) {
       className={styles.form}
       onSubmit={(e) => {
         e.preventDefault();
-        dispatch({ type: "adopt" });
+        if (!state.sending) onSubmit();
       }}
     >
       <div className={styles.field}>
@@ -284,8 +210,22 @@ function FirstPanel({ state, dispatch }: PanelProps) {
         onChange={(pronoun) => dispatch({ type: "pronoun", pronoun })}
       />
 
+      {state.error !== null && (
+        <div className={styles.toast} role="alert">
+          <p>{state.error}</p>
+          <button
+            type="button"
+            className={styles.toastClose}
+            aria-label="Dismiss"
+            onClick={() => dispatch({ type: "dismiss" })}
+          >
+            OK
+          </button>
+        </div>
+      )}
+
       <div className={styles.footer}>
-        <button type="submit" className={styles.adopt}>
+        <button type="submit" className={styles.adopt} disabled={state.sending}>
           {`Adopt ${state.name.trim() || lookName}`}
         </button>
         <p className={styles.note}>

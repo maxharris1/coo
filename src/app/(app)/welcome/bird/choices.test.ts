@@ -108,21 +108,6 @@ describe("roommate panel (ac-5)", () => {
     expect(again.roommate.name).toBe("Pidge");
   });
 
-  it("builds the onboarding body from both panels", () => {
-    let s = firstBird(start, { type: "rename", name: "  Gerry " });
-    s = firstBird(s, { type: "pronoun", pronoun: "he" });
-    s = adopted(s);
-    s = firstBird(s, { type: "roommate", name: "Bren" });
-    s = firstBird(s, { type: "roommatePronoun", pronoun: "she" });
-    s = firstBird(s, { type: "yourName", name: " Max " });
-    expect(onboardingBody(s, "America/New_York")).toEqual({
-      name: "Max",
-      timezone: "America/New_York",
-      bird: { name: "Gerry", look: "gerald", pronoun: "he" },
-      secondBird: { name: "Bren", pronoun: "she" },
-    });
-  });
-
   it("keeps everything typed when the request fails, and shows the error", () => {
     let s = adopted(firstBird(start, { type: "rename", name: "Gerry" }));
     s = firstBird(s, { type: "yourName", name: "Max" });
@@ -144,7 +129,20 @@ describe("roommate panel (ac-5)", () => {
   });
 });
 
-describe("submitOnboarding (ac-5)", () => {
+describe("onboardingBody (ac-1)", () => {
+  it("sends you and the first bird, with no roommate", () => {
+    let s = firstBird(start, { type: "rename", name: "  Gerry " });
+    s = firstBird(s, { type: "pronoun", pronoun: "he" });
+    s = firstBird(s, { type: "yourName", name: " Max " });
+    expect(onboardingBody(s, "America/New_York")).toEqual({
+      name: "Max",
+      timezone: "America/New_York",
+      bird: { name: "Gerry", look: "gerald", pronoun: "he" },
+    });
+  });
+});
+
+describe("submitOnboarding (ac-1)", () => {
   const body = onboardingBody(adopted(), "UTC");
 
   it("posts the body as JSON to /api/onboarding", async () => {
@@ -162,6 +160,7 @@ describe("submitOnboarding (ac-5)", () => {
       "application/json",
     );
     expect(JSON.parse(String(init.body))).toEqual(body);
+    expect(JSON.parse(String(init.body))).not.toHaveProperty("secondBird");
   });
 
   it("returns the API's error message", async () => {

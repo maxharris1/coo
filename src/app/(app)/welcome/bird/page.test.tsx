@@ -1,9 +1,11 @@
 import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { firstBird, initialFirstBird, type FirstBirdState } from "./choices";
-import { Roommate } from "./FirstBird";
+import { FirstBirdForm } from "./FirstBird";
 import FirstBirdPage from "./page";
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: () => {} }) }));
 
 const html = renderToStaticMarkup(<FirstBirdPage />).replaceAll("&#x27;", "'");
 const css = readFileSync(new URL("./page.module.css", import.meta.url), "utf8");
@@ -61,7 +63,7 @@ describe("/welcome/bird", () => {
   });
 
   it("keeps every control at least the 44 px touch size", () => {
-    for (const cls of ["arrow", "shuffle", "chip", "adopt"]) {
+    for (const cls of ["arrow", "shuffle", "chip", "adopt", "toastClose"]) {
       const rule = css.match(new RegExp(`\\.${cls} \\{[^}]*\\}`))?.[0];
       expect(rule, `.${cls}`).toMatch(
         /min-(height|block-size): (var\(--coo-touch\)|4[4-9]px|[5-9]\dpx)/,
@@ -76,65 +78,52 @@ describe("/welcome/bird", () => {
   });
 });
 
-describe("/welcome/bird roommate panel (ac-5)", () => {
-  const adopted = firstBird(
+describe("/welcome/bird adopts from one panel (ac-1)", () => {
+  const typed = firstBird(
     firstBird(initialFirstBird(), { type: "rename", name: "Gerry" }),
-    { type: "adopt" },
+    { type: "yourName", name: "Max" },
   );
   const render = (state: FirstBirdState) =>
     renderToStaticMarkup(
-      <Roommate state={state} dispatch={() => {}} onSubmit={() => {}} />,
+      <FirstBirdForm state={state} dispatch={() => {}} onSubmit={() => {}} />,
     );
-  const panel = render(adopted);
 
-  it("says the first bird has a roommate and draws the second bird", () => {
-    expect(panel).toMatch(/<h2[^>]*>Gerry has a roommate<\/h2>/);
-    expect(panel).toContain('role="img" aria-label="Brenda"');
+  it("never shows a roommate panel", () => {
+    expect(html).not.toContain("roommate");
+    expect(html).not.toContain("has a roommate");
+    expect(html).not.toMatch(/>Back</);
   });
 
-  it("prefills the roommate's name and offers its pronouns", () => {
-    expect(panel).toMatch(/<label[^>]*for="roommate-name"[^>]*>/);
-    expect(panel).toMatch(/<input[^>]*id="roommate-name"[^>]*value="Brenda"/);
-    const radios = [
-      ...panel.matchAll(
-        /type="radio"[^>]*name="roommate-pronoun"[^>]*value="(\w+)"/g,
-      ),
+  it("has one submit button, Adopt", () => {
+    const submits = [
+      ...html.matchAll(/<button[^>]*type="submit"[^>]*>([^<]*)</g),
     ];
-    expect(radios.map((m) => m[1])).toEqual(["he", "she", "they"]);
-  });
-
-  it("leaves your name to the first panel and offers a way back", () => {
-    expect(panel).not.toContain('id="your-name"');
-    expect(panel).toMatch(/<button[^>]*type="button"[^>]*>Back<\/button>/);
-    expect(panel).toMatch(
-      /<button[^>]*type="submit"[^>]*>Adopt Brenda<\/button>/,
-    );
+    expect(submits.map((m) => m[1])).toEqual(["Adopt Gerald"]);
+    expect(html).not.toMatch(/<button[^>]*type="submit"[^>]*disabled/);
   });
 
   it("shows the API's error in a toast and keeps what was typed", () => {
-    const failed = firstBird(
-      firstBird(firstBird(adopted, { type: "yourName", name: "Max" }), {
-        type: "send",
-      }),
-      { type: "failed", message: "That name is not allowed" },
+    const failed = firstBird(firstBird(typed, { type: "send" }), {
+      type: "failed",
+      message: "That name is not allowed",
+    });
+    const page = render(failed);
+    expect(page).toMatch(/role="alert"[^>]*>.*That name is not allowed/s);
+    expect(page).toMatch(/<input[^>]*id="your-name"[^>]*value="Max"/);
+    expect(page).toMatch(/<input[^>]*id="bird-name"[^>]*value="Gerry"/);
+    expect(page).toContain('aria-label="Dismiss"');
+    expect(render(typed)).not.toContain('role="alert"');
+  });
+
+  it("disables Adopt while the request is in flight", () => {
+    const page = render(firstBird(typed, { type: "send" }));
+    expect(page).toMatch(
+      /<button[^>]*type="submit"[^>]*disabled[^>]*>Adopt Gerry/,
     );
-    const html = render(failed);
-    expect(html).toMatch(/role="alert"[^>]*>.*That name is not allowed/s);
-    expect(html).toMatch(/<input[^>]*id="roommate-name"[^>]*value="Brenda"/);
-    expect(panel).not.toContain('role="alert"');
   });
 
-  it("disables the submit button while the request is in flight", () => {
-    const html = render(firstBird(adopted, { type: "send" }));
-    expect(html).toMatch(/<button[^>]*type="submit"[^>]*disabled/);
-  });
-
-  it("keeps the panel's controls at the 44 px touch size", () => {
-    for (const cls of ["back", "toastClose"]) {
-      const rule = css.match(new RegExp(`\\.${cls} \\{[^}]*\\}`))?.[0];
-      expect(rule, `.${cls}`).toMatch(
-        /min-(height|block-size): (var\(--coo-touch\)|4[4-9]px|[5-9]\dpx)/,
-      );
-    }
+  it("drops the roommate panel's styles", () => {
+    expect(css).not.toMatch(/\.subtitle\b/);
+    expect(css).not.toMatch(/\.back\b/);
   });
 });
