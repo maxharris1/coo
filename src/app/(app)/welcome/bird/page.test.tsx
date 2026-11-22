@@ -38,6 +38,20 @@ describe("/welcome/bird", () => {
     expect(html).toContain('aria-label="Shuffle name"');
   });
 
+  it("asks for your name first, before the carousel (ac-2)", () => {
+    expect(html).toMatch(/<label[^>]*for="your-name"[^>]*>Your name/);
+    expect(html).toMatch(/<input[^>]*id="your-name"[^>]*required/);
+    const order = [
+      'id="your-name"',
+      'aria-roledescription="carousel"',
+      'id="bird-name"',
+      'name="pronoun"',
+      'type="submit"',
+    ].map((marker) => html.indexOf(marker));
+    expect(order.every((at) => at >= 0)).toBe(true);
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+  });
+
   it("offers pronoun chips as one labelled radio group", () => {
     expect(html).toMatch(/<fieldset[^>]*>.*<legend[^>]*>Pronoun<\/legend>/s);
     const radios = [
@@ -89,9 +103,8 @@ describe("/welcome/bird roommate panel (ac-5)", () => {
     expect(radios.map((m) => m[1])).toEqual(["he", "she", "they"]);
   });
 
-  it("asks for the person's own name and offers a way back", () => {
-    expect(panel).toMatch(/<label[^>]*for="your-name"[^>]*>Your name/);
-    expect(panel).toMatch(/<input[^>]*id="your-name"[^>]*required/);
+  it("leaves your name to the first panel and offers a way back", () => {
+    expect(panel).not.toContain('id="your-name"');
     expect(panel).toMatch(/<button[^>]*type="button"[^>]*>Back<\/button>/);
     expect(panel).toMatch(
       /<button[^>]*type="submit"[^>]*>Adopt Brenda<\/button>/,
@@ -107,7 +120,6 @@ describe("/welcome/bird roommate panel (ac-5)", () => {
     );
     const html = render(failed);
     expect(html).toMatch(/role="alert"[^>]*>.*That name is not allowed/s);
-    expect(html).toMatch(/<input[^>]*id="your-name"[^>]*value="Max"/);
     expect(html).toMatch(/<input[^>]*id="roommate-name"[^>]*value="Brenda"/);
     expect(panel).not.toContain('role="alert"');
   });

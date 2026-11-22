@@ -114,21 +114,6 @@ export function Roommate({
         onChange={(pronoun) => dispatch({ type: "roommatePronoun", pronoun })}
       />
 
-      <div className={styles.field}>
-        <label htmlFor="your-name" className={styles.label}>
-          Your name
-        </label>
-        <input
-          id="your-name"
-          type="text"
-          autoComplete="given-name"
-          required
-          className={styles.name}
-          value={state.yourName}
-          onChange={(e) => dispatch({ type: "yourName", name: e.target.value })}
-        />
-      </div>
-
       {state.error !== null && (
         <div className={styles.toast} role="alert">
           <p>{state.error}</p>
@@ -205,6 +190,21 @@ function FirstPanel({ state, dispatch }: PanelProps) {
         dispatch({ type: "adopt" });
       }}
     >
+      <div className={styles.field}>
+        <label htmlFor="your-name" className={styles.label}>
+          Your name
+        </label>
+        <input
+          id="your-name"
+          type="text"
+          autoComplete="given-name"
+          required
+          className={styles.name}
+          value={state.yourName}
+          onChange={(e) => dispatch({ type: "yourName", name: e.target.value })}
+        />
+      </div>
+
       <div
         className={styles.carousel}
         role="group"
