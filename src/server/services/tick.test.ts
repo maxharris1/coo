@@ -10,7 +10,7 @@ import type { guestLanding } from "./tick/guestLanding";
 const spies = vi.hoisted(() => ({
   landReturns: vi.fn<Step>(async () => ({ count: 0 })),
   finishJobs: vi.fn<Step>(async () => ({ count: 0 })),
-  guestLanding: vi.fn<typeof guestLanding>(async () => {}),
+  guestLanding: vi.fn<typeof guestLanding>(async () => 0),
   failingRef: { id: null as string | null },
   deliver: vi.fn<typeof deliver>(),
 }));

@@ -145,7 +145,8 @@
   "guestLinks": {
     "expireDays": 7,
     "perDay": 5,
-    "tokenChars": 16
+    "tokenChars": 16,
+    "notifyAttemptsPerLink": 3
   },
   "eggs": {
     "firstAtDeliveries": 5,
