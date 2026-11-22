@@ -46,11 +46,11 @@ describe("web app manifest", () => {
 });
 
 describe("root layout", () => {
-  it("marks the app as an Apple web app with the default status bar", () => {
+  it("marks the app as an Apple web app whose status bar lets content draw underneath", () => {
     expect(metadata.appleWebApp).toEqual({
       capable: true,
       title: config.app.shortName,
-      statusBarStyle: "default",
+      statusBarStyle: "black-translucent",
     });
     expect(metadata.other?.["apple-mobile-web-app-capable"]).toBe("yes");
   });
