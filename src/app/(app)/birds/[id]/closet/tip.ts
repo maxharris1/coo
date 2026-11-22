@@ -5,13 +5,34 @@ import type { Forecast, ForecastKind } from "@/server/services/forecast";
 
 export type TipIcon = "snow" | "rain";
 
+export type Condition = "cold" | "snow" | "rain";
+
 export type Tip = {
   icon: TipIcon;
   headline: string;
   slowdown: string;
   button: string;
   counters: readonly GearId[];
+  conditions: readonly Condition[];
 };
+
+export const protection: Record<Condition, readonly GearId[]> = {
+  cold: ["beanie", "scarf"],
+  snow: ["scarf"],
+  rain: ["rainhat", "goggles"],
+};
+
+export const coveredBy = (
+  worn: readonly GearId[],
+  conditions: readonly Condition[],
+): Condition[] =>
+  conditions.filter((c) => protection[c].some((item) => worn.includes(item)));
+
+const conditionsOf = ({ kind, snow, rain }: Forecast): Condition[] => [
+  ...(kind === "cold" ? (["cold"] as const) : []),
+  ...(snow ? (["snow"] as const) : []),
+  ...(rain ? (["rain"] as const) : []),
+];
 
 type Weather = {
   speed: number;
@@ -27,19 +48,19 @@ const weathers: Record<Exclude<ForecastKind, "none">, Weather> = {
     speed: engine.coldSpeed,
     noun: "cold",
     icon: "snow",
-    counters: ["beanie", "scarf"],
+    counters: protection.cold,
   },
   snowy: {
     speed: engine.snowSpeed,
     noun: "snow",
     icon: "snow",
-    counters: ["scarf"],
+    counters: protection.snow,
   },
   wet: {
     speed: engine.rainSpeed,
     noun: "rain",
     icon: "rain",
-    counters: ["rainhat", "goggles"],
+    counters: protection.rain,
   },
 };
 
@@ -56,5 +77,6 @@ export function tipFor(forecast: Forecast, pronoun: Pronoun): Tip | null {
     slowdown: `Underdressed birds fly ${percent}% slower in the ${noun}.`,
     button: `Dress ${pronounTokens(pronoun).him}`,
     counters,
+    conditions: conditionsOf(forecast),
   };
 }

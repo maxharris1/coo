@@ -7,7 +7,7 @@ import type { GearId } from "@/lib/game/types";
 import type { Forecast } from "@/server/services/forecast";
 import { pick, type Cell } from "./closet";
 import styles from "./page.module.css";
-import { tipFor, type TipIcon } from "./tip";
+import { coveredBy, protection, tipFor, type Tip, type TipIcon } from "./tip";
 
 type Props = {
   pronoun: Pronoun;
@@ -16,7 +16,7 @@ type Props = {
   dress: (item: GearId) => void;
 };
 
-type Action = { kind: "dress"; item: GearId } | { kind: "shop" } | null;
+type Action = { kind: "dress"; items: GearId[] } | { kind: "shop" } | null;
 
 const iconPaths: Record<TipIcon, string[]> = {
   snow: [
@@ -29,16 +29,48 @@ const iconPaths: Record<TipIcon, string[]> = {
 };
 
 function actionFor(
-  counters: readonly GearId[],
+  { counters, conditions }: Tip,
   { cells, worn }: Pick<Props, "cells" | "worn">,
 ): Action {
-  if (counters.some((item) => worn.includes(item))) return null;
-  const options = counters.flatMap((item) =>
-    cells.filter((cell) => cell.item === item),
-  );
-  const wearable = options.find((cell) => pick(worn, cell) !== null);
-  if (wearable) return { kind: "dress", item: wearable.item };
-  return options.some((cell) => cell.kind === "store")
+  const candidates = [
+    ...new Set([...counters, ...conditions.flatMap((c) => protection[c])]),
+  ].flatMap((item) => cells.filter((cell) => cell.item === item));
+
+  const covered = coveredBy(worn, conditions);
+  let best = { items: [] as GearId[], covered };
+  let frontier = [{ items: [] as GearId[], outfit: worn }];
+  const seen = new Set([[...worn].sort().join()]);
+  while (frontier.length > 0) {
+    const next: typeof frontier = [];
+    for (const state of frontier) {
+      for (const cell of candidates) {
+        if (state.outfit.includes(cell.item)) continue;
+        const outfit = pick(state.outfit, cell);
+        if (!outfit) continue;
+        const key = [...outfit].sort().join();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const items = [...state.items, cell.item];
+        const reached = coveredBy(outfit, conditions);
+        if (
+          covered.every((c) => reached.includes(c)) &&
+          reached.length > best.covered.length
+        )
+          best = { items, covered: reached };
+        next.push({ items, outfit });
+      }
+    }
+    frontier = next;
+  }
+  const { items } = best;
+  if (items.length > 0) return { kind: "dress", items };
+
+  const uncovered = conditions.filter((c) => !best.covered.includes(c));
+  return candidates.some(
+    (cell) =>
+      cell.kind === "store" &&
+      uncovered.some((c) => protection[c].includes(cell.item)),
+  )
     ? { kind: "shop" }
     : null;
 }
@@ -52,7 +84,7 @@ export function TipBand({
 }: Props & { forecast: Forecast }) {
   const tip = tipFor(forecast, pronoun);
   if (!tip) return null;
-  const action = actionFor(tip.counters, { cells, worn });
+  const action = actionFor(tip, { cells, worn });
   return (
     <section className={styles.tip}>
       <svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true">
@@ -76,7 +108,7 @@ export function TipBand({
         <button
           type="button"
           className={styles.tipButton}
-          onClick={() => dress(action.item)}
+          onClick={() => action.items.forEach((item) => dress(item))}
         >
           {tip.button}
         </button>

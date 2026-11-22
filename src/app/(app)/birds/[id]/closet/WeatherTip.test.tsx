@@ -1,9 +1,14 @@
 import type { ReactElement, ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
+import {
+  groundSpeedMph,
+  type FlightInput,
+  type WeatherSample,
+} from "@/lib/flight/engine";
 import type { GearId } from "@/lib/game/types";
 import type { Forecast } from "@/server/services/forecast";
-import { closetCells, type ClosetBird } from "./closet";
+import { closetCells, pick, type ClosetBird } from "./closet";
 import { TipBand } from "./WeatherTip";
 
 const gerald = (gear: GearId[]): ClosetBird => ({
@@ -84,10 +89,10 @@ describe("Wardrobe weather tip (ac-2)", () => {
     expect(html).toBe("");
   });
 
-  it("dresses the bird in the first counter it can wear", () => {
+  it("dresses the bird in the one counter that covers both cold and snow", () => {
     const dress = vi.fn();
     tap(band({ closet: ["beanie", "scarf"], dress }));
-    expect(dress).toHaveBeenCalledWith("beanie");
+    expect(dress.mock.calls).toEqual([["scarf"]]);
   });
 
   it("skips a counter another bird has taken away", () => {
@@ -129,4 +134,121 @@ describe("Wardrobe weather tip (ac-2)", () => {
     expect(html).toContain("Friday: 31 degrees and flurries");
     expect(html).not.toContain("Dress him");
   });
+});
+
+const ALL_GEAR = ["beanie", "scarf", "rainhat", "goggles"];
+
+const speedIn = (weather: WeatherSample, gear: readonly GearId[]) => {
+  const input: FlightInput = {
+    flightId: "00000000-0000-0000-0000-000000000000",
+    from: { lat: 0, lon: 0 },
+    to: { lat: 1, lon: 0 },
+    departAtMs: 0,
+    bird: {
+      speedMph: 50,
+      focus: 3,
+      navigation: 3,
+      level: 1,
+      belly: 100,
+      feathers: 100,
+      energy: 100,
+      sulking: false,
+    },
+    gear: [...gear],
+    weather: [weather, weather, weather],
+  };
+  return groundSpeedMph(input, 0, 0);
+};
+
+const dressedBy = (props: ReturnType<typeof band>, closet: string[]) => {
+  let worn = props.worn;
+  const dress = (item: GearId) => {
+    const bird = gerald(worn);
+    const cell = closetCells({ bird, birds: [bird], closet, now: 0 }).find(
+      (c) => c.item === item,
+    );
+    worn = (cell && pick(worn, cell)) ?? worn;
+  };
+  const button = elements(TipBand({ ...props, dress })).find(
+    (el) => el.type === "button",
+  );
+  button?.props.onClick?.();
+  return { worn, pressed: Boolean(button) };
+};
+
+const weatherFor = (f: Forecast, precipMmH: number): WeatherSample => ({
+  windMph: 0,
+  windFromDeg: 0,
+  tempF: f.kind === "cold" ? 31 : 40,
+  precipMmH: f.rain ? precipMmH : 0,
+  snow: f.snow,
+});
+
+describe("Dress never costs the bird speed (f-2)", () => {
+  it("keeps the rain hat and adds the scarf at 31 degrees in 5 mm/h rain", () => {
+    const forecast: Forecast = {
+      day: "Friday",
+      tempF: 31,
+      kind: "cold",
+      snow: false,
+      rain: true,
+    };
+    const weather = weatherFor(forecast, 5);
+    const props = band({ forecast, worn: ["rainhat"], closet: ALL_GEAR });
+
+    const { worn } = dressedBy(props, ALL_GEAR);
+
+    expect(worn).toEqual(expect.arrayContaining(["rainhat", "scarf"]));
+    expect(speedIn(weather, worn)).toBe(50);
+    expect(speedIn(weather, worn)).toBeGreaterThan(
+      speedIn(weather, ["rainhat"]),
+    );
+  });
+
+  const kinds = ["cold", "snowy", "wet"] as const;
+  const flags = [false, true];
+  const forecasts = kinds
+    .flatMap((kind) =>
+      flags.flatMap((snow) =>
+        flags.map((rain): Forecast => ({
+          day: "Friday",
+          tempF: 31,
+          kind,
+          snow,
+          rain,
+        })),
+      ),
+    )
+    .filter(
+      ({ kind, snow, rain }) =>
+        kind === "cold" ||
+        (kind === "snowy" && snow) ||
+        (kind === "wet" && rain && !snow),
+    );
+  const outfits: GearId[][] = [
+    [],
+    ["beanie"],
+    ["rainhat"],
+    ["goggles"],
+  ].flatMap((head) => [head, [...head, "scarf"]] as GearId[][]);
+  const cases = forecasts.flatMap((forecast) =>
+    outfits.map((worn) => ({ forecast, worn })),
+  );
+
+  it.each(cases)(
+    "dresses for every condition of $forecast.kind snow=$forecast.snow rain=$forecast.rain from $worn",
+    ({ forecast, worn }) => {
+      const weather = weatherFor(forecast, 2);
+      const before = speedIn(weather, worn);
+
+      const after = dressedBy(
+        band({ forecast, worn, closet: ALL_GEAR }),
+        ALL_GEAR,
+      );
+
+      expect(speedIn(weather, after.worn)).toBeGreaterThanOrEqual(before);
+      if (after.pressed) expect(speedIn(weather, after.worn)).toBe(50);
+      else expect(before).toBe(50);
+    },
+  );
 });

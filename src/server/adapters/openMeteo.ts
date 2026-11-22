@@ -7,6 +7,8 @@ import type { Weather, WeatherQuery } from "../ports/weather";
 
 const TIMEOUT_MS = 2000;
 const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
+const MIN_FORECAST_DAYS = 2;
 const { cellDeg, cacheMinutes } = config.game.weather;
 const TTL_MS = cacheMinutes * 60 * 1000;
 const CELL_DECIMALS = String(cellDeg).split(".")[1]?.length ?? 0;
@@ -94,7 +96,13 @@ export function openMeteo(opts: {
   const base = opts.baseUrl.replace(/\/+$/, "");
   const doFetch = opts.fetch ?? ((input, init) => fetch(input, init));
 
-  async function forecast(cells: string[]): Promise<Location[]> {
+  async function forecast(
+    cells: string[],
+    lastHourMs: number,
+    now: number,
+  ): Promise<Location[]> {
+    const todayMs = Math.floor(now / DAY_MS) * DAY_MS;
+    const days = Math.floor((lastHourMs - todayMs) / DAY_MS) + 1;
     const [latitude, longitude] = [0, 1].map((part) =>
       cells.map((cell) => cell.split(",")[part]).join(","),
     );
@@ -106,7 +114,7 @@ export function openMeteo(opts: {
       temperature_unit: "fahrenheit",
       wind_speed_unit: "mph",
       precipitation_unit: "mm",
-      forecast_days: "2",
+      forecast_days: String(Math.max(MIN_FORECAST_DAYS, days)),
       timezone: "UTC",
       timeformat: "unixtime",
     });
@@ -146,7 +154,8 @@ export function openMeteo(opts: {
       const missing = unique.filter((s) => !found.has(slotKey(s)));
       if (missing.length > 0) {
         const cells = [...new Set(missing.map((s) => s.cell))];
-        const locations = await forecast(cells);
+        const lastHourMs = Math.max(...missing.map((s) => s.hour_ms));
+        const locations = await forecast(cells, lastHourMs, now);
         const byCell = new Map(cells.map((cell, i) => [cell, locations[i]]));
         const fresh = missing.map((s) => ({
           ...s,
