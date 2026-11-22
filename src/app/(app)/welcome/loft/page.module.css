@@ -2,12 +2,17 @@
   box-sizing: border-box;
   min-height: 100dvh;
   max-width: 480px;
-  margin: 0 auto;
   margin-top: calc(-1 * var(--coo-safe-top));
+  margin-right: calc(-1 * var(--coo-safe-right));
+  margin-bottom: calc(-1 * var(--coo-safe-bottom));
+  margin-left: calc(-1 * var(--coo-safe-left));
   display: flex;
   flex-direction: column;
   gap: 14px;
-  padding: calc(28px + var(--coo-safe-top)) var(--coo-gutter) 20px;
+  padding: calc(28px + var(--coo-safe-top))
+    calc(var(--coo-gutter) + var(--coo-safe-right))
+    calc(20px + var(--coo-safe-bottom))
+    calc(var(--coo-gutter) + var(--coo-safe-left));
   background: var(--coo-sun);
   color: var(--coo-ink);
   font-family: var(--coo-font-body);

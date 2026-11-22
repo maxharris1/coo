@@ -7,6 +7,20 @@ const read = (path: string) => readFileSync(new URL(path, src), "utf8");
 const SAFE_TOP = "var(--coo-safe-top)";
 const BLEED = `calc(-1 * ${SAFE_TOP})`;
 
+const SIDES = ["right", "bottom", "left"] as const;
+const inset = (side: string) => `var(--coo-safe-${side})`;
+const bleed = (side: string) => `calc(-1 * ${inset(side)})`;
+
+const PAGE_PAD =
+  "calc(28px + var(--coo-safe-top)) calc(var(--coo-gutter) + var(--coo-safe-right)) calc(20px + var(--coo-safe-bottom)) calc(var(--coo-gutter) + var(--coo-safe-left))";
+
+const PAGES = [
+  "app/(public)/auth.module.css",
+  "app/(app)/welcome/bird/page.module.css",
+  "app/(app)/welcome/loft/page.module.css",
+  "app/(app)/welcome/install/page.module.css",
+];
+
 type Pad = { rule: string; prop: string; now: string; before: string };
 
 const HEROES: { file: string; box: string; pads: Pad[] }[] = [
@@ -89,8 +103,8 @@ const HEROES: { file: string; box: string; pads: Pad[] }[] = [
       {
         rule: "page",
         prop: "padding",
-        now: "calc(28px + var(--coo-safe-top)) var(--coo-gutter) calc(12px + var(--coo-safe-bottom))",
-        before: "28px var(--coo-gutter) calc(12px + var(--coo-safe-bottom))",
+        now: "calc(28px + var(--coo-safe-top)) calc(var(--coo-gutter) + var(--coo-safe-right)) calc(12px + var(--coo-safe-bottom)) calc(var(--coo-gutter) + var(--coo-safe-left))",
+        before: "28px var(--coo-gutter) 12px var(--coo-gutter)",
       },
     ],
   },
@@ -101,8 +115,8 @@ const HEROES: { file: string; box: string; pads: Pad[] }[] = [
       {
         rule: "page",
         prop: "padding",
-        now: "calc(28px + var(--coo-safe-top)) var(--coo-gutter) 20px",
-        before: "28px var(--coo-gutter) 20px",
+        now: PAGE_PAD,
+        before: "28px var(--coo-gutter) 20px var(--coo-gutter)",
       },
     ],
   })),
@@ -113,8 +127,8 @@ const HEROES: { file: string; box: string; pads: Pad[] }[] = [
       {
         rule: "page",
         prop: "padding",
-        now: "calc(28px + var(--coo-safe-top)) var(--coo-gutter) 20px",
-        before: "28px var(--coo-gutter) 20px",
+        now: PAGE_PAD,
+        before: "28px var(--coo-gutter) 20px var(--coo-gutter)",
       },
     ],
   },
@@ -126,7 +140,7 @@ const HEROES: { file: string; box: string; pads: Pad[] }[] = [
         rule: "page",
         prop: "padding",
         now: "calc(22px + var(--coo-safe-top)) var(--coo-gutter) calc(8px + var(--coo-safe-bottom))",
-        before: "22px var(--coo-gutter) calc(8px + var(--coo-safe-bottom))",
+        before: "22px var(--coo-gutter) 8px",
       },
     ],
   },
@@ -164,9 +178,11 @@ const value = (body: string, prop: string) =>
 
 function withoutInsets(v: string | undefined) {
   if (v === undefined) return undefined;
-  if (v === BLEED || v === SAFE_TOP) return "0px";
+  if (/^calc\(-1 \* var\(--coo-safe-\w+\)\)$/.test(v) || v === SAFE_TOP) {
+    return "0px";
+  }
   return v
-    .replaceAll(" + var(--coo-safe-top))", ")")
+    .replace(/ \+ var\(--coo-safe-(?:top|right|bottom|left)\)\)/g, ")")
     .replace(/calc\((\d+px|var\(--[\w-]+\))\)/g, "$1");
 }
 
@@ -250,6 +266,42 @@ describe.each(HEROES)("$file", ({ file, box, pads }) => {
       expect(withoutInsets(value(rule(css, box), "margin-top"))).toBe("0px");
     },
   );
+});
+
+describe.each(PAGES)("%s page shell", (file) => {
+  const css = read(file);
+  const page = rule(css, "page");
+  const pad = value(page, "padding")!;
+
+  it.each(SIDES)("bleeds into the %s safe area", (side) => {
+    expect(value(page, `margin-${side}`)).toBe(bleed(side));
+  });
+
+  it.each(SIDES)(
+    "pads the %s inset back exactly once, so nothing is padded twice",
+    (side) => {
+      expect(count(pad, inset(side))).toBe(1);
+      expect(count(css, inset(side))).toBe(2);
+    },
+  );
+
+  it("lays out with no side or bottom offset when the insets are 0", () => {
+    for (const side of SIDES) {
+      expect(withoutInsets(value(page, `margin-${side}`))).toBe("0px");
+    }
+    expect(page).not.toMatch(/(?:^|\s)margin:/);
+  });
+});
+
+describe("side and bottom bleed guard", () => {
+  it("bleeds the side and bottom insets only on the page shells", () => {
+    for (const side of SIDES) {
+      const bleeding = moduleFiles("")
+        .filter((f) => read(f).includes(bleed(side)))
+        .sort();
+      expect(bleeding).toEqual([...PAGES].sort());
+    }
+  });
 });
 
 describe("cream guard", () => {
