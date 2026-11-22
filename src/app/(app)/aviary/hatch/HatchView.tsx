@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Dispatch, FormEvent } from "react";
 import { Bird, type Look } from "@/components/Bird";
 import { HatchScene } from "@/components/HatchScene";
-import { PRONOUNS } from "../../welcome/bird/choices";
+import { PronounChips } from "@/components/PronounChips";
 import {
   breedCard,
   type HatchAction,
@@ -149,25 +149,11 @@ export function HatchView({
             />
           </div>
 
-          <fieldset className={styles.pronouns}>
-            <legend className={styles.label}>Pronoun</legend>
-            <div className={styles.chips}>
-              {PRONOUNS.map((p) => (
-                <label key={p.value} className={styles.chip}>
-                  <input
-                    type="radio"
-                    name="pronoun"
-                    value={p.value}
-                    checked={state.pronoun === p.value}
-                    onChange={() =>
-                      dispatch({ type: "pronoun", pronoun: p.value })
-                    }
-                  />
-                  {p.label}
-                </label>
-              ))}
-            </div>
-          </fieldset>
+          <PronounChips
+            name="pronoun"
+            value={state.pronoun}
+            onChange={(pronoun) => dispatch({ type: "pronoun", pronoun })}
+          />
 
           <button type="submit" className={styles.go} disabled={state.sending}>
             Welcome home

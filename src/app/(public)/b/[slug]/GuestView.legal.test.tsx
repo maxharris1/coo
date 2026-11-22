@@ -60,7 +60,11 @@ function guest(
 const flying = guest();
 const landedWithNote = guest(
   { status: "landed" },
-  { body: "Dinner Saturday?", createdAt: calm.plan.segments[0].startMs },
+  {
+    body: "Dinner Saturday?",
+    doodle: null,
+    createdAt: calm.plan.segments[0].startMs,
+  },
 );
 
 function hrefs(g: Guest, shown: GuestShown | null): string[] {
