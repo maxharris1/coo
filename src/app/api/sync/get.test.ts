@@ -20,11 +20,16 @@ const PRIYA_PHONE = "+15550000002";
 let deps: TestDeps;
 let world: World;
 let statements: string[];
+let heldSuffixUpdates: (() => void)[] | null;
 
 function recordingDb(inner: Db): Db {
   return {
-    query(sql, params) {
+    async query(sql, params) {
       statements.push(sql);
+      if (heldSuffixUpdates && /set\s+phone_last4/i.test(sql)) {
+        const held = heldSuffixUpdates;
+        await new Promise<void>((release) => held.push(release));
+      }
       return inner.query(sql, params);
     },
     tx: (fn) => inner.tx((db) => fn(recordingDb(db))),
@@ -34,6 +39,7 @@ function recordingDb(inner: Db): Db {
 beforeEach(async () => {
   const base = await makeTestDeps();
   statements = [];
+  heldSuffixUpdates = null;
   deps = { ...base, db: recordingDb(base.db) };
   world = await seedWorld(base.db, deps.clock.now());
 });
@@ -293,6 +299,54 @@ describe("GET /api/sync", () => {
       const next = await sync(jar);
       expect(next.json.me.phoneLast4).toBe("6543");
       expect(await phoneLast4Of(world.max.id)).toBe("6543");
+    });
+
+    async function overlappingSyncs(jar: FakeJar) {
+      const held: (() => void)[] = [];
+      heldSuffixUpdates = held;
+      const a = sync(jar);
+      await vi.waitFor(() => expect(held).toHaveLength(1));
+      const b = sync(jar);
+      await vi.waitFor(() => expect(held).toHaveLength(2));
+      heldSuffixUpdates = null;
+      held[0]();
+      const first = await a;
+      held[1]();
+      const second = await b;
+      return [first, second];
+    }
+
+    it("returns the current suffix to both of two overlapping syncs that fill a null profile (ac-2)", async () => {
+      const { jar } = await signIn(MAX_PHONE);
+      expect(await phoneLast4Of(world.max.id)).toBeNull();
+
+      const responses = await overlappingSyncs(jar);
+
+      expect(responses.map((r) => r.status)).toEqual([200, 200]);
+      expect(await phoneLast4Of(world.max.id)).toBe("0001");
+      expect(responses.map((r) => r.json.me.phoneLast4)).toEqual([
+        "0001",
+        "0001",
+      ]);
+    });
+
+    it("returns the current suffix to both of two overlapping syncs after an Auth phone change (ac-2)", async () => {
+      const { jar } = await signIn(MAX_PHONE);
+      await sync(jar);
+      expect(await phoneLast4Of(world.max.id)).toBe("0001");
+      await deps.db.query("update auth.users set phone = $2 where id = $1", [
+        world.max.id,
+        "15559876543",
+      ]);
+
+      const responses = await overlappingSyncs(jar);
+
+      expect(responses.map((r) => r.status)).toEqual([200, 200]);
+      expect(await phoneLast4Of(world.max.id)).toBe("6543");
+      expect(responses.map((r) => r.json.me.phoneLast4)).toEqual([
+        "6543",
+        "6543",
+      ]);
     });
 
     it("never puts the full number in a response or a log line, and never touches another user (ac-3)", async () => {
