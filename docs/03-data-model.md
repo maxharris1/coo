@@ -12,6 +12,9 @@ explains it. If the two disagree, the SQL wins; fix this document.
   including notes they sent. Notes they received stay with their senders. See "Deleting an account".
 - Row level security is on for every table with no policies, except read-your-own on `events` and
   the server role `coo_app` on `tick_health`.
+- `coo_app` has no access to schema `auth`. Its only path to `auth.users` is the security definer
+  function `sync_phone_last4(p_user)`, which copies the last four digits of the Auth phone to
+  `profiles.phone_last4`. Only `coo_app` may execute it.
 
 ## Tables
 

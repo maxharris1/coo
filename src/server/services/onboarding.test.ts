@@ -3,6 +3,7 @@ import { BLOCKED_NAMES } from "@/lib/blocklist";
 import { config } from "@/lib/config";
 import type { UserId } from "@/server/ports/auth";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
+import { asRole } from "@/test/testDb";
 import { onboard, syncPhoneLast4 } from "./onboarding";
 
 const BODY = {
@@ -301,7 +302,23 @@ describe("onboard: the profile carries the last four digits of the Auth phone", 
   });
 });
 
-describe("syncPhoneLast4", () => {
+describe("onboard as the coo_app server role", () => {
+  it("onboards a new user as coo_app and writes phone_last4 (ac-4)", async () => {
+    const user = await userWithPhone("15551234567");
+
+    const result = await onboard(
+      { ...deps, db: asRole(deps.db, "coo_app") },
+      user,
+      BODY,
+    );
+
+    expect(result.me.phoneLast4).toBe("4567");
+    expect(result.birds).toHaveLength(2);
+    expect(await phoneLast4(user)).toBe("4567");
+  });
+});
+
+describe("syncPhoneLast4 as coo_app", () => {
   it("returns the updated profile, then null when the phone has not changed", async () => {
     const user = await userWithPhone("15551234567");
     await onboard(deps, user, BODY);
@@ -310,9 +327,9 @@ describe("syncPhoneLast4", () => {
       [user],
     );
 
-    const first = await syncPhoneLast4(deps.db, user);
+    const first = await syncPhoneLast4(asRole(deps.db, "coo_app"), user);
     expect(first).toMatchObject({ id: user, phone_last4: "4567" });
-    expect(await syncPhoneLast4(deps.db, user)).toBeNull();
+    expect(await syncPhoneLast4(asRole(deps.db, "coo_app"), user)).toBeNull();
   });
 
   it("follows a phone change in Auth", async () => {
@@ -323,7 +340,9 @@ describe("syncPhoneLast4", () => {
       "15559876543",
     ]);
 
-    expect(await syncPhoneLast4(deps.db, user)).toMatchObject({
+    expect(
+      await syncPhoneLast4(asRole(deps.db, "coo_app"), user),
+    ).toMatchObject({
       phone_last4: "6543",
     });
   });
@@ -342,7 +361,7 @@ describe("syncPhoneLast4", () => {
       [a],
     );
 
-    await syncPhoneLast4(deps.db, a);
+    await syncPhoneLast4(asRole(deps.db, "coo_app"), a);
 
     expect(await phoneLast4(a)).toBe("4567");
     expect(await phoneLast4(b)).toBe("0000");

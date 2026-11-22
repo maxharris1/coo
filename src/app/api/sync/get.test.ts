@@ -12,21 +12,27 @@ import { onboard } from "@/server/services/onboarding";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
 import { FakeJar } from "@/test/fakes/jar";
 import { seedWorld, type World } from "@/test/seedWorld";
+import { asRole } from "@/test/testDb";
 import { syncGet } from "./get";
 
 const MAX_PHONE = "+15550000001";
 const PRIYA_PHONE = "+15550000002";
 
+let base: TestDeps;
 let deps: TestDeps;
 let world: World;
 let statements: string[];
 let heldSuffixUpdates: (() => void)[] | null;
+let failingBackfill: Error | null;
 
 function recordingDb(inner: Db): Db {
   return {
     async query(sql, params) {
       statements.push(sql);
-      if (heldSuffixUpdates && /set\s+phone_last4/i.test(sql)) {
+      if (failingBackfill && /sync_phone_last4/i.test(sql)) {
+        throw failingBackfill;
+      }
+      if (heldSuffixUpdates && /sync_phone_last4/i.test(sql)) {
         const held = heldSuffixUpdates;
         await new Promise<void>((release) => held.push(release));
       }
@@ -37,9 +43,10 @@ function recordingDb(inner: Db): Db {
 }
 
 beforeEach(async () => {
-  const base = await makeTestDeps();
+  base = await makeTestDeps();
   statements = [];
   heldSuffixUpdates = null;
+  failingBackfill = null;
   deps = { ...base, db: recordingDb(base.db) };
   world = await seedWorld(base.db, deps.clock.now());
 });
@@ -282,6 +289,56 @@ describe("GET /api/sync", () => {
         [id],
       );
       expect(row.stored).toBe(row.auth);
+    });
+
+    it("as coo_app, sync fills me.phoneLast4 (ac-1)", async () => {
+      deps = { ...base, db: recordingDb(asRole(base.db, "coo_app")) };
+      const { id, jar } = await signIn("+15551234567");
+      await onboardWithLoft(id);
+      await base.db.query(
+        "update profiles set phone_last4 = null where id = $1",
+        [id],
+      );
+
+      const { status, json } = await sync(jar);
+
+      expect(status).toBe(200);
+      expect(json.me.phoneLast4).toBe("4567");
+      expect(await phoneLast4Of(id)).toBe("4567");
+    });
+
+    it("a failing backfill still returns 200 and warns without the number (ac-3)", async () => {
+      const warned: string[] = [];
+      const captured: unknown[][] = [];
+      for (const method of ["log", "info", "error"] as const)
+        vi.spyOn(console, method).mockImplementation((...args) => {
+          captured.push(args);
+        });
+      vi.spyOn(console, "warn").mockImplementation((...args) => {
+        captured.push(args);
+        warned.push(String(args[0]));
+      });
+      try {
+        const { jar } = await signIn(MAX_PHONE);
+        failingBackfill = Object.assign(
+          new Error("permission denied for +15551234567"),
+          { code: "42501", detail: "phone 15551234567" },
+        );
+
+        const { status, json } = await sync(jar);
+
+        expect(status).toBe(200);
+        expect(json.me.id).toBe(world.max.id);
+        expect(json.me.phoneLast4).toBeNull();
+        expect(warned.map((line) => JSON.parse(line))).toEqual([
+          { level: "warn", event: "sync.phone_last4_failed", code: "42501" },
+        ]);
+        const seen = JSON.stringify([captured.flat().map(String), json]);
+        for (const digits of ["1234567", "5550000001"])
+          expect(seen).not.toContain(digits);
+      } finally {
+        vi.restoreAllMocks();
+      }
     });
 
     it("fills an old null profile and follows a phone change in Auth (ac-2)", async () => {

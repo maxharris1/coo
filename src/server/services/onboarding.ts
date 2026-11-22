@@ -176,12 +176,7 @@ export async function syncPhoneLast4(
   user: UserId,
 ): Promise<Row<"profiles"> | null> {
   const [row] = await db.query<Row<"profiles">>(
-    `update profiles p
-        set phone_last4 = right(regexp_replace(u.phone, '\\D', '', 'g'), 4)
-       from auth.users u
-      where p.id = $1 and u.id = p.id
-        and p.phone_last4 is distinct from right(regexp_replace(u.phone, '\\D', '', 'g'), 4)
-      returning p.*`,
+    "select * from public.sync_phone_last4($1)",
     [user],
   );
   return row ?? null;
