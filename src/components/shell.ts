@@ -2,6 +2,8 @@ export type Chrome = "bare" | "full" | "tabs";
 
 export type Top = "sky" | "sun" | "tomato" | "map" | "paper";
 
+export type Canvas = "sun" | "sky" | "paper";
+
 export const FULL_SCREEN_FLOWS = [
   { flow: "NewRecipient", pattern: /^\/send\/new$/ },
   { flow: "Compose", pattern: /^\/send\/write$/ },
@@ -22,19 +24,25 @@ const COLOURED_TOPS = [
   { pattern: /^\/sill\/[^/]+\/takeoff$/, top: "sky" },
   { pattern: /^\/birds\/[^/]+$/, top: "sky" },
   { pattern: /^\/flights\/[^/]+$/, top: "map" },
-  { pattern: /^\/welcome\/install$/, top: "sky" },
-  { pattern: /^\/welcome(\/(bird|loft))?$/, top: "sun" },
+  { pattern: /^\/welcome\/install$/, top: "sky", fill: true },
+  { pattern: /^\/welcome(\/(bird|loft))?$/, top: "sun", fill: true },
   {
     pattern: /^\/(sign-in(\/verify)?|join\/[^/]+|offline|terms|privacy)$/,
     top: "sun",
+    fill: true,
   },
   { pattern: /^\/b\/[^/]+$/, top: "sky" },
-] as const satisfies readonly { pattern: RegExp; top: Top }[];
+] as const satisfies readonly { pattern: RegExp; top: Top; fill?: true }[];
 
 export function topFor(path: string): Top {
   return (
     COLOURED_TOPS.find(({ pattern }) => pattern.test(path))?.top ?? "paper"
   );
+}
+
+export function canvasFor(path: string): Canvas {
+  const entry = COLOURED_TOPS.find(({ pattern }) => pattern.test(path));
+  return entry && "fill" in entry ? entry.top : "paper";
 }
 
 export function chromeFor(path: string): Chrome {

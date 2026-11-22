@@ -62,7 +62,10 @@ describe("root layout", () => {
 
   it("covers the screen edge to edge in the config theme colour", () => {
     expect(viewport.viewportFit).toBe("cover");
-    expect(viewport.themeColor).toBe(config.app.themeColor);
+    expect(viewport.themeColor).toEqual([
+      expect.objectContaining({ color: config.app.themeColor }),
+      expect.objectContaining({ color: config.app.themeColor }),
+    ]);
   });
 });
 
