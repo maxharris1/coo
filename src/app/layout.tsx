@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     title: config.app.shortName,
-    statusBarStyle: "default",
+    statusBarStyle: "black-translucent",
   },
   icons: { apple: "/assets/app-icon/apple-touch-icon-180.png" },
   other: { "apple-mobile-web-app-capable": "yes" },
