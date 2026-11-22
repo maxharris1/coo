@@ -36,7 +36,8 @@ friends with distance and a quick flight time for my fastest ready bird (compute
 with calm weather); on browsers with the Contact Picker, a "From your contacts" button; "Someone
 new" → NewRecipient. Multi-select with a running line: "2 picked. That takes 2 birds, and 2 are
 ready." Next is disabled when more are picked than birds are ready. Friends I cannot reach
-(no loft yet) are greyed with a reason.
+(no loft yet) are greyed with a reason. A trip that waits at the loft for sunrise is timed from
+sunrise: "About 4h 13m after sunrise."
 
 ### NewRecipient (`/send/new`)
 Name field. Place search (`/api/geo/search`) with result rows by kind. Helper text as drawn.
@@ -65,6 +66,9 @@ Shows: route and day; departure chips for the next hours in `config/game.json`
 not arrive before sunset; the selected hour's odds, duration and arrival; "Along the route"
 rows from the quote's `factors`; the sunset line; two buttons: schedule for the best hour, or
 send at the selected hour. If the selected hour is now, the second button releases at once.
+For a bird that waits at the loft for sunrise (`leavesAt` after `releaseAt`), the selected
+hour's detail reads "Waits for sunrise, then about {airTimeMs} in the air. Lands near
+{arriveAt}." Other hours read "About {durationMs}. Lands near {arriveAt}."
 
 ### Takeoff (`/send/takeoff/[flightId]`) and TakeoffHome (`/sill/[visitId]/takeoff`)
 The 1.5 second takeoff sequence from `assets/motion.css` (see the Motion sheet), then the copy as

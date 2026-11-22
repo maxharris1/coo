@@ -141,12 +141,15 @@ function estimate(
     const days = word(barns + 1);
     return `${days[0].toUpperCase()}${days.slice(1)} days, ${word(barns)} ${plural(barns, "barn", "barns")}.`;
   }
-  const elapsed = plan.arriveAtMs - nowMs;
+  const takeoffMs =
+    plan.segments.find((s) => s.kind === "fly")?.startMs ?? nowMs;
+  const suffix = takeoffMs > nowMs ? " after sunrise" : "";
+  const elapsed = plan.arriveAtMs - takeoffMs;
   if (elapsed < 60_000) {
     const seconds = Math.round(elapsed / 1000);
-    return `About ${seconds} ${plural(seconds, "second", "seconds")}.`;
+    return `About ${seconds} ${plural(seconds, "second", "seconds")}${suffix}.`;
   }
-  return `About ${duration(elapsed)}.`;
+  return `About ${duration(elapsed)}${suffix}.`;
 }
 
 export function friendCard(
