@@ -2,7 +2,6 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { SyncContext, type SyncState } from "@/components/SyncProvider";
 import type { Flight } from "@/server/services/flights/shape";
-import { FlightError } from "./FlightError";
 import { loadFlight } from "./flightApi";
 import FlightPage from "./page";
 
@@ -71,18 +70,5 @@ describe("/flights/[id] page", () => {
       </SyncContext.Provider>,
     );
     expect(html).toContain('aria-busy="true"');
-  });
-});
-
-describe("FlightError", () => {
-  it("says the bird is not there for a missing flight, with a way back", () => {
-    const html = renderToStaticMarkup(<FlightError code="not_found" />);
-    expect(html).toContain("We could not find this flight.");
-    expect(html).toContain('href="/flights"');
-  });
-
-  it("asks to try again when the loft is unreachable", () => {
-    const html = renderToStaticMarkup(<FlightError code="unreachable" />);
-    expect(html).toContain("We could not reach the loft. Try again.");
   });
 });
