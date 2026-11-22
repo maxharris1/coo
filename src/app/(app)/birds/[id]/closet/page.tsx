@@ -14,11 +14,12 @@ import {
   closetCells,
   effectsFor,
   pick,
+  skippedNote,
   type Cell,
   type Wardrobe,
 } from "./closet";
 import styles from "./page.module.css";
-import { putGear } from "./wear";
+import { putGear, type GearBody } from "./wear";
 
 function BackLink({ href, label }: { href: string; label: string }) {
   return (
@@ -91,10 +92,14 @@ export default function ClosetPage() {
   });
   const cells = closetCells(wardrobeFor(worn));
   const effects = effectsFor(worn);
-  const save = (next: GearId[]) => {
+  const save = (next: GearId[], body: GearBody = { items: next }) => {
     setShown({ data, birdId: bird.id, worn: next });
     const done = (saving.current?.done ?? Promise.resolve())
-      .then(() => putGear(bird.id, next))
+      .then(() => putGear(bird.id, body))
+      .then((skipped) => {
+        const note = skippedNote(bird.name, skipped);
+        if (note) toast(note);
+      })
       .catch((err: unknown) => {
         setShown(null);
         toast(err instanceof Error ? err.message : String(err));
@@ -168,7 +173,7 @@ export default function ClosetPage() {
                 className={styles.chip}
                 aria-pressed={wearing}
                 disabled={gear.length === 0}
-                onClick={() => save(gear)}
+                onClick={() => save(gear, { outfitId: outfit.id })}
               >
                 {outfit.name}
               </button>

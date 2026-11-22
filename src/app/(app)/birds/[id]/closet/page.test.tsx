@@ -361,7 +361,7 @@ describe("/birds/[id]/closet (ac-1)", () => {
       await answerAll();
       expect(bodies).toEqual([
         { items: ["goggles"] },
-        { items: ["beanie", "scarf"] },
+        { outfitId: "Cold snap" },
       ]);
       expect(refresh).toHaveBeenCalledOnce();
     });
@@ -377,7 +377,7 @@ describe("/birds/[id]/closet (ac-1)", () => {
       await flush();
       await answerAll();
       expect(bodies).toEqual([
-        { items: ["scarf"] },
+        { outfitId: "Cosy" },
         { items: ["scarf", "goggles"] },
       ]);
     });
@@ -396,23 +396,15 @@ describe("/birds/[id]/closet (ac-1)", () => {
   describe("saved outfits", () => {
     const withOutfits = (...outfits: Outfit[]) =>
       syncWith(payload([gerald, kevin, brenda], CLOSET, outfits));
-    const okFetch = () => {
-      const fetchMock = vi.fn(async () =>
-        Response.json({ bird: {}, skipped: [] }),
-      );
+    const okFetch = (skipped: string[] = []) => {
+      const fetchMock = vi.fn(async () => Response.json({ bird: {}, skipped }));
       vi.stubGlobal("fetch", fetchMock);
       return fetchMock;
     };
-    const sentOnly = (
-      fetchMock: ReturnType<typeof okFetch>,
-      items: string[],
-    ) => {
-      expect(fetchMock).toHaveBeenCalledOnce();
-      expect(fetchMock).toHaveBeenCalledWith(
-        "/api/birds/g/gear",
-        expect.objectContaining({ body: JSON.stringify({ items }) }),
-      );
-    };
+    const stand = () =>
+      elements(page()).find((el) => el.type === Bird)?.props as {
+        gear: string[];
+      };
 
     it("shows each outfit by name between the stand and the closet", () => {
       const out = render(
@@ -434,33 +426,50 @@ describe("/birds/[id]/closet (ac-1)", () => {
       );
     });
 
-    it("tapping an outfit PUTs its items and refetches", async () => {
+    it("tapping an outfit PUTs its id and refetches", async () => {
       const fetchMock = okFetch();
       withOutfits(outfit("Cold snap", ["beanie", "band"]));
       chip("Cold snap").props.onClick?.();
       await flush();
+      expect(fetchMock).toHaveBeenCalledOnce();
       expect(fetchMock).toHaveBeenCalledWith("/api/birds/g/gear", {
         method: "PUT",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ items: ["beanie", "band"] }),
+        body: JSON.stringify({ outfitId: "Cold snap" }),
       });
       expect(refresh).toHaveBeenCalledOnce();
     });
 
-    it("skips an unowned item and an item on a bird that is away", async () => {
-      const fetchMock = okFetch();
+    it("previews the outfit without an unowned item or an item on a bird that is away", () => {
+      okFetch();
       withOutfits(outfit("Cold snap", ["rainhat", "beanie", "bell"]));
       chip("Cold snap").props.onClick?.();
-      await flush();
-      sentOnly(fetchMock, ["beanie"]);
+      expect(stand().gear).toEqual(["beanie"]);
     });
 
-    it("takes an item off a bird that is home", async () => {
-      const fetchMock = okFetch();
+    it("previews an item taken off a bird that is home", () => {
+      okFetch();
       withOutfits(outfit("Cosy", ["scarf"]));
       chip("Cosy").props.onClick?.();
+      expect(stand().gear).toEqual(["scarf"]);
+    });
+
+    it("names the items the server skipped", async () => {
+      okFetch(["scarf", "rainhat"]);
+      withOutfits(outfit("Cold snap", ["rainhat", "beanie", "scarf"]));
+      chip("Cold snap").props.onClick?.();
       await flush();
-      sentOnly(fetchMock, ["scarf"]);
+      expect(toasts).toEqual([
+        "Gerald has the outfit on without the Thermal scarf and Rain hat.",
+      ]);
+    });
+
+    it("says nothing when the server skipped nothing", async () => {
+      okFetch();
+      withOutfits(outfit("Cosy", ["beanie"]));
+      chip("Cosy").props.onClick?.();
+      await flush();
+      expect(toasts).toEqual([]);
     });
 
     it("presses the outfit the bird is wearing, in any order", () => {
@@ -531,7 +540,7 @@ describe("/birds/[id]/closet states", () => {
 describe("putGear", () => {
   it("says the loft is unreachable when fetch throws", async () => {
     await expect(
-      putGear("g", [], async () => {
+      putGear("g", { items: [] }, async () => {
         throw new Error("offline");
       }),
     ).rejects.toThrow("We could not reach the loft. Try again.");

@@ -216,7 +216,7 @@ describe("putGear: someone else's bird", () => {
 });
 
 describe("putGear: applying a saved outfit (ac-3)", () => {
-  it("puts on the owned and free items and skips the rest", async () => {
+  it("puts on the owned items, takes them off home birds and skips the rest", async () => {
     await putGear(deps, max, brenda, { items: ["bow"] });
     await putGear(deps, max, gerald, { items: ["goggles", "bell"] });
     const outfitId = await addOutfit(world.max.id, "Rainy", [
@@ -228,10 +228,22 @@ describe("putGear: applying a saved outfit (ac-3)", () => {
 
     const { bird, skipped } = await putGear(deps, max, gerald, { outfitId });
 
-    expect(bird.gear).toEqual(["goggles"]);
-    expect(skipped).toEqual(["bow", "band", "backpack"]);
-    expect(await gearOf(gerald)).toEqual(["goggles"]);
-    expect(await gearOf(brenda)).toEqual(["bow"]);
+    expect(bird.gear).toEqual(["goggles", "bow"]);
+    expect(skipped).toEqual(["band", "backpack"]);
+    expect(await gearOf(gerald)).toEqual(["goggles", "bow"]);
+    expect(await gearOf(brenda)).toEqual([]);
+  });
+
+  it("keeps the next owned item for a slot whose first item is skipped", async () => {
+    const outfitId = await addOutfit(world.max.id, "Hats", [
+      "rainhat",
+      "beanie",
+    ]);
+
+    const { bird, skipped } = await putGear(deps, max, gerald, { outfitId });
+
+    expect(bird.gear).toEqual(["beanie"]);
+    expect(skipped).toEqual(["rainhat"]);
   });
 
   it("skips an item worn by an away bird instead of refusing", async () => {
