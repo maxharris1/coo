@@ -7,7 +7,7 @@ import {
   shortDistance,
   type Units,
 } from "@/lib/format";
-import { noteLimit } from "@/lib/game/notes";
+import { type Note, noteLimit } from "@/lib/game/notes";
 import type { Wearer } from "@/lib/game/seeds";
 import type { Factor } from "@/server/services/flights/factors";
 import type { RecipientQuote } from "@/server/services/flights/quote";
@@ -160,12 +160,13 @@ export function releaseBird(birds: readonly SyncBird[]): SyncBird | null {
 }
 
 export function canRelease(
-  note: string,
+  { body, doodle }: Note,
   count: Counter,
   birdName: string | null,
   sending: boolean,
 ): boolean {
-  return note.trim() !== "" && !count.over && birdName !== null && !sending;
+  const said = body.trim() !== "" || doodle !== null;
+  return said && !count.over && birdName !== null && !sending;
 }
 
 const farthestFirst = (a: Destination, b: Destination) =>

@@ -52,6 +52,7 @@ function forecastFor(units: Units): string {
         },
       ]}
       note="Hi"
+      doodle={null}
       counter={{ text: "2 of 140 characters", over: false }}
       birds={[
         {
@@ -68,6 +69,7 @@ function forecastFor(units: Units): string {
       ]}
       sending={false}
       onNote={() => {}}
+      onDoodle={() => {}}
       onPick={() => {}}
       onRelease={() => {}}
       onWake={() => {}}

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { RecipientQuote } from "@/server/services/flights/quote";
 import type { FriendRow } from "@/server/services/friends";
+import type { Doodle } from "@/lib/game/notes";
 import {
   assignBirds,
   canRelease,
@@ -374,14 +375,65 @@ describe("releaseBird", () => {
 describe("canRelease", () => {
   const fits = { text: "5 of 140 characters", over: false };
   const over = { text: "141 of 140 characters", over: true };
+  const doodle: Doodle = {
+    v: 1,
+    w: 300,
+    h: 200,
+    strokes: [{ color: "ink", width: "fine", points: [[10, 20]] }],
+  };
 
   it.each([
-    ["a note that fits and a ready bird", "Hello", fits, "Gerald", false, true],
-    ["an empty note", "", fits, "Gerald", false, false],
-    ["a note of only spaces", "   ", fits, "Gerald", false, false],
-    ["a note over the limit", "Hello", over, "Gerald", false, false],
-    ["no ready bird", "Hello", fits, null, false, false],
-    ["a release in flight", "Hello", fits, "Gerald", true, false],
+    ["text only", { body: "Hello", doodle: null }, fits, "Gerald", false, true],
+    ["a doodle only", { body: "", doodle }, fits, "Gerald", false, true],
+    [
+      "text and a doodle",
+      { body: "Hello", doodle },
+      fits,
+      "Gerald",
+      false,
+      true,
+    ],
+    [
+      "an empty pad and empty text",
+      { body: "", doodle: null },
+      fits,
+      "Gerald",
+      false,
+      false,
+    ],
+    [
+      "an empty pad and only spaces",
+      { body: "   ", doodle: null },
+      fits,
+      "Gerald",
+      false,
+      false,
+    ],
+    [
+      "text over the limit",
+      { body: "Hello", doodle: null },
+      over,
+      "Gerald",
+      false,
+      false,
+    ],
+    [
+      "text over the limit with a doodle",
+      { body: "Hello", doodle },
+      over,
+      "Gerald",
+      false,
+      false,
+    ],
+    ["no ready bird", { body: "Hello", doodle }, fits, null, false, false],
+    [
+      "a release in flight",
+      { body: "Hello", doodle },
+      fits,
+      "Gerald",
+      true,
+      false,
+    ],
   ] as const)("%s", (_, note, count, birdName, sending, expected) => {
     expect(canRelease(note, count, birdName, sending)).toBe(expected);
   });

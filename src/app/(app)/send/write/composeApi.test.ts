@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { UserId } from "@/server/ports/auth";
+import type { Doodle } from "@/lib/game/notes";
 import { quoteFor, release } from "./composeApi";
 
 type Seen = { path: string; init: RequestInit };
@@ -16,6 +17,13 @@ function fakeFetch(status: number, body: unknown) {
 const throwing = (async () => {
   throw new TypeError("Failed to fetch");
 }) as unknown as typeof fetch;
+
+const DOODLE: Doodle = {
+  v: 1,
+  w: 300,
+  h: 200,
+  strokes: [{ color: "ink", width: "fine", points: [[10, 20]] }],
+};
 
 const UNREACHABLE = "We could not reach the loft. Try again.";
 const apiError = (message: string) => ({
@@ -110,6 +118,7 @@ describe("release", () => {
   const send = {
     body: "Dinner Saturday?",
     sends: [{ friendId: "f1", birdId: "b1" }],
+    doodle: null,
   };
 
   it("posts the exact release body and returns the flight id", async () => {
@@ -132,6 +141,28 @@ describe("release", () => {
     });
   });
 
+  it("posts the doodle with the body when one was drawn", async () => {
+    const { fetchImpl, seen } = fakeFetch(201, { flights: [{ id: "fl1" }] });
+
+    await release(fetchImpl, { ...send, doodle: DOODLE });
+
+    expect(JSON.parse(seen[0].init.body as string)).toEqual({
+      body: "Dinner Saturday?",
+      doodle: DOODLE,
+      sends: [{ friendId: "f1", birdId: "b1" }],
+    });
+  });
+
+  it("leaves the doodle out when the pad is empty", async () => {
+    const { fetchImpl, seen } = fakeFetch(201, { flights: [{ id: "fl1" }] });
+
+    await release(fetchImpl, { ...send, doodle: null });
+
+    expect(JSON.parse(seen[0].init.body as string)).not.toHaveProperty(
+      "doodle",
+    );
+  });
+
   it("posts every send and returns every flight id", async () => {
     const { fetchImpl, seen } = fakeFetch(201, {
       flights: [
@@ -146,7 +177,11 @@ describe("release", () => {
       { friendId: "f3", birdId: "b3" },
     ];
 
-    const r = await release(fetchImpl, { body: "Dinner Saturday?", sends });
+    const r = await release(fetchImpl, {
+      body: "Dinner Saturday?",
+      doodle: null,
+      sends,
+    });
 
     expect(r).toEqual({
       ok: true,
@@ -172,6 +207,7 @@ describe("release", () => {
 
     const r = await release(fetchImpl, {
       body: "Dinner Saturday?",
+      doodle: null,
       sends: [{ guest, birdId: "b1" }],
     });
 
