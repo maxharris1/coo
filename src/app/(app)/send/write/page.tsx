@@ -81,8 +81,8 @@ function guestTarget(guest: Guest): Target {
 function Compose() {
   const params = useSearchParams();
   const friendIds = [...new Set(params.getAll("to"))];
-  const [invited] = useState(() => readGuest(params, sessionPins));
-  const guest = friendIds.length === 0 ? invited : null;
+  const guest =
+    friendIds.length === 0 ? readGuest(params, sessionPins) : null;
   const forGuest = guest !== null;
   const router = useRouter();
   const toast = useToast();
@@ -119,7 +119,7 @@ function Compose() {
   const recipients =
     found.length > 0 && found.every((f) => f !== undefined) ? found : [];
   const targets = guest ? [guestTarget(guest)] : recipients.map(friendTarget);
-  const key = friendIds.join(",");
+  const key = guest ? JSON.stringify(guest) : friendIds.join(",");
   const flock = data?.birds ?? [];
   const options = flock.map(pickerOption);
   const pickable = (id: string | null) =>

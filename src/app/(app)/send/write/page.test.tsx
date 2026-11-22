@@ -969,6 +969,74 @@ describe("Compose page for a guest (ac-1, ac-2)", () => {
     ]);
   });
 
+  const visit = (params: {
+    to?: string;
+    guest?: Record<string, string>;
+  }) => {
+    seen.to = params.to ?? null;
+    seen.guest = params.guest ?? {};
+    return act(async () => root?.render(page()));
+  };
+
+  it("follows the link to a new guest, place and pin", async () => {
+    const ALEX_PIN = { lat: 41.9, lon: -87.6 };
+    pins.set(pinKey("p1"), JSON.stringify(PIN));
+    pins.set(pinKey("p2"), JSON.stringify(ALEX_PIN));
+    await show();
+    await pick("b1");
+    await visit({ guest: { guest: "Alex", place: "p2" } });
+    expect(row()).toMatchObject({
+      id: "p2",
+      recipient: { name: "Alex" },
+      pickedId: "b2",
+    });
+    expect(quoteBodies().at(-1)).toEqual({
+      recipients: [{ place: { placeId: "p2", pin: ALEX_PIN } }],
+      birdIds: ["b2"],
+    });
+    expect((await releaseNote()).sends).toEqual([
+      {
+        guest: { name: "Alex", placeId: "p2", pin: ALEX_PIN },
+        birdId: "b2",
+      },
+    ]);
+  });
+
+  it("drops the old guest's pin when the new place has none", async () => {
+    pins.set(pinKey("p1"), JSON.stringify(PIN));
+    await show();
+    await visit({ guest: { guest: "Alex", place: "p2" } });
+    expect(quoteBodies().at(-1)).toEqual({
+      recipients: [{ place: { placeId: "p2" } }],
+      birdIds: ["b2"],
+    });
+    expect((await releaseNote()).sends).toEqual([
+      { guest: { name: "Alex", placeId: "p2" }, birdId: "b2" },
+    ]);
+  });
+
+  it("follows the link from a friend to a guest", async () => {
+    seen.to = "u2";
+    seen.guest = {};
+    await show();
+    expect(row().recipient.name).toBe("Priya");
+    await visit({ guest: { guest: "Maya", place: "p1" } });
+    expect(seen.missing).toBeNull();
+    expect(row()).toMatchObject({ id: "p1", recipient: { name: "Maya" } });
+    expect((await releaseNote()).sends).toEqual([
+      { guest: { name: "Maya", placeId: "p1" }, birdId: "b2" },
+    ]);
+  });
+
+  it("follows the link from a guest to a friend", async () => {
+    await show();
+    await visit({ to: "u2" });
+    expect(row()).toMatchObject({ id: "u2", recipient: { name: "Priya" } });
+    expect((await releaseNote()).sends).toEqual([
+      { friendId: "u2", birdId: "b2" },
+    ]);
+  });
+
   it("says so when the guest has no place", async () => {
     seen.guest = { guest: "Maya" };
     await show();
