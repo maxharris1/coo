@@ -90,18 +90,53 @@ describe("signing up from a guest link", () => {
       calls.push(url);
       return new Response(JSON.stringify({ visitId: "v1" }), { status: 200 });
     }) as unknown as typeof fetch;
-    expect(await finishLinkSignUp(fetchImpl)).toBe("/sill/v1/reply");
+    expect(await finishLinkSignUp(fetchImpl)).toEqual({
+      kind: "go",
+      to: "/sill/v1/reply",
+    });
     expect(calls).toEqual(["/api/guest/AbCdEfGhIjKl/claim"]);
     expect(pendingLink()).toBeNull();
   });
 
   it("has nothing to finish when no link is pending", async () => {
-    expect(await finishLinkSignUp(json(500, {}))).toBeNull();
+    expect(await finishLinkSignUp(json(500, {}))).toEqual({ kind: "none" });
   });
 
   it("goes home when the claim is refused", async () => {
     rememberLink(LINK);
-    expect(await finishLinkSignUp(json(410, {}))).toBe("/");
+    expect(await finishLinkSignUp(json(410, {}))).toEqual({
+      kind: "go",
+      to: "/",
+    });
     expect(pendingLink()).toBeNull();
+  });
+
+  it("keeps the link and says why when the loft cannot be reached, then claims on retry", async () => {
+    rememberLink(LINK);
+    const offline = (async () => {
+      throw new TypeError("Failed to fetch");
+    }) as unknown as typeof fetch;
+    expect(await finishLinkSignUp(offline)).toEqual({
+      kind: "retry",
+      message: "We could not reach the loft. Try again.",
+    });
+    expect(pendingLink()).toEqual(LINK);
+    expect(await finishLinkSignUp(json(200, { visitId: "v1" }))).toEqual({
+      kind: "go",
+      to: "/sill/v1/reply",
+    });
+    expect(pendingLink()).toBeNull();
+  });
+
+  it("keeps the link when the server fails or is busy", async () => {
+    for (const status of [500, 503, 429]) {
+      rememberLink(LINK);
+      expect(
+        await finishLinkSignUp(
+          json(status, { error: { message: "Try again soon." } }),
+        ),
+      ).toEqual({ kind: "retry", message: "Try again soon." });
+      expect(pendingLink(), String(status)).toEqual(LINK);
+    }
   });
 });

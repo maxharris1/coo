@@ -80,7 +80,9 @@ function useActions(state: LoftState, dispatch: Dispatch<LoftAction>): Actions {
         const saved = await saveLoft(state.pending);
         if (!saved.ok) return fail(saved.message);
       }
-      router.push((await finishLinkSignUp()) ?? takeReturn() ?? "/");
+      const finished = await finishLinkSignUp();
+      if (finished.kind === "retry") return fail(finished.message);
+      router.push(finished.kind === "go" ? finished.to : (takeReturn() ?? "/"));
     },
   };
 }

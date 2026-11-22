@@ -6,6 +6,7 @@ const COOKIE = "coo_return";
 
 export function rememberReturn(code: string): void {
   if (!INVITE_CODE.test(code)) return;
+  forgetLink();
   const secure = location.protocol === "https:" ? "; Secure" : "";
   document.cookie = `${COOKIE}=${code}; Path=/; Max-Age=1800; SameSite=Lax${secure}`;
 }
@@ -16,8 +17,12 @@ export function takeReturn(): string | null {
     .find((pair) => pair.startsWith(`${COOKIE}=`))
     ?.slice(COOKIE.length + 1);
   if (code === undefined) return null;
-  document.cookie = `${COOKIE}=; Path=/; Max-Age=0`;
+  forgetReturn();
   return INVITE_CODE.test(code) ? `/join/${code}` : null;
+}
+
+export function forgetReturn(): void {
+  document.cookie = `${COOKIE}=; Path=/; Max-Age=0`;
 }
 
 export function afterSignIn(next: string): string {

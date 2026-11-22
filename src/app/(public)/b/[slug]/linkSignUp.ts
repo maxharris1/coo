@@ -1,9 +1,15 @@
 import type { Roost } from "@/app/(app)/welcome/loft/roost";
 import type { E164 } from "@/lib/phone";
 import type { GuestView } from "@/server/services/guestLinks/get";
+import { forgetReturn } from "../../join/returnTo";
 import { claimLink } from "./claimLink";
 
 export type LinkSignUp = { token: string; name: string; phone: E164 };
+
+export type LinkFinish =
+  | { kind: "none" }
+  | { kind: "go"; to: string }
+  | { kind: "retry"; message: string };
 
 const KEY = "coo_link";
 const KEEP_MS = 30 * 60_000;
@@ -11,6 +17,7 @@ const TOKEN = /^[A-Za-z0-9]{1,64}$/;
 
 export function rememberLink(link: LinkSignUp, now = Date.now()): void {
   if (!TOKEN.test(link.token)) return;
+  forgetReturn();
   sessionStorage.setItem(KEY, JSON.stringify({ ...link, at: now }));
 }
 
@@ -46,10 +53,12 @@ export async function linkRoost(
 
 export async function finishLinkSignUp(
   fetchImpl: typeof fetch = fetch,
-): Promise<string | null> {
+): Promise<LinkFinish> {
   const link = pendingLink();
-  if (!link) return null;
-  forgetLink();
+  if (!link) return { kind: "none" };
   const claimed = await claimLink(link.token, fetchImpl);
-  return claimed.ok ? claimed.next : "/";
+  if (!claimed.ok && claimed.retry)
+    return { kind: "retry", message: claimed.message };
+  forgetLink();
+  return { kind: "go", to: claimed.ok ? claimed.next : "/" };
 }

@@ -53,7 +53,18 @@ describe("claimLink", () => {
     expect(await claimLink("k3Hq9ZtB2mXw7PaL", fetchImpl)).toEqual({
       ok: false,
       message: "This link has been claimed.",
+      retry: false,
     });
+  });
+
+  it("marks a server failure or rate limit as worth retrying", async () => {
+    for (const status of [500, 503, 429]) {
+      const { fetchImpl } = fakeFetch(status, {});
+      expect(await claimLink("k3Hq9ZtB2mXw7PaL", fetchImpl)).toMatchObject({
+        ok: false,
+        retry: true,
+      });
+    }
   });
 
   it("falls back to a plain message when the API cannot be reached", async () => {
@@ -63,6 +74,7 @@ describe("claimLink", () => {
     expect(await claimLink("k3Hq9ZtB2mXw7PaL", fetchImpl)).toEqual({
       ok: false,
       message: "We could not reach the loft. Try again.",
+      retry: true,
     });
   });
 });

@@ -1,5 +1,5 @@
 export type ClaimResult =
-  { ok: true; next: string } | { ok: false; message: string };
+  { ok: true; next: string } | { ok: false; message: string; retry: boolean };
 
 const UNREACHABLE = "We could not reach the loft. Try again.";
 
@@ -29,8 +29,9 @@ export async function claimLink(
     return {
       ok: false,
       message: typeof message === "string" && message ? message : UNREACHABLE,
+      retry: res.status >= 500 || res.status === 429,
     };
   } catch {
-    return { ok: false, message: UNREACHABLE };
+    return { ok: false, message: UNREACHABLE, retry: true };
   }
 }

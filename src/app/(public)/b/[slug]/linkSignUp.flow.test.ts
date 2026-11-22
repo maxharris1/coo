@@ -82,7 +82,12 @@ async function newUserFetch() {
   return { userId, fetchImpl };
 }
 
-async function signUpFromLink(token: string) {
+async function signUpFromLink(
+  token: string,
+  claim: (
+    fetchImpl: typeof fetch,
+  ) => ReturnType<typeof finishLinkSignUp> = finishLinkSignUp,
+) {
   rememberLink({ token, name: "Priya", phone: PRIYA });
   const { userId, fetchImpl } = await newUserFetch();
   const afterCode = afterSignIn("/welcome/install");
@@ -99,7 +104,7 @@ async function signUpFromLink(token: string) {
   const roost = await linkRoost(token, fetchImpl);
   if (!roost) throw new Error("no roost from the link");
   const saved = await saveLoft({ lat: roost.lat, lon: roost.lon }, fetchImpl);
-  const next = await finishLinkSignUp(fetchImpl);
+  const next = await claim(fetchImpl);
   return { userId, afterCode, onboarded, roost, saved, next };
 }
 
@@ -129,7 +134,33 @@ describe("short onboarding from a guest link (ac-3)", () => {
     expect(run.roost).toMatchObject({ lat: flight.to_lat, lon: flight.to_lon });
     expect(run.saved.ok).toBe(true);
     expect(visit.host_id).toBe(run.userId);
-    expect(run.next).toBe(`/sill/${visit.id}/reply`);
+    expect(run.next).toEqual({ kind: "go", to: `/sill/${visit.id}/reply` });
+    expect(pendingLink()).toBeNull();
+  });
+
+  it("keeps the claim when the network drops and lands on Reply on retry", async () => {
+    const { token, flightId, arriveAt } = await sendGuestFlight(deps, world);
+    deps.clock.set(arriveAt + MINUTE);
+    await tick(deps);
+    const offline = (async () => {
+      throw new TypeError("Failed to fetch");
+    }) as unknown as typeof fetch;
+
+    const run = await signUpFromLink(token, async (fetchImpl) => {
+      const first = await finishLinkSignUp(offline);
+      expect(first).toEqual({
+        kind: "retry",
+        message: "We could not reach the loft. Try again.",
+      });
+      expect(pendingLink()).not.toBeNull();
+      return finishLinkSignUp(fetchImpl);
+    });
+
+    const [visit] = await deps.db.query<{ id: string }>(
+      "select id from visits where flight_id = $1",
+      [flightId],
+    );
+    expect(run.next).toEqual({ kind: "go", to: `/sill/${visit.id}/reply` });
     expect(pendingLink()).toBeNull();
   });
 
@@ -140,7 +171,7 @@ describe("short onboarding from a guest link (ac-3)", () => {
 
     const run = await signUpFromLink(token);
 
-    expect(run.next).toBe("/shoebox");
+    expect(run.next).toEqual({ kind: "go", to: "/shoebox" });
     expect(
       await deps.db.query(
         "select n.recipient_id from flights f join notes n on n.id = f.note_id where f.id = $1",
