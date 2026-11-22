@@ -112,7 +112,7 @@ describe("pickerOption", () => {
       { kind: "blocked", reason: "Waiting to leave." },
       "Scheduled",
     ],
-  ] as const)("a %s bird", (_, b, state, chip) => {
+  ] as const)("a %s bird", (situation, b, state, chip) => {
     expect(pickerOption(b)).toEqual({
       id: "b1",
       name: "Gerald",
@@ -122,6 +122,7 @@ describe("pickerOption", () => {
       gear: [],
       chip,
       state,
+      wakes: situation === "napping",
     });
   });
 

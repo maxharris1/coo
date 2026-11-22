@@ -4,7 +4,9 @@ const UNREACHABLE = "We could not reach the loft. Try again.";
 
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
 
-const request = (action: CareAction): RequestInit =>
+export type BirdTap = CareAction | "wake";
+
+const request = (action: BirdTap): RequestInit =>
   action === "feed"
     ? {
         method: "POST",
@@ -15,7 +17,7 @@ const request = (action: CareAction): RequestInit =>
 
 export async function postCare(
   birdId: string,
-  action: CareAction,
+  action: BirdTap,
   fetchImpl: Fetch = fetch,
 ): Promise<void> {
   let res: Response;

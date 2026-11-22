@@ -31,6 +31,7 @@ export type PickerOption = {
   gear: readonly GearId[];
   chip: string;
   state: PickState;
+  wakes: boolean;
 };
 
 export type Counter = { text: string; over: boolean };
@@ -98,6 +99,7 @@ function situationOf(bird: SyncBird): Situation {
 }
 
 export function pickerOption(bird: SyncBird): PickerOption {
+  const situation = situationOf(bird);
   return {
     id: bird.id,
     name: bird.name,
@@ -105,7 +107,8 @@ export function pickerOption(bird: SyncBird): PickerOption {
     look: bird.look as Look,
     breed: bird.breed,
     gear: bird.gear as GearId[],
-    ...SITUATIONS[situationOf(bird)],
+    ...SITUATIONS[situation],
+    wakes: situation === "nap",
   };
 }
 

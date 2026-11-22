@@ -130,7 +130,7 @@ export default function PigeonPage() {
               <button
                 type="button"
                 className={m.primary ? styles.primary : styles.secondary}
-                disabled={away !== null}
+                disabled={m.disabled}
                 onClick={() =>
                   void feedThenRefresh(
                     bird.id,

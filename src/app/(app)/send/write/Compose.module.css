@@ -250,6 +250,13 @@
   gap: 8px;
 }
 
+.slot {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .bird,
 .picked {
   min-width: 0;
@@ -381,8 +388,22 @@
   color: var(--coo-ink);
 }
 
+.wake {
+  min-height: var(--coo-touch);
+  padding: 0 6px;
+  background: var(--coo-card);
+  border: var(--coo-line);
+  border-radius: var(--coo-radius-row);
+  font-family: inherit;
+  font-weight: 900;
+  font-size: 14px;
+  color: var(--coo-ink);
+  cursor: pointer;
+}
+
 .bird:focus-visible,
 .picked:focus-visible,
+.wake:focus-visible,
 .forecastLink:focus-visible {
   outline: 3px solid var(--coo-tomato);
   outline-offset: 2px;

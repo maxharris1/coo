@@ -182,16 +182,23 @@ const METERS: readonly {
   },
 ];
 
-export const metersFor = (bird: PigeonBird) =>
-  METERS.map((m) => {
+const WAKE = { action: "wake", primary: true, button: "Wake" } as const;
+
+export const metersFor = (bird: PigeonBird) => {
+  const napping = bird.status === "busy" && bird.busyKind === "nap";
+  return METERS.map((m) => {
     const percent = Math.round((bird[m.value] / full) * 100);
+    const wakes = napping && m.action === "nap";
     return {
       ...m,
+      ...(wakes ? WAKE : {}),
+      disabled: !wakes && bird.status !== "home",
       percent,
       ariaLabel: `${m.label} ${percent} ${m.measure}`,
       low: bird[m.value] < meterLowBelow,
     };
   });
+};
 
 export const abilitiesFor = (bird: PigeonBird, units: Units) => [
   { label: "Speed", value: `${bird.speedMph} mph` },

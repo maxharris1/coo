@@ -63,12 +63,14 @@ function forecastFor(units: Units): string {
           gear: [],
           chip: "Ready",
           state: { kind: "ready" },
+          wakes: false,
         },
       ]}
       sending={false}
       onNote={() => {}}
       onPick={() => {}}
       onRelease={() => {}}
+      onWake={() => {}}
     />,
   );
 }

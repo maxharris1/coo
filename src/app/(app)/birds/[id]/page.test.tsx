@@ -437,7 +437,7 @@ describe("Pigeon care taps (ac-1)", () => {
     toasts.length = 0;
   });
 
-  const tap = async (label: string, response: Response) => {
+  const tap = async (label: string, response: Response, bird = gerald()) => {
     const calls: string[] = [];
     const bodies: (BodyInit | null | undefined)[] = [];
     vi.stubGlobal(
@@ -449,7 +449,7 @@ describe("Pigeon care taps (ac-1)", () => {
       }),
     );
     const refreshed = new Promise<void>((resolve) =>
-      syncWith(payload([gerald()]), () => {
+      syncWith(payload([bird]), () => {
         calls.push("refresh");
         resolve();
       }),
@@ -491,6 +491,36 @@ describe("Pigeon care taps (ac-1)", () => {
     expect(calls).toEqual(["POST /api/birds/g/bath", "refresh"]);
     expect(toasts).toEqual(["Gerald is not home right now."]);
   });
+
+  const napping = gerald({
+    status: "busy",
+    busyKind: "nap",
+    busyUntil: Date.parse("2026-11-20T19:20:00Z"),
+  });
+
+  it("Wake posts the wake endpoint with no body, then refetches", async () => {
+    const { calls, bodies } = await tap(
+      "Wake",
+      Response.json({ ok: true }),
+      napping,
+    );
+    expect(calls).toEqual(["POST /api/birds/g/wake", "refresh"]);
+    expect(bodies[0]).toBeUndefined();
+    expect(toasts).toEqual([]);
+  });
+
+  it("toasts the server's message and still refetches when Wake fails", async () => {
+    const { calls } = await tap(
+      "Wake",
+      Response.json(
+        { error: { code: "conflict", message: "Gerald is not napping." } },
+        { status: 409 },
+      ),
+      napping,
+    );
+    expect(calls).toEqual(["POST /api/birds/g/wake", "refresh"]);
+    expect(toasts).toEqual(["Gerald is not napping."]);
+  });
 });
 
 describe("Pigeon away (ac-1)", () => {
@@ -522,7 +552,7 @@ describe("Pigeon away (ac-1)", () => {
     }
   });
 
-  it("says when a napping bird wakes and disables care", () => {
+  it("says when a napping bird wakes and offers Wake in place of Nap", () => {
     const html = render(
       payload([
         gerald({
@@ -533,7 +563,24 @@ describe("Pigeon away (ac-1)", () => {
       ]),
     );
     expect(html).toContain("Napping until 7:20 pm");
-    expect(button("Nap")?.props.disabled).toBe(true);
+    expect(html).toMatch(/<button[^>]*>Wake<\/button>/);
+    expect(html).not.toMatch(/<button[^>]*>Nap<\/button>/);
+    expect(button("Wake")?.props.disabled).toBe(false);
+    expect(button("Feed")?.props.disabled).toBe(true);
+    expect(button("Bath")?.props.disabled).toBe(true);
+  });
+
+  it("follows the woken bird's energy once the page refetches", () => {
+    const groggy = render(
+      payload([gerald({ energy: 10, tired: true, canFly: false })]),
+    );
+    expect(groggy).toContain("Too tired to fly. He needs a nap first.");
+    expect(groggy).not.toContain(">Wake<");
+    expect(button("Nap")?.props.disabled).toBe(false);
+    expect(groggy).toMatch(/<div class="[^"]*low[^"]*" style="width:10%"/);
+
+    const rested = render(payload([gerald({ energy: 40 })]));
+    expect(rested).toContain("Feeling smug. Fed, preened and ready to fly.");
   });
 });
 
