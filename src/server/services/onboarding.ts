@@ -171,6 +171,22 @@ async function stockAccount(
   ]);
 }
 
+export async function syncPhoneLast4(
+  db: Db,
+  user: UserId,
+): Promise<Row<"profiles"> | null> {
+  const [row] = await db.query<Row<"profiles">>(
+    `update profiles p
+        set phone_last4 = right(regexp_replace(u.phone, '\\D', '', 'g'), 4)
+       from auth.users u
+      where p.id = $1 and u.id = p.id
+        and p.phone_last4 is distinct from right(regexp_replace(u.phone, '\\D', '', 'g'), 4)
+      returning p.*`,
+    [user],
+  );
+  return row ?? null;
+}
+
 async function readAccount(db: Db, user: UserId): Promise<OnboardingResult> {
   const [profile] = await db.query<Row<"profiles">>(
     "select * from profiles where id = $1",
@@ -194,6 +210,7 @@ export async function onboard(
     if (await claimProfile(db, caller, body, now)) {
       await stockAccount(db, deps.config, caller, body, now);
     }
+    await syncPhoneLast4(db, caller);
     return readAccount(db, caller);
   });
 }
