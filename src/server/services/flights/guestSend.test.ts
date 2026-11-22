@@ -81,7 +81,7 @@ describe("guestSend", () => {
       {
         flightId: flight.id,
         url: expect.stringMatching(
-          /^https:\/\/coo\.example\/b\/gerald-[A-Za-z0-9]{16}$/,
+          /^https:\/\/coo-pigeon\.vercel\.app\/b\/gerald-[A-Za-z0-9]{16}$/,
         ),
       },
     ]);
