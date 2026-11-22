@@ -90,7 +90,13 @@ describe("friendCard estimate (ac-1)", () => {
 
   it("does not call waiting for sunrise at home a barn", () => {
     expect(lineFor(friend("rosa", null, 0.2), bird(), NIGHT)).toMatch(
-      /^\d+ blocks? over\. About \d+h \d\dm\.$/,
+      /^\d+ blocks? over\. About \d+ seconds? after sunrise\.$/,
+    );
+  });
+
+  it("times a loft wait from sunrise for a longer trip", () => {
+    expect(lineFor(friend("theo", "Boston", 190), bird(), NIGHT)).toBe(
+      "Boston, 190 mi. About 4h 13m after sunrise.",
     );
   });
 

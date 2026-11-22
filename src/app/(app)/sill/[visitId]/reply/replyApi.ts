@@ -1,3 +1,4 @@
+import type { Doodle } from "@/lib/game/notes";
 import type { Flight } from "@/server/services/flights/shape";
 import type { FriendRow } from "@/server/services/friends";
 import { call } from "../../../friends/friendsApi";
@@ -11,6 +12,7 @@ export async function postReply(
   fetcher: typeof fetch,
   visitId: string,
   body: string,
+  doodle: Doodle | null,
 ): Promise<ReplyResult> {
   const r = await call(
     fetcher,
@@ -18,7 +20,7 @@ export async function postReply(
     {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ body }),
+      body: JSON.stringify(doodle ? { body, doodle } : { body }),
     },
   );
   if (!r.ok) return r;
