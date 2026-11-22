@@ -8,6 +8,7 @@ import "../../public/assets/motion.css";
 import "../components/flight.css";
 import "./globals.css";
 import { InstallReporter } from "./InstallReporter";
+import { ThemeColor } from "./ThemeColor";
 
 export const metadata: Metadata = {
   title: config.app.name,
@@ -36,6 +37,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         {children}
         <RegisterServiceWorker />
         <InstallReporter />
+        <ThemeColor />
       </body>
     </html>
   );
