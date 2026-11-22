@@ -161,29 +161,34 @@ async function answer(body: unknown, status = 200) {
   await act(async () => call.resolve(Response.json(body, { status })));
 }
 
-async function mount() {
-  const container = Object.assign(new EventTarget(), {
-    nodeType: 1,
-    tagName: "DIV",
-    ownerDocument: new EventTarget(),
-  }) as unknown as Element;
-  const r = createRoot(container);
-  root = r;
+async function publish(flights?: Flight[]) {
   const sync = {
     data: {
       me: { timezone: "America/New_York", units: "mi" },
+      flights,
+      serverNow: NOW,
     } as unknown as SyncPayload,
     error: null,
     offsetMs: 0,
     refresh: () => {},
   } satisfies SyncState;
   await act(async () => {
-    r.render(
+    root!.render(
       <SyncContext.Provider value={sync}>
         <FlightsPage />
       </SyncContext.Provider>,
     );
   });
+}
+
+async function mount() {
+  const container = Object.assign(new EventTarget(), {
+    nodeType: 1,
+    tagName: "DIV",
+    ownerDocument: new EventTarget(),
+  }) as unknown as Element;
+  root = createRoot(container);
+  await publish();
 }
 
 const props = () => {
@@ -389,10 +394,94 @@ describe("/flights errors", () => {
   });
 });
 
+describe("/flights live", () => {
+  it("shows a newly incoming flight after a successful sync", async () => {
+    await mount();
+    await answer(EMPTY);
+    await publish([dumpling]);
+    expect(requests()).toHaveLength(2);
+    expect(requests()[1].searchParams.has("cursor")).toBe(false);
+    await answer({ ...EMPTY, incoming: [dumpling] });
+    const html = shown();
+    expect(linkTo(html, "d1")).toHaveLength(1);
+    expect(html).not.toContain("Suspiciously quiet");
+  });
+
+  it("shows a released flight as Flying with its plan", async () => {
+    const waiting = flight("s1", "Gerald", {
+      status: "scheduled",
+      releaseAt: NOW + HOUR,
+      plan: undefined,
+    });
+    const released = {
+      ...waiting,
+      status: "flying" as const,
+      plan: gerald.plan,
+    };
+    await mount();
+    await answer({ ...EMPTY, yours: [waiting] });
+    expect(shown()).toContain(">Scheduled<");
+    await publish([released]);
+    await answer({ ...EMPTY, yours: [released] });
+    const html = shown();
+    expect(html).toContain(">Flying<");
+    expect(html).not.toContain(">Scheduled<");
+    expect(progress(html)[0]).toContain('aria-valuenow="38"');
+  });
+
+  it("keeps loaded history and its cursor across a sync refetch", async () => {
+    await mount();
+    await answer(page({ earlier: [yesterday("e1")], nextCursor: "c1" }));
+    await act(async () => props().onMore());
+    await answer(page({ earlier: [yesterday("e2")], nextCursor: "c2" }));
+    await publish([dumpling]);
+    await answer(page({ earlier: [yesterday("e1")], nextCursor: "c1" }));
+    const html = shown();
+    for (const id of ["e1", "e2"]) expect(linkTo(html, id)).toHaveLength(1);
+    await act(async () => props().onMore());
+    expect(requests().at(-1)!.searchParams.get("cursor")).toBe("c2");
+  });
+
+  it("does not refetch when a sync leaves the flights unchanged", async () => {
+    await mount();
+    await answer(page());
+    await publish([dumpling]);
+    await answer(page());
+    await publish([dumpling]);
+    expect(requests()).toHaveLength(2);
+  });
+});
+
 describe("/flights layout", () => {
   it("gives done rows and buttons a full tap target", () => {
     expect(rule("done")).toMatch(/min-height:\s*var\(--coo-touch\)/);
     expect(rule("more")).toMatch(/min-height:\s*var\(--coo-touch\)/);
+  });
+
+  it("sizes avatars to the mock's outside edge under the global border-box", () => {
+    const globals = readFileSync(
+      new URL("../../globals.css", import.meta.url),
+      "utf8",
+    );
+    const mock = readFileSync(
+      new URL(
+        "../../../../reference/screens/html/Flights.html",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    expect(globals).toMatch(
+      /\*,\s*\*::before,\s*\*::after\s*{\s*box-sizing: border-box;/,
+    );
+    const ref = mock.match(
+      /<svg width="(\d+)" height="(\d+)" viewBox="60 2 62 62"[^>]+style="[^"]*border: (\d+)px/,
+    )!;
+    const outside = Number(ref[1]) + 2 * Number(ref[3]);
+    const avatar = rule("avatar");
+    expect(avatar).not.toMatch(/box-sizing/);
+    expect(avatar).toMatch(new RegExp(`width:\\s*${outside}px`));
+    expect(avatar).toMatch(new RegExp(`height:\\s*${outside}px`));
+    expect(avatar).toMatch(/border:\s*var\(--coo-line-thin\)/);
   });
 
   it("frames cards like the mock", () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSync } from "@/components/SyncProvider";
 import { useToast } from "@/components/Toasts";
 import { asUnits } from "@/lib/format";
@@ -22,6 +22,7 @@ export default function FlightsPage() {
   const [list, setList] = useState<List>({ kind: "loading" });
   const [attempt, setAttempt] = useState(0);
   const [clock, setClock] = useState(() => Date.now());
+  const synced = useMemo(() => JSON.stringify(data?.flights ?? null), [data]);
 
   useEffect(() => {
     const timer = setInterval(() => setClock(Date.now()), TICK_MS);
@@ -32,16 +33,31 @@ export default function FlightsPage() {
     let live = true;
     void loadFlights(null).then((r) => {
       if (!live) return;
-      setList(
-        r.ok
-          ? { kind: "ready", loadingMore: false, ...r.page }
-          : { kind: "failed", message: r.message },
-      );
+      setList((prev) => {
+        if (!r.ok) {
+          return prev.kind === "ready"
+            ? prev
+            : { kind: "failed", message: r.message };
+        }
+        if (prev.kind !== "ready") {
+          return { kind: "ready", loadingMore: false, ...r.page };
+        }
+        const fresh = new Set(r.page.earlier.map((f) => f.id));
+        return {
+          ...prev,
+          ...r.page,
+          earlier: [
+            ...r.page.earlier,
+            ...prev.earlier.filter((f) => !fresh.has(f.id)),
+          ],
+          nextCursor: prev.nextCursor,
+        };
+      });
     });
     return () => {
       live = false;
     };
-  }, [attempt]);
+  }, [attempt, synced]);
 
   const onRetry = () => {
     setList({ kind: "loading" });
