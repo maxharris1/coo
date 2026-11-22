@@ -203,7 +203,6 @@ describe("ShareLink page", () => {
     await act(async () => seen.view!.onShare());
     expect(share).toHaveBeenCalledExactlyOnceWith({
       text: `I sent you a pigeon. For real. Watch him fly to you: ${URL_}`,
-      url: URL_,
     });
   });
 

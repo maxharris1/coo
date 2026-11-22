@@ -62,9 +62,7 @@ function ShareLinkScreen({ flightId, url }: { flightId: string; url: string }) {
         )
       }
       onShare={() =>
-        navigator
-          .share({ text: shareMessage(url, pronoun), url })
-          .catch(() => {})
+        navigator.share({ text: shareMessage(url, pronoun) }).catch(() => {})
       }
     />
   );
