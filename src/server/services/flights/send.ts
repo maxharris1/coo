@@ -17,6 +17,7 @@ import {
 } from "@/lib/game/time";
 import type { Deps } from "@/server/deps";
 import { AppError } from "@/server/errors";
+import { log } from "@/server/log";
 import type { UserId } from "@/server/ports/auth";
 import { pair, toBirdRecord, type BirdRecord, type Row } from "@/server/rows";
 import {
@@ -98,7 +99,7 @@ export async function send(
   const flightId = randomUUID();
   const nowIso = new Date(now).toISOString();
 
-  const notification = await deps.db.tx(async (tx) => {
+  const { notification, flight } = await deps.db.tx(async (tx) => {
     await tx.query(
       "select 1 from profiles where id = any($1::uuid[]) order by id for update",
       [[me, friend]],
@@ -117,7 +118,7 @@ export async function send(
       [item.birdId, me],
     );
     const { bird, body } = readyToFly(locked, input.body, now, owner);
-    const flight = toFlightInput(
+    const flightInput = toFlightInput(
       flightId,
       bird,
       owner,
@@ -127,7 +128,7 @@ export async function send(
       weather,
       hazards,
     );
-    const plan = computeFlightPlan(flight);
+    const plan = computeFlightPlan(flightInput);
 
     const care = projectCare(snapshotOf(bird), now, owner);
     const claimed = await tx.query(
@@ -182,7 +183,7 @@ export async function send(
         Math.round(plan.distanceMi * 100) / 100,
         plan.onTimeOdds,
         plan.delayKind,
-        JSON.stringify(flight),
+        JSON.stringify(flightInput),
         JSON.stringify(plan),
         JSON.stringify(names),
       ],
@@ -208,11 +209,30 @@ export async function send(
       "insert into events (user_id, kind, created_at) select unnest($1::uuid[]), 'flight', $2",
       [[me, friend], nowIso],
     );
-    return created;
+    return {
+      notification: created,
+      flight: await getFlight({ ...deps, db: tx }, me, flightId),
+    };
   });
 
-  if (notification) await deliver(deps, notification.id);
-  return { flights: [await getFlight(deps, me, flightId)] };
+  if (notification) await deliverQuietly(deps, notification.id, flightId);
+  return { flights: [flight] };
+}
+
+async function deliverQuietly(
+  deps: Deps,
+  notificationId: string,
+  flightId: string,
+): Promise<void> {
+  try {
+    await deliver(deps, notificationId);
+  } catch (error) {
+    log.error("send.notify_failed", {
+      notificationId,
+      flightId,
+      error: error instanceof Error ? error.name : typeof error,
+    });
+  }
 }
 
 async function prepareLeg(
