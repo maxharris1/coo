@@ -30,6 +30,10 @@ function forecastFor(units: Units): string {
       {
         birdId: "b1",
         releaseAt: plan.segments[0].startMs,
+        leavesAt: plan.segments[0].startMs,
+        airTimeMs: plan.segments
+          .filter((s) => s.kind === "fly")
+          .reduce((sum, s) => sum + s.endMs - s.startMs, 0),
         durationMs: plan.arriveAtMs - plan.segments[0].startMs,
         arriveAt: plan.arriveAtMs,
         odds: plan.onTimeOdds,

@@ -26,6 +26,8 @@ function hourQuote(
   return {
     birdId: GERALD.id,
     releaseAt,
+    leavesAt: releaseAt,
+    airTimeMs: durationMs,
     durationMs,
     arriveAt: releaseAt + durationMs,
     odds,

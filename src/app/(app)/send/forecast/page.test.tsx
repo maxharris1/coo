@@ -90,6 +90,8 @@ const legFor = ({ birdIds, at }: QuoteBody) => ({
   quotes: at.map((releaseAt, i) => ({
     birdId: birdIds[0],
     releaseAt,
+    leavesAt: releaseAt,
+    airTimeMs: 126 * 60_000,
     durationMs: 126 * 60_000,
     arriveAt: releaseAt + 126 * 60_000,
     odds: ODDS[i],

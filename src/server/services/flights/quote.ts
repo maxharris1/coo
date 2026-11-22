@@ -50,6 +50,8 @@ export type QuoteInput = {
 export type BirdQuote = {
   birdId: string;
   releaseAt: number;
+  leavesAt: number;
+  airTimeMs: number;
   durationMs: number;
   arriveAt: number;
   odds: number;
@@ -281,9 +283,12 @@ function quoteOne(
 ): BirdQuote {
   const input = quoteInput(bird, owner, from, to, releaseAt, weather, hazards);
   const plan = computeFlightPlan(input);
+  const fly = plan.segments.filter((s) => s.kind === "fly");
   return {
     birdId: bird.id,
     releaseAt,
+    leavesAt: fly[0]?.startMs ?? releaseAt,
+    airTimeMs: fly.reduce((sum, s) => sum + s.endMs - s.startMs, 0),
     durationMs: plan.arriveAtMs - releaseAt,
     arriveAt: plan.arriveAtMs,
     odds: plan.onTimeOdds,

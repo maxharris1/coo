@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { Factor } from "@/server/services/flights/factors";
 import type { RecipientQuote } from "@/server/services/flights/quote";
 import type { FriendRow } from "@/server/services/friends";
 import {
@@ -207,6 +208,8 @@ describe("stats", () => {
       {
         birdId: "other",
         releaseAt: RELEASE,
+        leavesAt: RELEASE,
+        airTimeMs: 1,
         durationMs: 1,
         arriveAt: RELEASE,
         odds: 0.1,
@@ -217,6 +220,8 @@ describe("stats", () => {
       {
         birdId: "b1",
         releaseAt: RELEASE,
+        leavesAt: RELEASE,
+        airTimeMs: 108 * 60_000,
         durationMs: 108 * 60_000,
         arriveAt: RELEASE + 108 * 60_000,
         odds: 0.94,
@@ -301,7 +306,10 @@ describe("stats", () => {
     ],
     [
       "a short hop",
-      quote({ durationMs: 14_000, arriveAt: RELEASE + 14_000 }, 0.2),
+      quote(
+        { airTimeMs: 14_000, durationMs: 14_000, arriveAt: RELEASE + 14_000 },
+        0.2,
+      ),
       "mi",
       {
         distance: "4 blocks",
@@ -316,6 +324,84 @@ describe("stats", () => {
 
   it("has no stats for a bird the quote does not cover", () => {
     expect(stats(quote(), "missing", NY, "mi")).toBeNull();
+  });
+
+  describe("a 0.1 mi hop from the East Village", () => {
+    const DUSK = Date.parse("2026-11-22T21:40:00Z");
+    const AFTERNOON = Date.parse("2026-11-22T19:00:00Z");
+    const SUNRISE = Date.parse("2026-11-23T11:52:00Z");
+    const AIR = 6_700;
+    const overnight = (factors: Factor[] = []) =>
+      quote(
+        {
+          releaseAt: DUSK,
+          leavesAt: SUNRISE,
+          airTimeMs: AIR,
+          durationMs: SUNRISE + AIR - DUSK,
+          arriveAt: SUNRISE + AIR,
+          odds: 0.88,
+          roostsOvernight: true,
+          factors,
+        },
+        0.1,
+      );
+
+    it("waits for sunrise after a 4:40 pm release", () => {
+      expect(stats(overnight(), "b1", NY, "mi")).toEqual({
+        distance: "2 blocks",
+        flightTime: "7 sec",
+        odds: "88%",
+        forecast: "Waits for sunrise. Leaves at 6:52 am. Lands around 6:52 am.",
+      });
+    });
+
+    it("puts the leading factor after the wait", () => {
+      const q = overnight([
+        { kind: "headwind", text: "12 mph from the west", effect: "+1 min" },
+      ]);
+
+      expect(stats(q, "b1", NY, "mi")?.forecast).toBe(
+        "Waits for sunrise. Leaves at 6:52 am. Lands around 6:52 am. 12 mph from the west.",
+      );
+    });
+
+    it("flies straight over after a 2:00 pm release", () => {
+      const q = quote(
+        {
+          releaseAt: AFTERNOON,
+          leavesAt: AFTERNOON,
+          airTimeMs: AIR,
+          durationMs: AIR,
+          arriveAt: AFTERNOON + AIR,
+          odds: 0.88,
+        },
+        0.1,
+      );
+
+      expect(stats(q, "b1", NY, "mi")).toEqual({
+        distance: "2 blocks",
+        flightTime: "7 sec",
+        odds: "88%",
+        forecast: "Lands around 2:00 pm.",
+      });
+    });
+  });
+
+  it("keeps door to door for a bird that leaves now and roosts on the way", () => {
+    const q = quote({
+      roostsOvernight: true,
+      airTimeMs: 6 * 60 * 60_000,
+      durationMs: 20 * 60 * 60_000,
+      arriveAt: RELEASE + 20 * 60 * 60_000,
+    });
+
+    expect(stats(q, "b1", NY, "mi")).toEqual({
+      distance: "81 mi",
+      flightTime: "20h 00m",
+      odds: "94%",
+      forecast:
+        "Lands around 5:32 am. Roosts for the night and finishes after sunrise.",
+    });
   });
 });
 
