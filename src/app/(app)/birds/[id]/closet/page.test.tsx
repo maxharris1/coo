@@ -582,6 +582,37 @@ describe("/birds/[id]/closet (ac-1)", () => {
       ]);
     });
 
+    it("rebuilds a tap queued before a partial outfit lands from the applied gear (#617)", async () => {
+      const { bodies, answerNext } = heldFetch((body) =>
+        body.outfitId
+          ? Response.json({ bird: { gear: ["beanie"] }, skipped: ["scarf"] })
+          : ok(),
+      );
+      const closet = ["beanie", "scarf", "band"];
+      const cosy = [outfit("Cosy", ["beanie", "scarf"])];
+      const kevinFlying = bird({ ...kevin, status: "flying" });
+      syncWith(payload([bare, kevin], closet, cosy));
+      chip("Cosy").props.onClick?.();
+      expect(chip("Cosy").props["aria-pressed"]).toBe(true);
+      await flush();
+      syncWith(
+        fetchedAt(
+          payload([bird({ gear: ["beanie"] }), kevinFlying], closet, cosy),
+          Date.now(),
+        ),
+      );
+      tile("band").props.onClick?.();
+      await flush();
+      await answerNext();
+      expect(tile("scarf").props["aria-pressed"]).toBe(false);
+      expect(tile("band").props["aria-pressed"]).toBe(true);
+      await answerNext();
+      expect(bodies).toEqual([
+        { outfitId: "Cosy" },
+        { items: ["beanie", "band"] },
+      ]);
+    });
+
     it("builds the next PUT from the gear the server says it applied (f-2)", async () => {
       const { bodies, answerNext } = heldFetch((body) =>
         body.outfitId
