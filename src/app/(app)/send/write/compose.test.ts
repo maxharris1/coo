@@ -2,12 +2,15 @@ import { describe, expect, it } from "vitest";
 import type { RecipientQuote } from "@/server/services/flights/quote";
 import type { FriendRow } from "@/server/services/friends";
 import {
+  assignBirds,
   canRelease,
   counter,
+  overLimit,
   pickerOption,
   recipientLine,
   releaseBird,
   stats,
+  swapBird,
   type SyncBird,
 } from "./compose";
 
@@ -380,5 +383,133 @@ describe("canRelease", () => {
     ["a release in flight", "Hello", fits, "Gerald", true, false],
   ] as const)("%s", (_, note, count, birdName, sending, expected) => {
     expect(canRelease(note, count, birdName, sending)).toBe(expected);
+  });
+});
+
+describe("assignBirds", () => {
+  const flier = (
+    id: string,
+    name: string,
+    speedMph: number,
+    over: Partial<SyncBird> = {},
+  ) =>
+    bird({
+      id,
+      name,
+      speedMph,
+      focus: 3,
+      navigation: 3,
+      level: 1,
+      belly: 80,
+      feathers: 80,
+      energy: 80,
+      sulking: false,
+      ...over,
+    });
+  const friend = (id: string, distanceMi: number | null) =>
+    ({ id, name: id, handle: id, where: null, distanceMi }) as FriendRow;
+
+  it("gives three recipients three distinct ready birds, the fastest on the farthest friend", () => {
+    const flock = [
+      flier("slow", "Brenda", 38),
+      flier("grounded", "Crumbs", 80, { canFly: false }),
+      flier("fast", "Gerald", 60),
+      flier("mid", "Pip", 48),
+    ];
+    const friends = [
+      friend("near", 5),
+      friend("far", 300),
+      friend("middle", 80),
+    ];
+
+    expect(assignBirds(friends, flock)).toEqual([
+      { friendId: "near", birdId: "slow" },
+      { friendId: "far", birdId: "fast" },
+      { friendId: "middle", birdId: "mid" },
+    ]);
+  });
+
+  it("puts a friend with no roost last and leaves rows without a ready bird empty", () => {
+    const flock = [flier("fast", "Gerald", 60), flier("slow", "Brenda", 38)];
+    const friends = [
+      friend("unknown", null),
+      friend("near", 5),
+      friend("far", 300),
+    ];
+
+    expect(assignBirds(friends, flock)).toEqual([
+      { friendId: "unknown", birdId: null },
+      { friendId: "near", birdId: "slow" },
+      { friendId: "far", birdId: "fast" },
+    ]);
+  });
+});
+
+describe("swapBird", () => {
+  const rows = [
+    { friendId: "a", birdId: "b1" },
+    { friendId: "b", birdId: "b2" },
+    { friendId: "c", birdId: null },
+  ];
+
+  it("trades birds when the picked bird is on another row", () => {
+    expect(swapBird(rows, "a", "b2")).toEqual([
+      { friendId: "a", birdId: "b2" },
+      { friendId: "b", birdId: "b1" },
+      { friendId: "c", birdId: null },
+    ]);
+  });
+
+  it("gives a free bird to the row and frees the row's old bird", () => {
+    expect(swapBird(rows, "b", "b3")).toEqual([
+      { friendId: "a", birdId: "b1" },
+      { friendId: "b", birdId: "b3" },
+      { friendId: "c", birdId: null },
+    ]);
+  });
+
+  it("moves a bird onto an empty row and empties the row it left", () => {
+    expect(swapBird(rows, "c", "b1")).toEqual([
+      { friendId: "a", birdId: null },
+      { friendId: "b", birdId: "b2" },
+      { friendId: "c", birdId: "b1" },
+    ]);
+  });
+
+  it("leaves the rows alone for an unknown friend", () => {
+    expect(swapBird(rows, "z", "b2")).toEqual(rows);
+  });
+});
+
+describe("overLimit", () => {
+  const plain = bird({ id: "b1", name: "Gerald", gear: [] });
+  const tubed = bird({ id: "b2", name: "Brenda", gear: ["tube"] });
+  const rows = [
+    { friendId: "a", birdId: "b2" },
+    { friendId: "b", birdId: "b1" },
+  ];
+
+  it("names the bird whose tube the note overflows", () => {
+    expect(overLimit("x".repeat(141), rows, [plain, tubed])).toEqual({
+      birdName: "Gerald",
+      limit: 140,
+    });
+  });
+
+  it("is null when every assigned bird can carry the note", () => {
+    expect(overLimit("x".repeat(140), rows, [plain, tubed])).toBeNull();
+  });
+
+  it("ignores birds that are not assigned to a row", () => {
+    expect(
+      overLimit(
+        "x".repeat(141),
+        [
+          { friendId: "a", birdId: "b2" },
+          { friendId: "b", birdId: null },
+        ],
+        [plain, tubed],
+      ),
+    ).toBeNull();
   });
 });

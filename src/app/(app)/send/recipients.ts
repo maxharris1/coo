@@ -70,7 +70,7 @@ const NOBODY_RESTED = emptyStates.find(
 const word = (n: number) => WORDS[n] ?? String(n);
 const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
 
-export function readyBirds(birds: readonly FlockBird[]): FlockBird[] {
+export function readyBirds<B extends FlockBird>(birds: readonly B[]): B[] {
   return birds.filter((b) => b.canFly);
 }
 
@@ -99,14 +99,15 @@ const ORIGIN = { lat: 0, lon: 0 };
 const calmSpeed = (bird: FlockBird) =>
   groundSpeedMph(calmFlight("speed", ORIGIN, ORIGIN, bird, 0), 0, EAST / RAD);
 
+export function readyBySpeed<B extends FlockBird>(birds: readonly B[]): B[] {
+  return readyBirds(birds)
+    .map((bird) => ({ bird, speed: calmSpeed(bird) }))
+    .sort((a, b) => b.speed - a.speed)
+    .map(({ bird }) => bird);
+}
+
 export function fastestReady(birds: readonly FlockBird[]): FlockBird | null {
-  let best: FlockBird | null = null;
-  let bestSpeed = -Infinity;
-  for (const b of readyBirds(birds)) {
-    const speed = calmSpeed(b);
-    if (speed > bestSpeed) [best, bestSpeed] = [b, speed];
-  }
-  return best;
+  return readyBySpeed(birds)[0] ?? null;
 }
 
 function eastOf(from: LatLon, miles: number): LatLon {

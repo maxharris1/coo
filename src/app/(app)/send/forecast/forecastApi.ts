@@ -1,7 +1,11 @@
 import type { RecipientQuote } from "@/server/services/flights/quote";
 import { call } from "../../friends/friendsApi";
-import type { QuoteResult, ReleaseResult } from "../write/composeApi";
 import type { ForecastDraft } from "./draft";
+
+type Failed = { ok: false; message: string };
+
+export type QuoteResult = { ok: true; quote: RecipientQuote } | Failed;
+export type ReleaseResult = { ok: true; flightId: string } | Failed;
 
 const UNREACHABLE = "We could not reach the loft. Try again.";
 
