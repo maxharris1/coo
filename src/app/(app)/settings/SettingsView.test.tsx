@@ -3,7 +3,12 @@ import { describe, expect, it, vi } from "vitest";
 import { config } from "@/lib/config";
 import type { Me } from "@/server/rows";
 import type { PlaceResult } from "../welcome/loft/roost";
-import { SettingsView, type Sheet } from "./SettingsView";
+import {
+  NameSheet,
+  QuietSheet,
+  SettingsView,
+  type Sheet,
+} from "./SettingsView";
 
 vi.mock("next/link", () => ({
   default: (props: object) => <a {...props} />,
@@ -59,6 +64,7 @@ const render = (me: Me = ME, sheet: Sheet = null, places: PlaceResult[] = []) =>
       onSearch={() => {}}
       onPlace={() => {}}
       onSave={() => {}}
+      onRename={async () => null}
       onSignOut={() => {}}
       onSheet={() => {}}
       onTravel={() => {}}
@@ -272,5 +278,137 @@ describe("SettingsView travel and delete (ac-1, ac-2)", () => {
       /<form[^>]*>.*<button type="submit"[^>]*>Delete my account<\/button>/,
     );
     expect(html).not.toContain("You can switch this once every 12 hours.");
+  });
+});
+
+const rowButton = (html: string, title: string) => {
+  const at = html.indexOf(`>${title}<`);
+  const open = html.lastIndexOf("<button", at);
+  const close = html.indexOf("</button>", at);
+  const inside = open >= 0 && !html.slice(open, at).includes("</button>");
+  return inside ? text(html.slice(open, close)) : null;
+};
+
+const selected = (html: string, label: string) => {
+  const id = new RegExp(`<label[^>]*for="([^"]+)"[^>]*>${label}</label>`).exec(
+    html,
+  )?.[1];
+  const select = new RegExp(`<select[^>]*id="${id}"[^>]*>(.*?)</select>`).exec(
+    html,
+  )?.[1];
+  return /<option[^>]*selected=""[^>]*>([^<]*)</.exec(select ?? "")?.[1];
+};
+
+const onlySwitch = (html: string) => {
+  const switches = [
+    ...html.matchAll(
+      /<button[^>]*role="switch"[^>]*aria-checked="(\w+)"[^>]*>(.*?)<\/button>/g,
+    ),
+  ];
+  expect(switches).toHaveLength(1);
+  return { label: text(switches[0][2]).trim(), on: switches[0][1] };
+};
+
+const noop = () => {};
+
+describe("Settings sheets (ac-1, ac-2)", () => {
+  it("makes the quiet hours and name rows buttons with their values", () => {
+    const html = render();
+    expect(rowButton(html, "Quiet hours")).toContain("10 pm to 7 am");
+    expect(rowButton(html, "Name")).toContain("Max");
+  });
+
+  it("renders no sheet until a row is tapped", () => {
+    expect(render()).not.toContain('role="dialog"');
+  });
+
+  it("renders the quiet sheet with the switch and the chosen hours", () => {
+    const html = renderToStaticMarkup(
+      <QuietSheet
+        draft={{ quietOn: true, quietStart: 22, quietEnd: 7 }}
+        onEdit={noop}
+        onSave={noop}
+        onClose={noop}
+      />,
+    );
+    expect(html).toMatch(/role="dialog"[^>]*aria-modal="true"/);
+    const words = text(html);
+    expect(words).toContain("Quiet hours");
+    expect(words).toContain("Birds still land. Your phone stays quiet.");
+    expect(onlySwitch(html)).toEqual({ label: "Quiet hours", on: "true" });
+    expect(selected(html, "Start")).toBe("10 pm");
+    expect(selected(html, "End")).toBe("7 am");
+    expect(html.match(/<option/g)).toHaveLength(48);
+    expect(html).toContain(">12 am</option>");
+    expect(html).toContain(">12 pm</option>");
+    expect(html).toContain(">11 pm</option>");
+    expect(html).toMatch(/aria-label="Close"/);
+    expect(words).toContain("Save");
+    expect(words).toContain("Cancel");
+  });
+
+  it("shows quiet hours off in the sheet", () => {
+    const html = renderToStaticMarkup(
+      <QuietSheet
+        draft={{ quietOn: false, quietStart: 0, quietEnd: 12 }}
+        onEdit={noop}
+        onSave={noop}
+        onClose={noop}
+      />,
+    );
+    expect(onlySwitch(html)).toEqual({ label: "Quiet hours", on: "false" });
+    expect(selected(html, "Start")).toBe("12 am");
+    expect(selected(html, "End")).toBe("12 pm");
+  });
+
+  it("renders the name sheet with the typed name and no error", () => {
+    const html = renderToStaticMarkup(
+      <NameSheet
+        text="Maxine"
+        error={null}
+        busy={false}
+        onType={noop}
+        onSave={noop}
+        onClose={noop}
+      />,
+    );
+    expect(html).toMatch(/role="dialog"[^>]*aria-modal="true"/);
+    expect(text(html)).toContain("Your name");
+    expect(html).toMatch(/<label[^>]*for="[^"]+"[^>]*>Name<\/label>/);
+    expect(html).toMatch(/<input[^>]*value="Maxine"/);
+    expect(html).not.toContain('role="alert"');
+    expect(html).toMatch(/<input[^>]*aria-invalid="false"/);
+  });
+
+  it("shows the error and keeps what was typed", () => {
+    const html = renderToStaticMarkup(
+      <NameSheet
+        text="   "
+        error="Use 1 to 30 characters."
+        busy={false}
+        onType={noop}
+        onSave={noop}
+        onClose={noop}
+      />,
+    );
+    expect(html).toMatch(/<input[^>]*value=" {3}"/);
+    expect(html).toMatch(/<input[^>]*aria-invalid="true"/);
+    expect(html).toMatch(
+      /<p[^>]*role="alert"[^>]*>Use 1 to 30 characters.<\/p>/,
+    );
+  });
+
+  it("disables Save while the name is saving", () => {
+    const html = renderToStaticMarkup(
+      <NameSheet
+        text="Maxine"
+        error={null}
+        busy
+        onType={noop}
+        onSave={noop}
+        onClose={noop}
+      />,
+    );
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Save<\/button>/);
   });
 });

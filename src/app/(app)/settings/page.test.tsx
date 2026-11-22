@@ -216,6 +216,58 @@ describe("/settings saves (ac-2)", () => {
     expect(shown().units).toBe("mi");
   });
 
+  it("saves quiet hours in one PATCH and shows them while in flight", async () => {
+    let finish: (r: Response) => void = () => {};
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        (url: RequestInfo | URL, init?: RequestInit) =>
+          new Promise<Response>((resolve) => {
+            void fakeFetch(url, init);
+            finish = resolve;
+          }),
+      ),
+    );
+    await mount();
+    const quiet = { quietOn: true, quietStart: 21, quietEnd: 6 };
+    await act(async () => {
+      void view.props!.onSave(quiet);
+    });
+    expect(bodies).toEqual([{ ...quiet, account: "me-1" }]);
+    expect(events).toEqual(["PATCH /api/settings"]);
+    expect(shown().settings).toMatchObject(quiet);
+    await act(async () => finish(Response.json({ me: ME })));
+    expect(events).toEqual(["PATCH /api/settings", "refresh"]);
+  });
+
+  it("renames with one PATCH, refreshes sync and reports no problem", async () => {
+    await mount();
+    let result: string | null | undefined;
+    await act(async () => {
+      result = await view.props!.onRename("Maxine");
+    });
+    expect(result).toBeNull();
+    expect(bodies).toEqual([{ name: "Maxine", account: "me-1" }]);
+    expect(events).toEqual(["PATCH /api/settings", "refresh"]);
+  });
+
+  it("on a refused name, returns the API's message without a toast", async () => {
+    patchResponse = () =>
+      Response.json(
+        { error: { code: "invalid", message: "name: Invalid input" } },
+        { status: 400 },
+      );
+    await mount();
+    let result: string | null | undefined;
+    await act(async () => {
+      result = await view.props!.onRename("Bad word");
+    });
+    expect(result).toBe("name: Invalid input");
+    expect(view.toasts).toEqual([]);
+    expect(events).toEqual(["PATCH /api/settings"]);
+    expect(shown().name).toBe("Max");
+  });
+
   it("signs out, then goes to the welcome page", async () => {
     await mount();
     await act(async () => view.props!.onSignOut());

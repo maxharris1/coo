@@ -1,11 +1,28 @@
 import Link from "next/link";
-import type { FormEvent, ReactNode } from "react";
+import {
+  useEffect,
+  useId,
+  useReducer,
+  useRef,
+  type Dispatch,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import { config } from "@/lib/config";
 import type { Units } from "@/lib/format";
 import type { Me } from "@/server/rows";
 import type { SettingsInput } from "@/server/services/settings";
 import type { PlaceResult } from "../welcome/loft/roost";
 import styles from "./Settings.module.css";
+import sheetStyles from "./SettingsSheet.module.css";
+import {
+  CLOSED,
+  sheetReducer,
+  submitName,
+  type Quiet,
+  type Sheet as EditSheet,
+  type SheetAction,
+} from "./sheet";
 
 type SwitchKey =
   | "notifyLandedIn"
@@ -14,7 +31,9 @@ type SwitchKey =
   | "notifyHungry"
   | "smsFallback";
 
-export type Change = Partial<Pick<SettingsInput, SwitchKey | "units">>;
+export type Change = Partial<
+  Pick<SettingsInput, SwitchKey | "units" | keyof Quiet>
+>;
 
 export type Sheet = "travel" | "delete" | null;
 
@@ -23,6 +42,7 @@ export type SettingsViewProps = {
   sheet: Sheet;
   places: PlaceResult[];
   onSave: (change: Change) => void;
+  onRename: (name: string) => Promise<string | null>;
   onSignOut: () => void;
   onSheet: (sheet: Sheet) => void;
   onTravel: (on: boolean) => void;
@@ -38,6 +58,10 @@ const SWITCHES: readonly { key: SwitchKey; label: string }[] = [
   { key: "notifyHungry", label: "A bird is hungry" },
   { key: "smsFallback", label: "Text me when a push can't reach me" },
 ];
+
+const QUIET_LINE = "Birds still land. Your phone stays quiet.";
+
+const HOURS = Array.from({ length: 24 }, (_, h) => h);
 
 const UNITS: readonly { units: Units; label: string }[] = [
   { units: "mi", label: "Miles" },
@@ -99,6 +123,28 @@ function Row({
       <Label title={title} sub={sub} />
       <span className={styles.value}>{value}</span>
     </div>
+  );
+}
+
+function ButtonRow({
+  title,
+  sub,
+  value,
+  onClick,
+}: {
+  title: string;
+  sub?: string;
+  value: string;
+  onClick: () => void;
+}) {
+  return (
+    <button type="button" className={styles.row} onClick={onClick}>
+      <Label title={title} sub={sub} />
+      <span className={styles.value}>
+        {value}
+        <Chevron />
+      </span>
+    </button>
   );
 }
 
@@ -257,11 +303,240 @@ function DeleteSheet({
   );
 }
 
+function SheetFrame({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  const titleId = useId();
+  const dialog = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!dialog.current?.contains(document.activeElement)) {
+      dialog.current?.focus();
+    }
+  }, []);
+
+  return (
+    <div className={sheetStyles.layer}>
+      <button
+        type="button"
+        aria-label="Close"
+        className={sheetStyles.scrim}
+        onClick={onClose}
+      />
+      <div
+        ref={dialog}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        className={sheetStyles.sheet}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") onClose();
+        }}
+      >
+        <span aria-hidden="true" className={sheetStyles.grab} />
+        <h2 id={titleId} className={sheetStyles.title}>
+          {title}
+        </h2>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function HourSelect({
+  label,
+  value,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  disabled: boolean;
+  onChange: (hour: number) => void;
+}) {
+  const id = useId();
+  return (
+    <div className={styles.row}>
+      <label htmlFor={id} className={styles.title}>
+        {label}
+      </label>
+      <select
+        id={id}
+        className={sheetStyles.select}
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(Number(e.target.value))}
+      >
+        {HOURS.map((h) => (
+          <option key={h} value={h}>
+            {hour(h)}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+export function QuietSheet({
+  draft,
+  onEdit,
+  onSave,
+  onClose,
+}: {
+  draft: Quiet;
+  onEdit: (change: Partial<Quiet>) => void;
+  onSave: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <SheetFrame title="Quiet hours" onClose={onClose}>
+      <p className={sheetStyles.line}>{QUIET_LINE}</p>
+      <div className={styles.card}>
+        <Switch
+          label="Quiet hours"
+          on={draft.quietOn}
+          onToggle={() => onEdit({ quietOn: !draft.quietOn })}
+        />
+        <HourSelect
+          label="Start"
+          value={draft.quietStart}
+          disabled={!draft.quietOn}
+          onChange={(quietStart) => onEdit({ quietStart })}
+        />
+        <HourSelect
+          label="End"
+          value={draft.quietEnd}
+          disabled={!draft.quietOn}
+          onChange={(quietEnd) => onEdit({ quietEnd })}
+        />
+      </div>
+      <div className={sheetStyles.actions}>
+        <button
+          type="button"
+          className={`${sheetStyles.button} ${sheetStyles.confirm}`}
+          onClick={onSave}
+        >
+          Save
+        </button>
+        <button type="button" className={sheetStyles.button} onClick={onClose}>
+          Cancel
+        </button>
+      </div>
+    </SheetFrame>
+  );
+}
+
+export function NameSheet({
+  text,
+  error,
+  busy,
+  onType,
+  onSave,
+  onClose,
+}: {
+  text: string;
+  error: string | null;
+  busy: boolean;
+  onType: (text: string) => void;
+  onSave: () => void;
+  onClose: () => void;
+}) {
+  const fieldId = useId();
+  const errorId = useId();
+  return (
+    <SheetFrame title="Your name" onClose={onClose}>
+      <form
+        className={sheetStyles.actions}
+        onSubmit={(e) => {
+          e.preventDefault();
+          onSave();
+        }}
+      >
+        <label htmlFor={fieldId} className={sheetStyles.label}>
+          Name
+        </label>
+        <input
+          id={fieldId}
+          className={sheetStyles.field}
+          autoComplete="nickname"
+          autoFocus
+          value={text}
+          aria-invalid={error !== null}
+          aria-describedby={error ? errorId : undefined}
+          onChange={(e) => onType(e.target.value)}
+        />
+        {error && (
+          <p id={errorId} role="alert" className={sheetStyles.error}>
+            {error}
+          </p>
+        )}
+        <button
+          type="submit"
+          className={`${sheetStyles.button} ${sheetStyles.confirm}`}
+          disabled={busy}
+        >
+          Save
+        </button>
+        <button type="button" className={sheetStyles.button} onClick={onClose}>
+          Cancel
+        </button>
+      </form>
+    </SheetFrame>
+  );
+}
+
+function OpenSheet({
+  sheet,
+  dispatch,
+  onSave,
+  onRename,
+}: {
+  sheet: EditSheet;
+  dispatch: Dispatch<SheetAction>;
+} & Pick<SettingsViewProps, "onSave" | "onRename">) {
+  const close = () => dispatch({ type: "close" });
+  switch (sheet.kind) {
+    case "closed":
+      return null;
+    case "quiet":
+      return (
+        <QuietSheet
+          draft={sheet.draft}
+          onEdit={(change) => dispatch({ type: "editQuiet", change })}
+          onSave={() => {
+            onSave(sheet.draft);
+            close();
+          }}
+          onClose={close}
+        />
+      );
+    case "name":
+      return (
+        <NameSheet
+          text={sheet.text}
+          error={sheet.error}
+          busy={sheet.busy}
+          onType={(text) => dispatch({ type: "type", text })}
+          onSave={() => void submitName(sheet.text, onRename, dispatch)}
+          onClose={close}
+        />
+      );
+  }
+}
+
 export function SettingsView({
   me,
   sheet,
   places,
   onSave,
+  onRename,
   onSignOut,
   onSheet,
   onTravel,
@@ -270,6 +545,7 @@ export function SettingsView({
   onDelete,
 }: SettingsViewProps) {
   const travelling = me.loft?.travelling ?? false;
+  const [edit, dispatch] = useReducer(sheetReducer, CLOSED);
   return (
     <div className={styles.screen}>
       <header className={styles.header}>
@@ -301,10 +577,11 @@ export function SettingsView({
             onToggle={() => onSave({ [key]: !me.settings[key] })}
           />
         ))}
-        <Row
+        <ButtonRow
           title="Quiet hours"
-          sub="Birds still land. Your phone stays quiet."
+          sub={QUIET_LINE}
           value={quietHours(me.settings)}
+          onClick={() => dispatch({ type: "openQuiet", settings: me.settings })}
         />
       </Section>
 
@@ -354,7 +631,11 @@ export function SettingsView({
       </Section>
 
       <Section title="Account">
-        <Row title="Name" value={me.name} />
+        <ButtonRow
+          title="Name"
+          value={me.name}
+          onClick={() => dispatch({ type: "openName", name: me.name })}
+        />
         {me.phoneLast4 && (
           <Row title="Phone" value={`Ends in ${me.phoneLast4}`} />
         )}
@@ -392,6 +673,12 @@ export function SettingsView({
       {sheet === "delete" && (
         <DeleteSheet handle={me.handle} onDelete={onDelete} onSheet={onSheet} />
       )}
+      <OpenSheet
+        sheet={edit}
+        dispatch={dispatch}
+        onSave={onSave}
+        onRename={onRename}
+      />
     </div>
   );
 }
