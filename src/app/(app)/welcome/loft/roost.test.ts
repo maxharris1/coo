@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  STOCK_STYLE,
   initialLoft,
   loft,
   lookHere,
@@ -253,11 +252,5 @@ describe("townCentre", () => {
       message: "Could not find that place",
     });
     expect(fetchImpl).toHaveBeenCalledTimes(1);
-  });
-});
-
-describe("map preview", () => {
-  it("uses OpenFreeMap's stock style", () => {
-    expect(STOCK_STYLE).toBe("https://tiles.openfreemap.org/styles/liberty");
   });
 });

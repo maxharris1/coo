@@ -1,7 +1,5 @@
 import { snap, type Point } from "@/lib/game/privacy";
 
-export const STOCK_STYLE = "https://tiles.openfreemap.org/styles/liberty";
-
 export type PlaceResult = {
   placeId: string;
   label: string;
