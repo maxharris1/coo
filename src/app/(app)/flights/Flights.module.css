@@ -1,0 +1,238 @@
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: var(--coo-gutter);
+  background: var(--coo-paper);
+  color: var(--coo-ink);
+  font-family: var(--coo-font-body);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--coo-font-display);
+  font-weight: 400;
+  font-size: 36px;
+  line-height: 1;
+}
+
+.pill {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  background: var(--coo-card);
+  border: var(--coo-line-thin);
+  border-radius: var(--coo-radius-pill);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.doneList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.heading {
+  margin: 0;
+  font-weight: 900;
+  font-size: 15px;
+}
+
+.empty {
+  margin: 0;
+  padding-top: 4px;
+  font-weight: 800;
+  font-size: 15px;
+  color: var(--coo-muted);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 12px 10px 8px;
+  background: var(--coo-card);
+  border: var(--coo-line);
+  border-radius: var(--coo-radius-row);
+  color: inherit;
+  text-decoration: none;
+}
+
+.card[data-state="delayed"] {
+  background: var(--coo-peach);
+}
+
+.card:focus-visible,
+.done:focus-visible,
+.more:focus-visible {
+  outline: 3px solid var(--coo-ink);
+  outline-offset: 3px;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.avatar {
+  position: relative;
+  flex-shrink: 0;
+  width: 46px;
+  height: 46px;
+  background: var(--coo-sky);
+  border: var(--coo-line-thin);
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.avatarBird {
+  position: absolute;
+  left: -43px;
+  top: -15px;
+}
+
+.text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.rowTitle {
+  font-weight: 900;
+  font-size: 15.5px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.line {
+  font-weight: 700;
+  font-size: 12.5px;
+  line-height: 1.3;
+  color: var(--coo-muted);
+  overflow-wrap: anywhere;
+}
+
+.chip {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border: var(--coo-line-thin);
+  border-radius: var(--coo-radius-pill);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.chipCard {
+  background: var(--coo-card);
+}
+
+.chipSun {
+  background: var(--coo-sun);
+}
+
+.chipLilac {
+  background: var(--coo-lilac);
+}
+
+.chipTomato {
+  background: var(--coo-tomato);
+}
+
+.chipMint {
+  background: var(--coo-mint);
+}
+
+.bar {
+  display: block;
+  height: 12px;
+  box-sizing: border-box;
+  background: var(--coo-card);
+  border: var(--coo-line-thin);
+  border-radius: var(--coo-radius-pill);
+  overflow: hidden;
+}
+
+.fill {
+  display: block;
+  height: 100%;
+  background: var(--coo-tomato);
+  border-right: var(--coo-line-thin);
+  transition: width 0.6s linear;
+}
+
+.card[data-state="delayed"] .fill {
+  background: var(--coo-lilac);
+}
+
+.card[data-state="almostHere"] .fill {
+  background: var(--coo-mint);
+}
+
+.done {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: var(--coo-touch);
+  padding: 0 4px;
+  border-bottom: 2px dashed
+    color-mix(in srgb, var(--coo-lilac) 75%, var(--coo-muted));
+  color: inherit;
+  text-decoration: none;
+}
+
+.doneTitle {
+  min-width: 0;
+  font-weight: 800;
+  font-size: 13.5px;
+  overflow-wrap: anywhere;
+}
+
+.doneWhen {
+  flex-shrink: 0;
+  font-weight: 900;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.more {
+  align-self: center;
+  min-height: var(--coo-touch);
+  min-width: var(--coo-touch);
+  margin-top: 4px;
+  padding: 0 16px;
+  background: var(--coo-card);
+  border: var(--coo-line);
+  border-radius: var(--coo-radius-pill);
+  box-shadow: var(--coo-shadow-1);
+  font-family: inherit;
+  font-weight: 900;
+  font-size: 14px;
+  color: var(--coo-ink);
+  cursor: pointer;
+}
+
+.more:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fill {
+    transition: none;
+  }
+}
