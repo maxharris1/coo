@@ -105,7 +105,8 @@ describe("SMS fallback", () => {
     expect(text.body.endsWith(STOP)).toBe(true);
     expect(text.body).toContain(world.max.name);
     const row = await landedIn();
-    expect(text.body).toContain(`${config.app.domain}/sill/`);
+    expect(text.body).toContain("https://coo-pigeon.vercel.app/sill/");
+    expect(text.body).not.toContain("coo.example");
     expect(row.sms_sent_at).toEqual(new Date(deps.clock.now()));
   });
 

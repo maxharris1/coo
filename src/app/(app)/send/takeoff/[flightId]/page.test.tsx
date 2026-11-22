@@ -3,6 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SyncContext, type SyncState } from "@/components/SyncProvider";
 import type { SyncPayload } from "@/components/sync";
+import { config } from "@/lib/config";
 import type { Flight } from "@/server/services/flights/shape";
 import { holdLink, takeLink } from "../../share/[flightId]/linkHandoff";
 import type { TakeoffView } from "./TakeoffView";
@@ -57,7 +58,7 @@ const GUEST_FLIGHT = {
   guestName: "Maya",
 } as Flight;
 
-const LINK = "https://coo.example/b/gerald-k3Hq9ZtB2mXw7PaL";
+const LINK = `https://${config.app.domain}${config.app.paths.guestLink}gerald-k3Hq9ZtB2mXw7PaL`;
 
 let reply: { status: number; body: unknown };
 let reducedMotion: boolean;

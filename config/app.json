@@ -3,7 +3,7 @@
   "name": "Coo",
   "shortName": "Coo",
   "tagline": "Messages, eventually.",
-  "domain": "coo.example",
+  "domain": "coo-pigeon.vercel.app",
   "supportEmail": "hello@coo.example",
   "themeColor": "#A9DDF7",
   "backgroundColor": "#FFF4DC",

@@ -49,9 +49,10 @@ describe("guest landing in the tick", () => {
     expect(deps.sms.sent).toEqual([
       {
         to: PHONE,
-        body: `${config.app.name}: Gerald has landed with your note from Max. https://${config.app.domain} ${config.app.sms.stopLine}`,
+        body: `${config.app.name}: Gerald has landed with your note from Max. https://coo-pigeon.vercel.app ${config.app.sms.stopLine}`,
       },
     ]);
+    expect(deps.sms.sent[0].body).not.toContain("coo.example");
     const after = await link();
     expect(after.notify_phone).toBeNull();
     expect(after.expires_at?.getTime()).toBe(
