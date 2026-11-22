@@ -1,0 +1,145 @@
+.layer {
+  position: fixed;
+  inset: 0;
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.scrim {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  border: none;
+  background: var(--coo-ink);
+  opacity: 0.35;
+  cursor: pointer;
+}
+
+.sheet {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 480px;
+  max-height: 90%;
+  margin: 0 auto;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px var(--coo-gutter) calc(16px + var(--coo-safe-bottom));
+  background: var(--coo-paper);
+  border: var(--coo-line);
+  border-bottom: none;
+  border-radius: 28px 28px 0 0;
+  color: var(--coo-ink);
+  font-family: var(--coo-font-body);
+}
+
+.sheet:focus {
+  outline: none;
+}
+
+.grab {
+  align-self: center;
+  width: 44px;
+  height: 5px;
+  flex-shrink: 0;
+  background: var(--coo-ink);
+  opacity: 0.3;
+  border-radius: var(--coo-radius-pill);
+}
+
+.title {
+  margin: 0;
+  font-family: var(--coo-font-display);
+  font-weight: 400;
+  font-size: 22px;
+  line-height: 1.05;
+}
+
+.line,
+.label,
+.error {
+  margin: 0;
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.line {
+  color: var(--coo-muted);
+}
+
+.error {
+  color: var(--coo-stamp);
+}
+
+.field,
+.select {
+  min-height: var(--coo-touch);
+  box-sizing: border-box;
+  background: var(--coo-card);
+  border: var(--coo-line);
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--coo-ink);
+}
+
+.field {
+  padding: 0 14px;
+  border-radius: var(--coo-radius-tile);
+}
+
+.field[aria-invalid="true"] {
+  border-color: var(--coo-stamp);
+}
+
+.select {
+  flex-shrink: 0;
+  padding: 0 10px;
+  border-radius: var(--coo-radius-pill);
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.select:disabled {
+  background: var(--coo-sand);
+  color: var(--coo-muted);
+  cursor: default;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.button {
+  min-height: 50px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px;
+  background: var(--coo-card);
+  border: var(--coo-line);
+  border-radius: var(--coo-radius-card);
+  font-family: inherit;
+  font-weight: 900;
+  font-size: 15px;
+  color: var(--coo-ink);
+  cursor: pointer;
+}
+
+.confirm {
+  background: var(--coo-tomato);
+}
+
+.button:disabled {
+  background: var(--coo-sand);
+  color: var(--coo-muted);
+  cursor: default;
+}

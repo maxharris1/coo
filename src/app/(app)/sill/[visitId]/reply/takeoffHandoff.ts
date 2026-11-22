@@ -1,9 +1,17 @@
+import type { Breed } from "@/components/Bird";
+import { breedIds } from "@/lib/game/types";
 import type { Pronoun } from "@/lib/format";
 
-export type TakeoffHandoff = { flightId: string; pronoun: Pronoun };
+export type TakeoffHandoff = {
+  flightId: string;
+  pronoun: Pronoun;
+  breed?: Breed;
+};
 
 const isPronoun = (v: unknown): v is Pronoun =>
   v === "he" || v === "she" || v === "they";
+const isBreed = (v: unknown): v is Breed =>
+  (breedIds as readonly unknown[]).includes(v);
 const key = (visitId: string) => `coo.sill.takeoff.${visitId}`;
 
 export function saveHandoff(visitId: string, h: TakeoffHandoff): void {
@@ -19,7 +27,11 @@ export function readHandoff(visitId: string): TakeoffHandoff | null {
     const raw = sessionStorage.getItem(key(visitId));
     const h = raw ? (JSON.parse(raw) as Partial<TakeoffHandoff>) : null;
     return h && typeof h.flightId === "string" && isPronoun(h.pronoun)
-      ? { flightId: h.flightId, pronoun: h.pronoun }
+      ? {
+          flightId: h.flightId,
+          pronoun: h.pronoun,
+          ...(isBreed(h.breed) && { breed: h.breed }),
+        }
       : null;
   } catch {
     return null;

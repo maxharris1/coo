@@ -18,7 +18,8 @@ type LoftPlace = {
 type LoftInput = ({ roost: Point } | { placeId: string }) & {
   centre?: boolean;
 };
-export type TravelInput = { on: true; roost: Point } | { on: false };
+export type TravelInput =
+  { on: true; roost: Point } | { on: true; placeId: string } | { on: false };
 type LoftResult = { loft: Me["loft"] };
 
 const HOUR_MS = 3_600_000;
@@ -81,14 +82,18 @@ async function locate(
   deps: Deps,
   userId: UserId,
   input: LoftInput,
+  needsCityCentre = false,
 ): Promise<LoftPlace> {
   const { centre } = input;
-  if ("roost" in input) return describeRoost(deps, input.roost, { centre });
+  if ("roost" in input) {
+    return describeRoost(deps, input.roost, { centre, needsCityCentre });
+  }
   const held = await resolvePlace(deps, userId, input.placeId);
   return describeRoost(deps, held.roost, {
     label: held.label,
     town: { city: held.city, state: held.region, country: held.country },
     centre,
+    needsCityCentre,
   });
 }
 
@@ -137,9 +142,7 @@ export async function setTravel(
   userId: UserId,
   input: TravelInput,
 ): Promise<LoftResult> {
-  const place = input.on
-    ? await describeRoost(deps, input.roost, { needsCityCentre: true })
-    : null;
+  const place = input.on ? await locate(deps, userId, input, true) : null;
   const now = deps.clock.now();
   const hours = deps.config.game.travel.minHoursBetweenChanges;
   return deps.db.tx(async (db) => {

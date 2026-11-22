@@ -1,5 +1,10 @@
 import type { Row } from "@/server/rows";
-import { pushNotification, type Setting, settings } from "../notify/deliver";
+import {
+  holdIfQuiet,
+  pushNotification,
+  type Setting,
+  settings,
+} from "../notify/deliver";
 import type { Step } from "../tick";
 import { tryRow } from "./rows";
 
@@ -44,6 +49,7 @@ export const flushQuietHours: Step = async ({
   for (const { id } of held) {
     if (timeUp()) break;
     const ok = await tryRow("flushQuietHours", id, async () => {
+      if (await holdIfQuiet(deps.db, now, id)) return;
       if ((await pushNotification(deps, id)).pushed) count++;
     });
     if (!ok) failed++;

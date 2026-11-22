@@ -3,23 +3,21 @@
 import { useReducer } from "react";
 import type { Dispatch, FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import type { Point } from "@/lib/game/privacy";
 import { takeReturn } from "@/app/(public)/join/returnTo";
 import {
   initialLoft,
   loft,
   lookHere,
+  NO_LOCATION,
+  position,
   saveLoft,
   searchPlaces,
-  snappedPosition,
   townCentre,
   type LoftAction,
   type LoftState,
 } from "./roost";
 import { RoostMap } from "./RoostMap";
 import styles from "./page.module.css";
-
-const NO_LOCATION = "We could not get your location. Try a search instead.";
 
 type Actions = {
   locate: () => Promise<void>;
@@ -28,16 +26,6 @@ type Actions = {
   townCentre: () => Promise<void>;
   home: () => Promise<void>;
 };
-
-const position = () =>
-  new Promise<Point>((resolve, reject) => {
-    if (!("geolocation" in navigator)) return reject(new Error(NO_LOCATION));
-    navigator.geolocation.getCurrentPosition(
-      ({ coords }) => resolve(snappedPosition(coords)),
-      reject,
-      { enableHighAccuracy: false, timeout: 15_000, maximumAge: 60_000 },
-    );
-  });
 
 function useActions(state: LoftState, dispatch: Dispatch<LoftAction>): Actions {
   const router = useRouter();

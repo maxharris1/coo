@@ -76,6 +76,15 @@ describe("getGuestLink", () => {
     expect(landed.note?.body).toBe(BODY);
   });
 
+  it("gives the bird's pronoun for the page's copy", async () => {
+    await deps.db.query("update birds set pronoun = 'she' where id = $1", [
+      world.max.birds[0].id,
+    ]);
+    const { token } = await guestFlight();
+    const view = await getGuestLink(deps, PEPPER, IP, token);
+    expect(view.bird.pronoun).toBe("she");
+  });
+
   it("names nothing about the sender beyond a first name", async () => {
     const { token } = await guestFlight();
     const [sender] = await deps.db.query<{ handle: string }>(

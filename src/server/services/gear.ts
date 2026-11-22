@@ -54,20 +54,20 @@ async function pickFromOutfit(
   userId: string,
   outfitId: string,
   closet: readonly GearId[],
-  otherBirds: readonly Bird[],
+  away: readonly Bird[],
 ): Promise<{ items: string[]; skipped: string[] }> {
   const [outfit] = await db.query<Row<"outfits">>(
     "select * from outfits where id = $1 and user_id = $2",
     [outfitId, userId],
   );
   if (!outfit) throw new AppError("not_found", "Could not find that outfit.");
-  const items = [...new Set(outfit.items)];
-  const result = validateOutfit(items, closet, otherBirds);
-  const blocked = new Set(result.ok ? [] : result.problems.map((p) => p.item));
-  return {
-    items: items.filter((i) => !blocked.has(i)),
-    skipped: items.filter((i) => blocked.has(i)),
-  };
+  const items: string[] = [];
+  const skipped: string[] = [];
+  for (const item of new Set(outfit.items)) {
+    if (validateOutfit([...items, item], closet, away).ok) items.push(item);
+    else skipped.push(item);
+  }
+  return { items, skipped };
 }
 
 export async function putGear(
@@ -93,18 +93,11 @@ export async function putGear(
       [caller.userId],
     );
     const closet = owned.map((r) => r.gear_id);
-    const others = birds.filter((b) => b.id !== birdId);
+    const away = birds.filter((b) => b.id !== birdId && !isHome(b, now));
     const { items, skipped } =
       "outfitId" in input
-        ? await pickFromOutfit(
-            db,
-            caller.userId,
-            input.outfitId,
-            closet,
-            others,
-          )
+        ? await pickFromOutfit(db, caller.userId, input.outfitId, closet, away)
         : { items: input.items, skipped: [] };
-    const away = others.filter((b) => !isHome(b, now));
     const result = validateOutfit(items, closet, away);
     if (!result.ok) {
       const worn = result.problems.find((p) => p.kind === "worn_elsewhere");
