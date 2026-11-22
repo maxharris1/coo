@@ -59,10 +59,11 @@ function moodOf(bird: PigeonBird, trip: Trip): Mood {
     case "busy":
       return BUSY_MOOD[bird.busyKind ?? ""] ?? "working";
     case "home":
+      if (bird.tired && !bird.canFly) return "grounded";
       if (bird.sulking) return "sulking";
       if (bird.hungry) return "hungry";
       if (bird.scruffy) return "scruffy";
-      if (bird.tired) return bird.canFly ? "tired" : "grounded";
+      if (bird.tired) return "tired";
       return "fine";
   }
 }

@@ -369,6 +369,24 @@ describe("Pigeon mood (ac-1)", () => {
     }
   });
 
+  it.each([{ hungry: true }, { scruffy: true }, { sulking: true }])(
+    "warns a tired bird cannot fly even when %o",
+    (flag) => {
+      const html = render(
+        payload([
+          gerald({
+            energy: 6.7,
+            tired: true,
+            canFly: false,
+            cannotFlyReason: "tired",
+            ...flag,
+          }),
+        ]),
+      );
+      expect(html).toContain("Too tired to fly. He needs a nap first.");
+    },
+  );
+
   it("flies only while the trip is moving along a segment", () => {
     const flying = gerald({ status: "flying" });
     const cases: [BirdPosition["state"], Pose, string][] = [

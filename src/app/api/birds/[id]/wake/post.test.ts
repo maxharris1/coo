@@ -6,6 +6,7 @@ import { createJsonRoute } from "@/server/http";
 import type { UserId } from "@/server/ports/auth";
 import { send } from "@/server/services/flights/send";
 import { tick } from "@/server/services/tick";
+import { moodLine } from "@/app/(app)/birds/[id]/pigeon";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
 import { FakeJar } from "@/test/fakes/jar";
 import { seedWorld, type World } from "@/test/seedWorld";
@@ -170,6 +171,26 @@ describe("POST /api/birds/[id]/wake on an in-progress nap (ac-1)", () => {
     });
     await expect(sendGerald()).rejects.toMatchObject({ code: "conflict" });
     expect((await birdRow(gerald)).status).toBe("home");
+  });
+
+  it("warns a still-tired hungry bird that it cannot fly", async () => {
+    const jar = await signIn(MAX_PHONE);
+    await setBird(gerald, "belly = $2", [10]);
+    await napWith(5, jar);
+    deps.clock.advance(10 * MINUTE);
+
+    const { status, json } = await wake(gerald, jar);
+
+    expect(status).toBe(200);
+    expect(json.bird).toMatchObject({
+      hungry: true,
+      tired: true,
+      canFly: false,
+      cannotFlyReason: "tired",
+    });
+    expect(moodLine(json.bird)).toBe(
+      "Too tired to fly. They need a nap first.",
+    );
   });
 });
 
