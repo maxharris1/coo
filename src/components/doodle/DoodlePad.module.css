@@ -1,0 +1,69 @@
+.pad {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.surface {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  background: var(--coo-card);
+  border: var(--coo-line);
+  border-radius: var(--coo-radius-card);
+  box-shadow: var(--coo-shadow-2);
+  touch-action: none;
+  user-select: none;
+}
+
+.tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--coo-touch);
+  min-height: var(--coo-touch);
+  padding: 0 12px;
+  color: var(--coo-ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  background: var(--coo-card);
+  border: var(--coo-line);
+  border-radius: var(--coo-radius-pill);
+  box-shadow: var(--coo-shadow-1);
+  cursor: pointer;
+}
+
+.button[aria-pressed="true"] {
+  background: var(--coo-sun);
+  box-shadow: none;
+  transform: translateY(3px);
+}
+
+.button:disabled {
+  color: var(--coo-muted);
+  background: var(--coo-sand);
+  box-shadow: none;
+  cursor: default;
+}
+
+.swatch {
+  padding: 0;
+}
+
+.swatch[aria-pressed="true"] {
+  outline: var(--coo-line);
+  outline-offset: 2px;
+}
+
+.nib {
+  width: 24px;
+  height: 24px;
+}
