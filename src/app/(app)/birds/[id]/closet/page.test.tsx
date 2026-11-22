@@ -406,27 +406,24 @@ describe("/birds/[id]/closet (ac-1)", () => {
 
   describe("a focus sync that lands mid-save (#589)", () => {
     const bare = bird({ gear: [] });
-    const heldFetch = (fail: string[] = []) => {
-      const bodies: { items?: string[] }[] = [];
+    const ok = () => Response.json({ bird: {}, skipped: [] });
+    const refused = () =>
+      Response.json(
+        { error: { code: "conflict", message: "No." } },
+        { status: 409 },
+      );
+    type Body = { items?: string[]; outfitId?: string };
+    const heldFetch = (reply: (body: Body) => Response = ok) => {
+      const bodies: Body[] = [];
       const answers: (() => void)[] = [];
       vi.stubGlobal(
         "fetch",
         vi.fn(
           (_url: string, init?: RequestInit) =>
             new Promise<Response>((resolve) => {
-              const body = JSON.parse(String(init?.body));
+              const body: Body = JSON.parse(String(init?.body));
               bodies.push(body);
-              const refused = body.items?.some((i: string) => fail.includes(i));
-              answers.push(() =>
-                resolve(
-                  refused
-                    ? Response.json(
-                        { error: { code: "conflict", message: "No." } },
-                        { status: 409 },
-                      )
-                    : Response.json({ bird: {}, skipped: [] }),
-                ),
-              );
+              answers.push(() => resolve(reply(body)));
             }),
         ),
       );
@@ -472,7 +469,9 @@ describe("/birds/[id]/closet (ac-1)", () => {
     });
 
     it("falls back to the last good selection, not the snapshot, when a save fails", async () => {
-      const { bodies, answerNext } = heldFetch(["scarf"]);
+      const { bodies, answerNext } = heldFetch((body) =>
+        body.items?.includes("scarf") ? refused() : ok(),
+      );
       syncWith(payload([bare], ["goggles", "scarf", "band"]));
       const stand = stale();
       tile("goggles").props.onClick?.();
@@ -488,6 +487,99 @@ describe("/birds/[id]/closet (ac-1)", () => {
       tile("band").props.onClick?.();
       await flush();
       expect(bodies.at(-1)).toEqual({ items: ["goggles", "band"] });
+    });
+
+    it("keeps the last saved gear when every queued save fails (f-1)", async () => {
+      const { bodies, answerNext } = heldFetch(refused);
+      const goggled = bird({ gear: ["goggles"] });
+      const closet = ["goggles", "scarf", "band"];
+      syncWith(payload([goggled], closet));
+      tile("goggles").props.onClick?.();
+      tile("band").props.onClick?.();
+      await flush();
+      syncWith(fetchedAt(payload([goggled], closet), Date.now()));
+      await answerNext();
+      await answerNext();
+      expect(toasts).toEqual(["No.", "No."]);
+      expect(refresh).toHaveBeenCalledOnce();
+      expect(tile("goggles").props["aria-pressed"]).toBe(true);
+      expect(tile("band").props["aria-pressed"]).toBe(false);
+      tile("scarf").props.onClick?.();
+      await flush();
+      expect(bodies).toEqual([
+        { items: [] },
+        { items: ["band"] },
+        { items: ["goggles", "scarf"] },
+      ]);
+    });
+
+    it("keeps an earlier queued success when a later save fails (f-1)", async () => {
+      const { bodies, answerNext } = heldFetch((body) =>
+        body.items?.includes("band") ? refused() : ok(),
+      );
+      const closet = ["goggles", "scarf", "band"];
+      syncWith(payload([bare], closet));
+      tile("goggles").props.onClick?.();
+      tile("band").props.onClick?.();
+      await flush();
+      syncWith(stale());
+      await answerNext();
+      await answerNext();
+      expect(tile("goggles").props["aria-pressed"]).toBe(true);
+      expect(tile("band").props["aria-pressed"]).toBe(false);
+      tile("scarf").props.onClick?.();
+      await flush();
+      expect(bodies.at(-1)).toEqual({ items: ["goggles", "scarf"] });
+    });
+
+    it("drops an outfit item the server skipped before the next PUT (f-2)", async () => {
+      const { bodies, answerNext } = heldFetch((body) =>
+        body.outfitId ? Response.json({ bird: {}, skipped: ["scarf"] }) : ok(),
+      );
+      const closet = ["beanie", "scarf", "band"];
+      const cosy = [outfit("Cosy", ["beanie", "scarf"])];
+      const kevinFlying = bird({ ...kevin, status: "flying" });
+      syncWith(payload([bare, kevin], closet, cosy));
+      chip("Cosy").props.onClick?.();
+      await flush();
+      syncWith(
+        fetchedAt(
+          payload([bird({ gear: ["beanie"] }), kevinFlying], closet, cosy),
+          Date.now(),
+        ),
+      );
+      await answerNext();
+      expect(toasts).toEqual([
+        "Gerald has the outfit on without the Thermal scarf.",
+      ]);
+      expect(tile("scarf").props["aria-pressed"]).toBe(false);
+      tile("band").props.onClick?.();
+      await flush();
+      expect(bodies).toEqual([
+        { outfitId: "Cosy" },
+        { items: ["beanie", "band"] },
+      ]);
+    });
+
+    it("builds the next PUT from the gear the server says it applied (f-2)", async () => {
+      const { bodies, answerNext } = heldFetch((body) =>
+        body.outfitId
+          ? Response.json({ bird: { gear: ["beanie", "bell"] }, skipped: [] })
+          : ok(),
+      );
+      const closet = ["beanie", "bell", "scarf"];
+      const cosy = [outfit("Cosy", ["beanie", "bell"])];
+      syncWith(payload([bare, brenda], closet, cosy));
+      chip("Cosy").props.onClick?.();
+      await flush();
+      await answerNext();
+      expect(tile("bell").props["aria-pressed"]).toBe(true);
+      tile("scarf").props.onClick?.();
+      await flush();
+      expect(bodies).toEqual([
+        { outfitId: "Cosy" },
+        { items: ["beanie", "bell", "scarf"] },
+      ]);
     });
   });
 

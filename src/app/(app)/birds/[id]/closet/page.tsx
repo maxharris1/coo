@@ -37,11 +37,11 @@ function BackLink({ href, label }: { href: string; label: string }) {
   );
 }
 
-type Picked = {
-  birdId: string;
-  worn: GearId[];
-  done: Promise<void>;
-  savedAt: number | null;
+type Worn = { birdId: string; worn: GearId[] };
+
+type Saves = {
+  pending: (Worn & { done: Promise<void> }) | null;
+  confirmed: (Worn & { savedAt: number }) | null;
 };
 
 const byShelf = (cells: Cell[]) => [
@@ -53,8 +53,11 @@ export default function ClosetPage() {
   const { id } = useParams<{ id: string }>();
   const { data, error, offsetMs, refresh } = useSync();
   const toast = useToast();
-  const [picked, setPicked] = useState<Picked | null>(null);
-  const latest = useRef<Picked | null>(null);
+  const [saves, setSaves] = useState<Saves>({
+    pending: null,
+    confirmed: null,
+  });
+  const latest = useRef(saves);
   if (!data) {
     if (!error) return <Loader />;
     return (
@@ -79,11 +82,13 @@ export default function ClosetPage() {
   }
 
   const fetchedAt = data.serverNow - offsetMs;
-  const held = (p: Picked | null) =>
-    p?.birdId === bird.id && (p.savedAt === null || fetchedAt <= p.savedAt)
-      ? p.worn
-      : null;
-  const worn = held(picked) ?? (bird.gear as GearId[]);
+  const wornIn = ({ pending, confirmed }: Saves) =>
+    (pending?.birdId === bird.id ? pending.worn : null) ??
+    (confirmed?.birdId === bird.id && fetchedAt <= confirmed.savedAt
+      ? confirmed.worn
+      : null) ??
+    (bird.gear as GearId[]);
+  const worn = wornIn(saves);
   const wardrobeFor = (gear: GearId[]): Wardrobe => ({
     bird: { ...bird, gear },
     birds: data.birds,
@@ -92,32 +97,33 @@ export default function ClosetPage() {
   });
   const cells = closetCells(wardrobeFor(worn));
   const effects = effectsFor(worn);
-  const pin = (p: Picked) => {
-    latest.current = p;
-    setPicked(p);
+  const update = (change: Partial<Saves>) => {
+    latest.current = { ...latest.current, ...change };
+    setSaves(latest.current);
   };
-  const selection = () => held(latest.current) ?? worn;
+  const selection = () => wornIn(latest.current);
   const save = (next: GearId[], body: GearBody = { items: next }) => {
-    const base = selection();
-    const done: Promise<void> = (latest.current?.done ?? Promise.resolve())
+    const done: Promise<void> = (
+      latest.current.pending?.done ?? Promise.resolve()
+    )
       .then(() => putGear(bird.id, body))
       .then(
-        (skipped) => {
+        ({ gear, skipped }) => {
           const note = skippedNote(bird.name, skipped);
           if (note) toast(note);
-          return next;
+          const worn = gear ?? next.filter((i) => !skipped.includes(i));
+          update({ confirmed: { birdId: bird.id, worn, savedAt: Date.now() } });
         },
         (err: unknown) => {
           toast(err instanceof Error ? err.message : String(err));
-          return base;
         },
       )
-      .then((worn) => {
-        if (latest.current?.done !== done) return;
-        pin({ birdId: bird.id, worn, done, savedAt: Date.now() });
+      .then(() => {
+        if (latest.current.pending?.done !== done) return;
+        update({ pending: null });
         refresh();
       });
-    pin({ birdId: bird.id, worn: next, done, savedAt: null });
+    update({ pending: { birdId: bird.id, worn: next, done } });
   };
   const dress = (item: GearId) => {
     const current = selection();

@@ -10,7 +10,7 @@ export async function putGear(
   birdId: string,
   body: GearBody,
   fetchImpl: Fetch = fetch,
-): Promise<string[]> {
+): Promise<{ gear: GearId[] | null; skipped: string[] }> {
   let res: Response;
   try {
     res = await fetchImpl(`/api/birds/${encodeURIComponent(birdId)}/gear`, {
@@ -23,8 +23,18 @@ export async function putGear(
   }
   const json: unknown = await res.json().catch(() => null);
   if (res.ok) {
-    const skipped = (json as { skipped?: unknown } | null)?.skipped;
-    return Array.isArray(skipped) ? skipped.map(String) : [];
+    const { bird, skipped } = (json ?? {}) as {
+      bird?: { gear?: unknown };
+      skipped?: unknown;
+    };
+    const gear = bird?.gear;
+    return {
+      gear:
+        Array.isArray(gear) && gear.every((g) => typeof g === "string")
+          ? (gear as GearId[])
+          : null,
+      skipped: Array.isArray(skipped) ? skipped.map(String) : [],
+    };
   }
   const message = (json as { error?: { message?: unknown } } | null)?.error
     ?.message;

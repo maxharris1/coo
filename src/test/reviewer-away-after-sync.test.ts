@@ -61,7 +61,7 @@ it("applies the eligible items when a wearer leaves after sync", async () => {
     other,
   ]);
 
-  const skipped = await clientPutGear(
+  const { skipped } = await clientPutGear(
     target,
     { outfitId: outfit.id },
     serverFetch,
@@ -73,7 +73,7 @@ it("applies the eligible items when a wearer leaves after sync", async () => {
 });
 
 it("still takes an item off a wearer who stays home", async () => {
-  const skipped = await clientPutGear(
+  const { skipped } = await clientPutGear(
     target,
     { outfitId: outfit.id },
     serverFetch,
