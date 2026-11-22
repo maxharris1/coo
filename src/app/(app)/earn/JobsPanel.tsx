@@ -16,9 +16,12 @@ type Bird = Pick<
 
 export type RunningJob = { birdId: string; name: string; until: number | null };
 
+export const onJob = (b: Pick<Bird, "status" | "busyKind">) =>
+  b.status === "busy" && b.busyKind === "job";
+
 export const runningJobs = (birds: Bird[]): RunningJob[] =>
   birds
-    .filter((b) => b.status === "busy" && b.busyKind === "job")
+    .filter(onJob)
     .map((b) => ({ birdId: b.id, name: b.name, until: b.busyUntil }));
 
 export async function sendJob(

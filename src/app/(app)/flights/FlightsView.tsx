@@ -1,7 +1,9 @@
 import Link from "next/link";
+import type { ComponentProps } from "react";
 import emptyStates from "../../../../assets/copy/empty-states.json";
 import { Bird, type GearId, type Look } from "@/components/Bird";
 import { Loader } from "@/components/Loader";
+import { onJob } from "../earn/JobsPanel";
 import type { Units } from "@/lib/format";
 import type { FlightsPage } from "@/server/services/flights/list";
 import {
@@ -10,6 +12,7 @@ import {
   type ChipTone,
   type FlightsRow,
 } from "./flightsViewModel";
+import { JobsSection } from "./JobsSection";
 import styles from "./Flights.module.css";
 
 export type List =
@@ -19,6 +22,7 @@ export type List =
 
 export type FlightsViewProps = {
   list: List;
+  birds: ComponentProps<typeof JobsSection>["birds"];
   nowMs: number;
   timeZone: string;
   units: Units;
@@ -91,6 +95,7 @@ function DoneRow({ row }: { row: FlightsRow }) {
 
 export function FlightsView({
   list,
+  birds,
   nowMs,
   timeZone,
   units,
@@ -120,7 +125,7 @@ export function FlightsView({
         <h1 className={styles.title}>Flights</h1>
         <span className={styles.pill}>{view.pill}</span>
       </header>
-      {sections.length === 0 && earlier.length === 0 && (
+      {sections.length === 0 && earlier.length === 0 && !birds.some(onJob) && (
         <p className={styles.empty}>{EMPTY_LINE}</p>
       )}
       {sections.map((s) => (
@@ -138,6 +143,7 @@ export function FlightsView({
           )}
         </section>
       ))}
+      <JobsSection birds={birds} timeZone={timeZone} />
       {earlier.length > 0 && (
         <section className={styles.doneList}>
           <h2 className={styles.heading}>Earlier</h2>

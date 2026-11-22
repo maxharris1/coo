@@ -355,6 +355,7 @@ describe("Pigeon mood (ac-1)", () => {
       [{ status: "flying" }, "fly"],
       [{ status: "busy", busyKind: "nap" }, "sleep"],
       [{ status: "busy", busyKind: "bath" }, "perched"],
+      [{ status: "busy", busyKind: "job" }, "perched"],
       [{ sulking: true, hungry: true }, "sulk"],
       [{ hungry: true }, "surprise"],
       [{ status: "visiting", hungry: true }, "landed"],
@@ -409,6 +410,7 @@ describe("Pigeon mood (ac-1)", () => {
       { tired: true, canFly: false },
       { status: "busy", busyKind: "nap" },
       { status: "busy", busyKind: "bath" },
+      { status: "busy", busyKind: "job" },
       { status: "flying" },
       { status: "visiting" },
       { status: "scheduled" },
@@ -419,6 +421,13 @@ describe("Pigeon mood (ac-1)", () => {
     expect(lines.every(Boolean)).toBe(true);
     expect(new Set(lines).size).toBe(lines.length);
     expect(lines[1]).toBe("Hungry. Has opinions about it.");
+  });
+
+  it("says a bird on an odd job is working", () => {
+    const html = render(payload([gerald({ status: "busy", busyKind: "job" })]));
+    expect(/<h1[^>]*>Gerald<\/h1><p[^>]*>([^<]+)<\/p>/.exec(html)?.[1]).toBe(
+      "On an odd job. Very professional about it.",
+    );
   });
 });
 
