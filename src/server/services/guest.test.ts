@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { guestGet } from "@/app/api/guest/[token]/get";
+import type { Db } from "@/server/db";
 import type { UserId } from "@/server/ports/auth";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
 import { geoClient } from "@/test/geoRoute";
+import { getGuestLink } from "./guestLinks/get";
 import { seedWorld, type World } from "@/test/seedWorld";
 import type { GuestSendResult } from "./flights/guestSend";
 import { send } from "./flights/send";
@@ -162,6 +164,71 @@ describe("scenario 6: guest (expiry)", () => {
     expect(await linkState()).toEqual({ status: "expired", returned_at: null });
     expect(await expiredNotices()).toEqual([]);
     expect((await publicGet(`/api/guest/${token}`)).status).toBe(410);
+  });
+
+  it("a view read before expiry but recorded after it is refused, so the note comes back exactly once", async () => {
+    const { token, arriveAt } = await sendToSam();
+    deps.clock.set(arriveAt + MINUTE_MS);
+    await tick(deps);
+    const [{ expires_at }] = await deps.db.query<{ expires_at: Date }>(
+      "select expires_at from guest_links",
+    );
+    const expiresAt = expires_at.getTime();
+
+    let reachOpening = () => {};
+    const atOpening = new Promise<void>((resolve) => (reachOpening = resolve));
+    let resume = () => {};
+    const resumed = new Promise<void>((resolve) => (resume = resolve));
+    const paused: Db = {
+      async query<T>(sql: string, params?: unknown[]) {
+        if (sql.includes("set opened_at")) {
+          reachOpening();
+          await resumed;
+        }
+        return deps.db.query<T>(sql, params);
+      },
+      tx: (fn) => deps.db.tx(fn),
+    };
+
+    deps.clock.set(expiresAt - 1);
+    const view = getGuestLink(
+      { ...deps, db: paused },
+      PEPPER,
+      "203.0.113.7",
+      token,
+    );
+    await atOpening;
+    deps.clock.set(expiresAt);
+    await tick(deps);
+    resume();
+
+    await expect(view).rejects.toMatchObject({ code: "gone" });
+    const [row] = await deps.db.query<{ opened_at: Date | null }>(
+      "select opened_at from guest_links",
+    );
+    expect(row.opened_at).toBeNull();
+    const state = await linkState();
+    expect(state.status).toBe("expired");
+    expect(state.returned_at).toBeInstanceOf(Date);
+    expect(await expiredNotices()).toHaveLength(1);
+  });
+
+  it("a view recorded just before expiry keeps the note with the guest and tells Max nothing", async () => {
+    const { token, arriveAt } = await sendToSam();
+    deps.clock.set(arriveAt + MINUTE_MS);
+    await tick(deps);
+    const [{ expires_at }] = await deps.db.query<{ expires_at: Date }>(
+      "select expires_at from guest_links",
+    );
+
+    deps.clock.set(expires_at.getTime() - 1);
+    const seen = await publicGet(`/api/guest/${token}`);
+    expect(seen.json).toMatchObject({ note: { body: NOTE } });
+    deps.clock.set(expires_at.getTime());
+    await tick(deps);
+
+    expect(await linkState()).toEqual({ status: "expired", returned_at: null });
+    expect(await expiredNotices()).toEqual([]);
   });
 
   it("a claimed link is left alone after 7 days", async () => {

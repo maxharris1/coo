@@ -13,6 +13,7 @@ import {
 import { hashToken } from "./create";
 
 export const NO_SUCH_LINK = "No bird is flying on that link";
+const EXPIRED = "This link has expired";
 
 export type GuestView = {
   senderName: string;
@@ -81,7 +82,7 @@ export async function findLiveLink(
     link.status === "expired" ||
     (link.expires_at && link.expires_at.getTime() <= now)
   )
-    throw new AppError("gone", "This link has expired");
+    throw new AppError("gone", EXPIRED);
   return {
     id: link.id,
     recipient_name: link.recipient_name,
@@ -101,11 +102,23 @@ export async function getGuestLink(
     await db.query("set transaction isolation level repeatable read");
     return readGuestView(deps, db, pepper, token, now);
   });
-  await deps.db.query(
-    "update guest_links set opened_at = $2 where id = $1 and opened_at is null",
-    [view.linkId, new Date(now).toISOString()],
-  );
+  await recordOpening(deps.db, view.linkId, now);
   return view.guest;
+}
+
+async function recordOpening(db: Db, linkId: string, now: number) {
+  const opened = await db.query<{ id: string }>(
+    `update guest_links set opened_at = coalesce(opened_at, $2)
+     where id = $1 and status in ('active', 'claimed') returning id`,
+    [linkId, new Date(now).toISOString()],
+  );
+  if (opened.length > 0) return;
+  const [link] = await db.query<{ status: string }>(
+    "select status from guest_links where id = $1",
+    [linkId],
+  );
+  if (link?.status === "expired") throw new AppError("gone", EXPIRED);
+  throw new AppError("not_found", NO_SUCH_LINK);
 }
 
 async function readGuestView(
