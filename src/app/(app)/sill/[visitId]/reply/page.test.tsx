@@ -1,7 +1,11 @@
 import { act, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { SyncContext, type SyncState } from "@/components/SyncProvider";
+import {
+  SyncContext,
+  SyncProvider,
+  type SyncState,
+} from "@/components/SyncProvider";
 import type { SyncPayload } from "@/components/sync";
 import type { FriendRow } from "@/server/services/friends";
 import type { SyncVisit } from "@/server/services/visits/syncRead";
@@ -74,10 +78,20 @@ const PRIYA = {
 } as FriendRow;
 
 let replyRes: { status: number; body: unknown };
+let serverStart: number;
 let root: Root | null;
 const session = new Map<string, string>();
 
 function fakeFetch(url: RequestInfo | URL) {
+  if (String(url) === "/api/sync") {
+    return Promise.resolve(
+      Response.json({
+        serverNow: NOW + performance.now() - serverStart,
+        visits: [VISIT],
+        me: { timezone: "America/New_York", units: "mi" },
+      }),
+    );
+  }
   if (String(url) === "/api/friends") {
     return Promise.resolve(Response.json({ friends: [PRIYA], guestLinks: [] }));
   }
@@ -87,7 +101,11 @@ function fakeFetch(url: RequestInfo | URL) {
 }
 
 const replyCalls = () =>
-  vi.mocked(fetch).mock.calls.filter(([url]) => String(url) !== "/api/friends");
+  vi
+    .mocked(fetch)
+    .mock.calls.filter(
+      ([url]) => String(url) !== "/api/friends" && String(url) !== "/api/sync",
+    );
 
 const sync = (visits: SyncVisit[] | null, offsetMs = 0): SyncState => ({
   data:
@@ -101,6 +119,31 @@ const sync = (visits: SyncVisit[] | null, offsetMs = 0): SyncState => ({
   offsetMs,
   refresh: () => {},
 });
+
+const docStub = Object.assign(new EventTarget(), {
+  visibilityState: "visible" as DocumentVisibilityState,
+});
+
+async function mountSynced() {
+  const container = Object.assign(new EventTarget(), {
+    nodeType: 1,
+    tagName: "DIV",
+    ownerDocument: new EventTarget(),
+  }) as unknown as Element;
+  const r = createRoot(container);
+  root = r;
+  await act(async () =>
+    r.render(
+      <SyncProvider>
+        <ReplyPage />
+      </SyncProvider>,
+    ),
+  );
+  seen.loading = false;
+}
+
+const syncNow = () =>
+  act(async () => void docStub.dispatchEvent(new Event("visibilitychange")));
 
 async function show(visits: SyncVisit[] | null, offsetMs = 0) {
   if (!root) {
@@ -129,6 +172,8 @@ const view = () => {
 const type = (text: string) => act(async () => view().onNote(text));
 const send = () => act(async () => view().onSend());
 const tick = (ms: number) => act(async () => void vi.advanceTimersByTime(ms));
+const elapse = (ms: number) =>
+  act(async () => void (await vi.advanceTimersByTimeAsync(ms)));
 
 beforeEach(() => {
   vi.useFakeTimers({ now: NOW });
@@ -138,6 +183,7 @@ beforeEach(() => {
   seen.replace.mockClear();
   session.clear();
   replyRes = { status: 200, body: { flight: { id: "f1", kind: "return" } } };
+  serverStart = performance.now();
   root = null;
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal(
@@ -149,6 +195,7 @@ beforeEach(() => {
     setItem: (k: string, v: string) => void session.set(k, v),
   });
   vi.stubGlobal("fetch", vi.fn(fakeFetch));
+  vi.stubGlobal("document", docStub);
 });
 
 afterEach(async () => {
@@ -262,5 +309,46 @@ describe("/sill/[visitId]/reply (ac-1)", () => {
     await type("a".repeat(141));
     await send();
     expect(replyCalls()).toHaveLength(0);
+  });
+});
+
+describe("/sill/[visitId]/reply clock jumps (#592)", () => {
+  it("stays on Reply with the draft when the device clock jumps back 60 minutes before a sync", async () => {
+    await mountSynced();
+    expect(view().model.wait).toMatch(/^She waits 28 more minutes/);
+    await type(REPLY);
+    vi.setSystemTime(NOW - 60 * MIN);
+    await syncNow();
+    expect(seen.replace).not.toHaveBeenCalled();
+    expect(seen.loading).toBe(false);
+    expect(view().note).toBe(REPLY);
+    expect(view().model.wait).toMatch(/^She waits 28 more minutes/);
+    await elapse(MIN);
+    expect(seen.replace).not.toHaveBeenCalled();
+    expect(view().note).toBe(REPLY);
+    expect(view().model.wait).toMatch(/^She waits 27 more minutes/);
+  });
+
+  it("stays on Reply with the draft when the device clock jumps forward 60 minutes between syncs", async () => {
+    await mountSynced();
+    await type(REPLY);
+    vi.setSystemTime(NOW + 60 * MIN);
+    await elapse(1000);
+    expect(seen.replace).not.toHaveBeenCalled();
+    expect(seen.loading).toBe(false);
+    expect(view().note).toBe(REPLY);
+    expect(view().model.wait).toMatch(/^She waits 28 more minutes/);
+    await elapse(MIN - 1000);
+    expect(seen.replace).not.toHaveBeenCalled();
+    expect(view().note).toBe(REPLY);
+    expect(view().model.wait).toMatch(/^She waits 27 more minutes/);
+  });
+
+  it("still leaves Reply once the wait is over on server time after a clock jump", async () => {
+    await mountSynced();
+    vi.setSystemTime(NOW - 60 * MIN);
+    await syncNow();
+    await elapse(28 * MIN);
+    expect(seen.replace).toHaveBeenCalledWith("/sill/v1");
   });
 });
