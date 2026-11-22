@@ -106,15 +106,13 @@ export default function ClosetPage() {
     setSaves(latest.current);
   };
   const selection = () => wornIn(latest.current);
-  const save = (put: Put, rebase?: (applied: GearId[]) => Put | null) => {
+  const save = (put: Put, rebase?: (applied: GearId[]) => Put) => {
     const done: Promise<Worn | null> = (
       latest.current.pending?.done ?? Promise.resolve(null)
     )
       .then((applied) => {
         const sent =
-          rebase && applied?.birdId === bird.id
-            ? (rebase(applied.worn) ?? put)
-            : put;
+          rebase && applied?.birdId === bird.id ? rebase(applied.worn) : put;
         const { pending } = latest.current;
         if (pending?.done === done) {
           update({ pending: { ...pending, worn: sent.worn } });
@@ -145,13 +143,14 @@ export default function ClosetPage() {
     update({ pending: { birdId: bird.id, worn: put.worn, done } });
   };
   const dress = (item: GearId) => {
-    const build = (base: GearId[]): Put | null => {
-      const cell = closetCells(wardrobeFor(base)).find((c) => c.item === item);
-      const next = cell && pick(base, cell);
-      return next ? { worn: next, body: { items: next } } : null;
+    const current = selection();
+    const cell = closetCells(wardrobeFor(current)).find((c) => c.item === item);
+    if (!cell || !pick(current, cell)) return;
+    const build = (base: GearId[]): Put => {
+      const next = pick(base, cell) ?? base;
+      return { worn: next, body: { items: next } };
     };
-    const put = build(selection());
-    if (put) save(put, build);
+    save(build(current), build);
   };
   const outfits = data.outfits.map((outfit) => {
     const gear = applyOutfit(wardrobeFor(worn), outfit);
