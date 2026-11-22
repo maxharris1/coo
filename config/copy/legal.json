@@ -1,5 +1,9 @@
 {
   "draft": "Draft. A person must read and approve this text before it is final.",
+  "contact": {
+    "withEmail": "Questions, privacy requests or help: {email}.",
+    "withoutEmail": "Questions or help: use Report in the app, or open an issue at github.com/maxharris1/coo. Issues there are public, so do not post personal details."
+  },
   "privacy": {
     "title": "Privacy",
     "intro": "Coo holds three sensitive things: roughly where you live, your phone number and your notes. This page says what we keep, what we never keep, who handles it and how to delete it.",
@@ -40,7 +44,8 @@
           "Open Settings and choose \"Delete my account\". That removes your account, your roost, your birds and the notes you sent.",
           "A friend's bird on your sill flies home straight away.",
           "Notes your friends sent you stay in their shoeboxes. They show as sent to \"a former friend\".",
-          "There is no export yet. Your shoebox shows every note."
+          "There is no export yet. Your shoebox shows every note.",
+          "{contact}"
         ]
       }
     ]
@@ -81,7 +86,8 @@
       {
         "heading": "Your account",
         "paragraphs": [
-          "You can delete your account at any time in Settings."
+          "You can delete your account at any time in Settings.",
+          "{contact}"
         ]
       }
     ],
