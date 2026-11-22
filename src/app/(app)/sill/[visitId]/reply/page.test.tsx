@@ -1,7 +1,11 @@
 import { act, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { SyncContext, type SyncState } from "@/components/SyncProvider";
+import {
+  SyncContext,
+  SyncProvider,
+  type SyncState,
+} from "@/components/SyncProvider";
 import type { SyncPayload } from "@/components/sync";
 import type { FriendRow } from "@/server/services/friends";
 import type { SyncVisit } from "@/server/services/visits/syncRead";
@@ -74,10 +78,20 @@ const PRIYA = {
 } as FriendRow;
 
 let replyRes: { status: number; body: unknown };
+let serverStart: number;
+let syncGate: Promise<void> | null;
 let root: Root | null;
 const session = new Map<string, string>();
 
 function fakeFetch(url: RequestInfo | URL) {
+  if (String(url) === "/api/sync") {
+    const body = {
+      serverNow: NOW + performance.now() - serverStart,
+      visits: [VISIT],
+      me: { timezone: "America/New_York", units: "mi" },
+    };
+    return (syncGate ?? Promise.resolve()).then(() => Response.json(body));
+  }
   if (String(url) === "/api/friends") {
     return Promise.resolve(Response.json({ friends: [PRIYA], guestLinks: [] }));
   }
@@ -87,22 +101,54 @@ function fakeFetch(url: RequestInfo | URL) {
 }
 
 const replyCalls = () =>
-  vi.mocked(fetch).mock.calls.filter(([url]) => String(url) !== "/api/friends");
+  vi
+    .mocked(fetch)
+    .mock.calls.filter(
+      ([url]) => String(url) !== "/api/friends" && String(url) !== "/api/sync",
+    );
 
-const sync = (visits: SyncVisit[] | null, offsetMs = 0): SyncState => ({
+const refresh = vi.fn();
+
+const sync = (visits: SyncVisit[] | null, serverNow = NOW): SyncState => ({
   data:
     visits &&
     ({
-      serverNow: NOW,
+      serverNow,
+      serverNowMono: performance.now(),
       visits,
       me: { timezone: "America/New_York", units: "mi" },
     } as unknown as SyncPayload),
   error: null,
-  offsetMs,
-  refresh: () => {},
+  offsetMs: 0,
+  refresh,
 });
 
-async function show(visits: SyncVisit[] | null, offsetMs = 0) {
+const docStub = Object.assign(new EventTarget(), {
+  visibilityState: "visible" as DocumentVisibilityState,
+});
+
+async function mountSynced() {
+  const container = Object.assign(new EventTarget(), {
+    nodeType: 1,
+    tagName: "DIV",
+    ownerDocument: new EventTarget(),
+  }) as unknown as Element;
+  const r = createRoot(container);
+  root = r;
+  await act(async () =>
+    r.render(
+      <SyncProvider>
+        <ReplyPage />
+      </SyncProvider>,
+    ),
+  );
+  seen.loading = false;
+}
+
+const syncNow = () =>
+  act(async () => void docStub.dispatchEvent(new Event("visibilitychange")));
+
+async function show(visits: SyncVisit[] | null, serverNow = NOW) {
   if (!root) {
     const container = Object.assign(new EventTarget(), {
       nodeType: 1,
@@ -114,7 +160,7 @@ async function show(visits: SyncVisit[] | null, offsetMs = 0) {
   const r = root;
   await act(async () =>
     r.render(
-      <SyncContext.Provider value={sync(visits, offsetMs)}>
+      <SyncContext.Provider value={sync(visits, serverNow)}>
         <ReplyPage />
       </SyncContext.Provider>,
     ),
@@ -129,6 +175,8 @@ const view = () => {
 const type = (text: string) => act(async () => view().onNote(text));
 const send = () => act(async () => view().onSend());
 const tick = (ms: number) => act(async () => void vi.advanceTimersByTime(ms));
+const elapse = (ms: number) =>
+  act(async () => void (await vi.advanceTimersByTimeAsync(ms)));
 
 beforeEach(() => {
   vi.useFakeTimers({ now: NOW });
@@ -138,6 +186,9 @@ beforeEach(() => {
   seen.replace.mockClear();
   session.clear();
   replyRes = { status: 200, body: { flight: { id: "f1", kind: "return" } } };
+  serverStart = performance.now();
+  syncGate = null;
+  refresh.mockClear();
   root = null;
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal(
@@ -149,6 +200,7 @@ beforeEach(() => {
     setItem: (k: string, v: string) => void session.set(k, v),
   });
   vi.stubGlobal("fetch", vi.fn(fakeFetch));
+  vi.stubGlobal("document", docStub);
 });
 
 afterEach(async () => {
@@ -173,22 +225,25 @@ describe("/sill/[visitId]/reply (ac-1)", () => {
     expect(seen.view).toBeNull();
   });
 
-  it("sends the user back once the bird's wait is over", async () => {
+  it("sends the user back once a sync confirms the bird's wait is over", async () => {
     await show([VISIT]);
     expect(seen.replace).not.toHaveBeenCalled();
     await tick(28 * MIN);
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(seen.replace).not.toHaveBeenCalled();
+    await show([VISIT], NOW + 28 * MIN);
     expect(seen.replace).toHaveBeenCalledWith("/sill/v1");
   });
 
   it("goes by the server clock, not the device clock", async () => {
-    await show([VISIT], 28 * MIN);
+    await show([VISIT], NOW + 28 * MIN);
     expect(seen.replace).toHaveBeenCalledWith("/sill/v1");
   });
 
   it("applies the first sync's clock before checking the wait", async () => {
     vi.setSystemTime(NOW + 60 * MIN);
     await show(null);
-    await show([VISIT], -60 * MIN);
+    await show([VISIT]);
     expect(seen.replace).not.toHaveBeenCalled();
     expect(view().model.wait).toMatch(/^She waits 28 more minutes/);
   });
@@ -262,5 +317,95 @@ describe("/sill/[visitId]/reply (ac-1)", () => {
     await type("a".repeat(141));
     await send();
     expect(replyCalls()).toHaveLength(0);
+  });
+});
+
+describe("/sill/[visitId]/reply clock jumps (#592)", () => {
+  it("stays on Reply with the draft when the device clock jumps back 60 minutes before a sync", async () => {
+    await mountSynced();
+    expect(view().model.wait).toMatch(/^She waits 28 more minutes/);
+    await type(REPLY);
+    vi.setSystemTime(NOW - 60 * MIN);
+    await syncNow();
+    expect(seen.replace).not.toHaveBeenCalled();
+    expect(seen.loading).toBe(false);
+    expect(view().note).toBe(REPLY);
+    expect(view().model.wait).toMatch(/^She waits 28 more minutes/);
+    await elapse(MIN);
+    expect(seen.replace).not.toHaveBeenCalled();
+    expect(view().note).toBe(REPLY);
+    expect(view().model.wait).toMatch(/^She waits 27 more minutes/);
+  });
+
+  it("stays on Reply with the draft when the device clock jumps forward 60 minutes between syncs", async () => {
+    await mountSynced();
+    await type(REPLY);
+    vi.setSystemTime(NOW + 60 * MIN);
+    await elapse(1000);
+    expect(seen.replace).not.toHaveBeenCalled();
+    expect(seen.loading).toBe(false);
+    expect(view().note).toBe(REPLY);
+    expect(view().model.wait).toMatch(/^She waits 28 more minutes/);
+    await elapse(MIN - 1000);
+    expect(seen.replace).not.toHaveBeenCalled();
+    expect(view().note).toBe(REPLY);
+    expect(view().model.wait).toMatch(/^She waits 27 more minutes/);
+  });
+
+  it("still leaves Reply once the wait is over on server time after a clock jump", async () => {
+    await mountSynced();
+    vi.setSystemTime(NOW - 60 * MIN);
+    await syncNow();
+    await elapse(28 * MIN);
+    expect(seen.replace).toHaveBeenCalledWith("/sill/v1");
+  });
+
+  it("stays on Reply with the draft when the device clock jumps back 60 minutes while a sync is in flight", async () => {
+    await mountSynced();
+    await type(REPLY);
+    let release = () => {};
+    syncGate = new Promise((resolve) => (release = resolve));
+    await syncNow();
+    vi.setSystemTime(NOW - 60 * MIN);
+    await act(async () => release());
+    await elapse(0);
+    expect(seen.replace).not.toHaveBeenCalled();
+    expect(view().note).toBe(REPLY);
+    expect(view().model.wait).toMatch(/^She waits 28 more minutes/);
+  });
+
+  it("stays on Reply with the draft when the device clock jumps forward 60 minutes while a sync is in flight, then corrects", async () => {
+    await mountSynced();
+    await type(REPLY);
+    let release = () => {};
+    syncGate = new Promise((resolve) => (release = resolve));
+    await syncNow();
+    vi.setSystemTime(NOW + 60 * MIN);
+    await act(async () => release());
+    await elapse(0);
+    expect(seen.replace).not.toHaveBeenCalled();
+    expect(view().note).toBe(REPLY);
+    expect(view().model.wait).toMatch(/^She waits 28 more minutes/);
+    syncGate = null;
+    vi.setSystemTime(NOW);
+    await syncNow();
+    expect(seen.replace).not.toHaveBeenCalled();
+    expect(view().note).toBe(REPLY);
+  });
+});
+
+describe("/sill/[visitId]/reply transient expiry (#592 ac-2)", () => {
+  it("keeps Reply and the draft when the visit only looks over locally, and leaves once a sync confirms", async () => {
+    await show([VISIT]);
+    await type(REPLY);
+    await tick(28 * MIN);
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(seen.replace).not.toHaveBeenCalled();
+    expect(view().note).toBe(REPLY);
+    await show([{ ...VISIT, leavesAt: NOW + 40 * MIN }], NOW + 28 * MIN);
+    expect(seen.replace).not.toHaveBeenCalled();
+    expect(view().note).toBe(REPLY);
+    await show([VISIT], NOW + 28 * MIN);
+    expect(seen.replace).toHaveBeenCalledWith("/sill/v1");
   });
 });

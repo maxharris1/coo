@@ -1,12 +1,17 @@
 import { useEffect, useState } from "react";
+import type { SyncPayload } from "@/components/sync";
 
 const TICK_MS = 1000;
 
-export function useServerNow(offsetMs: number): number {
-  const [deviceNow, setDeviceNow] = useState(Date.now);
+type ServerSample = Pick<SyncPayload, "serverNow" | "serverNowMono">;
+
+export function useServerNow(sample: ServerSample | null): number | null {
+  const [monoNow, setMonoNow] = useState(() => performance.now());
+
   useEffect(() => {
-    const timer = setInterval(() => setDeviceNow(Date.now()), TICK_MS);
+    const timer = setInterval(() => setMonoNow(performance.now()), TICK_MS);
     return () => clearInterval(timer);
   }, []);
-  return deviceNow + offsetMs;
+
+  return sample && sample.serverNow + (monoNow - sample.serverNowMono);
 }

@@ -206,10 +206,28 @@ describe("startSync", () => {
 
   it("reports the payload and the server clock offset", async () => {
     const s = setup();
+    const sent = performance.now();
     await vi.advanceTimersByTimeAsync(1000);
     const body = { me: { id: "me" }, unread: 2, serverNow: 60_500 };
     await s.respond(200, body);
-    expect(s.results).toEqual([{ ok: true, payload: body, offsetMs: 60_000 }]);
+    expect(s.results).toEqual([
+      {
+        ok: true,
+        payload: { ...body, serverNowMono: sent + 500 },
+        offsetMs: 60_000,
+      },
+    ]);
+    s.sync.stop();
+  });
+
+  it("anchors serverNow to the monotonic midpoint of the request, whatever the wall clock does", async () => {
+    const s = setup();
+    const sent = performance.now();
+    vi.setSystemTime(-60 * 60_000);
+    await vi.advanceTimersByTimeAsync(1000);
+    await s.respond(200, { serverNow: 60_500 });
+    const [result] = s.results;
+    expect(result.ok && result.payload.serverNowMono).toBe(sent + 500);
     s.sync.stop();
   });
 

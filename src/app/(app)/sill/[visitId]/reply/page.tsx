@@ -80,18 +80,23 @@ function ReplyScreen({
 export default function ReplyPage() {
   const { visitId } = useParams<{ visitId: string }>();
   const router = useRouter();
-  const { data, offsetMs } = useSync();
-  const nowMs = useServerNow(offsetMs);
+  const { data, refresh } = useSync();
+  const nowMs = useServerNow(data);
   const [sent, setSent] = useState(false);
 
   const visit = data?.visits.find((v) => v.id === visitId) ?? null;
-  const over = data !== null && (!visit || nowMs >= visit.leavesAt);
+  const over = data !== null && (!visit || data.serverNow >= visit.leavesAt);
+  const looksOver = visit !== null && nowMs !== null && nowMs >= visit.leavesAt;
 
   useEffect(() => {
     if (over && !sent) router.replace(`/sill/${visitId}`);
   }, [over, sent, visitId, router]);
 
-  if (!visit || over || sent) return <Loader />;
+  useEffect(() => {
+    if (looksOver && !over) refresh();
+  }, [looksOver, over, refresh]);
+
+  if (!visit || nowMs === null || over || sent) return <Loader />;
   return (
     <ReplyScreen
       key={visit.id}

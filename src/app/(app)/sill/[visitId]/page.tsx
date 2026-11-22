@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Loader } from "@/components/Loader";
 import { useSync } from "@/components/SyncProvider";
+import type { SyncPayload } from "@/components/sync";
 import { useToast } from "@/components/Toasts";
 import { asUnits, type Units } from "@/lib/format";
 import type { FriendRow } from "@/server/services/friends";
@@ -87,18 +88,18 @@ function VisitScreen({
   live,
   timeZone,
   units,
-  offsetMs,
+  sample,
   refresh,
 }: {
   visit: SyncVisit;
   live: boolean;
   timeZone: string;
   units: Units;
-  offsetMs: number;
+  sample: SyncPayload;
   refresh(): void;
 }) {
   const toast = useToast();
-  const nowMs = useServerNow(offsetMs);
+  const nowMs = useServerNow(sample) ?? sample.serverNow;
   const [animate] = useState(() => !landedBefore(visit.id) && !reducedMotion());
   const [city, setCity] = useState<SenderCity | null>(null);
   const [snacking, setSnacking] = useState(false);
@@ -142,7 +143,7 @@ function VisitScreen({
 export default function VisitPage() {
   const { visitId } = useParams<{ visitId: string }>();
   const router = useRouter();
-  const { data, offsetMs, refresh } = useSync();
+  const { data, refresh } = useSync();
 
   const live = data?.visits.find((v) => v.id === visitId) ?? null;
   const [last, setLast] = useState<SyncVisit | null>(null);
@@ -160,17 +161,17 @@ export default function VisitPage() {
     if (unknown) router.replace("/sill");
   }, [unknown, router]);
 
-  if (visit) {
+  if (visit && data) {
     return (
       <VisitScreen
         key={visit.id}
         visit={visit}
         live={live !== null}
         timeZone={
-          data?.me.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone
+          data.me.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone
         }
-        units={asUnits(data?.me.units)}
-        offsetMs={offsetMs}
+        units={asUnits(data.me.units)}
+        sample={data}
         refresh={refresh}
       />
     );
