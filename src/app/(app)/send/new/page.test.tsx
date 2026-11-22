@@ -87,6 +87,10 @@ const searched = () =>
 
 const START = { lat: 39.9705, lon: -75.1345 };
 const DOOR = { lat: 39.971234567, lon: -75.133987654 };
+const BACK = { lat: 40.12345678, lon: -74.87654321 };
+
+const named = (label: string) =>
+  Response.json({ place: { label, city: "Philadelphia, PA" } });
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -347,5 +351,77 @@ describe("NewRecipient page destination pin", () => {
     await picked();
     await type("Fishtown, Phila");
     expect(view().destination).toBeNull();
+  });
+
+  function heldAnswers() {
+    const late: ((r: Response) => void)[] = [];
+    hereAnswer = () => new Promise((resolve) => late.push(resolve));
+    return late;
+  }
+
+  it("keeps the most recent moved pin when lookup responses arrive out of order", async () => {
+    const late = heldAnswers();
+    await picked();
+    await act(async () => view().onMove(DOOR));
+    await act(async () => view().onMove(BACK));
+    await act(async () => late[1](named("Latest")));
+    await act(async () => late[0](named("Earlier")));
+    expect(view().destination).toEqual({ at: BACK, label: "Latest" });
+    expect(JSON.parse(stored.get(pinKey("p1"))!)).toEqual(BACK);
+  });
+
+  it("ignores an earlier move's answer that lands before the latest one", async () => {
+    const late = heldAnswers();
+    await picked();
+    await act(async () => view().onMove(DOOR));
+    await act(async () => view().onMove(BACK));
+    await act(async () => late[0](named("Earlier")));
+    expect(view().destination).toEqual({
+      at: START,
+      label: "Fishtown, Philadelphia",
+    });
+    expect(stored.has(pinKey("p1"))).toBe(false);
+    await act(async () => late[1](named("Latest")));
+    expect(view().destination).toEqual({ at: BACK, label: "Latest" });
+    expect(JSON.parse(stored.get(pinKey("p1"))!)).toEqual(BACK);
+  });
+
+  it("holds Next while the latest move is being looked up", async () => {
+    const late = heldAnswers();
+    await picked();
+    expect(view().settling).toBe(false);
+    await act(async () => view().onMove(DOOR));
+    expect(view().settling).toBe(true);
+    await act(async () => view().onMove(BACK));
+    await act(async () => late[0](named("Earlier")));
+    expect(view().settling).toBe(true);
+    await act(async () => late[1](named("Latest")));
+    expect(view().settling).toBe(false);
+  });
+
+  it("releases Next when the moved spot has no name or the lookup fails", async () => {
+    const late = heldAnswers();
+    await picked();
+    await act(async () => view().onMove(DOOR));
+    await act(async () =>
+      late[0](Response.json({ place: null, message: "No name here." })),
+    );
+    expect(view().settling).toBe(false);
+    await act(async () => view().onMove(BACK));
+    await act(async () =>
+      late[1](
+        Response.json({ error: { message: "Try again." } }, { status: 500 }),
+      ),
+    );
+    expect(view().settling).toBe(false);
+    expect(stored.has(pinKey("p1"))).toBe(false);
+  });
+
+  it("releases Next when the sender picks again mid-lookup", async () => {
+    heldAnswers();
+    await picked();
+    await act(async () => view().onMove(DOOR));
+    await act(async () => view().onPick(FISHTOWN));
+    expect(view().settling).toBe(false);
   });
 });

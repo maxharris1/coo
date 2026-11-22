@@ -44,6 +44,7 @@ const props = (over: Partial<Props> = {}): Props => ({
   onPick: () => {},
   destination: null,
   onMove: () => {},
+  settling: false,
   ...over,
 });
 
@@ -118,6 +119,12 @@ describe("NewRecipientView (ac-2)", () => {
 
   it("leaves Next without a link until a place is picked", () => {
     const next = nextControl(render({ pickedId: null }));
+    expect(next).not.toContain("href=");
+    expect(next).toContain('aria-disabled="true"');
+  });
+
+  it("leaves Next without a link while a moved pin is being checked", () => {
+    const next = nextControl(render({ settling: true }));
     expect(next).not.toContain("href=");
     expect(next).toContain('aria-disabled="true"');
   });

@@ -31,12 +31,14 @@ function NewRecipient() {
   const [settled, setSettled] = useState<Settled | null>(null);
   const [picked, setPicked] = useState<PlaceResult | null>(null);
   const [destination, setDestination] = useState<Destination | null>(null);
-  const pick = useRef(0);
+  const [settling, setSettling] = useState(false);
+  const latest = useRef(0);
 
   const choose = (place: PlaceResult | null) => {
-    pick.current += 1;
+    latest.current += 1;
     setPicked(place);
     setDestination(null);
+    setSettling(false);
   };
 
   const q = query.trim();
@@ -72,9 +74,9 @@ function NewRecipient() {
     setQuery(place.label);
     setSettled((s) => keepResultsFor(s, place.label));
     writePin(sessionStorage, place.placeId, null);
-    const mine = pick.current;
+    const mine = latest.current;
     void placeStart(place.placeId).then((r) => {
-      if (pick.current !== mine) return;
+      if (latest.current !== mine) return;
       if (!r.ok) return toast(r.message);
       setDestination({ at: r.data.start, label: place.label });
     });
@@ -83,9 +85,11 @@ function NewRecipient() {
   const onMove = (point: Point) => {
     if (!picked) return;
     const { placeId } = picked;
-    const mine = pick.current;
+    const mine = ++latest.current;
+    setSettling(true);
     void lookHere(snap(point.lat, point.lon)).then((r) => {
-      if (pick.current !== mine) return;
+      if (latest.current !== mine) return;
+      setSettling(false);
       if (!r.ok) return toast(r.message);
       const { place, message } = r.data;
       if (!place) return toast(message ?? PLACE_NOT_FOUND);
@@ -105,6 +109,7 @@ function NewRecipient() {
       onPick={onPick}
       destination={destination}
       onMove={onMove}
+      settling={settling}
     />
   );
 }

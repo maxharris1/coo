@@ -25,6 +25,7 @@ export type NewRecipientViewProps = {
   onPick: (place: PlaceResult) => void;
   destination: Destination | null;
   onMove: (point: Point) => void;
+  settling: boolean;
 };
 
 export const PLACE_NOT_FOUND =
@@ -98,6 +99,7 @@ export function NewRecipientView({
   onPick,
   destination,
   onMove,
+  settling,
 }: NewRecipientViewProps) {
   const { heading, lines } = steps(name);
   return (
@@ -170,7 +172,7 @@ export function NewRecipientView({
       </section>
 
       <div className={styles.footer}>
-        {pickedId !== null && canGoNext(name, pickedId) ? (
+        {pickedId !== null && !settling && canGoNext(name, pickedId) ? (
           <Link
             href={nextHref({ name, placeId: pickedId })}
             className={styles.next}
