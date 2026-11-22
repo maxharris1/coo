@@ -90,6 +90,7 @@ Also updates `profiles.timezone` if the request header `X-Timezone` differs.
 | Endpoint | Does |
 |---|---|
 | `GET /api/geo/search?q=` | Up to 6 results `{ placeId, label, sublabel, kind: 'neighbourhood'|'city'|'address' }`. Results are held server-side under `placeId` for 10 minutes, and a place saved with `POST /api/loft` stays held for its owner so its town centre can still be chosen; coordinates are not returned |
+| `GET /api/geo/place?placeId=` | `{ start: { lat, lon } }`, the held place's snapped point, so a map can open there. Only the signed-in user who holds the `placeId` gets it. Another user, an expired hold or a malformed id is refused with `invalid`. No label, street, house number or search text |
 | `GET /api/geo/here?lat=&lon=` | For "use my location": returns the snapped roost label and city. The exact position is used once and dropped |
 
 ## Friends
@@ -110,8 +111,8 @@ Also updates `profiles.timezone` if the request header `X-Timezone` differs.
 ### POST /api/flights/quote
 Body: `{ recipients: [{ friendId } | { place: { placeId, pin?: { lat, lon } } }], birdIds?: string[], at?: number[] }`.
 
-`pin` is an exact destination the sender placed by hand on the map for a held place. With it,
-the leg ends at the pin and `to.label` is the neighbourhood (or city) of the snapped pin.
+`pin` is a destination the sender placed by hand on the map for a held place. The server snaps
+it to the roost grid. With it, the leg ends at the snapped pin and `to.label` is the neighbourhood (or city) of the snapped pin.
 Without it, the leg ends at the held place's snapped point, as before. If the snapped pin has
 no neighbourhood or city, the request is refused with `invalid`. If the geocoder fails, it is
 refused with `unavailable`. The held place's label is never used for a pin. See rule 1 of
@@ -133,8 +134,8 @@ future hours comes from the hourly forecast. Quotes never touch the database exc
 
 ### POST /api/flights
 Body: `{ body, doodle?, sends: [{ friendId | guest: { name, placeId, pin?: { lat, lon } }, birdId }], releaseAt? }`.
-A guest `pin` works as in the quote: the flight's `to` is stored exactly at the pin, labelled
-by the snapped pin's neighbourhood. Only the sender and the guest-link holder can read it.
+A guest `pin` works as in the quote: the flight's `to` and the guest link's `dest` are stored
+at the snapped pin, labelled by its neighbourhood. Only the sender and the guest-link holder can read it.
 The note is checked with `validateNote`: text, a doodle, or both.
 
 In one transaction: checks limits, checks each bird is home, owned, able to fly and that the body
