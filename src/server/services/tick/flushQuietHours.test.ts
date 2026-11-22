@@ -283,6 +283,26 @@ describe("tick step 11: flush quiet hours", () => {
       expect(await pushSentAt(held.id)).toEqual(new Date(NINE_AM_NY));
     });
 
+    it("keeps a 23:00 hold that came due at 07:00 quiet after the quiet end moves to 09:00", async () => {
+      await subscribe(world.priya);
+      const held = await hold(world.priya, ELEVEN_PM_NY);
+      deps.clock.set(SEVEN_AM_NY);
+      const cookie = await signIn(world.priya, "+15550000002");
+      await patchSettings(cookie, { quietEnd: 9 });
+      const response = await syncGet(createJsonRoute(async () => deps))(
+        new NextRequest("https://coo.test/api/sync", { headers: { cookie } }),
+      );
+      expect((await response.json()).me.settings.quietEnd).toBe(9);
+
+      expect(await flushAt(SEVEN_AM_NY)).toBe(0);
+      expect(await flushAt(NINE_AM_NY - 1)).toBe(0);
+      expect(deps.push.sent).toEqual([]);
+      expect(await pushSentAt(held.id)).toBeNull();
+      expect(await flushAt(NINE_AM_NY)).toBe(1);
+      expect(deps.push.sent.map((s) => s.payload.tag)).toEqual([held.tag]);
+      expect(await pushSentAt(held.id)).toEqual(new Date(NINE_AM_NY));
+    });
+
     it("releases the hold at 06:00 when the quiet end moves from 07:00 to 06:00", async () => {
       await subscribe(world.priya);
       await hold(world.priya, ELEVEN_PM_NY);
@@ -338,14 +358,17 @@ describe("tick step 11: flush quiet hours", () => {
       expect(await pushSentAt(held.id)).toEqual(new Date(SEVEN_AM_NY));
     });
 
-    it("keeps the release instant decided at hold time", async () => {
+    it("holds until quiet hours end in the new time zone", async () => {
       await subscribe(world.priya);
       const held = await hold(world.priya, ELEVEN_PM_NY);
       await syncTimezone(world.priya, "+15550000002", "America/Los_Angeles");
 
-      expect(await flushAt(SEVEN_AM_NY - 1)).toBe(0);
-      expect(await flushAt(SEVEN_AM_NY)).toBe(1);
-      expect(await pushSentAt(held.id)).toEqual(new Date(SEVEN_AM_NY));
+      expect(await flushAt(SEVEN_AM_NY)).toBe(0);
+      expect(await flushAt(SEVEN_AM_NY + 3 * HOUR_MS - 1)).toBe(0);
+      expect(await flushAt(SEVEN_AM_NY + 3 * HOUR_MS)).toBe(1);
+      expect(await pushSentAt(held.id)).toEqual(
+        new Date(SEVEN_AM_NY + 3 * HOUR_MS),
+      );
     });
   });
 });
