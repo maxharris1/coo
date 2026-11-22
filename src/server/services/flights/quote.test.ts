@@ -1,19 +1,25 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { haversineMi, hazardsFor } from "@/lib/flight/engine";
+import { haversineMi, hazardsFor, type LatLon } from "@/lib/flight/engine";
 import { isWeekend } from "@/lib/game/time";
 import type { UserId } from "@/server/ports/auth";
 import { setShows } from "@/server/services/friends";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
 import { FakeClock } from "@/test/fakes/clock";
 import { seedWorld, type World } from "@/test/seedWorld";
-import { quote } from "./quote";
+import { quote, type BirdQuote } from "./quote";
 
 const MINUTE_MS = 60_000;
 const NEW_YORK_CENTRE = { lat: 40.712, lon: -74.005 };
 const MAX_ROOST = { lat: 40.73, lon: -73.9875 };
 const PRIYA_ROOST = { lat: 39.952, lon: -75.165 };
 const DAY_MS = 24 * 60 * MINUTE_MS;
-const CALM = { windMph: 0, windFromDeg: 0, tempF: 55, precipMmH: 0, snow: false };
+const CALM = {
+  windMph: 0,
+  windFromDeg: 0,
+  tempF: 55,
+  precipMmH: 0,
+  snow: false,
+};
 
 let deps: TestDeps;
 let world: World;
@@ -289,6 +295,106 @@ describe("quote", () => {
     const lost = odds.reduce((sum, f) => sum + parseInt(f.effect, 10), 0);
     expect(lost).toBe(Math.round((0.91 - q.odds) * 100));
     expect(lost).toBe(13);
+  });
+
+  describe("night goggles", () => {
+    const TEN_PM = Date.UTC(2026, 10, 20, 3);
+    const CHICAGO = { lat: 41.8781, lon: -87.6298 };
+
+    async function quoteGerald(
+      gear: string[],
+      {
+        at = TEN_PM,
+        focus,
+        rain = false,
+        priyaHome,
+      }: {
+        at?: number;
+        focus?: number;
+        rain?: boolean;
+        priyaHome?: LatLon;
+      } = {},
+    ) {
+      deps = await makeTestDeps({ clock: new FakeClock(at) });
+      world = await seedWorld(deps.db, at);
+      const bird = world.max.birds[0].id;
+      await deps.db.query(
+        "update birds set gear = $1, focus = coalesce($2, focus) where id = $3",
+        [gear, focus ?? null, bird],
+      );
+      if (priyaHome)
+        await deps.db.query(
+          "update profiles set home_lat = $1, home_lon = $2 where id = $3",
+          [priyaHome.lat, priyaHome.lon, world.priya.id],
+        );
+      if (rain) deps.weather.set({ ...CALM, precipMmH: 1 });
+      const { recipients } = await quote(deps, world.max.id as UserId, {
+        recipients: [{ friendId: world.priya.id as UserId }],
+        birdIds: [bird],
+      });
+      return recipients[0].quotes[0];
+    }
+
+    const NIGHT = {
+      kind: "night",
+      text: "Flying in the dark",
+      effect: "3% off",
+    };
+
+    it("names the odds lost to flying in the dark", async () => {
+      const bare = await quoteGerald([]);
+      expect(bare.odds).toBe(0.91);
+      expect(bare.factors).toEqual([]);
+
+      const q = await quoteGerald(["nightgoggles"]);
+
+      expect(q.odds).toBe(0.88);
+      expect(q.roostsOvernight).toBe(false);
+      expect(q.factors).toEqual([NIGHT]);
+    });
+
+    it("keeps the rain factor at 6% off when flying in the dark", async () => {
+      const q = await quoteGerald(["nightgoggles"], { rain: true });
+
+      expect(q.factors).toContainEqual({
+        kind: "rain",
+        text: "Light rain along the route",
+        effect: "6% off",
+      });
+      expect(q.factors).toContainEqual(NIGHT);
+    });
+
+    it("keeps the distance factor of a bird that roosts", async () => {
+      const distance = (q: BirdQuote) =>
+        q.factors.find((f) => f.kind === "distance");
+
+      const bare = await quoteGerald([], { priyaHome: CHICAGO });
+      const goggled = await quoteGerald(["nightgoggles"], {
+        priyaHome: CHICAGO,
+      });
+
+      expect(bare.roostsOvernight).toBe(true);
+      expect(goggled.roostsOvernight).toBe(false);
+      expect(distance(bare)).toMatchObject({ effect: "6% off" });
+      expect(distance(goggled)).toEqual(distance(bare));
+    });
+
+    it("lists no night factor on a daylight flight", async () => {
+      const q = await quoteGerald(["nightgoggles"], {
+        at: Date.UTC(2026, 10, 19, 15),
+      });
+
+      expect(q.odds).toBe(0.91);
+      expect(q.factors).toEqual([]);
+    });
+
+    it("lists no night factor when the odds are already at their best", async () => {
+      const q = await quoteGerald(["band", "nightgoggles"], { focus: 5 });
+
+      expect(q.odds).toBe(0.99);
+      expect(q.roostsOvernight).toBe(false);
+      expect(q.factors.map((f) => f.kind)).not.toContain("night");
+    });
   });
 
   describe("a 0.1 mi hop from the East Village on 2026-11-22", () => {
