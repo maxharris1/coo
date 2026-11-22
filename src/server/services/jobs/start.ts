@@ -1,10 +1,14 @@
+import { jobDestination, oneWayMiles } from "@/lib/game/jobDest";
 import { offersFor } from "@/lib/game/jobs";
+import { levelFor } from "@/lib/game/levels";
+import { activeLoft } from "@/lib/game/privacy";
 import { jobPay } from "@/lib/game/seeds";
 import { localDate } from "@/lib/game/time";
 import type { OnboardedCaller, Profile } from "@/server/auth";
 import type { Deps } from "@/server/deps";
 import { AppError } from "@/server/errors";
 import type { Row } from "@/server/rows";
+import { loftsOf } from "@/server/services/friends";
 import { jobsStartedToday } from "./offers";
 
 const MINUTE_MS = 60_000;
@@ -59,6 +63,19 @@ export async function startJob(
        returning id`,
       [userId, bird.id, job.id, pay.seeds, now, endsAt],
     );
+    const loft = activeLoft(loftsOf(profile));
+    if (loft) {
+      const dest = jobDestination(
+        id,
+        loft.roost,
+        oneWayMiles(bird.speed_mph, levelFor(bird.miles), job.minutes),
+        job.short,
+      );
+      await db.query(
+        "update jobs set dest_lat = $2, dest_lon = $3, dest_label = $4 where id = $1",
+        [id, dest.lat, dest.lon, dest.label],
+      );
+    }
     await db.query(
       `update birds set status = 'busy', busy_kind = 'job',
          busy_until = to_timestamp($2 / 1000.0)

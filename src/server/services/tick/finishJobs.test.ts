@@ -204,7 +204,12 @@ describe("finishJobs", () => {
       10,
     );
     const priyaJob = jobIdWhere(false, new Set([maxJob]));
-    await insertRunningJob(priyaJob, world.priya.id, world.priya.birds[0].id, 10);
+    await insertRunningJob(
+      priyaJob,
+      world.priya.id,
+      world.priya.birds[0].id,
+      10,
+    );
 
     deps.clock.set(maxEnds);
     await tick(deps, { userId: world.max.id });
@@ -296,5 +301,65 @@ describe("finishJobs", () => {
     expect(await seedsOf(priya)).toBe(priyaBefore + 12);
     expect(await ledger(max, "job")).toHaveLength(2);
     expect(await ledger(priya, "job")).toEqual([{ delta: 12, ref_id: last }]);
+  });
+  it("ac-3 (#706): a job with a destination makes no flight or visit, pays once, and leaves the destination in place", async () => {
+    const max = world.max.id;
+    const gerald = world.max.birds[0].id;
+    const counts = async () => {
+      const [row] = await deps.db.query<{ flights: number; visits: number }>(
+        "select (select count(*)::int from flights) as flights, (select count(*)::int from visits) as visits",
+      );
+      return row;
+    };
+    const destOf = async (jobId: string) => {
+      const [row] = await deps.db.query<{
+        dest_lat: number | null;
+        dest_lon: number | null;
+        dest_label: string | null;
+      }>("select dest_lat, dest_lon, dest_label from jobs where id = $1", [
+        jobId,
+      ]);
+      return row;
+    };
+    const before = await counts();
+    const seeds = await seedsOf(max);
+    const job = await start(max, gerald);
+    const endsAt = Date.parse(job.endsAt);
+    const dest = await destOf(job.id);
+    expect(dest.dest_lat).not.toBeNull();
+    expect(dest.dest_lon).not.toBeNull();
+    expect(dest.dest_label).not.toBeNull();
+    expect(await counts()).toEqual(before);
+
+    deps.clock.set(endsAt - MINUTE_MS);
+    expect((await tick(deps)).counts.finishJobs).toBe(0);
+    deps.clock.set(endsAt);
+    expect((await tick(deps)).counts.finishJobs).toBe(1);
+
+    const object = foundObjectFor(job.id, CHANCE);
+    const finished = {
+      seeds: await seedsOf(max),
+      ledger: await ledger(max, "job"),
+      found: await foundRows(max),
+      bird: await birdRow(gerald),
+    };
+    expect(finished.seeds).toBe(seeds + job.pay);
+    expect(finished.ledger).toEqual([{ delta: job.pay, ref_id: job.id }]);
+    expect(finished.found.map((f) => f.source_id)).toEqual(
+      object ? [job.id] : [],
+    );
+    expect(finished.bird).toMatchObject({ status: "home", busy_until: null });
+    expect(await counts()).toEqual(before);
+
+    deps.clock.advance(MINUTE_MS);
+    expect((await tick(deps)).counts.finishJobs).toBe(0);
+    expect({
+      seeds: await seedsOf(max),
+      ledger: await ledger(max, "job"),
+      found: await foundRows(max),
+      bird: await birdRow(gerald),
+    }).toEqual(finished);
+    expect(await destOf(job.id)).toEqual(dest);
+    expect(await counts()).toEqual(before);
   });
 });
