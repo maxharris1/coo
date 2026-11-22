@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Bird, type Breed, type GearId, type Look } from "@/components/Bird";
+import { DoodleView } from "@/components/doodle/DoodleView";
 import type { Counter, ReplyModel } from "./replyModel";
 import styles from "./Reply.module.css";
 
@@ -56,7 +57,10 @@ export function ReplyView({
 
       <section className={styles.theirs}>
         <span className={styles.wrote}>{model.wroteLabel}</span>
-        <p className={styles.theirNote}>{model.note}</p>
+        {model.doodle && (
+          <DoodleView doodle={model.doodle} className={styles.doodle} />
+        )}
+        {model.note && <p className={styles.theirNote}>{model.note}</p>}
       </section>
 
       <section className={styles.reply}>

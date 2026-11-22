@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { Doodle } from "@/lib/game/notes";
 import type { FriendRow } from "@/server/services/friends";
 import type { SyncVisit } from "@/server/services/visits/syncRead";
 import { counter, replyModel } from "./replyModel";
@@ -52,11 +53,26 @@ describe("replyModel (ac-1)", () => {
       speed: "43 mph",
       wroteLabel: "Priya wrote",
       note: "Saturday works. Bring the bread.",
+      doodle: null,
       limit: 140,
       wait: "She waits 28 more minutes, then heads home with or without a reply.",
       release: "Send Dumpling home",
       composeHref: "/send/write?to=u1",
     });
+  });
+
+  it("carries the note's doodle to the reply screen", () => {
+    const doodle: Doodle = {
+      v: 1,
+      w: 300,
+      h: 200,
+      strokes: [{ color: "ink", width: "fine", points: [[1, 2]] }],
+    };
+    const v = visit();
+    expect(
+      replyModel({ ...v, note: { ...v.note, doodle } }, PRIYA, NOW, "mi")
+        .doodle,
+    ).toEqual(doodle);
   });
 
   it("estimates with the visiting bird's own speed", () => {

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Bird, type GearId, type Look } from "@/components/Bird";
+import { DoodleView } from "@/components/doodle/DoodleView";
 import { Landing } from "@/components/Takeoff";
 import { config } from "@/lib/config";
 import type { Units } from "@/lib/format";
@@ -100,7 +101,10 @@ function NoteCard({
         />
       </span>
       <div className={styles.noteFrom}>NOTE FROM {owner.toUpperCase()}</div>
-      <p className={styles.noteBody}>{visit.note.body}</p>
+      {visit.note.doodle && (
+        <DoodleView doodle={visit.note.doodle} className={styles.doodle} />
+      )}
+      {visit.note.body && <p className={styles.noteBody}>{visit.note.body}</p>}
       <p className={styles.signOff}>{owner.charAt(0).toUpperCase()}.</p>
     </article>
   );
