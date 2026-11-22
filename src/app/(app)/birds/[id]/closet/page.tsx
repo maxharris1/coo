@@ -6,7 +6,6 @@ import { useRef, useState } from "react";
 import { Bird, type GearId, type Look } from "@/components/Bird";
 import { Loader } from "@/components/Loader";
 import { useSync } from "@/components/SyncProvider";
-import type { SyncPayload } from "@/components/sync";
 import { useToast } from "@/components/Toasts";
 import type { Pronoun } from "@/lib/format";
 import { ClosetTile } from "./ClosetTile";
@@ -40,6 +39,13 @@ function BackLink({ href, label }: { href: string; label: string }) {
   );
 }
 
+type Worn = { birdId: string; worn: GearId[] };
+
+type Saves = {
+  pending: (Worn & { done: Promise<void> }) | null;
+  confirmed: (Worn & { savedAt: number }) | null;
+};
+
 const byShelf = (cells: Cell[]) => [
   ...cells.filter((c) => c.kind !== "store"),
   ...cells.filter((c) => c.kind === "store"),
@@ -47,18 +53,13 @@ const byShelf = (cells: Cell[]) => [
 
 export default function ClosetPage() {
   const { id } = useParams<{ id: string }>();
-  const { data, error, refresh } = useSync();
+  const { data, error, offsetMs, refresh } = useSync();
   const toast = useToast();
-  const [shown, setShown] = useState<{
-    data: SyncPayload;
-    birdId: string;
-    worn: GearId[];
-  } | null>(null);
-  const saving = useRef<{
-    birdId: string;
-    worn: GearId[];
-    done: Promise<void>;
-  } | null>(null);
+  const [saves, setSaves] = useState<Saves>({
+    pending: null,
+    confirmed: null,
+  });
+  const latest = useRef(saves);
   if (!data) {
     if (!error) return <Loader />;
     return (
@@ -82,10 +83,14 @@ export default function ClosetPage() {
     );
   }
 
-  const worn =
-    shown?.data === data && shown.birdId === bird.id
-      ? shown.worn
-      : (bird.gear as GearId[]);
+  const fetchedAt = data.serverNow - offsetMs;
+  const wornIn = ({ pending, confirmed }: Saves) =>
+    (pending?.birdId === bird.id ? pending.worn : null) ??
+    (confirmed?.birdId === bird.id && fetchedAt <= confirmed.savedAt
+      ? confirmed.worn
+      : null) ??
+    (bird.gear as GearId[]);
+  const worn = wornIn(saves);
   const wardrobeFor = (gear: GearId[]): Wardrobe => ({
     bird: { ...bird, gear },
     birds: data.birds,
@@ -94,28 +99,36 @@ export default function ClosetPage() {
   });
   const cells = closetCells(wardrobeFor(worn));
   const effects = effectsFor(worn);
+  const update = (change: Partial<Saves>) => {
+    latest.current = { ...latest.current, ...change };
+    setSaves(latest.current);
+  };
+  const selection = () => wornIn(latest.current);
   const save = (next: GearId[], body: GearBody = { items: next }) => {
-    setShown({ data, birdId: bird.id, worn: next });
-    const done = (saving.current?.done ?? Promise.resolve())
+    const done: Promise<void> = (
+      latest.current.pending?.done ?? Promise.resolve()
+    )
       .then(() => putGear(bird.id, body))
-      .then((skipped) => {
-        const note = skippedNote(bird.name, skipped);
-        if (note) toast(note);
-      })
-      .catch((err: unknown) => {
-        setShown(null);
-        toast(err instanceof Error ? err.message : String(err));
-      })
-      .finally(() => {
-        if (saving.current?.done !== done) return;
-        saving.current = null;
+      .then(
+        ({ gear, skipped }) => {
+          const note = skippedNote(bird.name, skipped);
+          if (note) toast(note);
+          const worn = gear ?? next.filter((i) => !skipped.includes(i));
+          update({ confirmed: { birdId: bird.id, worn, savedAt: Date.now() } });
+        },
+        (err: unknown) => {
+          toast(err instanceof Error ? err.message : String(err));
+        },
+      )
+      .then(() => {
+        if (latest.current.pending?.done !== done) return;
+        update({ pending: null });
         refresh();
       });
-    saving.current = { birdId: bird.id, worn: next, done };
+    update({ pending: { birdId: bird.id, worn: next, done } });
   };
   const dress = (item: GearId) => {
-    const current =
-      saving.current?.birdId === bird.id ? saving.current.worn : worn;
+    const current = selection();
     const cell = closetCells(wardrobeFor(current)).find((c) => c.item === item);
     const next = cell && pick(current, cell);
     if (next) save(next);
