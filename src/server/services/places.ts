@@ -67,7 +67,7 @@ export async function searchPlaces(
   );
   const hits = await deps.geocoder.search(q).catch((error: unknown) => {
     log.warn("geo.search_failed", {
-      error: error instanceof Error ? error.message : String(error),
+      error: error instanceof Error ? error.name : typeof error,
     });
     throw new AppError("unavailable", GEOCODER_UNAVAILABLE);
   });

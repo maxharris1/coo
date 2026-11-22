@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Db } from "@/server/db";
 import { AppError } from "@/server/errors";
+import { photon } from "@/server/adapters/photon";
 import { log } from "@/server/log";
 import type { UserId } from "@/server/ports/auth";
 import type { GeoHit } from "@/server/ports/geocoder";
@@ -185,8 +186,29 @@ describe("searchPlaces when the geocoder fails", () => {
       message: GEOCODER_UNAVAILABLE,
     });
     expect(warn).toHaveBeenCalledWith("geo.search_failed", {
-      error: "photon down",
+      error: "Error",
     });
+  });
+
+  it("never logs the query when the provider echoes it back", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const geocoder = photon({
+      baseUrl: "https://photon.invalid",
+      fetch: async () => new Response("Error: 1 A St"),
+    })(deps.db, deps.clock);
+
+    await expect(
+      searchPlaces({ ...deps, geocoder }, ME, "1 A St"),
+    ).rejects.toMatchObject({ code: "unavailable" });
+
+    expect(warn).toHaveBeenCalledOnce();
+    const line = String(warn.mock.calls[0][0]);
+    expect(JSON.parse(line)).toEqual({
+      level: "warn",
+      event: "geo.search_failed",
+      error: "SyntaxError",
+    });
+    expect(line).not.toContain("1 A St");
   });
 });
 
