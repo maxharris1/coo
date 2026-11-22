@@ -140,7 +140,6 @@ export type OnboardingBody = {
   name: string;
   timezone: string;
   bird: { name: string; look: Look; pronoun: Pronoun };
-  secondBird: { name: string; pronoun: Pronoun };
 };
 
 export const onboardingBody = (
@@ -150,13 +149,9 @@ export const onboardingBody = (
   name: state.yourName.trim(),
   timezone,
   bird: {
-    name: state.name.trim(),
+    name: state.name.trim() || FIRST_BIRD.looks[state.index].name,
     look: FIRST_BIRD.looks[state.index].look,
     pronoun: state.pronoun,
-  },
-  secondBird: {
-    name: state.roommate.name.trim(),
-    pronoun: state.roommate.pronoun,
   },
 });
 
