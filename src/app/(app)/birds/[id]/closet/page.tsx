@@ -41,8 +41,10 @@ function BackLink({ href, label }: { href: string; label: string }) {
 
 type Worn = { birdId: string; worn: GearId[] };
 
+type Put = { worn: GearId[]; body: GearBody };
+
 type Saves = {
-  pending: (Worn & { done: Promise<void> }) | null;
+  pending: (Worn & { done: Promise<Worn | null> }) | null;
   confirmed: (Worn & { savedAt: number }) | null;
 };
 
@@ -104,34 +106,51 @@ export default function ClosetPage() {
     setSaves(latest.current);
   };
   const selection = () => wornIn(latest.current);
-  const save = (next: GearId[], body: GearBody = { items: next }) => {
-    const done: Promise<void> = (
-      latest.current.pending?.done ?? Promise.resolve()
+  const save = (put: Put, rebase?: (applied: GearId[]) => Put) => {
+    const done: Promise<Worn | null> = (
+      latest.current.pending?.done ?? Promise.resolve(null)
     )
-      .then(() => putGear(bird.id, body))
-      .then(
-        ({ gear, skipped }) => {
-          const note = skippedNote(bird.name, skipped);
-          if (note) toast(note);
-          const worn = gear ?? next.filter((i) => !skipped.includes(i));
-          update({ confirmed: { birdId: bird.id, worn, savedAt: Date.now() } });
-        },
-        (err: unknown) => {
-          toast(err instanceof Error ? err.message : String(err));
-        },
-      )
-      .then(() => {
-        if (latest.current.pending?.done !== done) return;
-        update({ pending: null });
-        refresh();
+      .then((applied) => {
+        const sent =
+          rebase && applied?.birdId === bird.id ? rebase(applied.worn) : put;
+        const { pending } = latest.current;
+        if (pending?.done === done) {
+          update({ pending: { ...pending, worn: sent.worn } });
+        }
+        return putGear(bird.id, sent.body).then(
+          ({ gear, skipped }): Worn => {
+            const note = skippedNote(bird.name, skipped);
+            if (note) toast(note);
+            const worn = gear ?? sent.worn.filter((i) => !skipped.includes(i));
+            update({
+              confirmed: { birdId: bird.id, worn, savedAt: Date.now() },
+            });
+            return { birdId: bird.id, worn };
+          },
+          (err: unknown) => {
+            toast(err instanceof Error ? err.message : String(err));
+            return null;
+          },
+        );
+      })
+      .then((applied) => {
+        if (latest.current.pending?.done === done) {
+          update({ pending: null });
+          refresh();
+        }
+        return applied;
       });
-    update({ pending: { birdId: bird.id, worn: next, done } });
+    update({ pending: { birdId: bird.id, worn: put.worn, done } });
   };
   const dress = (item: GearId) => {
     const current = selection();
     const cell = closetCells(wardrobeFor(current)).find((c) => c.item === item);
-    const next = cell && pick(current, cell);
-    if (next) save(next);
+    if (!cell || !pick(current, cell)) return;
+    const build = (base: GearId[]): Put => {
+      const next = pick(base, cell) ?? base;
+      return { worn: next, body: { items: next } };
+    };
+    save(build(current), build);
   };
   const outfits = data.outfits.map((outfit) => {
     const gear = applyOutfit(wardrobeFor(worn), outfit);
@@ -194,7 +213,9 @@ export default function ClosetPage() {
                 className={styles.chip}
                 aria-pressed={wearing}
                 disabled={gear.length === 0}
-                onClick={() => save(gear, { outfitId: outfit.id })}
+                onClick={() =>
+                  save({ worn: gear, body: { outfitId: outfit.id } })
+                }
               >
                 {outfit.name}
               </button>

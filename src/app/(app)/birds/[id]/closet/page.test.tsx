@@ -582,6 +582,87 @@ describe("/birds/[id]/closet (ac-1)", () => {
       ]);
     });
 
+    it("rebuilds a tap queued before a partial outfit lands from the applied gear (#617)", async () => {
+      const { bodies, answerNext } = heldFetch((body) =>
+        body.outfitId
+          ? Response.json({ bird: { gear: ["beanie"] }, skipped: ["scarf"] })
+          : ok(),
+      );
+      const closet = ["beanie", "scarf", "band"];
+      const cosy = [outfit("Cosy", ["beanie", "scarf"])];
+      const kevinFlying = bird({ ...kevin, status: "flying" });
+      syncWith(payload([bare, kevin], closet, cosy));
+      chip("Cosy").props.onClick?.();
+      expect(chip("Cosy").props["aria-pressed"]).toBe(true);
+      await flush();
+      syncWith(
+        fetchedAt(
+          payload([bird({ gear: ["beanie"] }), kevinFlying], closet, cosy),
+          Date.now(),
+        ),
+      );
+      tile("band").props.onClick?.();
+      await flush();
+      await answerNext();
+      expect(tile("scarf").props["aria-pressed"]).toBe(false);
+      expect(tile("band").props["aria-pressed"]).toBe(true);
+      await answerNext();
+      expect(bodies).toEqual([
+        { outfitId: "Cosy" },
+        { items: ["beanie", "band"] },
+      ]);
+    });
+
+    describe("a tap queued behind a partial outfit keeps its intent (#617 f-1)", () => {
+      const closet = ["beanie", "scarf", "band"];
+      const cosy = [outfit("Cosy", ["beanie", "scarf"])];
+      const echoApplied = () =>
+        heldFetch((body) =>
+          body.outfitId
+            ? Response.json({ bird: { gear: ["beanie"] }, skipped: ["scarf"] })
+            : Response.json({ bird: { gear: body.items }, skipped: [] }),
+        );
+      const answerAll = async (answerNext: () => Promise<void>, n: number) => {
+        for (let i = 0; i < n; i++) await answerNext();
+      };
+
+      it("keeps a queued removal off when the server already skipped it", async () => {
+        const { bodies, answerNext } = echoApplied();
+        syncWith(payload([bare, kevin], closet, cosy));
+        chip("Cosy").props.onClick?.();
+        expect(tile("scarf").props["aria-pressed"]).toBe(true);
+        tile("scarf").props.onClick?.();
+        expect(tile("scarf").props["aria-pressed"]).toBe(false);
+        tile("band").props.onClick?.();
+        await flush();
+        await answerAll(answerNext, 3);
+        expect(bodies).toEqual([
+          { outfitId: "Cosy" },
+          { items: ["beanie"] },
+          { items: ["beanie", "band"] },
+        ]);
+        expect(tile("scarf").props["aria-pressed"]).toBe(false);
+        expect(tile("band").props["aria-pressed"]).toBe(true);
+      });
+
+      it("ends with the item on after an off then on tap", async () => {
+        const { bodies, answerNext } = echoApplied();
+        syncWith(payload([bare, kevin], closet, cosy));
+        chip("Cosy").props.onClick?.();
+        tile("scarf").props.onClick?.();
+        tile("scarf").props.onClick?.();
+        expect(tile("scarf").props["aria-pressed"]).toBe(true);
+        await flush();
+        await answerAll(answerNext, 3);
+        expect(bodies).toEqual([
+          { outfitId: "Cosy" },
+          { items: ["beanie"] },
+          { items: ["beanie", "scarf"] },
+        ]);
+        expect(tile("scarf").props["aria-pressed"]).toBe(true);
+      });
+    });
+
     it("builds the next PUT from the gear the server says it applied (f-2)", async () => {
       const { bodies, answerNext } = heldFetch((body) =>
         body.outfitId
