@@ -18,6 +18,7 @@ vi.mock("@/env", () => ({
 const PEPPER = "test-pepper";
 const MINUTE = 60_000;
 const DAY = 24 * 60 * MINUTE;
+const IP = "203.0.113.7";
 
 let deps: TestDeps;
 let world: World;
@@ -46,7 +47,7 @@ async function landedLink() {
 }
 
 const claim = (who: UserId, token: string) =>
-  claimGuestLink(deps, who, PEPPER, token);
+  claimGuestLink(deps, who, PEPPER, IP, token);
 
 function claimWhileLocking(who: UserId, token: string, lockedAt: number) {
   const slow = (base: Db): Db => ({
@@ -56,7 +57,7 @@ function claimWhileLocking(who: UserId, token: string, lockedAt: number) {
     },
     tx: (fn) => base.tx((tx) => fn(slow(tx))),
   });
-  return claimGuestLink({ ...deps, db: slow(deps.db) }, who, PEPPER, token);
+  return claimGuestLink({ ...deps, db: slow(deps.db) }, who, PEPPER, IP, token);
 }
 
 async function refusal(promise: Promise<unknown>) {
@@ -101,6 +102,21 @@ describe("claimGuestLink", () => {
     expect(first).toEqual({ friendId: max, visitId: expect.any(String) });
     expect(second).toEqual(first);
     expect(await snapshot()).toEqual(after);
+  });
+
+  it("refuses the attempt after the per-minute limit from one address, wrong tokens included", async () => {
+    const { token } = await landedLink();
+    for (let i = 0; i < deps.config.game.limits.guestViewsPerMinutePerIp; i++) {
+      expect(await refusal(claim(rosa, "AAAAAAAAAAAAAAAA"))).toBe("not_found");
+    }
+
+    expect(await refusal(claim(rosa, token))).toBe("rate_limited");
+    expect(
+      await claimGuestLink(deps, rosa, PEPPER, "198.51.100.1", token),
+    ).toEqual({
+      friendId: max,
+      visitId: expect.any(String),
+    });
   });
 
   it("refuses a second user with gone and leaves the claim alone (ac-2)", async () => {

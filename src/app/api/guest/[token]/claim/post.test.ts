@@ -61,6 +61,20 @@ describe("POST /api/guest/[token]/claim", () => {
     expect(res.json.error.code).toBe("not_found");
   });
 
+  it("refuses the attempt after the per-minute limit from one address, wrong tokens included", async () => {
+    const client = claimer("AAAAAAAAAAAAAAAA");
+    const { jar } = await client.signIn(PHONE.rosa);
+    for (let i = 0; i < deps.config.game.limits.guestViewsPerMinutePerIp; i++) {
+      const res = await client.post({}, jar);
+      expect(res.status).toBe(404);
+      expect(res.json.error.code).toBe("not_found");
+    }
+
+    const res = await client.post({}, jar);
+    expect(res.status).toBe(429);
+    expect(res.json.error.code).toBe("rate_limited");
+  });
+
   it("refuses the sender claiming their own link", async () => {
     const res = await claimAs("max");
     expect(res.status).toBe(409);

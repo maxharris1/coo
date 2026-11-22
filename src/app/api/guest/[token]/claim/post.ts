@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { clientIp } from "@/server/clientIp";
 import type { createJsonRoute } from "@/server/http";
 import { claimGuestLink } from "@/server/services/guestLinks/claim";
 import { tokenAt } from "../get";
@@ -15,6 +16,7 @@ export function guestClaimPost(
         deps,
         caller.userId,
         pepper(),
+        clientIp(req),
         tokenAt(req.nextUrl.pathname, 1),
       ),
   );
