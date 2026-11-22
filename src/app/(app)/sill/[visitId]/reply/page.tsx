@@ -7,10 +7,11 @@ import { Loader } from "@/components/Loader";
 import { useSync } from "@/components/SyncProvider";
 import { useToast } from "@/components/Toasts";
 import { asUnits, type Units } from "@/lib/format";
+import type { Doodle } from "@/lib/game/notes";
 import type { FriendRow } from "@/server/services/friends";
 import type { SyncVisit } from "@/server/services/visits/syncRead";
 import { friendRow, postReply } from "./replyApi";
-import { counter, replyModel } from "./replyModel";
+import { canSend, counter, replyModel } from "./replyModel";
 import { ReplyView } from "./ReplyView";
 import { saveHandoff } from "./takeoffHandoff";
 import { useServerNow } from "../../useServerNow";
@@ -29,6 +30,7 @@ function ReplyScreen({
   const toast = useToast();
   const [friend, setFriend] = useState<FriendRow | undefined>();
   const [note, setNote] = useState("");
+  const [doodle, setDoodle] = useState<Doodle | null>(null);
   const [sending, setSending] = useState(false);
   const ownerId = visit.owner.id;
 
@@ -44,9 +46,9 @@ function ReplyScreen({
   const count = counter(note, model.limit);
 
   async function send() {
-    if (sending || note.trim() === "" || count.over) return;
+    if (sending || !canSend(note, doodle, count)) return;
     setSending(true);
-    const result = await postReply(fetch, visit.id, note);
+    const result = await postReply(fetch, visit.id, note, doodle);
     if (!result.ok) {
       setSending(false);
       return toast(result.message);
@@ -69,9 +71,11 @@ function ReplyScreen({
         gear: visit.bird.gear,
       }}
       note={note}
+      doodle={doodle}
       counter={count}
       sending={sending}
       onNote={setNote}
+      onDoodle={setDoodle}
       onSend={() => void send()}
     />
   );

@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { Bird, type Breed, type GearId, type Look } from "@/components/Bird";
-import type { Counter, ReplyModel } from "./replyModel";
+import { DoodlePad } from "@/components/doodle/DoodlePad";
+import { DoodleView } from "@/components/doodle/DoodleView";
+import type { Doodle } from "@/lib/game/notes";
+import { canSend, type Counter, type ReplyModel } from "./replyModel";
 import styles from "./Reply.module.css";
 
 export type ReplyBird = { look: Look; breed: Breed; gear: readonly GearId[] };
@@ -10,9 +13,11 @@ export type ReplyViewProps = {
   model: ReplyModel;
   bird: ReplyBird;
   note: string;
+  doodle: Doodle | null;
   counter: Counter;
   sending: boolean;
   onNote: (note: string) => void;
+  onDoodle: (doodle: Doodle | null) => void;
   onSend: () => void;
 };
 
@@ -21,12 +26,14 @@ export function ReplyView({
   model,
   bird,
   note,
+  doodle,
   counter,
   sending,
   onNote,
+  onDoodle,
   onSend,
 }: ReplyViewProps) {
-  const canSend = note.trim() !== "" && !counter.over && !sending;
+  const sendable = canSend(note, doodle, counter) && !sending;
   return (
     <main className={styles.screen}>
       <header className={styles.header}>
@@ -56,7 +63,10 @@ export function ReplyView({
 
       <section className={styles.theirs}>
         <span className={styles.wrote}>{model.wroteLabel}</span>
-        <p className={styles.theirNote}>{model.note}</p>
+        {model.note && <p className={styles.theirNote}>{model.note}</p>}
+        {model.doodle && (
+          <DoodleView doodle={model.doodle} className={styles.theirDoodle} />
+        )}
       </section>
 
       <section className={styles.reply}>
@@ -71,6 +81,7 @@ export function ReplyView({
             aria-describedby="reply-count"
             onChange={(e) => onNote(e.target.value)}
           />
+          <DoodlePad onChange={onDoodle} />
           <div className={styles.meta}>
             <span
               id="reply-count"
@@ -96,7 +107,7 @@ export function ReplyView({
         <button
           type="button"
           className={styles.release}
-          disabled={!canSend}
+          disabled={!sendable}
           onClick={onSend}
         >
           {model.release}

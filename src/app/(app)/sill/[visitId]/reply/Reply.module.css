@@ -129,6 +129,13 @@
   overflow-wrap: anywhere;
 }
 
+.theirDoodle {
+  display: block;
+  width: 100%;
+  max-width: 240px;
+  height: auto;
+}
+
 .reply {
   display: flex;
   flex-direction: column;
@@ -143,6 +150,7 @@
 .paper {
   display: flex;
   flex-direction: column;
+  gap: 8px;
   padding: 10px 14px 8px;
   background: var(--coo-card);
   border: var(--coo-line);

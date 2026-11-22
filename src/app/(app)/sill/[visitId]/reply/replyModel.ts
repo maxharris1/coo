@@ -5,7 +5,7 @@ import {
   type Pronoun,
   type Units,
 } from "@/lib/format";
-import { noteLimit } from "@/lib/game/notes";
+import { noteLimit, type Doodle } from "@/lib/game/notes";
 import type { FriendRow } from "@/server/services/friends";
 import type { SyncVisit } from "@/server/services/visits/syncRead";
 import { sharedCity } from "../../landedModel";
@@ -17,6 +17,7 @@ export type ReplyModel = {
   speed: string;
   wroteLabel: string;
   note: string;
+  doodle: Doodle | null;
   limit: number;
   wait: string;
   release: string;
@@ -63,6 +64,7 @@ export function replyModel(
     speed: `${Math.round(bird.speedMph)} mph`,
     wroteLabel: `${owner.name} wrote`,
     note: visit.note.body,
+    doodle: visit.note.doodle,
     limit: noteLimit(bird),
     wait: waitLine(bird.pronoun, minutesLeft),
     release: `Send ${bird.name} home`,
@@ -73,4 +75,12 @@ export function replyModel(
 export function counter(text: string, limit: number): Counter {
   const length = [...text.trim()].length;
   return { label: `${length} of ${limit} characters`, over: length > limit };
+}
+
+export function canSend(
+  note: string,
+  doodle: Doodle | null,
+  count: Counter,
+): boolean {
+  return (note.trim() !== "" || doodle !== null) && !count.over;
 }
