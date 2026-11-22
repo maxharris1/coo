@@ -95,3 +95,47 @@ describe("ac-1 guest send link token", () => {
     expect(logged).not.toContain(token);
   });
 });
+
+describe("ac-1 guest send with a doodle", () => {
+  it("stores the doodle on the guest's note", async () => {
+    const { width, height } = deps.config.game.notes.doodle;
+    const doodle = {
+      v: 1,
+      w: width,
+      h: height,
+      strokes: [
+        {
+          color: "ink",
+          width: "fine",
+          points: [
+            [1, 2],
+            [3, 4],
+          ],
+        },
+      ],
+    };
+    const client = geoClient(deps, flightsPost, "/api/flights");
+    const { id: max, jar } = await client.signIn("+15550000001");
+    const { results } = await searchPlaces(deps, max as UserId, "Williamsburg");
+
+    const { status } = await client.post(
+      {
+        body: "",
+        doodle,
+        sends: [
+          {
+            guest: { name: "Sam", placeId: results[0].placeId },
+            birdId: world.max.birds[0].id,
+          },
+        ],
+      },
+      jar,
+    );
+
+    expect(status).toBe(200);
+    const notes = await deps.db.query<{ body: string; doodle: unknown }>(
+      "select body, doodle from notes where guest_link_id is not null",
+    );
+    expect(notes).toEqual([{ body: "", doodle }]);
+  });
+});

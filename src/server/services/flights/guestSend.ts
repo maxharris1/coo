@@ -9,7 +9,7 @@ import {
 import { careAt, projectCare, type CareOwner } from "@/lib/game/care";
 import { levelFor } from "@/lib/game/levels";
 import { snap } from "@/lib/game/privacy";
-import { noteLimit, validateBody } from "@/lib/game/notes";
+import type { Note } from "@/lib/game/notes";
 import {
   isWeekend,
   startOfLocalDayMs,
@@ -26,6 +26,11 @@ import {
   createGuestLink,
   linkPepper,
 } from "@/server/services/guestLinks/create";
+import {
+  doodleParam,
+  readyNote,
+  type NoteInput,
+} from "@/server/services/noteInput";
 import { displayName } from "@/server/services/onboarding";
 import { sampleWeather } from "@/server/services/weather";
 import { getFlight } from "./get";
@@ -72,7 +77,7 @@ export const guestSend: SendHook = async (
     [item.birdId, me],
   );
   const now = deps.clock.now();
-  readyToFly(unlocked, input.body, now, owner);
+  readyToFly(unlocked, input, now, owner);
 
   const [{ samples }, names] = await Promise.all([
     sampleWeather(
@@ -115,7 +120,7 @@ export const guestSend: SendHook = async (
       "select * from birds where id = $1 and owner_id = $2 for update",
       [item.birdId, me],
     );
-    const { bird, body } = readyToFly(locked, input.body, now, owner);
+    const { bird, note } = readyToFly(locked, input, now, owner);
     const flight = toFlightInput(
       flightId,
       bird,
@@ -158,10 +163,11 @@ export const guestSend: SendHook = async (
       timezone,
       now,
     });
-    const [note] = await tx.query<{ id: string }>(
-      `insert into notes (sender_id, recipient_id, guest_link_id, body, created_at)
-       values ($1, null, $2, $3, $4) returning id`,
-      [me, link.id, body, nowIso],
+    const [noteRow] = await tx.query<{ id: string }>(
+      `insert into notes (sender_id, recipient_id, guest_link_id, body, doodle,
+         created_at)
+       values ($1, null, $2, $3, $4::jsonb, $5) returning id`,
+      [me, link.id, note.body, doodleParam(note), nowIso],
     );
     await tx.query(
       `insert into flights (id, kind, bird_id, owner_id, counterpart_id,
@@ -175,7 +181,7 @@ export const guestSend: SendHook = async (
         bird.id,
         me,
         link.id,
-        note.id,
+        noteRow.id,
         from.point.lat,
         from.point.lon,
         from.label,
@@ -207,25 +213,17 @@ export const guestSend: SendHook = async (
 
 function readyToFly(
   row: Row<"birds"> | undefined,
-  text: string,
+  input: NoteInput,
   now: number,
   owner: CareOwner,
-): { bird: BirdRecord; body: string } {
+): { bird: BirdRecord; note: Note } {
   if (!row) throw new AppError("not_found", "No such bird");
   const bird = toBirdRecord(row);
   if (bird.status !== "home")
     throw new AppError("conflict", "That bird is not home");
   if (!careAt(snapshotOf(bird), now, owner).canFly)
     throw new AppError("conflict", "That bird is too tired to fly");
-  const checked = validateBody(text, noteLimit(bird));
-  if (!checked.ok)
-    throw new AppError(
-      "invalid",
-      checked.reason === "empty"
-        ? "body: write a note first"
-        : `body: ${checked.length} of ${checked.limit} characters`,
-    );
-  return { bird, body: checked.body };
+  return { bird, note: readyNote(input, bird) };
 }
 
 function toFlightInput(

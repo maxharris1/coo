@@ -1,5 +1,4 @@
 import { careAt, type CareOwner } from "@/lib/game/care";
-import { noteLimit, validateBody } from "@/lib/game/notes";
 import { startOfLocalDayMs, startOfNextLocalDayMs } from "@/lib/game/time";
 import { AppError } from "@/server/errors";
 import { pair, toBirdRecord, type Row } from "@/server/rows";
@@ -8,6 +7,7 @@ import {
   loftsOf,
   type LoftColumns,
 } from "@/server/services/friends";
+import { doodleParam, readyNote } from "@/server/services/noteInput";
 import { getFlight } from "./get";
 import { endpointOf, legFor, snapshotOf } from "./quote";
 import type { SendHook } from "./send";
@@ -63,14 +63,7 @@ export const schedule: SendHook = async (deps, me, input) => {
     const owner: CareOwner = { hasBirdbath: mine.has_birdbath };
     if (!careAt(snapshotOf(bird), now, owner).canFly)
       throw new AppError("conflict", "That bird is too tired to fly");
-    const checked = validateBody(input.body, noteLimit(bird));
-    if (!checked.ok)
-      throw new AppError(
-        "invalid",
-        checked.reason === "empty"
-          ? "body: write a note first"
-          : `body: ${checked.length} of ${checked.limit} characters`,
-      );
+    const note = readyNote(input, bird);
 
     const claimed = await tx.query(
       `update birds set status = 'scheduled'
@@ -92,10 +85,10 @@ export const schedule: SendHook = async (deps, me, input) => {
     if (sentToday >= deps.config.game.limits.flightsPerDay)
       throw new AppError("rate_limited", "Too many requests. Try again later.");
 
-    const [note] = await tx.query<{ id: string }>(
-      `insert into notes (sender_id, recipient_id, body, created_at)
-       values ($1, $2, $3, $4) returning id`,
-      [me, friend, checked.body, nowIso],
+    const [noteRow] = await tx.query<{ id: string }>(
+      `insert into notes (sender_id, recipient_id, body, doodle, created_at)
+       values ($1, $2, $3, $4::jsonb, $5) returning id`,
+      [me, friend, note.body, doodleParam(note), nowIso],
     );
     const [flight] = await tx.query<{ id: string }>(
       `insert into flights (kind, bird_id, owner_id, counterpart_id, note_id,
@@ -108,7 +101,7 @@ export const schedule: SendHook = async (deps, me, input) => {
         bird.id,
         me,
         friend,
-        note.id,
+        noteRow.id,
         from.point.lat,
         from.point.lon,
         from.label,

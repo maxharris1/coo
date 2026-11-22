@@ -22,6 +22,7 @@ const SEND = z.union([
 
 const BODY = z.object({
   body: z.string(),
+  doodle: z.unknown().optional(),
   sends: z.array(SEND).min(1).max(config.game.limits.recipientsPerSend),
   releaseAt: z.number().int().optional(),
 });

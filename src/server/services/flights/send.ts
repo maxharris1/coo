@@ -10,7 +10,7 @@ import { clockTime, type Pronoun } from "@/lib/format";
 import { careAt, projectCare, type CareOwner } from "@/lib/game/care";
 import { levelFor } from "@/lib/game/levels";
 import type { Point } from "@/lib/game/privacy";
-import { noteLimit, validateBody } from "@/lib/game/notes";
+import type { Note } from "@/lib/game/notes";
 import {
   isWeekend,
   startOfLocalDayMs,
@@ -26,6 +26,11 @@ import {
   loftsOf,
   type LoftColumns,
 } from "@/server/services/friends";
+import {
+  doodleParam,
+  readyNote,
+  type NoteInput,
+} from "@/server/services/noteInput";
 import { notificationText, recordNotification } from "@/server/services/notify";
 import { deliver } from "@/server/services/notify/deliver";
 import { sampleWeather } from "@/server/services/weather";
@@ -41,7 +46,7 @@ export type SendItem =
   | { friendId: UserId; birdId: string }
   | { guest: { name: string; placeId: string; pin?: Point }; birdId: string };
 
-export type SendInput = { body: string; sends: SendItem[]; releaseAt?: number };
+export type SendInput = NoteInput & { sends: SendItem[]; releaseAt?: number };
 
 export type SendResult = { flights: Flight[] };
 
@@ -74,7 +79,7 @@ export async function send(
     [item.birdId, me],
   );
   const now = deps.clock.now();
-  readyToFly(unlocked, input.body, now, owner);
+  readyToFly(unlocked, input, now, owner);
 
   const [{ samples }, names, [them]] = await Promise.all([
     sampleWeather(
@@ -118,7 +123,7 @@ export async function send(
       "select * from birds where id = $1 and owner_id = $2 for update",
       [item.birdId, me],
     );
-    const { bird, body } = readyToFly(locked, input.body, now, owner);
+    const { bird, note } = readyToFly(locked, input, now, owner);
     const flightInput = toFlightInput(
       flightId,
       bird,
@@ -155,10 +160,10 @@ export async function send(
     if (sentToday >= deps.config.game.limits.flightsPerDay)
       throw new AppError("rate_limited", "Too many requests. Try again later.");
 
-    const [note] = await tx.query<{ id: string }>(
-      `insert into notes (sender_id, recipient_id, body, created_at)
-       values ($1, $2, $3, $4) returning id`,
-      [me, friend, body, nowIso],
+    const [noteRow] = await tx.query<{ id: string }>(
+      `insert into notes (sender_id, recipient_id, body, doodle, created_at)
+       values ($1, $2, $3, $4::jsonb, $5) returning id`,
+      [me, friend, note.body, doodleParam(note), nowIso],
     );
     await tx.query(
       `insert into flights (id, kind, bird_id, owner_id, counterpart_id, note_id,
@@ -172,7 +177,7 @@ export async function send(
         bird.id,
         me,
         friend,
-        note.id,
+        noteRow.id,
         from.point.lat,
         from.point.lon,
         from.label,
@@ -257,25 +262,17 @@ async function prepareLeg(
 
 function readyToFly(
   row: Row<"birds"> | undefined,
-  text: string,
+  input: NoteInput,
   now: number,
   owner: CareOwner,
-): { bird: BirdRecord; body: string } {
+): { bird: BirdRecord; note: Note } {
   if (!row) throw new AppError("not_found", "No such bird");
   const bird = toBirdRecord(row);
   if (bird.status !== "home")
     throw new AppError("conflict", "That bird is not home");
   if (!careAt(snapshotOf(bird), now, owner).canFly)
     throw new AppError("conflict", "That bird is too tired to fly");
-  const checked = validateBody(text, noteLimit(bird));
-  if (!checked.ok)
-    throw new AppError(
-      "invalid",
-      checked.reason === "empty"
-        ? "body: write a note first"
-        : `body: ${checked.length} of ${checked.limit} characters`,
-    );
-  return { bird, body: checked.body };
+  return { bird, note: readyNote(input, bird) };
 }
 
 function toFlightInput(

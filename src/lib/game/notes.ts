@@ -55,6 +55,8 @@ const doodleSchema = z.strictObject({
 
 export type Doodle = z.infer<typeof doodleSchema>;
 
+export type Note = { body: string; doodle: Doodle | null };
+
 export type DoodleCheck =
   | { ok: true; doodle: Doodle }
   | {
