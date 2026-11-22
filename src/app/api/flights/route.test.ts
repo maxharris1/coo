@@ -306,12 +306,12 @@ describe("POST /api/flights", () => {
       }),
     ],
     [
-      "two sends",
+      "the same bird twice",
       () => ({
         body: BODY,
         sends: [
           { friendId: world.priya.id, birdId: gerald() },
-          { friendId: world.rosa.id, birdId: world.max.birds[1].id },
+          { friendId: world.rosa.id, birdId: gerald() },
         ],
       }),
     ],
