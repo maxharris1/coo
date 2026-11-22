@@ -1,3 +1,4 @@
+import type { Pronoun } from "@/lib/format";
 import type { Db } from "@/server/db";
 import type { Deps } from "@/server/deps";
 import { AppError } from "@/server/errors";
@@ -16,7 +17,7 @@ export const NO_SUCH_LINK = "No bird is flying on that link";
 export type GuestView = {
   senderName: string;
   recipientName: string;
-  bird: Omit<BirdLite, "id">;
+  bird: Omit<BirdLite, "id"> & { pronoun: Pronoun };
   flight: Pick<
     Flight,
     | "status"
@@ -121,6 +122,10 @@ async function readGuestView(
   );
   if (!row) throw new AppError("not_found", NO_SUCH_LINK);
   const flight = toFlight(row, "");
+  const [bird] = await db.query<{ pronoun: Pronoun }>(
+    "select pronoun from birds where id = $1",
+    [flight.bird.id],
+  );
 
   const view: GuestView = {
     senderName: firstName(link.sender_name),
@@ -129,6 +134,7 @@ async function readGuestView(
       name: flight.bird.name,
       look: flight.bird.look,
       gear: flight.bird.gear,
+      pronoun: bird.pronoun,
     },
     flight: {
       status: flight.status,
