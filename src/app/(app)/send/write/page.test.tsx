@@ -132,6 +132,8 @@ const legFor = (birdIds: string[], friendId = "u2") => ({
   quotes: birdIds.map((birdId) => ({
     birdId,
     releaseAt: RELEASE,
+    leavesAt: RELEASE,
+    airTimeMs: 108 * 60_000,
     durationMs: 108 * 60_000,
     arriveAt: RELEASE + 108 * 60_000,
     odds: birdId === "b1" ? 0.94 : 0.81,

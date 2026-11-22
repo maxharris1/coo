@@ -48,6 +48,11 @@ counter against the selected bird's limit; "Who's flying?" bird picker (ready bi
 others shown with why not: Hungry is selectable with a warning, Napping, Flying and Too tired
 are not); three stats (distance, flight time, arrival odds) and one line of plain-language
 forecast from `/api/flights/quote`; a Forecast link; the release button "Release {bird}".
+Flight time is the time in the air (`airTimeMs`). A bird released after dark waits at the loft
+until sunrise, and the forecast says "Waits for sunrise. Leaves at {leavesAt}. Lands around
+{arriveAt}." A bird that leaves now but roosts on the way shows the door-to-door time
+(`durationMs`), and the forecast adds "Roosts for the night and finishes after sunrise." after
+"Lands around {arriveAt}." A leading factor, if any, follows the forecast.
 With several recipients the picker assigns one bird per recipient, fastest bird to the farthest
 friend by default, and each can be swapped.
 A napping bird stays unpickable but shows a Wake button. Wake wakes it in place
