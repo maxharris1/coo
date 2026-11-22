@@ -60,9 +60,21 @@ const EARN: Earn = {
 let respond: () => Response;
 const toast = vi.fn();
 
-const syncWith = (birds: Partial<SyncPayload["birds"][number]>[]) =>
+const syncWith = (
+  birds: Partial<SyncPayload["birds"][number]>[],
+  more: {
+    seeds?: number;
+    unread?: number;
+    flights?: Partial<SyncPayload["flights"][number]>[];
+  } = {},
+) =>
   ({
-    data: { me: { timezone: "UTC" }, birds } as unknown as SyncPayload,
+    data: {
+      me: { timezone: "UTC", seeds: more.seeds ?? 240 },
+      birds,
+      flights: more.flights ?? [],
+      unread: more.unread ?? 0,
+    } as unknown as SyncPayload,
     error: null,
     offsetMs: 0,
     refresh: () => {},
@@ -333,7 +345,100 @@ describe("/earn page lifecycle", () => {
     await act(async () => root.unmount());
   });
 
-  it("does not reload Earn when sync changes but no bird came home", async () => {
+  it("shows a find when a job started in another tab completes while Earn is hidden", async () => {
+    const mabel = { id: "b-mabel", name: "Mabel" };
+    respond = () => Response.json(EARN);
+    const root = createRoot(
+      Object.assign(new EventTarget(), {
+        nodeType: 1,
+        tagName: "DIV",
+        ownerDocument: document,
+      }) as unknown as Element,
+    );
+    await act(async () =>
+      root.render(
+        page(
+          syncWith([{ ...mabel, status: "home", busyKind: null }], {
+            seeds: 240,
+          }),
+        ),
+      ),
+    );
+    await settle();
+    expect(states.at(-1)).toMatchObject({ kind: "ready", found: [] });
+
+    const find = {
+      id: "f-3",
+      objectId: "bottle-cap",
+      name: "Bottle cap",
+      value: 5,
+      birdId: "b-mabel",
+    };
+    respond = () => Response.json({ ...EARN, seeds: 248, found: [find] });
+    const done = syncWith([{ ...mabel, status: "home", busyKind: null }], {
+      seeds: 248,
+    });
+    await act(async () => root.render(page(done)));
+    await settle();
+
+    const last = states.at(-1);
+    expect(last).toMatchObject({ kind: "ready", found: [find] });
+    const markup = renderToStaticMarkup(
+      <SyncContext.Provider value={done}>
+        <ToastProvider>
+          <JobsPanel
+            jobs={EARN.jobs}
+            found={last?.kind === "ready" ? last.found : []}
+            onChanged={async () => {}}
+          />
+        </ToastProvider>
+      </SyncContext.Provider>,
+    );
+    expect(markup).toContain("Mabel brought back 1 thing.");
+    expect(markup).toContain("Trade for 5");
+
+    await act(async () => root.unmount());
+  });
+
+  it("reloads Earn when sync shows a return landed with the home set unchanged", async () => {
+    const pip = { id: "b-pip", name: "Pip", status: "home" as const };
+    respond = () => Response.json(EARN);
+    const root = createRoot(
+      Object.assign(new EventTarget(), {
+        nodeType: 1,
+        tagName: "DIV",
+        ownerDocument: document,
+      }) as unknown as Element,
+    );
+    await act(async () =>
+      root.render(
+        page(
+          syncWith([pip], {
+            flights: [{ id: "fl-1", kind: "return", status: "flying" }],
+          }),
+        ),
+      ),
+    );
+    await settle();
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
+
+    await act(async () =>
+      root.render(
+        page(
+          syncWith([pip], {
+            flights: [{ id: "fl-1", kind: "return", status: "landed" }],
+          }),
+        ),
+      ),
+    );
+    await settle();
+
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(2);
+
+    await act(async () => root.unmount());
+  });
+
+  it("reloads Earn when sync shows a bird starting a job", async () => {
     respond = () => Response.json(EARN);
     const root = createRoot(
       Object.assign(new EventTarget(), {
@@ -349,8 +454,36 @@ describe("/earn page lifecycle", () => {
     await settle();
     await act(async () =>
       root.render(
-        page(syncWith([{ ...pip, status: "busy", busyKind: "job" }])),
+        page(
+          syncWith([
+            { ...pip, status: "busy", busyKind: "job", busyUntil: 1 },
+          ]),
+        ),
       ),
+    );
+    await settle();
+
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(2);
+
+    await act(async () => root.unmount());
+  });
+
+  it("does not reload Earn when sync changes nothing about jobs, returns, finds or seeds", async () => {
+    respond = () => Response.json(EARN);
+    const root = createRoot(
+      Object.assign(new EventTarget(), {
+        nodeType: 1,
+        tagName: "DIV",
+        ownerDocument: document,
+      }) as unknown as Element,
+    );
+    const pip = { id: "b-pip", name: "Pip", status: "home" as const };
+    await act(async () =>
+      root.render(page(syncWith([{ ...pip, energy: 80 }], { unread: 0 }))),
+    );
+    await settle();
+    await act(async () =>
+      root.render(page(syncWith([{ ...pip, energy: 70 }], { unread: 3 }))),
     );
     await settle();
 
