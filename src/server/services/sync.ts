@@ -133,6 +133,8 @@ export async function sync(
     outfits,
     eggs,
     cards,
+    [jobs],
+    found,
     [unread],
     [friends],
     flights,
@@ -157,6 +159,14 @@ export async function sync(
     deps.db.query<{ deliveries: number; paid: boolean }>(
       "select deliveries, paid from punch_cards where user_id = $1 and week_start = $2",
       [id, week],
+    ),
+    deps.db.query<{ running: number; done: number }>(
+      "select count(*) filter (where status = 'running')::int as running, count(*) filter (where status = 'done')::int as done from jobs where user_id = $1",
+      [id],
+    ),
+    deps.db.query<{ id: string }>(
+      "select id from found_objects where user_id = $1 and traded_at is null order by found_at, id",
+      [id],
     ),
     deps.db.query<{ count: number }>(
       "select count(*)::int as count from notifications where user_id = $1 and read_at is null",
@@ -196,6 +206,8 @@ export async function sync(
       size: deps.config.game.seeds.punchCardSize,
       paid: card?.paid ?? false,
     },
+    jobs,
+    found: found.map((f) => f.id),
     unread: unread.count,
     friendsCount: friends.count,
   };

@@ -254,6 +254,8 @@ describe("GET /api/sync", () => {
       size: config.game.seeds.punchCardSize,
       paid: false,
     });
+    expect(json.jobs).toEqual({ running: 0, done: 0 });
+    expect(json.found).toEqual([]);
     expect(json.unread).toBe(2);
     expect(json.friendsCount).toBe(1);
     expect(json.flights).toEqual([]);

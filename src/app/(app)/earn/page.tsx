@@ -14,6 +14,8 @@ const earnSignal = (data: SyncPayload | null): string | null =>
     data.punchCard,
     data.birds.map((b) => [b.id, b.status, b.busyKind, b.busyUntil]),
     data.flights.map((f) => [f.id, f.status]),
+    data.jobs,
+    data.found,
   ]);
 
 export default function EarnPage() {

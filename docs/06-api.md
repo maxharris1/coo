@@ -61,6 +61,8 @@ First runs the tick steps for rows that belong to or are aimed at this user. The
   visits: Visit[],              // waiting on my sill
   myVisiting: { birdId, hostName, leavesAt }[],
   egg: { status, deliveriesToGo }, punchCard: { weekStart, deliveries, size, paid },
+  jobs: { running, done },      // my job counts by status
+  found: string[],              // ids of my untraded finds
   unread: number, friendsCount: number }
 ```
 
