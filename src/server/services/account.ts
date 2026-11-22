@@ -2,6 +2,7 @@ import type { OnboardedCaller } from "@/server/auth";
 import type { Db } from "@/server/db";
 import type { Deps } from "@/server/deps";
 import { AppError } from "@/server/errors";
+import { forgetPlaces } from "./places";
 import {
   returnRoute,
   sameRoute,
@@ -101,6 +102,7 @@ async function tryDelete(
        from friendships where a_id = $1 or b_id = $1`,
       [userId, new Date(nowMs).toISOString()],
     );
+    await forgetPlaces(tx, userId);
     await tx.query("delete from auth.users where id = $1", [userId]);
     return true;
   });

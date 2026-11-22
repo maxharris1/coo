@@ -132,6 +132,9 @@ export const keepPlace = (db: Db, placeId: string) =>
     [heldKey(placeId)],
   );
 
+export const forgetPlaces = (db: Db, userId: string) =>
+  db.query("delete from geo_cache where payload ->> 'userId' = $1", [userId]);
+
 export async function placeHere(
   deps: Deps,
   roost: Point,
