@@ -132,6 +132,12 @@ export const searchPlaces = (q: string, fetchImpl: Fetch = fetch) =>
     `/api/geo/search?${new URLSearchParams({ q })}`,
   );
 
+export const placeStart = (placeId: string, fetchImpl: Fetch = fetch) =>
+  call<{ start: Point }>(
+    fetchImpl,
+    `/api/geo/place?${new URLSearchParams({ placeId })}`,
+  );
+
 export async function saveLoft(
   body: LoftBody,
   fetchImpl: Fetch = fetch,

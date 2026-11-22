@@ -3,6 +3,7 @@ import {
   initialLoft,
   loft,
   lookHere,
+  placeStart,
   saveLoft,
   searchPlaces,
   snappedPosition,
@@ -136,6 +137,18 @@ describe("loft api calls", () => {
     expect(result).toEqual({
       ok: true,
       data: { results: [], message: "Could not find that place" },
+    });
+  });
+
+  it("asks for a place's snapped starting point by its id", async () => {
+    const fetchImpl = vi.fn(async () =>
+      json(200, { start: { lat: 40.714, lon: -73.9625 } }),
+    );
+    const result = await placeStart("p 1", fetchImpl);
+    expect(fetchImpl).toHaveBeenCalledWith("/api/geo/place?placeId=p+1");
+    expect(result).toEqual({
+      ok: true,
+      data: { start: { lat: 40.714, lon: -73.9625 } },
     });
   });
 
