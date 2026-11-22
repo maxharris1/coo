@@ -161,10 +161,10 @@ describe("PUT /api/birds/[id]/gear", () => {
     const { status, json } = await put(gerald, { outfitId }, jar);
 
     expect(status).toBe(200);
-    expect(json.bird.gear).toEqual(["goggles"]);
-    expect(json.skipped).toEqual(["bow", "band"]);
-    expect(await gearOf(gerald)).toEqual(["goggles"]);
-    expect(await gearOf(brenda)).toEqual(["bow"]);
+    expect(json.bird.gear).toEqual(["goggles", "bow"]);
+    expect(json.skipped).toEqual(["band"]);
+    expect(await gearOf(gerald)).toEqual(["goggles", "bow"]);
+    expect(await gearOf(brenda)).toEqual([]);
   });
 
   it("answers someone else's outfit with 404 and changes nothing", async () => {
