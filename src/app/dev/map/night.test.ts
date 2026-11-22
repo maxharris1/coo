@@ -42,6 +42,7 @@ describe("night style", () => {
 
   it("keeps the day layers, sources, filters and layout", () => {
     expect(night.sources).toEqual(day.sources);
+    expect(night.sources.openmaptiles.maxzoom, "overzooms past z14").toBe(14);
     expect(night.glyphs).toBe(day.glyphs);
     expect(night.sprite).toBe(day.sprite);
     const shape = (layers: Layer[]) =>

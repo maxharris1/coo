@@ -1,5 +1,4 @@
-import { afterEach, expect, it, vi } from "vitest";
-import { config } from "@/lib/config";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { DevMap } from "./DevMap";
 import { PLACES } from "./views";
 
@@ -43,8 +42,19 @@ vi.mock("react", async (importOriginal) => ({
   useEffect: lib.setEffect,
 }));
 
+beforeEach(() => {
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe() {}
+      disconnect() {}
+    },
+  );
+});
+
 afterEach(() => {
   lib.maps.length = 0;
+  vi.unstubAllGlobals();
 });
 
 const capeCod = PLACES.find((p) => p.id === "cape-cod")!;
@@ -58,10 +68,7 @@ async function mount(mode: "day" | "night" = "day") {
 
 it("shows the full attribution, not the compact button", async () => {
   const { map } = await mount();
-  expect(map.options.attributionControl).toEqual({
-    compact: false,
-    customAttribution: config.app.mapAttribution,
-  });
+  expect(map.options.attributionControl).toEqual({ compact: false });
 });
 
 it("loads the day style at the chosen place and zoom", async () => {

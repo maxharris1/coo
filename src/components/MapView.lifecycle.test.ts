@@ -116,6 +116,13 @@ beforeEach(() => {
   lib.liveMarkers.clear();
   vi.stubGlobal("requestAnimationFrame", () => 1);
   vi.stubGlobal("cancelAnimationFrame", () => {});
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe() {}
+      disconnect() {}
+    },
+  );
 });
 
 afterEach(() => {
@@ -148,5 +155,11 @@ it("points MapLibre at its bundled worker before creating the map", async () => 
     expect.stringMatching(/^setWorkerUrl .*maplibre-gl-worker\.mjs$/),
     "new Map",
   ]);
+  cleanup();
+});
+
+it("shows the licence once, from the tiles, with no custom attribution", async () => {
+  const { map, cleanup } = await mountMap();
+  expect(map.options.attributionControl).toEqual({ compact: true });
   cleanup();
 });
