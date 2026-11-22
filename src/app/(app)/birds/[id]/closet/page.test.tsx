@@ -7,6 +7,7 @@ import type { SyncState } from "@/components/SyncProvider";
 import type { SyncPayload } from "@/components/sync";
 import { ClosetTile } from "./ClosetTile";
 import ClosetPage from "./page";
+import { WeatherTip } from "./WeatherTip";
 import { putGear } from "./wear";
 
 const sync = vi.hoisted(() => ({ current: null as unknown }));
@@ -233,6 +234,26 @@ describe("/birds/[id]/closet (ac-1)", () => {
       /<a[^>]*href="\/shop"[^>]*aria-label="Rain hat, 120 seeds in the store"|<a[^>]*aria-label="Rain hat, 120 seeds in the store"[^>]*href="\/shop"/,
     );
     expect(out).toContain("120 seeds");
+  });
+
+  it("puts tomorrow's weather tip between the stand and the closet", () => {
+    syncWith(payload([gerald, kevin, brenda], CLOSET));
+    const all = elements(page());
+    const tip = all.findIndex((el) => el.type === WeatherTip);
+    expect(tip).toBeGreaterThan(
+      all.findIndex((el) => el.props.children === "What it does"),
+    );
+    expect(tip).toBeLessThan(
+      all.findIndex((el) => el.props.children === "Closet"),
+    );
+    expect(all[tip].props).toMatchObject({
+      pronoun: "he",
+      worn: ["goggles", "band"],
+    });
+  });
+
+  it("shows no tip before the forecast arrives", () => {
+    expect(html()).not.toContain("Dress him");
   });
 
   it("lists closet items before store items, as drawn", () => {
@@ -559,6 +580,15 @@ describe("/birds/[id]/closet looks (ac-2)", () => {
     expect(css).toMatch(/\.grid\s*{[^}]*repeat\(4,/);
     expect(css).toMatch(/\.back\s*{[^}]*var\(--coo-touch\)/);
     expect(css).toMatch(/\.storeLink\s*{[^}]*min-height:\s*var\(--coo-touch\)/);
+  });
+
+  it("draws the weather tip as a sun band with a raised 44 px button", () => {
+    expect(css).toMatch(/\.tip\s*{[^}]*background:\s*var\(--coo-sun\)/);
+    expect(css).toMatch(/\.tipButton\s*{[^}]*min-height:\s*var\(--coo-touch\)/);
+    expect(css).toMatch(/\.tipButton\s*{[^}]*background:\s*var\(--coo-card\)/);
+    expect(css).toMatch(
+      /\.tipButton\s*{[^}]*box-shadow:\s*var\(--coo-shadow-1\)/,
+    );
   });
 
   it("lays saved outfits three across as touch-sized pills, sun when worn", () => {
