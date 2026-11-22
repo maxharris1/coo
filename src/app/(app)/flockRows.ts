@@ -20,7 +20,8 @@ export type FlightLite = {
 
 export type Visiting = { birdId: string; hostName: string; leavesAt: number };
 
-export type Chip = "Ready" | "Flying" | "Resting" | "Scheduled" | "On a sill";
+export type Chip =
+  "Ready" | "Flying" | "Resting" | "Scheduled" | "On a sill" | "On a job";
 export type Tone = "sky" | "sun" | "lilac" | "peach" | "mint" | "sand";
 
 export type FlockRow = {
@@ -42,11 +43,15 @@ const chip = (c: Chip, line: string, tone: Tone): FlockRow => ({
   tone,
 });
 
-const BUSY: Record<string, string> = {
-  nap: "Napping",
-  bath: "Bathing",
-  job: "On an odd job",
+type Busy = { label: string; chip: Chip; tone: Tone };
+
+const BUSY: Record<string, Busy> = {
+  nap: { label: "Napping", chip: "Resting", tone: "lilac" },
+  bath: { label: "Bathing", chip: "Resting", tone: "lilac" },
+  job: { label: "On an odd job", chip: "On a job", tone: "sun" },
 };
+
+const OTHER_BUSY: Busy = { label: "Busy", chip: "Resting", tone: "lilac" };
 
 const CANNOT_FLY: Record<CannotFly, string> = {
   tired: "Too tired to fly. Resting up.",
@@ -95,11 +100,13 @@ export function flockRow(bird: FlockBird, ctx: RowContext): FlockRow {
       );
     }
     case "busy": {
-      const what = BUSY[bird.busyKind ?? ""] ?? "Busy";
+      const busy = BUSY[bird.busyKind ?? ""] ?? OTHER_BUSY;
       return chip(
-        "Resting",
-        bird.busyUntil ? `${what} until ${at(bird.busyUntil)}` : what,
-        "lilac",
+        busy.chip,
+        bird.busyUntil
+          ? `${busy.label} until ${at(bird.busyUntil)}`
+          : busy.label,
+        busy.tone,
       );
     }
     case "home":

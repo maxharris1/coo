@@ -21,6 +21,7 @@ const CHIP_TONE: Record<Chip, string> = {
   Resting: "lilac",
   Scheduled: "sand",
   "On a sill": "sky",
+  "On a job": "sun",
 };
 
 function Avatar({

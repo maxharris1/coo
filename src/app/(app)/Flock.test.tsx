@@ -77,6 +77,25 @@ describe("Flock on Main", () => {
     expect(html.match(/<svg/g)?.length).toBeGreaterThanOrEqual(4);
   });
 
+  it("chips a bird on an odd job On a job and a napping bird Resting", () => {
+    const until = Date.parse("2026-11-20T16:46:00Z");
+    const html = render(
+      data({
+        birds: [
+          bird("Gerald", { status: "busy", busyKind: "job", busyUntil: until }),
+          bird("Kevin", { status: "busy", busyKind: "nap", busyUntil: until }),
+        ],
+      }),
+    );
+    const rows = html.match(/<li[^>]*>.*?<\/li>/g) ?? [];
+    const row = (name: string) => rows.find((r) => r.includes(`>${name}<`));
+    expect(row("Gerald")).toContain("On an odd job until 11:46 am");
+    expect(row("Gerald")).toMatch(/class="[^"]*sun[^"]*">On a job</);
+    expect(row("Gerald")).not.toContain("Resting");
+    expect(row("Kevin")).toContain("Napping until 11:46 am");
+    expect(row("Kevin")).toMatch(/class="[^"]*lilac[^"]*">Resting</);
+  });
+
   it("gives a hungry bird a Feed me button instead of a chip (ac-2)", () => {
     const html = render(data({ birds: mock }));
     expect(html).toContain("Hungry. Has opinions about it.");
