@@ -4,11 +4,132 @@ import { describe, expect, it } from "vitest";
 const src = new URL("../", import.meta.url);
 const read = (path: string) => readFileSync(new URL(path, src), "utf8");
 
-const BLEED = "calc(-1 * var(--coo-safe-top))";
+const SAFE_TOP = "var(--coo-safe-top)";
+const BLEED = `calc(-1 * ${SAFE_TOP})`;
+
+type Pad = { rule: string; prop: string; now: string; before: string };
+
+const HEROES: { file: string; box: string; pads: Pad[] }[] = [
+  {
+    file: "app/(app)/sill/Landed.module.css",
+    box: "screen",
+    pads: [
+      {
+        rule: "header",
+        prop: "padding",
+        now: "calc(var(--coo-gutter) + var(--coo-safe-top)) var(--coo-gutter) 0",
+        before: "var(--coo-gutter) var(--coo-gutter) 0",
+      },
+    ],
+  },
+  {
+    file: "app/(app)/send/takeoff/[flightId]/Takeoff.module.css",
+    box: "screen",
+    pads: [
+      {
+        rule: "copy",
+        prop: "padding",
+        now: "calc(36px + var(--coo-safe-top)) 20px 0",
+        before: "36px 20px 0",
+      },
+    ],
+  },
+  {
+    file: "app/(app)/birds/[id]/page.module.css",
+    box: "hero",
+    pads: [
+      {
+        rule: "hero",
+        prop: "padding",
+        now: "calc(var(--coo-gutter) + var(--coo-safe-top)) var(--coo-gutter) 0",
+        before: "var(--coo-gutter) var(--coo-gutter) 0",
+      },
+    ],
+  },
+  {
+    file: "components/Tracker.module.css",
+    box: "tracker",
+    pads: [
+      {
+        rule: "tracker",
+        prop: "height",
+        now: "calc(100dvh - 84px - var(--coo-safe-bottom, 0px) + var(--coo-safe-top))",
+        before: "calc(100dvh - 84px - var(--coo-safe-bottom, 0px))",
+      },
+      {
+        rule: "top",
+        prop: "top",
+        now: "calc(var(--coo-gutter) + var(--coo-safe-top))",
+        before: "var(--coo-gutter)",
+      },
+    ],
+  },
+  {
+    file: "app/(app)/welcome/install/page.module.css",
+    box: "page",
+    pads: [
+      {
+        rule: "page",
+        prop: "padding",
+        now: "calc(28px + var(--coo-safe-top)) var(--coo-gutter) calc(12px + var(--coo-safe-bottom))",
+        before: "28px var(--coo-gutter) calc(12px + var(--coo-safe-bottom))",
+      },
+    ],
+  },
+  ...["welcome/bird", "welcome/loft"].map((dir) => ({
+    file: `app/(app)/${dir}/page.module.css`,
+    box: "page",
+    pads: [
+      {
+        rule: "page",
+        prop: "padding",
+        now: "calc(28px + var(--coo-safe-top)) var(--coo-gutter) 20px",
+        before: "28px var(--coo-gutter) 20px",
+      },
+    ],
+  })),
+  {
+    file: "app/(public)/auth.module.css",
+    box: "page",
+    pads: [
+      {
+        rule: "page",
+        prop: "padding",
+        now: "calc(28px + var(--coo-safe-top)) var(--coo-gutter) 20px",
+        before: "28px var(--coo-gutter) 20px",
+      },
+    ],
+  },
+  {
+    file: "app/(public)/b/[slug]/Guest.module.css",
+    box: "page",
+    pads: [
+      {
+        rule: "page",
+        prop: "padding",
+        now: "calc(22px + var(--coo-safe-top)) var(--coo-gutter) calc(8px + var(--coo-safe-bottom))",
+        before: "22px var(--coo-gutter) calc(8px + var(--coo-safe-bottom))",
+      },
+    ],
+  },
+  {
+    file: "app/(public)/b/[slug]/GuestClaim.module.css",
+    box: "hero",
+    pads: [
+      {
+        rule: "hero",
+        prop: "padding",
+        now: "calc(22px + var(--coo-safe-top)) var(--coo-gutter) 0 20px",
+        before: "22px var(--coo-gutter) 0 20px",
+      },
+    ],
+  },
+];
 
 const BLEEDS: Record<string, string> = {
   "app/(app)/MainTop.module.css": "top",
   "app/(app)/shop/ShopTop.module.css": "awning",
+  ...Object.fromEntries(HEROES.map((h) => [h.file, h.box])),
 };
 
 function rule(css: string, name: string) {
@@ -18,16 +139,20 @@ function rule(css: string, name: string) {
 }
 
 const value = (body: string, prop: string) =>
-  body.match(new RegExp(`(?:^|\\s)${prop}: ([^;]+);`))?.[1];
+  body
+    .match(new RegExp(`(?:^|\\s)${prop}: ([^;]+);`))?.[1]
+    .replace(/\s+/g, " ")
+    .replace(/\( | \)/g, (m) => m.trim());
 
 function withoutInsets(v: string | undefined) {
   if (v === undefined) return undefined;
-  const flat = v.replaceAll("var(--coo-safe-top)", "0px");
-  const sum = flat.match(/^calc\((-?\d+)px \+ 0px\)$/);
-  if (sum) return `${sum[1]}px`;
-  if (flat === "calc(-1 * 0px)") return "0px";
-  return flat;
+  if (v === BLEED || v === SAFE_TOP) return "0px";
+  return v
+    .replaceAll(" + var(--coo-safe-top))", ")")
+    .replace(/calc\((\d+px|var\(--[\w-]+\))\)/g, "$1");
 }
+
+const count = (text: string, part: string) => text.split(part).length - 1;
 
 function moduleFiles(dir: string): string[] {
   return readdirSync(new URL(dir, src), { withFileTypes: true }).flatMap((e) =>
@@ -78,6 +203,35 @@ describe("Shop awning", () => {
     expect(withoutInsets(value(awning, "height"))).toBe("30px");
     expect(withoutInsets(value(awning, "margin-top"))).toBe("0px");
   });
+});
+
+describe.each(HEROES)("$file", ({ file, box, pads }) => {
+  const css = read(file);
+
+  it(`pulls .${box} up under the status bar`, () => {
+    expect(value(rule(css, box), "margin-top")).toBe(BLEED);
+  });
+
+  it.each(pads)("pads .$rule $prop back down by the inset", (pad) => {
+    expect(value(rule(css, pad.rule), pad.prop)).toBe(pad.now);
+  });
+
+  it("uses the safe-top inset exactly once past the bleed, so nothing is padded twice", () => {
+    expect(count(css, SAFE_TOP)).toBe(1 + pads.length);
+    for (const pad of pads) {
+      expect(count(value(rule(css, pad.rule), pad.prop)!, SAFE_TOP)).toBe(1);
+    }
+  });
+
+  it.each(pads)(
+    "lays .$rule $prop out as before when the inset is 0",
+    (pad) => {
+      expect(withoutInsets(value(rule(css, pad.rule), pad.prop))).toBe(
+        pad.before,
+      );
+      expect(withoutInsets(value(rule(css, box), "margin-top"))).toBe("0px");
+    },
+  );
 });
 
 describe("cream guard", () => {

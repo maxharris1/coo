@@ -21,6 +21,7 @@
   align-items: flex-end;
   justify-content: space-between;
   gap: 8px;
+  margin-top: calc(-1 * var(--coo-safe-top));
   padding: calc(22px + var(--coo-safe-top)) var(--coo-gutter) 0 20px;
   background: var(--coo-sky);
   border-bottom: var(--coo-line);

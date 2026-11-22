@@ -3,10 +3,11 @@
   min-height: 100dvh;
   max-width: 480px;
   margin: 0 auto;
+  margin-top: calc(-1 * var(--coo-safe-top));
   display: flex;
   flex-direction: column;
   gap: 14px;
-  padding: 28px var(--coo-gutter) 20px;
+  padding: calc(28px + var(--coo-safe-top)) var(--coo-gutter) 20px;
   background: var(--coo-sun);
   color: var(--coo-ink);
   font-family: var(--coo-font-body);
