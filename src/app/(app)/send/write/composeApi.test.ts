@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { UserId } from "@/server/ports/auth";
 import { quoteFor, release } from "./composeApi";
 
 type Seen = { path: string; init: RequestInit };
@@ -20,6 +21,7 @@ const UNREACHABLE = "We could not reach the loft. Try again.";
 const apiError = (message: string) => ({
   error: { code: "conflict", message },
 });
+const friend = (id: string) => ({ friendId: id as UserId });
 const leg = {
   recipient: { friendId: "f1" },
   distanceMi: 81.3,
@@ -32,7 +34,7 @@ describe("quoteFor", () => {
   it("posts the exact quote body and returns the friend's leg", async () => {
     const { fetchImpl, seen } = fakeFetch(200, { recipients: [leg] });
 
-    const r = await quoteFor(fetchImpl, ["f1"], ["b1", "b2"]);
+    const r = await quoteFor(fetchImpl, [friend("f1")], ["b1", "b2"]);
 
     expect(r).toEqual({ ok: true, quotes: [leg] });
     expect(seen).toHaveLength(1);
@@ -51,7 +53,11 @@ describe("quoteFor", () => {
     const other = { ...leg, recipient: { friendId: "f2" } };
     const { fetchImpl, seen } = fakeFetch(200, { recipients: [leg, other] });
 
-    const r = await quoteFor(fetchImpl, ["f1", "f2"], ["b1", "b2"]);
+    const r = await quoteFor(
+      fetchImpl,
+      [friend("f1"), friend("f2")],
+      ["b1", "b2"],
+    );
 
     expect(r).toEqual({ ok: true, quotes: [leg, other] });
     expect(JSON.parse(seen[0].init.body as string)).toEqual({
@@ -60,9 +66,25 @@ describe("quoteFor", () => {
     });
   });
 
+  it("asks for a place with its pin and returns the place's leg", async () => {
+    const place = {
+      place: { placeId: "p1", pin: { lat: 40.712345678, lon: -74.006012345 } },
+    };
+    const placeLeg = { ...leg, recipient: place };
+    const { fetchImpl, seen } = fakeFetch(200, { recipients: [placeLeg] });
+
+    const r = await quoteFor(fetchImpl, [place], ["b1"]);
+
+    expect(r).toEqual({ ok: true, quotes: [placeLeg] });
+    expect(JSON.parse(seen[0].init.body as string)).toEqual({
+      recipients: [place],
+      birdIds: ["b1"],
+    });
+  });
+
   it("carries the API's message", async () => {
     const { fetchImpl } = fakeFetch(409, apiError("Set up your loft first"));
-    expect(await quoteFor(fetchImpl, ["f1"], ["b1"])).toEqual({
+    expect(await quoteFor(fetchImpl, [friend("f1")], ["b1"])).toEqual({
       ok: false,
       message: "Set up your loft first",
     });
@@ -70,14 +92,14 @@ describe("quoteFor", () => {
 
   it("fails when the reply has no leg", async () => {
     const { fetchImpl } = fakeFetch(200, { recipients: [] });
-    expect(await quoteFor(fetchImpl, ["f1"], ["b1"])).toEqual({
+    expect(await quoteFor(fetchImpl, [friend("f1")], ["b1"])).toEqual({
       ok: false,
       message: UNREACHABLE,
     });
   });
 
   it("fails when fetch throws", async () => {
-    expect(await quoteFor(throwing, ["f1"], ["b1"])).toEqual({
+    expect(await quoteFor(throwing, [friend("f1")], ["b1"])).toEqual({
       ok: false,
       message: UNREACHABLE,
     });
@@ -97,7 +119,7 @@ describe("release", () => {
 
     const r = await release(fetchImpl, send);
 
-    expect(r).toEqual({ ok: true, flightIds: ["fl1"] });
+    expect(r).toEqual({ ok: true, flightIds: ["fl1"], links: [] });
     expect(seen).toHaveLength(1);
     expect(seen[0].path).toBe("/api/flights");
     expect(seen[0].init.method).toBe("POST");
@@ -126,10 +148,59 @@ describe("release", () => {
 
     const r = await release(fetchImpl, { body: "Dinner Saturday?", sends });
 
-    expect(r).toEqual({ ok: true, flightIds: ["fl1", "fl2", "fl3"] });
+    expect(r).toEqual({
+      ok: true,
+      flightIds: ["fl1", "fl2", "fl3"],
+      links: [],
+    });
     expect(JSON.parse(seen[0].init.body as string)).toEqual({
       body: "Dinner Saturday?",
       sends,
+    });
+  });
+
+  it("posts a guest send and returns the guest's link", async () => {
+    const guest = {
+      name: "Maya",
+      placeId: "p1",
+      pin: { lat: 40.712345678, lon: -74.006012345 },
+    };
+    const { fetchImpl, seen } = fakeFetch(201, {
+      flights: [{ id: "fl1", kind: "delivery" }],
+      guestLinks: [{ flightId: "fl1", url: "https://coo.test/g/abc" }],
+    });
+
+    const r = await release(fetchImpl, {
+      body: "Dinner Saturday?",
+      sends: [{ guest, birdId: "b1" }],
+    });
+
+    expect(r).toEqual({
+      ok: true,
+      flightIds: ["fl1"],
+      links: [{ flightId: "fl1", url: "https://coo.test/g/abc" }],
+    });
+    expect(JSON.parse(seen[0].init.body as string)).toEqual({
+      body: "Dinner Saturday?",
+      sends: [{ guest, birdId: "b1" }],
+    });
+  });
+
+  it("keeps only the well-formed guest links", async () => {
+    const { fetchImpl } = fakeFetch(201, {
+      flights: [{ id: "fl1" }],
+      guestLinks: [
+        { flightId: "fl1", url: "https://coo.test/g/abc" },
+        { flightId: "fl1" },
+        { url: "https://coo.test/g/def" },
+        { flightId: 7, url: "https://coo.test/g/ghi" },
+        null,
+      ],
+    });
+    expect(await release(fetchImpl, send)).toEqual({
+      ok: true,
+      flightIds: ["fl1"],
+      links: [{ flightId: "fl1", url: "https://coo.test/g/abc" }],
     });
   });
 

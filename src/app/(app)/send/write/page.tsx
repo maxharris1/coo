@@ -5,15 +5,19 @@ import { Suspense, useEffect, useState } from "react";
 import { Loader } from "@/components/Loader";
 import { useSync } from "@/components/SyncProvider";
 import { useToast } from "@/components/Toasts";
-import { asUnits } from "@/lib/format";
+import { asUnits, type Units } from "@/lib/format";
 import { noteLimit } from "@/lib/game/notes";
 import type { Wearer } from "@/lib/game/seeds";
-import type { RecipientQuote } from "@/server/services/flights/quote";
+import type {
+  QuoteRecipient,
+  RecipientQuote,
+} from "@/server/services/flights/quote";
 import type { FriendRow } from "@/server/services/friends";
 import { postCare } from "../../feed";
 import { feedThenRefresh } from "../../flockRows";
 import { loadFriends } from "../../friends/friendsApi";
 import { clearDraft, readDraft, saveDraft } from "../forecast/draft";
+import { holdLink } from "../share/[flightId]/linkHandoff";
 import {
   type Assignment,
   assignBirds,
@@ -24,7 +28,8 @@ import {
   swapBird,
 } from "./compose";
 import { quoteFor, release, type Send } from "./composeApi";
-import { ComposeView, NoRecipient } from "./ComposeView";
+import { ComposeView, NoRecipient, type Recipient } from "./ComposeView";
+import { type Guest, readGuest } from "./guest";
 
 type Friends =
   | { kind: "loading" }
@@ -33,11 +38,52 @@ type Friends =
 
 type Swaps = { key: string; rows: Assignment };
 
+type Target = {
+  id: string;
+  distanceMi: number | null;
+  ask: QuoteRecipient;
+  owns: (leg: RecipientQuote) => boolean;
+  send: (birdId: string) => Send;
+  card: (leg: RecipientQuote | undefined, units: Units) => Recipient;
+  forecastHref: string | null;
+};
+
 const NOT_A_FRIEND = "That friend is not in your address book.";
 const PLAIN_BIRD: Wearer = { breed: "city", gear: [] };
+const sessionPins = { getItem: (key: string) => sessionStorage.getItem(key) };
+
+const friendTarget = (friend: FriendRow): Target => ({
+  id: friend.id,
+  distanceMi: friend.distanceMi,
+  ask: { friendId: friend.id },
+  owns: (l) => "friendId" in l.recipient && l.recipient.friendId === friend.id,
+  send: (birdId) => ({ friendId: friend.id, birdId }),
+  card: (_, units) => ({
+    name: friend.name,
+    line: recipientLine(friend, units),
+  }),
+  forecastHref: `/send/forecast?to=${encodeURIComponent(friend.id)}`,
+});
+
+function guestTarget(guest: Guest): Target {
+  const { name, ...place } = guest;
+  return {
+    id: place.placeId,
+    distanceMi: null,
+    ask: { place },
+    owns: (l) => "place" in l.recipient,
+    send: (birdId) => ({ guest, birdId }),
+    card: (leg) => ({ name, line: leg?.to.label ?? "" }),
+    forecastHref: null,
+  };
+}
 
 function Compose() {
-  const friendIds = [...new Set(useSearchParams().getAll("to"))];
+  const params = useSearchParams();
+  const friendIds = [...new Set(params.getAll("to"))];
+  const guest =
+    friendIds.length === 0 ? readGuest(params, sessionPins) : null;
+  const forGuest = guest !== null;
   const router = useRouter();
   const toast = useToast();
   const { data, refresh } = useSync();
@@ -51,6 +97,7 @@ function Compose() {
   const [legs, setLegs] = useState<RecipientQuote[]>([]);
 
   useEffect(() => {
+    if (forGuest) return;
     let live = true;
     void loadFriends().then((r) => {
       if (!live) return;
@@ -63,7 +110,7 @@ function Compose() {
     return () => {
       live = false;
     };
-  }, []);
+  }, [forGuest]);
 
   const found =
     friends.kind === "ready"
@@ -71,7 +118,8 @@ function Compose() {
       : [];
   const recipients =
     found.length > 0 && found.every((f) => f !== undefined) ? found : [];
-  const key = friendIds.join(",");
+  const targets = guest ? [guestTarget(guest)] : recipients.map(friendTarget);
+  const key = guest ? JSON.stringify(guest) : friendIds.join(",");
   const flock = data?.birds ?? [];
   const options = flock.map(pickerOption);
   const pickable = (id: string | null) =>
@@ -83,27 +131,27 @@ function Compose() {
           .filter((d) => pickable(d.birdId))
           .reduce(
             (rs, d) => swapBird(rs, d.friendId, d.birdId),
-            assignBirds(recipients, flock),
+            assignBirds(targets, flock),
           )
   ).map((r) => ({ ...r, birdId: pickable(r.birdId) ? r.birdId : null }));
   const birdOf = (id: string | null) => flock.find((b) => b.id === id);
-  const sends: Send[] = rows.flatMap(({ friendId, birdId }) =>
-    birdId ? [{ friendId, birdId }] : [],
+  const sends: Send[] = rows.flatMap(({ birdId }, i) =>
+    birdId ? [targets[i].send(birdId)] : [],
   );
   const quoteKey = JSON.stringify({
-    friendIds: recipients.map((f) => f.id),
+    recipients: targets.map((t) => t.ask),
     birdIds: [...new Set(sends.map((s) => s.birdId))].sort(),
   });
   const draftKey = JSON.stringify(sends);
 
   useEffect(() => {
     const ask = JSON.parse(quoteKey) as {
-      friendIds: string[];
+      recipients: QuoteRecipient[];
       birdIds: string[];
     };
-    if (ask.friendIds.length === 0 || ask.birdIds.length === 0) return;
+    if (ask.recipients.length === 0 || ask.birdIds.length === 0) return;
     let live = true;
-    void quoteFor(fetch, ask.friendIds, ask.birdIds).then((r) => {
+    void quoteFor(fetch, ask.recipients, ask.birdIds).then((r) => {
       if (!live) return;
       if (r.ok) setLegs(r.quotes);
       else toast(r.message);
@@ -116,13 +164,13 @@ function Compose() {
 
   useEffect(() => {
     for (const send of JSON.parse(draftKey) as Send[])
-      saveDraft({ ...send, body: note });
+      if ("friendId" in send) saveDraft({ ...send, body: note });
   }, [draftKey, note]);
 
-  if (!data || friends.kind === "loading") return <Loader />;
-  if (friends.kind === "failed")
+  if (!data || (!forGuest && friends.kind === "loading")) return <Loader />;
+  if (!forGuest && friends.kind === "failed")
     return <NoRecipient message={friends.message} />;
-  if (recipients.length === 0) return <NoRecipient message={NOT_A_FRIEND} />;
+  if (targets.length === 0) return <NoRecipient message={NOT_A_FRIEND} />;
 
   const units = asUnits(data.me.units);
   const tightest: Wearer =
@@ -135,7 +183,9 @@ function Compose() {
     setSending(true);
     const r = await release(fetch, { body: note, sends });
     if (r.ok) {
-      for (const send of sends) clearDraft(send.friendId);
+      for (const send of sends)
+        if ("friendId" in send) clearDraft(send.friendId);
+      for (const { flightId, url } of r.links) holdLink(flightId, url);
       router.push(`/send/takeoff/${r.flightIds[0]}`);
       return;
     }
@@ -145,20 +195,17 @@ function Compose() {
 
   return (
     <ComposeView
-      rows={recipients.map((friend, i) => {
+      rows={targets.map((target, i) => {
         const bird = birdOf(rows[i].birdId);
-        const leg = legs.find(
-          (l) =>
-            "friendId" in l.recipient && l.recipient.friendId === friend.id,
-        );
+        const leg = legs.find(target.owns);
         return {
-          friendId: friend.id,
-          recipient: { name: friend.name, line: recipientLine(friend, units) },
+          id: target.id,
+          recipient: target.card(leg, units),
           pickedId: bird?.id ?? null,
           tooLong: bird ? counter(note, bird).over : false,
           stats:
             bird && leg ? stats(leg, bird.id, data.me.timezone, units) : null,
-          forecastHref: `/send/forecast?to=${encodeURIComponent(friend.id)}`,
+          forecastHref: target.forecastHref,
         };
       })}
       note={note}
@@ -166,9 +213,9 @@ function Compose() {
       birds={options}
       sending={sending}
       onNote={setNote}
-      onPick={(friendId, birdId) => {
+      onPick={(rowId, birdId) => {
         if (pickable(birdId))
-          setSwaps({ key, rows: swapBird(rows, friendId, birdId) });
+          setSwaps({ key, rows: swapBird(rows, rowId, birdId) });
       }}
       onRelease={() => void onRelease()}
       onWake={(birdId) =>

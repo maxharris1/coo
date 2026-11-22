@@ -12,12 +12,12 @@ import styles from "./Compose.module.css";
 export type Recipient = { name: string; line: string };
 
 export type ComposeRow = {
-  friendId: string;
+  id: string;
   recipient: Recipient;
   pickedId: string | null;
   tooLong: boolean;
   stats: ComposeStats | null;
-  forecastHref: string;
+  forecastHref: string | null;
 };
 
 export type ComposeViewProps = {
@@ -27,7 +27,7 @@ export type ComposeViewProps = {
   birds: PickerOption[];
   sending: boolean;
   onNote: (note: string) => void;
-  onPick: (friendId: string, birdId: string) => void;
+  onPick: (rowId: string, birdId: string) => void;
   onRelease: () => void;
   onWake: (birdId: string) => void;
 };
@@ -162,7 +162,7 @@ function Stats({
   forecastHref,
 }: {
   stats: ComposeStats | null;
-  forecastHref: string;
+  forecastHref: string | null;
 }) {
   if (!stats) return null;
   return (
@@ -183,9 +183,11 @@ function Stats({
       </div>
       <div className={styles.forecast}>
         <span>{stats.forecast}</span>
-        <Link href={forecastHref} className={styles.forecastLink}>
-          Forecast
-        </Link>
+        {forecastHref && (
+          <Link href={forecastHref} className={styles.forecastLink}>
+            Forecast
+          </Link>
+        )}
       </div>
     </section>
   );
@@ -221,7 +223,7 @@ export function ComposeView({
         birds={birds}
         pickedId={row.pickedId}
         tooLong={row.tooLong && !single}
-        onPick={(birdId) => onPick(row.friendId, birdId)}
+        onPick={(birdId) => onPick(row.id, birdId)}
         onWake={onWake}
       />
       <Stats stats={row.stats} forecastHref={row.forecastHref} />
@@ -261,7 +263,7 @@ export function ComposeView({
       {single
         ? rowParts(single, "Who's flying?")
         : rows.map((row) => (
-            <section key={row.friendId} className={styles.row}>
+            <section key={row.id} className={styles.row}>
               <RecipientCard recipient={row.recipient} />
               {rowParts(row, `Who's flying to ${row.recipient.name}?`)}
             </section>

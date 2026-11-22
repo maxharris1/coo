@@ -424,9 +424,9 @@ describe("assignBirds", () => {
     ];
 
     expect(assignBirds(friends, flock)).toEqual([
-      { friendId: "near", birdId: "slow" },
-      { friendId: "far", birdId: "fast" },
-      { friendId: "middle", birdId: "mid" },
+      { id: "near", birdId: "slow" },
+      { id: "far", birdId: "fast" },
+      { id: "middle", birdId: "mid" },
     ]);
   });
 
@@ -439,41 +439,41 @@ describe("assignBirds", () => {
     ];
 
     expect(assignBirds(friends, flock)).toEqual([
-      { friendId: "unknown", birdId: null },
-      { friendId: "near", birdId: "slow" },
-      { friendId: "far", birdId: "fast" },
+      { id: "unknown", birdId: null },
+      { id: "near", birdId: "slow" },
+      { id: "far", birdId: "fast" },
     ]);
   });
 });
 
 describe("swapBird", () => {
   const rows = [
-    { friendId: "a", birdId: "b1" },
-    { friendId: "b", birdId: "b2" },
-    { friendId: "c", birdId: null },
+    { id: "a", birdId: "b1" },
+    { id: "b", birdId: "b2" },
+    { id: "c", birdId: null },
   ];
 
   it("trades birds when the picked bird is on another row", () => {
     expect(swapBird(rows, "a", "b2")).toEqual([
-      { friendId: "a", birdId: "b2" },
-      { friendId: "b", birdId: "b1" },
-      { friendId: "c", birdId: null },
+      { id: "a", birdId: "b2" },
+      { id: "b", birdId: "b1" },
+      { id: "c", birdId: null },
     ]);
   });
 
   it("gives a free bird to the row and frees the row's old bird", () => {
     expect(swapBird(rows, "b", "b3")).toEqual([
-      { friendId: "a", birdId: "b1" },
-      { friendId: "b", birdId: "b3" },
-      { friendId: "c", birdId: null },
+      { id: "a", birdId: "b1" },
+      { id: "b", birdId: "b3" },
+      { id: "c", birdId: null },
     ]);
   });
 
   it("moves a bird onto an empty row and empties the row it left", () => {
     expect(swapBird(rows, "c", "b1")).toEqual([
-      { friendId: "a", birdId: null },
-      { friendId: "b", birdId: "b2" },
-      { friendId: "c", birdId: "b1" },
+      { id: "a", birdId: null },
+      { id: "b", birdId: "b2" },
+      { id: "c", birdId: "b1" },
     ]);
   });
 
@@ -486,8 +486,8 @@ describe("overLimit", () => {
   const plain = bird({ id: "b1", name: "Gerald", gear: [] });
   const tubed = bird({ id: "b2", name: "Brenda", gear: ["tube"] });
   const rows = [
-    { friendId: "a", birdId: "b2" },
-    { friendId: "b", birdId: "b1" },
+    { id: "a", birdId: "b2" },
+    { id: "b", birdId: "b1" },
   ];
 
   it("names the bird whose tube the note overflows", () => {
@@ -506,8 +506,8 @@ describe("overLimit", () => {
       overLimit(
         "x".repeat(141),
         [
-          { friendId: "a", birdId: "b2" },
-          { friendId: "b", birdId: null },
+          { id: "a", birdId: "b2" },
+          { id: "b", birdId: null },
         ],
         [plain, tubed],
       ),

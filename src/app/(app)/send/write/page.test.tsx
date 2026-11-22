@@ -4,7 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SyncContext, type SyncState } from "@/components/SyncProvider";
 import { ToastContext } from "@/components/Toasts";
 import type { SyncPayload } from "@/components/sync";
+import { takeLink } from "../share/[flightId]/linkHandoff";
 import type { ComposeView, NoRecipient } from "./ComposeView";
+import { pinKey } from "./guest";
 import ComposePage from "./page";
 
 type ViewProps = ComponentProps<typeof ComposeView>;
@@ -16,6 +18,7 @@ const seen = vi.hoisted(() => ({
   push: vi.fn(),
   toast: vi.fn(),
   to: "u2" as string | string[] | null,
+  guest: {} as Record<string, string>,
   drafts: new Map<string, unknown>(),
 }));
 
@@ -44,7 +47,10 @@ vi.mock("@/components/Loader", () => ({
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: seen.push }),
   useSearchParams: () =>
-    new URLSearchParams([seen.to ?? []].flat().map((id) => ["to", id])),
+    new URLSearchParams([
+      ...[seen.to ?? []].flat().map((id) => ["to", id]),
+      ...Object.entries(seen.guest),
+    ]),
 }));
 
 const PRIYA = {
@@ -113,7 +119,10 @@ const RELEASE = Date.parse("2026-11-20T14:32:00Z");
 
 const MILES: Record<string, number> = { u2: 81.3, u3: 215, u4: 136 };
 
-type QuoteBody = { recipients: { friendId: string }[]; birdIds: string[] };
+type QuoteBody = {
+  recipients: ({ friendId: string } | { place: { placeId: string } })[];
+  birdIds: string[];
+};
 
 const legFor = (birdIds: string[], friendId = "u2") => ({
   recipient: { friendId },
@@ -132,6 +141,12 @@ const legFor = (birdIds: string[], friendId = "u2") => ({
     ],
     sunsetAt: RELEASE,
   })),
+});
+
+const placeLeg = (birdIds: string[], recipient: unknown) => ({
+  ...legFor(birdIds),
+  recipient,
+  to: { label: "Fishtown, Philadelphia" },
 });
 
 let friends: { status: number; body: unknown };
@@ -211,7 +226,7 @@ const row = (i = 0) => view().rows[i];
 const pickFor = (friendId: string, id: string) =>
   act(async () => view().onPick(friendId, id));
 
-const pick = (id: string) => pickFor(row().friendId, id);
+const pick = (id: string) => pickFor(row().id, id);
 
 const releaseLabel = () =>
   view().birds.find((b) => b.id === row().pickedId)?.name ?? null;
@@ -223,12 +238,17 @@ beforeEach(() => {
   seen.push.mockClear();
   seen.toast.mockClear();
   seen.to = "u2";
+  seen.guest = {};
   seen.drafts.clear();
   fetchMock.mockClear();
   friends = { status: 200, body: { friends: [PRIYA], guestLinks: [] } };
   quoted = async ({ recipients, birdIds }) => ({
     status: 200,
-    body: { recipients: recipients.map((r) => legFor(birdIds, r.friendId)) },
+    body: {
+      recipients: recipients.map((r) =>
+        "friendId" in r ? legFor(birdIds, r.friendId) : placeLeg(birdIds, r),
+      ),
+    },
   });
   released = Promise.resolve({
     status: 201,
@@ -258,7 +278,7 @@ describe("Compose page (ac-1)", () => {
     expect(view()).toMatchObject({
       rows: [
         {
-          friendId: "u2",
+          id: "u2",
           recipient: {
             name: "Priya",
             line: "Philadelphia, 81 miles as the pigeon flies",
@@ -674,7 +694,7 @@ describe("Compose page for several recipients", () => {
   it("three recipients show three rows and Release posts three sends and goes to Takeoff for the first flight", async () => {
     await show();
     expect(
-      view().rows.map((r) => [r.friendId, r.recipient.name, r.pickedId]),
+      view().rows.map((r) => [r.id, r.recipient.name, r.pickedId]),
     ).toEqual([
       ["u2", "Priya", "b4"],
       ["u3", "Alex", "b2"],
@@ -757,7 +777,7 @@ describe("Compose page for several recipients", () => {
   it("shows a friend named twice in the link once", async () => {
     seen.to = ["u2", "u2"];
     await show();
-    expect(view().rows.map((r) => r.friendId)).toEqual(["u2"]);
+    expect(view().rows.map((r) => r.id)).toEqual(["u2"]);
   });
 
   it("counts against the smallest note limit and flags each row that overflows", async () => {
@@ -799,5 +819,228 @@ describe("Compose page for several recipients", () => {
     expect(seen.toast).toHaveBeenCalledExactlyOnceWith(
       "Crumbs is not home right now.",
     );
+  });
+});
+
+describe("Compose page for a guest (ac-1, ac-2)", () => {
+  const PIN = { lat: 40.712345678, lon: -74.006012345 };
+  const LINK = "https://coo.test/g/abc";
+  let pins: Map<string, string>;
+
+  const releaseNote = async () => {
+    await type("Dinner Saturday?");
+    await act(async () => view().onRelease());
+    return JSON.parse(String(flightCalls()[0][1]?.body));
+  };
+
+  beforeEach(() => {
+    seen.to = null;
+    seen.guest = { guest: "Maya", place: "p1" };
+    pins = new Map();
+    vi.stubGlobal("sessionStorage", {
+      getItem: (k: string) => pins.get(k) ?? null,
+    });
+    released = Promise.resolve({
+      status: 201,
+      body: {
+        flights: [{ id: "f1" }],
+        guestLinks: [{ flightId: "f1", url: LINK }],
+      },
+    });
+  });
+
+  it("shows the guest with the quoted place and the fastest ready bird", async () => {
+    await show();
+    expect(view().rows).toEqual([
+      {
+        id: "p1",
+        recipient: { name: "Maya", line: "Fishtown, Philadelphia" },
+        pickedId: "b2",
+        tooLong: false,
+        stats: expect.objectContaining({ distance: "81 mi", odds: "81%" }),
+        forecastHref: null,
+      },
+    ]);
+    expect(releaseLabel()).toBe("Crumbs");
+  });
+
+  it("leaves the place line empty until the quote arrives", async () => {
+    quoted = () => new Promise(() => {});
+    await show();
+    expect(row().recipient).toEqual({ name: "Maya", line: "" });
+    expect(row().stats).toBeNull();
+  });
+
+  it("quotes the place without a pin when none is stored", async () => {
+    await show();
+    expect(quoteBodies()).toEqual([
+      { recipients: [{ place: { placeId: "p1" } }], birdIds: ["b2"] },
+    ]);
+  });
+
+  it("releases to the guest without a pin and moves on to the takeoff", async () => {
+    await show();
+    expect(await releaseNote()).toEqual({
+      body: "Dinner Saturday?",
+      sends: [{ guest: { name: "Maya", placeId: "p1" }, birdId: "b2" }],
+    });
+    expect(seen.push).toHaveBeenCalledExactlyOnceWith("/send/takeoff/f1");
+    expect(seen.toast).not.toHaveBeenCalled();
+  });
+
+  it("quotes and releases with the exact stored pin and keeps it out of every URL", async () => {
+    pins.set(pinKey("p1"), JSON.stringify(PIN));
+    await show();
+    expect(quoteBodies()).toEqual([
+      { recipients: [{ place: { placeId: "p1", pin: PIN } }], birdIds: ["b2"] },
+    ]);
+    expect(await releaseNote()).toEqual({
+      body: "Dinner Saturday?",
+      sends: [
+        { guest: { name: "Maya", placeId: "p1", pin: PIN }, birdId: "b2" },
+      ],
+    });
+    const urls = [
+      ...seen.push.mock.calls.flat().map(String),
+      ...fetchMock.mock.calls.map(([url]) => String(url)),
+      ...view().rows.map((r) => String(r.forecastHref)),
+    ];
+    expect(urls).toContain("/send/takeoff/f1");
+    for (const url of urls) {
+      expect(url).not.toContain("40.71");
+      expect(url).not.toContain("74.00");
+    }
+  });
+
+  it("holds the guest's link for the takeoff", async () => {
+    await show();
+    await releaseNote();
+    expect(takeLink("f1")).toBe(LINK);
+  });
+
+  it("quotes and releases the picked bird", async () => {
+    await show();
+    await pick("b1");
+    expect(row().pickedId).toBe("b1");
+    expect(quoteBodies().at(-1)).toEqual({
+      recipients: [{ place: { placeId: "p1" } }],
+      birdIds: ["b1"],
+    });
+    expect((await releaseNote()).sends).toEqual([
+      { guest: { name: "Maya", placeId: "p1" }, birdId: "b1" },
+    ]);
+  });
+
+  it("does not ask for the friends", async () => {
+    friends = {
+      status: 500,
+      body: { error: { code: "internal", message: "Friends unavailable" } },
+    };
+    await show();
+    expect(row().recipient.name).toBe("Maya");
+    expect(
+      fetchMock.mock.calls.filter(([url]) => String(url) === "/api/friends"),
+    ).toEqual([]);
+  });
+
+  it("writes no forecast draft for the guest", async () => {
+    await show();
+    await releaseNote();
+    expect(seen.drafts.size).toBe(0);
+  });
+
+  it("sends to the guest without a pin when storage is blocked", async () => {
+    vi.stubGlobal("sessionStorage", {
+      getItem: () => {
+        throw new DOMException("blocked", "SecurityError");
+      },
+    });
+    await show();
+    expect(quoteBodies()).toEqual([
+      { recipients: [{ place: { placeId: "p1" } }], birdIds: ["b2"] },
+    ]);
+  });
+
+  it("composes for the friends in ?to= over the guest", async () => {
+    seen.to = "u2";
+    await show();
+    expect(view().rows.map((r) => [r.id, r.recipient.name])).toEqual([
+      ["u2", "Priya"],
+    ]);
+  });
+
+  const visit = (params: {
+    to?: string;
+    guest?: Record<string, string>;
+  }) => {
+    seen.to = params.to ?? null;
+    seen.guest = params.guest ?? {};
+    return act(async () => root?.render(page()));
+  };
+
+  it("follows the link to a new guest, place and pin", async () => {
+    const ALEX_PIN = { lat: 41.9, lon: -87.6 };
+    pins.set(pinKey("p1"), JSON.stringify(PIN));
+    pins.set(pinKey("p2"), JSON.stringify(ALEX_PIN));
+    await show();
+    await pick("b1");
+    await visit({ guest: { guest: "Alex", place: "p2" } });
+    expect(row()).toMatchObject({
+      id: "p2",
+      recipient: { name: "Alex" },
+      pickedId: "b2",
+    });
+    expect(quoteBodies().at(-1)).toEqual({
+      recipients: [{ place: { placeId: "p2", pin: ALEX_PIN } }],
+      birdIds: ["b2"],
+    });
+    expect((await releaseNote()).sends).toEqual([
+      {
+        guest: { name: "Alex", placeId: "p2", pin: ALEX_PIN },
+        birdId: "b2",
+      },
+    ]);
+  });
+
+  it("drops the old guest's pin when the new place has none", async () => {
+    pins.set(pinKey("p1"), JSON.stringify(PIN));
+    await show();
+    await visit({ guest: { guest: "Alex", place: "p2" } });
+    expect(quoteBodies().at(-1)).toEqual({
+      recipients: [{ place: { placeId: "p2" } }],
+      birdIds: ["b2"],
+    });
+    expect((await releaseNote()).sends).toEqual([
+      { guest: { name: "Alex", placeId: "p2" }, birdId: "b2" },
+    ]);
+  });
+
+  it("follows the link from a friend to a guest", async () => {
+    seen.to = "u2";
+    seen.guest = {};
+    await show();
+    expect(row().recipient.name).toBe("Priya");
+    await visit({ guest: { guest: "Maya", place: "p1" } });
+    expect(seen.missing).toBeNull();
+    expect(row()).toMatchObject({ id: "p1", recipient: { name: "Maya" } });
+    expect((await releaseNote()).sends).toEqual([
+      { guest: { name: "Maya", placeId: "p1" }, birdId: "b2" },
+    ]);
+  });
+
+  it("follows the link from a guest to a friend", async () => {
+    await show();
+    await visit({ to: "u2" });
+    expect(row()).toMatchObject({ id: "u2", recipient: { name: "Priya" } });
+    expect((await releaseNote()).sends).toEqual([
+      { friendId: "u2", birdId: "b2" },
+    ]);
+  });
+
+  it("says so when the guest has no place", async () => {
+    seen.guest = { guest: "Maya" };
+    await show();
+    expect(seen.view).toBeNull();
+    expect(seen.missing).toBe("That friend is not in your address book.");
   });
 });
