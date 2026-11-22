@@ -20,6 +20,8 @@ type LockedLink = {
   expires_at: Date | null;
 };
 
+type Person = { id: string; name: string };
+
 type Verdict = "fresh" | "again" | "gone" | "conflict";
 
 const REFUSALS = {
@@ -45,19 +47,14 @@ export async function claimGuestLink(
     `^[A-Za-z0-9]{${deps.config.game.guestLinks.tokenChars}}$`,
   );
   if (!shape.test(token)) throw new AppError("not_found", NO_SUCH_LINK);
-  const now = deps.clock.now();
 
   const { result, linkId, notificationId } = await deps.db.tx(async (db) => {
-    const [link] = await db.query<LockedLink>(
-      `select id, status, sender_id, claimed_by, expires_at from guest_links
-       where token_hash = $1 for update`,
-      [hashToken(pepper, token)],
-    );
-    if (!link) throw new AppError("not_found", NO_SUCH_LINK);
+    const { link, people } = await lockClaim(db, hashToken(pepper, token), me);
+    const now = deps.clock.now();
     const outcome = verdict(link, me, now);
     if (outcome === "gone" || outcome === "conflict") throw REFUSALS[outcome];
     const notificationId =
-      outcome === "fresh" ? await claim(db, link, me, now) : null;
+      outcome === "fresh" ? await claim(db, link, people, me, now) : null;
     return {
       result: await resultFor(db, link, me, now),
       linkId: link.id,
@@ -72,18 +69,38 @@ export async function claimGuestLink(
   return result;
 }
 
+async function lockClaim(db: Db, tokenHash: string, me: UserId) {
+  const [found] = await db.query<{ id: string; sender_id: UserId }>(
+    "select id, sender_id from guest_links where token_hash = $1",
+    [tokenHash],
+  );
+  if (!found) throw new AppError("not_found", NO_SUCH_LINK);
+  await db.query(
+    "select 1 from flights where guest_link_id = $1 and kind = 'delivery' for update",
+    [found.id],
+  );
+  const people = await db.query<Person>(
+    "select id, name from profiles where id = any($1::uuid[]) order by id for update",
+    [[me, found.sender_id]],
+  );
+  const [link] = await db.query<LockedLink>(
+    `select id, status, sender_id, claimed_by, expires_at from guest_links
+     where id = $1 for update`,
+    [found.id],
+  );
+  if (!link) throw new AppError("not_found", NO_SUCH_LINK);
+  return { link, people };
+}
+
 async function claim(
   db: Db,
   link: LockedLink,
+  people: Person[],
   me: UserId,
   now: number,
 ): Promise<string | null> {
   const nowIso = new Date(now).toISOString();
   const sender = link.sender_id;
-  const people = await db.query<{ id: string; name: string }>(
-    "select id, name from profiles where id = any($1::uuid[]) order by id for update",
-    [[me, sender]],
-  );
 
   const existing = await friendshipBetween(db, me, sender);
   if (existing?.status === "blocked")

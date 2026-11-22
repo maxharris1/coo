@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { OnboardedCaller, Profile } from "@/server/auth";
+import type { Db } from "@/server/db";
 import type { UserId } from "@/server/ports/auth";
 import { pair } from "@/server/rows";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
@@ -46,6 +47,17 @@ async function landedLink() {
 
 const claim = (who: UserId, token: string) =>
   claimGuestLink(deps, who, PEPPER, token);
+
+function claimWhileLocking(who: UserId, token: string, lockedAt: number) {
+  const slow = (base: Db): Db => ({
+    query<T>(sql: string, params?: unknown[]) {
+      if (sql.includes("for update")) deps.clock.set(lockedAt);
+      return base.query<T>(sql, params);
+    },
+    tx: (fn) => base.tx((tx) => fn(slow(tx))),
+  });
+  return claimGuestLink({ ...deps, db: slow(deps.db) }, who, PEPPER, token);
+}
 
 async function refusal(promise: Promise<unknown>) {
   try {
@@ -136,6 +148,33 @@ describe("claimGuestLink", () => {
     deps.clock.set(arriveAt + 7 * DAY + MINUTE);
 
     expect(await refusal(claim(rosa, token))).toBe("gone");
+  });
+
+  it("answers gone when the link expires while the claim waits for its locks", async () => {
+    const { token, arriveAt } = await landedLink();
+    const expiresAt = arriveAt + 7 * DAY;
+    deps.clock.set(expiresAt - 1);
+    const before = await snapshot();
+
+    expect(await refusal(claimWhileLocking(rosa, token, expiresAt + 1))).toBe(
+      "gone",
+    );
+    expect(await snapshot()).toEqual(before);
+  });
+
+  it("offers no visit when the 30 minutes end while the claim waits for its locks (ac-3)", async () => {
+    const { token, flightId, arriveAt } = await landedLink();
+    const leavesAt = arriveAt + 30 * MINUTE;
+    deps.clock.set(leavesAt - 1);
+
+    const result = await claimWhileLocking(rosa, token, leavesAt + 1);
+
+    expect(result).toEqual({ friendId: max });
+    expect(
+      await deps.db.query("select host_id from visits where flight_id = $1", [
+        flightId,
+      ]),
+    ).toEqual([{ host_id: null }]);
   });
 
   it("answers not_found for a wrong or malformed token", async () => {
