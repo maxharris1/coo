@@ -43,16 +43,19 @@ export default function SettingsPage() {
   if (!data) return <Loader />;
   const base = data;
 
+  const patch = (body: Change | { name: string }) =>
+    call(fetch, "/api/settings", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ...body, account: base.me.id }),
+    });
+
   const onSave = async (change: Change) => {
     setHeld((h) => ({
       base,
       change: h.base === base ? { ...h.change, ...change } : change,
     }));
-    const r = await call(fetch, "/api/settings", {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ ...change, account: base.me.id }),
-    });
+    const r = await patch(change);
     if (r.ok) {
       refresh();
       return;
@@ -61,6 +64,13 @@ export default function SettingsPage() {
     setHeld((h) =>
       h.base === base ? { base, change: without(h.change, change) } : h,
     );
+  };
+
+  const onRename = async (name: string) => {
+    const r = await patch({ name });
+    if (!r.ok) return r.message;
+    refresh();
+    return null;
   };
 
   const onSignOut = async () => {
@@ -123,6 +133,7 @@ export default function SettingsPage() {
       sheet={sheet}
       places={places}
       onSave={onSave}
+      onRename={onRename}
       onSignOut={onSignOut}
       onSheet={onSheet}
       onTravel={onTravel}
