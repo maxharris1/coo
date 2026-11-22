@@ -3,7 +3,11 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SyncContext, type SyncState } from "@/components/SyncProvider";
 import { ToastContext } from "@/components/Toasts";
-import type { SyncPayload } from "@/components/sync";
+import {
+  type SyncPayload,
+  type SyncResult,
+  startSync,
+} from "@/components/sync";
 import type { ForecastDraft } from "./draft";
 import type { ForecastView } from "./ForecastView";
 import ForecastPage from "./page";
@@ -99,13 +103,13 @@ let quoted: { status: number; body: unknown } | null;
 let released: { status: number; body: unknown };
 let root: Root | null;
 
-const sync = (): SyncState => ({
+const sync = (offsetMs: number): SyncState => ({
   data: {
     me: { units: "mi", timezone: "America/New_York" },
     birds: BIRDS,
   } as unknown as SyncPayload,
   error: null,
-  offsetMs: 0,
+  offsetMs,
   refresh: () => {},
 });
 
@@ -126,7 +130,7 @@ const callsTo = (path: string) =>
     .filter(([url]) => String(url) === path)
     .map(([, init]) => JSON.parse(String(init?.body)));
 
-async function show() {
+async function show(offsetMs = 0) {
   const container = Object.assign(new EventTarget(), {
     nodeType: 1,
     tagName: "DIV",
@@ -136,13 +140,36 @@ async function show() {
   root = r;
   await act(async () =>
     r.render(
-      <SyncContext.Provider value={sync()}>
+      <SyncContext.Provider value={sync(offsetMs)}>
         <ToastContext.Provider value={seen.toast}>
           <ForecastPage />
         </ToastContext.Provider>
       </SyncContext.Provider>,
     ),
   );
+}
+
+async function syncedOffset() {
+  vi.mocked(Date.now)
+    .mockReturnValueOnce(NOW)
+    .mockReturnValueOnce(NOW + 1);
+  const result = await new Promise<SyncResult>((resolve) => {
+    const s = startSync({
+      fetch: async () => Response.json({ serverNow: NOW }),
+      win: new EventTarget(),
+      doc: Object.assign(new EventTarget(), {
+        visibilityState: "visible" as const,
+      }),
+      everyMs: HOUR,
+      timezone: "America/New_York",
+      onResult: (r) => {
+        s.stop();
+        resolve(r);
+      },
+    });
+  });
+  if (!result.ok) throw new Error(result.message);
+  return result.offsetMs;
 }
 
 const view = () => {
@@ -204,6 +231,17 @@ describe("Forecast page (ac-3)", () => {
     expect(chipLabels()).toEqual(["Now", "3 pm", "7 am", "9 am", "11 am"]);
     expect(view().model.chips[0].selected).toBe(true);
     expect(view().model.best?.label).toBe("Schedule for 7 am instead");
+  });
+
+  it("quotes and schedules whole milliseconds on a sync-derived clock offset", async () => {
+    await show(await syncedOffset());
+
+    const [ask] = callsTo("/api/flights/quote");
+    expect(ask.at.every(Number.isInteger)).toBe(true);
+
+    await act(async () => view().onSchedule(view().model.chips[0].at));
+    const [posted] = callsTo("/api/flights");
+    expect(Number.isInteger(posted.releaseAt)).toBe(true);
   });
 
   it("selects the chip that was picked", async () => {
@@ -282,5 +320,6 @@ describe("Forecast page (ac-3)", () => {
     await show();
     expect(seen.toast).toHaveBeenCalledWith("Try again.");
     expect(seen.router.replace).toHaveBeenCalledWith("/send/write?to=u2");
+    expect(seen.drafts.get("u2")).toEqual(DRAFT);
   });
 });

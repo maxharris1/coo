@@ -20,6 +20,7 @@ const seen = vi.hoisted(() => ({
 }));
 
 vi.mock("../forecast/draft", () => ({
+  readDraft: (friendId: string) => seen.drafts.get(friendId) ?? null,
   saveDraft: (d: { friendId: string }) => seen.drafts.set(d.friendId, d),
   clearDraft: (friendId: string) => seen.drafts.delete(friendId),
 }));
@@ -516,6 +517,22 @@ describe("Compose page draft for the forecast", () => {
       birdId: "b1",
       body: "Dinner Saturday?",
     });
+  });
+
+  it("restores the saved note and bird when it comes back from the forecast", async () => {
+    const saved = { friendId: "u2", birdId: "b1", body: "Dinner Saturday?" };
+    seen.drafts.set("u2", saved);
+    await show();
+    expect(view().note).toBe("Dinner Saturday?");
+    expect(row().pickedId).toBe("b1");
+    expect(seen.drafts.get("u2")).toEqual(saved);
+  });
+
+  it("keeps the default bird when the saved one can no longer fly", async () => {
+    seen.drafts.set("u2", { friendId: "u2", birdId: "b3", body: "Hi" });
+    await show();
+    expect(view().note).toBe("Hi");
+    expect(row().pickedId).toBe("b2");
   });
 
   it("writes no draft without a friend or a bird that can fly", async () => {

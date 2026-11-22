@@ -35,7 +35,7 @@ async function load(
       return {
         ok: true,
         payload,
-        offsetMs: payload.serverNow - (start + end) / 2,
+        offsetMs: Math.round(payload.serverNow - (start + end) / 2),
       };
     }
     const message = (json as { error?: { message?: unknown } } | null)?.error
