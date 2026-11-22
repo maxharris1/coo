@@ -13,21 +13,22 @@ export type RoommateState =
       look: Look;
       name: string;
       pronoun: Pronoun;
+      edited: boolean;
       sending: boolean;
     };
+
+type Flock = readonly { name: string; look: string }[];
 
 export type RoommateAction =
   | { type: "name"; name: string }
   | { type: "pronoun"; pronoun: Pronoun }
   | { type: "send" }
-  | { type: "failed" };
+  | { type: "failed" }
+  | { type: "sync"; flock: Flock; perches: number };
 
 export const lookName = (look: Look): string => birds[look].name;
 
-export function initialRoommate(
-  flock: readonly { name: string; look: string }[],
-  perches: number,
-): RoommateState {
+export function initialRoommate(flock: Flock, perches: number): RoommateState {
   const [first] = flock;
   if (!first || !roommateOwed(flock.length, perches)) return { kind: "none" };
   const look = nextStarterLook(first.look) as Look;
@@ -41,7 +42,22 @@ export function initialRoommate(
       config.quirks.defaultNames,
     ),
     pronoun: "they",
+    edited: false,
     sending: false,
+  };
+}
+
+function synced(
+  state: RoommateState,
+  flock: Flock,
+  perches: number,
+): RoommateState {
+  const next = initialRoommate(flock, perches);
+  if (next.kind === "none" || state.kind === "none") return next;
+  return {
+    ...next,
+    pronoun: state.pronoun,
+    ...(state.edited && { name: state.name, edited: true }),
   };
 }
 
@@ -49,10 +65,13 @@ export function roommate(
   state: RoommateState,
   action: RoommateAction,
 ): RoommateState {
+  if (action.type === "sync") {
+    return synced(state, action.flock, action.perches);
+  }
   if (state.kind === "none") return state;
   switch (action.type) {
     case "name":
-      return { ...state, name: action.name };
+      return { ...state, name: action.name, edited: true };
     case "pronoun":
       return { ...state, pronoun: action.pronoun };
     case "send":

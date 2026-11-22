@@ -28,6 +28,7 @@ const naming: Extract<RoommateState, { kind: "naming" }> = {
   look: "brenda",
   name: "Mabel",
   pronoun: "she",
+  edited: true,
   sending: false,
 };
 

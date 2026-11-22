@@ -22,6 +22,7 @@ const naming: Extract<RoommateState, { kind: "naming" }> = {
   look: "brenda",
   name: "Brenda",
   pronoun: "they",
+  edited: false,
   sending: false,
 };
 
@@ -81,7 +82,12 @@ describe("roommate reducer", () => {
   it("edits the name and pronoun", () => {
     let s = roommate(naming, { type: "name", name: "Mabel" });
     s = roommate(s, { type: "pronoun", pronoun: "she" });
-    expect(s).toEqual({ ...naming, name: "Mabel", pronoun: "she" });
+    expect(s).toEqual({
+      ...naming,
+      name: "Mabel",
+      pronoun: "she",
+      edited: true,
+    });
   });
 
   it("keeps what was typed when the API refuses", () => {
@@ -94,6 +100,40 @@ describe("roommate reducer", () => {
   it("ignores edits when no roommate is owed", () => {
     const none: RoommateState = { kind: "none" };
     expect(roommate(none, { type: "name", name: "x" })).toBe(none);
+  });
+});
+
+describe("roommate reducer sync (ac-4, ac-5)", () => {
+  const gerry = { name: "Gerry", look: "gerald" };
+  const sync = (flock: { name: string; look: string }[], perches: number) =>
+    ({ type: "sync", flock, perches }) as const;
+
+  it("drops the form once the roommate has moved in", () => {
+    expect(
+      roommate(naming, sync([gerry, { name: "Mabel", look: "brenda" }], 3)),
+    ).toEqual({ kind: "none" });
+  });
+
+  it("opens the form once a perch frees up", () => {
+    expect(roommate({ kind: "none" }, sync([gerry], 2))).toEqual(naming);
+  });
+
+  it("follows a renamed first bird and moves the default off its name", () => {
+    const s = roommate(naming, sync([{ name: "Brenda", look: "gerald" }], 2));
+    expect(s).toMatchObject({ kind: "naming", first: "Brenda", edited: false });
+    expect(s.kind === "naming" && s.name).not.toBe("Brenda");
+  });
+
+  it("keeps a typed name and the chosen pronoun", () => {
+    let s = roommate(naming, { type: "name", name: "Mabel" });
+    s = roommate(s, { type: "pronoun", pronoun: "she" });
+    expect(roommate(s, sync([{ name: "Gus", look: "gerald" }], 2))).toEqual({
+      ...naming,
+      first: "Gus",
+      name: "Mabel",
+      pronoun: "she",
+      edited: true,
+    });
   });
 });
 
