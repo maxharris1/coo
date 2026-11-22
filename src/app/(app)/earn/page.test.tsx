@@ -15,6 +15,8 @@ const states: EarnState[] = [];
 let retry: () => void = () => {};
 let changed: () => Promise<void> = async () => {};
 
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: () => {} }) }));
+
 vi.mock("./EarnView", () => ({
   EarnView: ({
     state,

@@ -205,7 +205,11 @@ Shown as "Level 4 city pigeon".
 - Sending a `home` bird makes it busy for the job's minutes. When the time passes the owner is
   paid and, 1 time in 4, the bird brings back a found object (chosen by a hash of the job id).
 - Found objects sit on the Earn screen until traded. "Trade" sells all of them at once.
-- Jobs do not use the map, the engine or the weather.
+- Jobs use the map. Starting a job stores a snapped destination as far from the loft as the bird
+  flies in half the job's minutes. The owner watches the bird on `/jobs/[id]` fly out to it until
+  the midpoint and back home by `ends_at`.
+- Jobs do not use the flight engine, the weather or the 30-minute sill. The job's minutes alone
+  set when the bird is home. There are no delays, odds or search party.
 
 ## 14. Eggs, breeds and perches
 

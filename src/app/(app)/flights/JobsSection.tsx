@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Bird, type GearId, type Look } from "@/components/Bird";
 import type { SyncPayload } from "@/components/sync";
 import { clockTime } from "@/lib/format";
@@ -6,7 +7,14 @@ import styles from "./Flights.module.css";
 
 type JobBird = Pick<
   SyncPayload["birds"][number],
-  "id" | "name" | "look" | "gear" | "status" | "busyKind" | "busyUntil"
+  | "id"
+  | "name"
+  | "look"
+  | "gear"
+  | "status"
+  | "busyKind"
+  | "busyUntil"
+  | "jobId"
 >;
 
 export function JobsSection({
@@ -21,8 +29,8 @@ export function JobsSection({
   return (
     <section className={styles.section}>
       <h2 className={styles.heading}>On odd jobs</h2>
-      {working.map((b) => (
-        <div key={b.id} className={styles.card}>
+      {working.map((b) => {
+        const top = (
           <span className={styles.top}>
             <span className={styles.avatar}>
               <span className={styles.avatarBird}>
@@ -48,8 +56,17 @@ export function JobsSection({
               Working
             </span>
           </span>
-        </div>
-      ))}
+        );
+        return b.jobId === null ? (
+          <div key={b.id} className={styles.card}>
+            {top}
+          </div>
+        ) : (
+          <Link key={b.id} href={`/jobs/${b.jobId}`} className={styles.card}>
+            {top}
+          </Link>
+        );
+      })}
     </section>
   );
 }
