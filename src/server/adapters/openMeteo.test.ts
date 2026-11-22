@@ -125,6 +125,21 @@ describe("openMeteo samples", () => {
       weather.samples([{ ...MANHATTAN, atMs: NOW + 72 * HOUR }]),
     ).rejects.toThrow();
   });
+
+  it("asks for enough UTC days to reach the latest hour requested", async () => {
+    const { fetch, urls } = stubFetch();
+    const weather = openMeteo({ baseUrl: BASE, fetch })(db, clock);
+    const midnight = Math.floor(NOW / (24 * HOUR)) * 24 * HOUR;
+
+    await weather
+      .samples([
+        { ...MANHATTAN, atMs: NOW },
+        { ...PHILADELPHIA, atMs: midnight + 2 * 24 * HOUR },
+      ])
+      .catch(() => {});
+
+    expect(urls[0].searchParams.get("forecast_days")).toBe("3");
+  });
 });
 
 describe("weather_cache", () => {

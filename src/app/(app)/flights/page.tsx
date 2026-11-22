@@ -75,9 +75,9 @@ export default function FlightsPage() {
         if (!r.ok) return { ...prev, loadingMore: false };
         const seen = new Set(prev.earlier.map((f) => f.id));
         return {
-          kind: "ready",
+          ...prev,
           loadingMore: false,
-          ...r.page,
+          nextCursor: r.page.nextCursor,
           earlier: [
             ...prev.earlier,
             ...r.page.earlier.filter((f) => !seen.has(f.id)),

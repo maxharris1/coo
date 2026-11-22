@@ -7,6 +7,7 @@ import { Bird, type GearId, type Look } from "@/components/Bird";
 import { Loader } from "@/components/Loader";
 import { useSync } from "@/components/SyncProvider";
 import { useToast } from "@/components/Toasts";
+import type { Pronoun } from "@/lib/format";
 import { ClosetTile } from "./ClosetTile";
 import {
   applyOutfit,
@@ -18,6 +19,7 @@ import {
   type Wardrobe,
 } from "./closet";
 import styles from "./page.module.css";
+import { WeatherTip } from "./WeatherTip";
 import { putGear, type GearBody } from "./wear";
 
 function BackLink({ href, label }: { href: string; label: string }) {
@@ -173,6 +175,12 @@ export default function ClosetPage() {
           )}
         </div>
       </section>
+      <WeatherTip
+        pronoun={bird.pronoun as Pronoun}
+        cells={cells}
+        worn={worn}
+        dress={dress}
+      />
       {outfits.length > 0 && (
         <section className={styles.section}>
           <div className={styles.sectionTop}>
