@@ -232,6 +232,12 @@
   outline-offset: 4px;
 }
 
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .picker {
   display: flex;
   flex-direction: column;

@@ -41,7 +41,16 @@ function forecastFor(units: Units): string {
   };
   return renderToStaticMarkup(
     <ComposeView
-      recipient={{ name: "Priya", line: "Chicago" }}
+      rows={[
+        {
+          friendId: "f1",
+          recipient: { name: "Priya", line: "Chicago" },
+          pickedId: "b1",
+          tooLong: false,
+          stats: stats(leg, "b1", "America/New_York", units),
+          forecastHref: "/send/forecast?to=f1",
+        },
+      ]}
       note="Hi"
       counter={{ text: "2 of 140 characters", over: false }}
       birds={[
@@ -56,9 +65,6 @@ function forecastFor(units: Units): string {
           state: { kind: "ready" },
         },
       ]}
-      pickedId="b1"
-      stats={stats(leg, "b1", "America/New_York", units)}
-      forecastHref="/send/forecast?to=f1"
       sending={false}
       onNote={() => {}}
       onPick={() => {}}
