@@ -185,4 +185,32 @@ describe("moving the roost pin", () => {
     expect(state.pending).toEqual(shown);
     expect({ lat: state.roost?.lat, lon: state.roost?.lon }).toEqual(shown);
   });
+
+  it.each([
+    ["east", { lat: -16.8, lon: -179.9975 }],
+    ["west", { lat: -16.8, lon: 179.9975 }],
+  ])(
+    "names a spot tapped %s across the date line and holds the shown pin to save",
+    async (_, point) => {
+      const urls: string[] = [];
+      vi.stubGlobal("fetch", async (url: string) => {
+        urls.push(url);
+        return new Response(
+          JSON.stringify({ place: { label: "Taveuni", city: "Fiji" } }),
+        );
+      });
+      let state = picked;
+      current.state = state;
+
+      await actions().move(point);
+
+      expect(urls).toEqual([`/api/geo/here?lat=-16.8&lon=${point.lon}`]);
+      for (const [action] of dispatch.mock.calls) state = loft(state, action);
+      expect(state.error).toBeNull();
+      expect(state.pending).toEqual(point);
+      expect({ lat: state.roost?.lat, lon: state.roost?.lon }).toEqual(
+        state.pending,
+      );
+    },
+  );
 });

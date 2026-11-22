@@ -22,6 +22,8 @@ const NUDGES: Record<string, Point> = {
   ArrowRight: { lat: 0, lon: gridLonDeg },
 };
 
+const wrapLon = (lon: number) => lon - 360 * Math.floor((lon + 180) / 360);
+
 export type PinMapProps = {
   start: Point;
   label: string;
@@ -41,8 +43,9 @@ export function PinMap({ start, label, onMove, settle }: PinMapProps) {
     latest.current = { start, onMove, settle };
   });
 
-  const ask = (lat: number, lon: number) => {
+  const ask = (lat: number, rawLon: number) => {
     const { start, onMove, settle } = latest.current;
+    const lon = wrapLon(rawLon);
     placed.current?.marker.setLngLat([start.lon, start.lat]);
     onMove?.(settle ? settle(lat, lon) : { lat, lon });
   };

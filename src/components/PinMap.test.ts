@@ -337,3 +337,89 @@ it("with no move handler, the pin is not focusable and the map stays an image", 
   expect(pin.onKeyDown).toBeUndefined();
   lib.unmount();
 });
+
+const dateLine = {
+  east: { start: { lat: -16.8, lon: 180 }, label: "Taveuni" },
+  west: { start: { lat: -16.8, lon: -180 }, label: "Taveuni" },
+};
+
+const onGlobe = (moves: { lon: number }[]) =>
+  moves.every(({ lon }) => lon >= -180 && lon <= 180);
+
+it.each([
+  ["east past 180", dateLine.east, 180.00214576721447, -179.9975],
+  ["west past -180", dateLine.west, -180.00214576721447, 179.9975],
+])("settles a tap %s on the wrapped grid point", async (_, props, lng, lon) => {
+  const moves: { lat: number; lon: number }[] = [];
+  render({ ...props, onMove: (p) => moves.push(p), settle: snap });
+  const cleanup = lib.unmount;
+  await vi.waitFor(() => expect(lib.markers).toHaveLength(1));
+
+  lib.maps[0].handlers.click({ lngLat: { lat: -16.80000000000001, lng } });
+
+  expect(moves).toEqual([{ lat: -16.8, lon }]);
+  expect(onGlobe(moves), "lon within [-180, 180]").toBe(true);
+  expect(lib.markers[0].at, "pin stays on the accepted roost").toEqual([
+    props.start.lon,
+    -16.8,
+  ]);
+  cleanup();
+});
+
+it.each([
+  ["east past 180", dateLine.east, 180.00214576721447, -179.9975],
+  ["west past -180", dateLine.west, -180.00214576721447, 179.9975],
+])(
+  "settles a pin dragged %s on the wrapped grid point",
+  async (_, props, lng, lon) => {
+    const moves: { lat: number; lon: number }[] = [];
+    render({ ...props, onMove: (p) => moves.push(p), settle: snap });
+    const cleanup = lib.unmount;
+    await vi.waitFor(() => expect(lib.markers).toHaveLength(1));
+    const [marker] = lib.markers;
+
+    marker.setLngLat([lng, -16.80000000000001]);
+    marker.handlers.dragend();
+
+    expect(moves).toEqual([{ lat: -16.8, lon }]);
+    expect(onGlobe(moves), "lon within [-180, 180]").toBe(true);
+    expect(marker.at, "pin back on the accepted roost").toEqual([
+      props.start.lon,
+      -16.8,
+    ]);
+    cleanup();
+  },
+);
+
+it.each([
+  ["ArrowRight", dateLine.east, -179.9975],
+  ["ArrowLeft", dateLine.west, 179.9975],
+])(
+  "%s across the date line moves one block onto the wrapped grid point",
+  (key, props, lon) => {
+    const moves: { lat: number; lon: number }[] = [];
+    const view = render({
+      ...props,
+      onMove: (p) => moves.push(p),
+      settle: snap,
+    });
+
+    pinOf(view).props.onKeyDown!({ key, preventDefault: () => {} });
+
+    expect(moves).toEqual([{ lat: -16.8, lon }]);
+    expect(onGlobe(moves), "lon within [-180, 180]").toBe(true);
+    lib.unmount();
+  },
+);
+
+it("wraps a tap past the date line even when no settle is given", async () => {
+  const moves: { lat: number; lon: number }[] = [];
+  render({ ...dateLine.east, onMove: (p) => moves.push(p) });
+  const cleanup = lib.unmount;
+  await vi.waitFor(() => expect(lib.markers).toHaveLength(1));
+
+  lib.maps[0].handlers.click({ lngLat: { lat: -16.8, lng: 180.5 } });
+
+  expect(moves).toEqual([{ lat: -16.8, lon: -179.5 }]);
+  cleanup();
+});

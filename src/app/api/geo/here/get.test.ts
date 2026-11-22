@@ -34,6 +34,15 @@ describe("GET /api/geo/here", () => {
     expect(json.error.code).toBe("invalid");
   });
 
+  it.each([
+    [{ lat: "-16.8", lon: "-179.9975" }],
+    [{ lat: "-16.8", lon: "179.9975" }],
+  ])("answers the wrapped date-line point %j with 200", async (query) => {
+    const { jar } = await client.signIn("(555) 123-4567");
+    const { status } = await client.get(query, jar);
+    expect(status).toBe(200);
+  });
+
   it("returns the roost label and city, giving the geocoder only the snapped point", async () => {
     const reverse = vi.spyOn(deps.geocoder, "reverse");
     const logged = vi.spyOn(log, "info");
