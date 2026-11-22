@@ -182,3 +182,15 @@ export function flightsView(
     })),
   };
 }
+
+export function earlierRows(
+  flights: Flight[],
+  nowMs: number,
+  timezone: string,
+  units: Units,
+): FlightsRow[] {
+  return flights.map((f) => {
+    const row = toRow(f, true, nowMs, timezone, units);
+    return f.status === "cancelled" ? { ...row, line: "Cancelled" } : row;
+  });
+}
