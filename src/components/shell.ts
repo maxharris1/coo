@@ -1,6 +1,7 @@
 export type Chrome = "bare" | "full" | "tabs";
 
 export const FULL_SCREEN_FLOWS = [
+  { flow: "NewRecipient", pattern: /^\/send\/new$/ },
   { flow: "Compose", pattern: /^\/send\/write$/ },
   { flow: "Forecast", pattern: /^\/send\/forecast$/ },
   { flow: "Takeoff", pattern: /^\/send\/takeoff\/[^/]+$/ },

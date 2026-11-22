@@ -75,6 +75,7 @@ describe("(app) shell", () => {
   });
 
   it.each([
+    ["/send/new", "NewRecipient"],
     ["/send/write", "Compose"],
     ["/send/forecast", "Forecast"],
     ["/send/takeoff/f1", "Takeoff"],
@@ -94,7 +95,6 @@ describe("(app) shell", () => {
       "/flights",
       "/flights/f1",
       "/send",
-      "/send/new",
       "/sill",
       "/shop",
       "/more",
