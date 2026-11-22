@@ -165,3 +165,36 @@ describe("ReplyView incoming doodle (ac-2)", () => {
     expect(html).not.toMatch(/<p[^>]*><\/p>/);
   });
 });
+
+const THEIR_DOODLE: Doodle = {
+  v: 1,
+  w: 300,
+  h: 200,
+  strokes: [
+    {
+      color: "ink",
+      width: "marker",
+      points: [
+        [10, 20],
+        [30, 40],
+      ],
+    },
+    { color: "tomato", width: "fine", points: [[50, 60]] },
+  ],
+};
+
+describe("ReplyView, their note with a doodle (#678 ac-1, ac-3)", () => {
+  it("shows a doodle-only note without an empty paragraph", () => {
+    const html = render({
+      model: { ...MODEL, note: "", doodle: THEIR_DOODLE },
+    });
+    expect(html).toContain('aria-label="A doodle in ink and tomato"');
+    expect(html).not.toContain("theirNote");
+  });
+
+  it("leaves a text-only note without a doodle frame", () => {
+    const html = render();
+    expect(html).not.toContain("A doodle");
+    expect(html).not.toMatch(/class="[^"]*doodle/);
+  });
+});

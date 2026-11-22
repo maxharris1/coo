@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { Bird } from "@/components/Bird";
+import { DoodlePad } from "@/components/doodle/DoodlePad";
+import type { Doodle } from "@/lib/game/notes";
 import emptyStates from "../../../../../assets/copy/empty-states.json";
 import {
   canRelease,
@@ -23,10 +25,12 @@ export type ComposeRow = {
 export type ComposeViewProps = {
   rows: readonly ComposeRow[];
   note: string;
+  doodle: Doodle | null;
   counter: Counter;
   birds: PickerOption[];
   sending: boolean;
   onNote: (note: string) => void;
+  onDoodle: (doodle: Doodle | null) => void;
   onPick: (rowId: string, birdId: string) => void;
   onRelease: () => void;
   onWake: (birdId: string) => void;
@@ -196,10 +200,12 @@ function Stats({
 export function ComposeView({
   rows,
   note,
+  doodle,
   counter,
   birds,
   sending,
   onNote,
+  onDoodle,
   onPick,
   onRelease,
   onWake,
@@ -214,7 +220,7 @@ export function ComposeView({
       ? `Release ${pickedName(single)}`
       : `Release ${rows.length} birds`;
   const ready =
-    canRelease(note, counter, releaseLabel, sending) &&
+    canRelease({ body: note, doodle }, counter, releaseLabel, sending) &&
     !rows.some((r) => r.tooLong);
   const rowParts = (row: ComposeRow, heading: string) => (
     <>
@@ -256,6 +262,9 @@ export function ComposeView({
               {counter.text}
             </span>
             <span>It has to fit on one leg</span>
+          </div>
+          <div className={styles.doodle}>
+            <DoodlePad onChange={onDoodle} />
           </div>
         </div>
       </section>

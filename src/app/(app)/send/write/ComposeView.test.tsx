@@ -7,11 +7,20 @@ import {
 } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
+import { DoodlePad } from "@/components/doodle/DoodlePad";
+import type { Doodle } from "@/lib/game/notes";
 import emptyStates from "../../../../../assets/copy/empty-states.json";
 import type { PickerOption } from "./compose";
 import { type ComposeRow, ComposeView, NoRecipient } from "./ComposeView";
 
 type Props = ComponentProps<typeof ComposeView>;
+
+const DOODLE: Doodle = {
+  v: 1,
+  w: 300,
+  h: 200,
+  strokes: [{ color: "ink", width: "fine", points: [[10, 20]] }],
+};
 
 const NOTE =
   "Dinner Saturday? I'll bring the good bread. Do NOT tell Gerald about the bread.";
@@ -74,10 +83,12 @@ const PRIYA_ROW: ComposeRow = {
 const props = (over: Partial<Props> = {}): Props => ({
   rows: [PRIYA_ROW],
   note: NOTE,
+  doodle: null,
   counter: { text: "79 of 140 characters", over: false },
   birds: [GERALD, CRUMBS, KEVIN],
   sending: false,
   onNote: () => {},
+  onDoodle: () => {},
   onPick: () => {},
   onRelease: () => {},
   onWake: () => {},
@@ -157,6 +168,37 @@ describe("ComposeView (ac-1)", () => {
     ["no bird is ready", { rows: [{ ...PRIYA_ROW, pickedId: null }] }],
   ] as const)("disables Release when %s", (_, over) => {
     expect(releaseButton(render(over))).toContain("disabled");
+  });
+
+  it.each([
+    ["a doodle and no text", { note: "", doodle: DOODLE }],
+    ["text and a doodle", { doodle: DOODLE }],
+  ] as const)("enables Release for %s", (_, over) => {
+    expect(releaseButton(render(over))).not.toContain("disabled");
+  });
+
+  it.each([
+    ["the pad is empty and the note is blank", { note: "  ", doodle: null }],
+    [
+      "the note is over the limit even with a doodle",
+      {
+        doodle: DOODLE,
+        counter: { text: "141 of 140 characters", over: true },
+      },
+    ],
+    [
+      "a row's note is too long even with a doodle",
+      { doodle: DOODLE, rows: [{ ...PRIYA_ROW, tooLong: true }] },
+    ],
+  ] as const)("disables Release when %s", (_, over) => {
+    expect(releaseButton(render(over))).toContain("disabled");
+  });
+
+  it("puts the doodle pad on the note paper under the words", () => {
+    const html = render();
+    const pad = html.indexOf('aria-label="Doodle pad"');
+    expect(pad).toBeGreaterThan(html.indexOf("It has to fit on one leg"));
+    expect(pad).toBeLessThan(html.indexOf("Who's flying?"));
   });
 
   it("says nobody is rested when no bird is ready", () => {
@@ -288,6 +330,7 @@ type Handlers = {
 
 const elements = (node: ReactNode): ReactElement<Handlers>[] => {
   if (!isValidElement<Handlers>(node)) return [];
+  if (node.type === DoodlePad) return [node];
   if (typeof node.type === "function")
     return elements((node.type as (props: Handlers) => ReactNode)(node.props));
   return [node, ...Children.toArray(node.props.children).flatMap(elements)];
@@ -301,6 +344,19 @@ describe("ComposeView events (ac-2)", () => {
     );
     field?.props.onChange?.({ target: { value: "Hi Priya" } });
     expect(onNote).toHaveBeenCalledExactlyOnceWith("Hi Priya");
+  });
+
+  it("passes the pad's doodle to onDoodle", () => {
+    const onDoodle = vi.fn();
+    const pad = elements(ComposeView(props({ onDoodle }))).find(
+      (e) => e.type === DoodlePad,
+    );
+    const onChange = pad?.props.onChange as unknown as (
+      doodle: Doodle | null,
+    ) => void;
+    onChange(DOODLE);
+    onChange(null);
+    expect(onDoodle.mock.calls).toEqual([[DOODLE], [null]]);
   });
 
   it("passes a bird tap to onPick", () => {
@@ -372,7 +428,8 @@ describe("ComposeView for several recipients", () => {
     expect(count(html, ">Arrival odds<")).toBe(3);
     for (const distance of ["81 mi", "215 mi", "136 mi"])
       expect(html).toContain(`>${distance}<`);
-    expect(count(html, 'aria-pressed="true"')).toBe(3);
+    const pickers = html.slice(html.indexOf("Clear doodle"));
+    expect(count(pickers, 'aria-pressed="true"')).toBe(3);
     expect(count(html, 'id="note"')).toBe(1);
     expect(buttonWith(html, "Release").body).toContain("Release 3 birds");
     expect(releaseButton(html)).not.toContain("disabled");

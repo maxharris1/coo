@@ -285,6 +285,8 @@ describe("photon reverse", () => {
   });
 });
 
+const COORDINATE = /\d\.\d|,/;
+
 describe("photon geo_cache", () => {
   it("stores only snapped coordinates", async () => {
     const { fetch } = stubFetch(collection(WILLIAMSBURG, PHILADELPHIA));
@@ -374,7 +376,8 @@ describe("photon geo_cache", () => {
     expect(await geocoder.reverse(0.01, 0.01)).toBeNull();
     expect(urls).toHaveLength(1);
     const rows = await db.query<{ key: string }>("select key from geo_cache");
-    expect(rows.map((r) => r.key)).toEqual(["reverse:0.00,0.00"]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].key).not.toMatch(COORDINATE);
   });
 
   it("caches a point lookup per snapped point, never per cell or exact digits", async () => {
@@ -389,14 +392,26 @@ describe("photon geo_cache", () => {
       "?lat=40.742&lon=-73.9875&limit=1&lang=en",
       "?lat=40.732&lon=-73.9875&limit=1&lang=en",
     ]);
-    const rows = await db.query<{ key: string }>(
-      "select key from geo_cache order by key",
-    );
-    expect(rows.map((r) => r.key)).toEqual([
-      "reverse:point:40.732,-73.9875",
-      "reverse:point:40.742,-73.9875",
-    ]);
+    const rows = await db.query<{ key: string }>("select key from geo_cache");
+    expect(rows).toHaveLength(2);
   });
+
+  it.each([
+    ["an area", "area"],
+    ["a point", "point"],
+  ] as const)(
+    "keeps coordinates out of %s lookup's cache key",
+    async (_, precision) => {
+      const { fetch } = stubFetch(collection(BEDFORD_AVE));
+      const geocoder = photon({ baseUrl: BASE, fetch })(db, clock);
+
+      await geocoder.reverse(40.742123456, -73.987654321, precision);
+
+      const rows = await db.query<{ key: string }>("select key from geo_cache");
+      expect(rows).toHaveLength(1);
+      expect(rows[0].key).not.toMatch(COORDINATE);
+    },
+  );
 });
 
 describe("photon failures", () => {

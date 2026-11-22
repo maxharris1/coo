@@ -20,6 +20,7 @@ import { flightGet } from "./flights/[id]/get";
 import { flightsGet } from "./flights/get";
 import { friendsGet } from "./friends/get";
 import { geoHereGet } from "./geo/here/get";
+import { geoPlaceGet } from "./geo/place/get";
 import { geoSearchGet } from "./geo/search/get";
 import { guestGet } from "./guest/[token]/get";
 import { healthGet } from "./health/get";
@@ -71,6 +72,10 @@ const GET_ENDPOINTS: Record<
   "src/app/api/geo/here/route.ts": {
     build: geoHereGet,
     url: "/api/geo/here?lat=39.952&lon=-75.165",
+  },
+  "src/app/api/geo/place/route.ts": {
+    build: geoPlaceGet,
+    url: "/api/geo/place?placeId=00000000-0000-4000-8000-000000000000",
   },
   "src/app/api/geo/search/route.ts": {
     build: geoSearchGet,

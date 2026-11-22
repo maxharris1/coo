@@ -192,3 +192,18 @@ describe("Guest page, sealed card layout", () => {
     expect(declsOf("envelope").width).toBe("92px");
   });
 });
+
+describe("Guest page never hints at a doodle before landing (#678 ac-2)", () => {
+  it("keeps the sealed envelope with no doodle while the bird flies", () => {
+    const html = render(guestFlying());
+    expect(html).toContain("Your note is sealed");
+    expect(html.toLowerCase()).not.toContain("doodle");
+  });
+
+  it("shows no doodle on an expired, missing or reported link", () => {
+    for (const kind of ["expired", "missing", "reported"] as const) {
+      const html = renderToStaticMarkup(<GuestExpired kind={kind} />);
+      expect(html.toLowerCase(), kind).not.toContain("doodle");
+    }
+  });
+});

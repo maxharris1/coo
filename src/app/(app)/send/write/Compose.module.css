@@ -152,6 +152,10 @@
   color: var(--coo-ink);
 }
 
+.doodle {
+  padding-top: 10px;
+}
+
 .meta {
   display: flex;
   flex-wrap: wrap;

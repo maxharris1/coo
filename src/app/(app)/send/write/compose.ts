@@ -7,7 +7,7 @@ import {
   shortDistance,
   type Units,
 } from "@/lib/format";
-import { noteLimit } from "@/lib/game/notes";
+import { type Note, noteLimit } from "@/lib/game/notes";
 import type { Wearer } from "@/lib/game/seeds";
 import type { Factor } from "@/server/services/flights/factors";
 import type { RecipientQuote } from "@/server/services/flights/quote";
@@ -129,6 +129,37 @@ function factorText(factor: Factor, units: Units): string {
     : factor.text;
 }
 
+type BirdQuote = RecipientQuote["quotes"][number];
+type Trip = "waits" | "roosts" | "direct";
+
+function tripOf(quote: BirdQuote): Trip {
+  if (quote.leavesAt > quote.releaseAt) return "waits";
+  return quote.roostsOvernight ? "roosts" : "direct";
+}
+
+const TRIPS: Record<
+  Trip,
+  {
+    flightMs: (q: BirdQuote) => number;
+    forecast: (lands: string, leaves: string) => string;
+  }
+> = {
+  waits: {
+    flightMs: (q) => q.airTimeMs,
+    forecast: (lands, leaves) =>
+      `Waits for sunrise. Leaves at ${leaves}. Lands around ${lands}.`,
+  },
+  roosts: {
+    flightMs: (q) => q.durationMs,
+    forecast: (lands) =>
+      `Lands around ${lands}. Roosts for the night and finishes after sunrise.`,
+  },
+  direct: {
+    flightMs: (q) => q.durationMs,
+    forecast: (lands) => `Lands around ${lands}.`,
+  },
+};
+
 export function stats(
   leg: RecipientQuote,
   birdId: string,
@@ -137,13 +168,15 @@ export function stats(
 ): ComposeStats | null {
   const quote = leg.quotes.find((q) => q.birdId === birdId);
   if (!quote) return null;
-  const lands = `Lands around ${clockTime(new Date(quote.arriveAt), timezone)}.`;
+  const trip = TRIPS[tripOf(quote)];
+  const at = (ms: number) => clockTime(new Date(ms), timezone);
+  const said = trip.forecast(at(quote.arriveAt), at(quote.leavesAt));
   const lead = quote.factors[0];
   return {
     distance: shortDistance(leg.distanceMi, units),
-    flightTime: duration(quote.durationMs),
+    flightTime: duration(trip.flightMs(quote)),
     odds: `${Math.round(quote.odds * 100)}%`,
-    forecast: lead ? `${lands} ${factorText(lead, units)}.` : lands,
+    forecast: lead ? `${said} ${factorText(lead, units)}.` : said,
   };
 }
 
@@ -160,12 +193,13 @@ export function releaseBird(birds: readonly SyncBird[]): SyncBird | null {
 }
 
 export function canRelease(
-  note: string,
+  { body, doodle }: Note,
   count: Counter,
   birdName: string | null,
   sending: boolean,
 ): boolean {
-  return note.trim() !== "" && !count.over && birdName !== null && !sending;
+  const said = body.trim() !== "" || doodle !== null;
+  return said && !count.over && birdName !== null && !sending;
 }
 
 const farthestFirst = (a: Destination, b: Destination) =>

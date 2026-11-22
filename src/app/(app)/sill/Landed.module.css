@@ -201,6 +201,13 @@
   letter-spacing: 1px;
 }
 
+.doodle {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-top: 6px;
+}
+
 .noteBody,
 .signOff {
   margin: 6px 0 0;

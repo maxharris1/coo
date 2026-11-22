@@ -50,6 +50,8 @@ export type QuoteInput = {
 export type BirdQuote = {
   birdId: string;
   releaseAt: number;
+  leavesAt: number;
+  airTimeMs: number;
   durationMs: number;
   arriveAt: number;
   odds: number;
@@ -110,7 +112,7 @@ export async function quote(
 
   return {
     recipients: legs.map(({ from, to }, r) => ({
-      recipient: input.recipients[r],
+      recipient: withoutPin(input.recipients[r]),
       distanceMi: Math.round(haversineMi(from.point, to.point) * 10) / 10,
       from: { label: from.label },
       to: { label: to.label },
@@ -135,6 +137,12 @@ export async function quote(
   };
 }
 
+function withoutPin(recipient: QuoteRecipient): QuoteRecipient {
+  return "place" in recipient
+    ? { place: { placeId: recipient.place.placeId } }
+    : recipient;
+}
+
 function releaseTimes(deps: Deps, at: number[] | undefined): number[] {
   const now = deps.clock.now();
   const last = now + deps.config.game.schedule.maxHoursAhead * HOUR_MS;
@@ -156,10 +164,8 @@ export async function legFor(
     const place = await resolvePlace(deps, me, placeId);
     if (!pin)
       return { from: roost, to: { point: place.roost, label: place.label } };
-    return {
-      from: roost,
-      to: { point: pin, label: await pinLabel(deps, pin) },
-    };
+    const point = snap(pin.lat, pin.lon);
+    return { from: roost, to: { point, label: await pinLabel(deps, point) } };
   }
   const them = recipient.friendId;
   const friendship = await friendshipBetween(deps.db, me, them);
@@ -176,8 +182,7 @@ export async function legFor(
   return { from, to };
 }
 
-async function pinLabel(deps: Deps, pin: Point): Promise<string> {
-  const { lat, lon } = snap(pin.lat, pin.lon);
+async function pinLabel(deps: Deps, { lat, lon }: Point): Promise<string> {
   const name = await deps.geocoder
     .reverse(lat, lon, "point")
     .catch((error: unknown) => {
@@ -281,9 +286,12 @@ function quoteOne(
 ): BirdQuote {
   const input = quoteInput(bird, owner, from, to, releaseAt, weather, hazards);
   const plan = computeFlightPlan(input);
+  const fly = plan.segments.filter((s) => s.kind === "fly");
   return {
     birdId: bird.id,
     releaseAt,
+    leavesAt: fly[0]?.startMs ?? releaseAt,
+    airTimeMs: fly.reduce((sum, s) => sum + s.endMs - s.startMs, 0),
     durationMs: plan.arriveAtMs - releaseAt,
     arriveAt: plan.arriveAtMs,
     odds: plan.onTimeOdds,

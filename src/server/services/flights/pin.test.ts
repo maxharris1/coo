@@ -23,6 +23,7 @@ const BODY = "Come see the new loft";
 const WILLIAMSBURG_ROOST = { lat: 40.708, lon: -73.9575 };
 const EAST_VILLAGE_PIN: Point = { lat: 40.731234567, lon: -73.986543219 };
 const PIN_DIGITS = ["731234", "986543"];
+const SNAPPED_PIN = snap(EAST_VILLAGE_PIN.lat, EAST_VILLAGE_PIN.lon);
 const BOSTON_PIN: Point = { lat: 42.351234567, lon: -71.081234567 };
 
 let deps: TestDeps;
@@ -70,6 +71,15 @@ async function storedDestination(flightId: string) {
   return row;
 }
 
+async function storedLink(flightId: string) {
+  const [row] = await deps.db.query<{ dest_lat: number; dest_lon: number }>(
+    `select g.dest_lat, g.dest_lon from guest_links g
+     join flights f on f.guest_link_id = g.id where f.id = $1`,
+    [flightId],
+  );
+  return row;
+}
+
 async function refusal(promise: Promise<unknown>): Promise<string> {
   try {
     await promise;
@@ -80,22 +90,34 @@ async function refusal(promise: Promise<unknown>): Promise<string> {
 }
 
 describe("a destination pin the sender places by hand", () => {
-  it("stores the flight's destination exactly at the pin (ac-1)", async () => {
+  it("stores the snapped pin, not the drop point, on the flight and the guest link (ac-2)", async () => {
     const { flight } = await sendTo(await heldPlace(), EAST_VILLAGE_PIN);
 
-    const stored = await storedDestination(flight.id);
-    expect(stored.to_lat).toBe(EAST_VILLAGE_PIN.lat);
-    expect(stored.to_lon).toBe(EAST_VILLAGE_PIN.lon);
-    expect(flight.to).toEqual({ ...EAST_VILLAGE_PIN, label: "East Village" });
+    expect(await storedDestination(flight.id)).toEqual({
+      to_lat: SNAPPED_PIN.lat,
+      to_lon: SNAPPED_PIN.lon,
+      to_label: "East Village",
+    });
+    expect(await storedLink(flight.id)).toEqual({
+      dest_lat: SNAPPED_PIN.lat,
+      dest_lon: SNAPPED_PIN.lon,
+    });
+    expect(flight.to).toEqual({ ...SNAPPED_PIN, label: "East Village" });
+    for (const digits of PIN_DIGITS)
+      expect(JSON.stringify(flight)).not.toContain(digits);
   });
 
-  it("still flies to the snapped held place without a pin (ac-1)", async () => {
+  it("still flies to the snapped held place without a pin (ac-2)", async () => {
     const { flight } = await sendTo(await heldPlace());
 
     expect(await storedDestination(flight.id)).toEqual({
       to_lat: WILLIAMSBURG_ROOST.lat,
       to_lon: WILLIAMSBURG_ROOST.lon,
       to_label: "Williamsburg",
+    });
+    expect(await storedLink(flight.id)).toEqual({
+      dest_lat: WILLIAMSBURG_ROOST.lat,
+      dest_lon: WILLIAMSBURG_ROOST.lon,
     });
   });
 
@@ -167,9 +189,7 @@ describe("a destination pin the sender places by hand", () => {
     });
     const { flight } = await sendTo(placeId, EAST_VILLAGE_PIN);
 
-    expect((await storedDestination(flight.id)).to_lat).toBe(
-      EAST_VILLAGE_PIN.lat,
-    );
+    expect((await storedDestination(flight.id)).to_lat).toBe(SNAPPED_PIN.lat);
     const cache = await deps.db.query<{ key: string; payload: unknown }>(
       "select key, payload from geo_cache",
     );
@@ -237,8 +257,8 @@ describe("a destination pin the sender places by hand", () => {
     const { flight } = await sendTo(placeId, EAST_VILLAGE_PIN);
 
     expect(await storedDestination(flight.id)).toEqual({
-      to_lat: EAST_VILLAGE_PIN.lat,
-      to_lon: EAST_VILLAGE_PIN.lon,
+      to_lat: SNAPPED_PIN.lat,
+      to_lon: SNAPPED_PIN.lon,
       to_label: "Pin District",
     });
     const cache = await deps.db.query<{ key: string; payload: unknown }>(
@@ -253,13 +273,13 @@ describe("a destination pin the sender places by hand", () => {
       expect(seen).not.toContain(digits);
   });
 
-  it("shows the exact destination to the sender and the link holder only (ac-3)", async () => {
+  it("shows the snapped destination to the sender and the link holder only (ac-2)", async () => {
     const { flight, token } = await sendTo(await heldPlace(), EAST_VILLAGE_PIN);
-    const exact = { ...EAST_VILLAGE_PIN, label: "East Village" };
+    const snapped = { ...SNAPPED_PIN, label: "East Village" };
 
-    expect((await getFlight(deps, max, flight.id)).to).toEqual(exact);
+    expect((await getFlight(deps, max, flight.id)).to).toEqual(snapped);
     expect((await getGuestLink(deps, PEPPER, IP, token)).flight.to).toEqual(
-      exact,
+      snapped,
     );
 
     const friend = world.priya.id as UserId;

@@ -6,7 +6,7 @@ import { Loader } from "@/components/Loader";
 import { useSync } from "@/components/SyncProvider";
 import { useToast } from "@/components/Toasts";
 import { asUnits, type Units } from "@/lib/format";
-import { noteLimit } from "@/lib/game/notes";
+import { type Doodle, noteLimit } from "@/lib/game/notes";
 import type { Wearer } from "@/lib/game/seeds";
 import type {
   QuoteRecipient,
@@ -92,6 +92,7 @@ function Compose() {
     friendIds.flatMap((id) => readDraft(id) ?? []),
   );
   const [note, setNote] = useState(saved[0]?.body ?? "");
+  const [doodle, setDoodle] = useState<Doodle | null>(null);
   const [sending, setSending] = useState(false);
   const [swaps, setSwaps] = useState<Swaps | null>(null);
   const [legs, setLegs] = useState<RecipientQuote[]>([]);
@@ -181,7 +182,7 @@ function Compose() {
   const onRelease = async () => {
     if (sends.length !== rows.length) return;
     setSending(true);
-    const r = await release(fetch, { body: note, sends });
+    const r = await release(fetch, { body: note, doodle, sends });
     if (r.ok) {
       for (const send of sends)
         if ("friendId" in send) clearDraft(send.friendId);
@@ -209,10 +210,12 @@ function Compose() {
         };
       })}
       note={note}
+      doodle={doodle}
       counter={counter(note, tightest)}
       birds={options}
       sending={sending}
       onNote={setNote}
+      onDoodle={setDoodle}
       onPick={(rowId, birdId) => {
         if (pickable(birdId))
           setSwaps({ key, rows: swapBird(rows, rowId, birdId) });

@@ -9,6 +9,7 @@ import {
 } from "@/app/(app)/sill/landedModel";
 import { Postmark } from "@/app/(app)/sill/Postmark";
 import { Bird, type GearId, type Look } from "@/components/Bird";
+import { DoodleView } from "@/components/doodle/DoodleView";
 import { metHeadwind } from "@/components/FlightLog";
 import { config } from "@/lib/config";
 import { distance, duration, pronounTokens } from "@/lib/format";
@@ -128,7 +129,12 @@ export function GuestClaim({
           <div className={styles.noteFrom}>
             NOTE FROM {guest.senderName.toUpperCase()}
           </div>
-          <p className={styles.noteBody}>{guest.note.body}</p>
+          {guest.note.doodle && (
+            <DoodleView doodle={guest.note.doodle} className={styles.doodle} />
+          )}
+          {guest.note.body && (
+            <p className={styles.noteBody}>{guest.note.body}</p>
+          )}
         </article>
         {member ? (
           <AddToSill token={token} offer={copy.offer} />

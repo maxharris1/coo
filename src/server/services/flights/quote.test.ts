@@ -57,6 +57,8 @@ describe("quote", () => {
     expect(q.odds).toBe(0.91);
     expect(q.roostsOvernight).toBe(false);
     expect(q.sunsetAt).toBeGreaterThan(q.releaseAt);
+    expect(q.airTimeMs).toBe(q.durationMs);
+    expect(q.leavesAt).toBe(q.releaseAt);
   });
 
   it("raises the odds to 0.94 when the bird wears the band", async () => {
@@ -287,5 +289,52 @@ describe("quote", () => {
     const lost = odds.reduce((sum, f) => sum + parseInt(f.effect, 10), 0);
     expect(lost).toBe(Math.round((0.91 - q.odds) * 100));
     expect(lost).toBe(13);
+  });
+
+  describe("a 0.1 mi hop from the East Village on 2026-11-22", () => {
+    const NIGHT = Date.parse("2026-11-22T21:40:00Z");
+    const DAY = Date.parse("2026-11-22T19:00:00Z");
+    const SUNRISE = Date.parse("2026-11-23T11:52:00Z");
+
+    async function hop(clockMs: number, at?: number[]) {
+      deps = await makeTestDeps({ clock: new FakeClock(clockMs) });
+      world = await seedWorld(deps.db, clockMs);
+      deps.weather.set(CALM);
+      await deps.db.query("update birds set speed_mph = 54 where id = $1", [
+        world.max.birds[0].id,
+      ]);
+      await deps.db.query(
+        "update profiles set home_lat = $1, home_lon = $2 where id = $3",
+        [MAX_ROOST.lat + 0.0015, MAX_ROOST.lon, world.rosa.id],
+      );
+      const { recipients } = await quote(deps, world.max.id as UserId, {
+        recipients: [{ friendId: world.rosa.id as UserId }],
+        birdIds: [world.max.birds[0].id],
+        at,
+      });
+      expect(recipients[0].distanceMi).toBe(0.1);
+      return recipients[0].quotes[0];
+    }
+
+    it("waits at the loft for sunrise after a 4:40 pm release", async () => {
+      const q = await hop(NIGHT);
+
+      expect(q.releaseAt).toBe(NIGHT);
+      expect(q.roostsOvernight).toBe(true);
+      expect(Math.abs(q.leavesAt - SUNRISE)).toBeLessThan(5 * MINUTE_MS);
+      expect(q.airTimeMs).toBeGreaterThan(5_000);
+      expect(q.airTimeMs).toBeLessThan(9_000);
+      expect(q.arriveAt).toBe(q.leavesAt + q.airTimeMs);
+      expect(q.durationMs).toBe(q.arriveAt - q.releaseAt);
+    });
+
+    it("leaves at release after a 2:00 pm release", async () => {
+      const q = await hop(DAY, [DAY]);
+
+      expect(q.roostsOvernight).toBe(false);
+      expect(q.leavesAt).toBe(q.releaseAt);
+      expect(q.airTimeMs).toBe(q.durationMs);
+      expect(q.airTimeMs).toBeLessThan(9_000);
+    });
   });
 });

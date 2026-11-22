@@ -110,6 +110,13 @@
   letter-spacing: 1px;
 }
 
+.doodle {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-top: 6px;
+}
+
 .note .noteBody {
   margin-top: 6px;
   font-family: var(--coo-font-hand);
