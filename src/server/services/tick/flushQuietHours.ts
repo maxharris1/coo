@@ -1,15 +1,16 @@
-import { inQuietHours, quietHoursEnd, type QuietHours } from "@/lib/game/time";
 import type { Row } from "@/server/rows";
-import { pushNotification, type Setting, settings } from "../notify/deliver";
+import {
+  holdIfQuiet,
+  pushNotification,
+  type Setting,
+  settings,
+} from "../notify/deliver";
 import type { Step } from "../tick";
 import { tryRow } from "./rows";
 
 const HELD_WINDOW_MS = 24 * 60 * 60_000;
 
-type Candidate = Pick<
-  Row<"profiles">,
-  Setting | "timezone" | "quiet_on" | "quiet_start" | "quiet_end"
-> & { id: string; kind: string };
+type Candidate = Pick<Row<"profiles">, Setting> & { id: string; kind: string };
 
 export const flushQuietHours: Step = async ({
   deps,
@@ -20,8 +21,7 @@ export const flushQuietHours: Step = async ({
   const now = deps.clock.now();
   const rows = await deps.db.query<Candidate>(
     `select n.id, n.kind, p.notify_landed_in, p.notify_landed_out,
-       p.notify_delays, p.notify_hungry,
-       p.timezone, p.quiet_on, p.quiet_start, p.quiet_end
+       p.notify_delays, p.notify_hungry
      from notifications n
      join profiles p on p.id = n.user_id
      where n.push_sent_at is null and n.read_at is null
@@ -46,26 +46,11 @@ export const flushQuietHours: Step = async ({
 
   let count = 0;
   let failed = 0;
-  for (const row of held) {
+  for (const { id } of held) {
     if (timeUp()) break;
-    const quiet: QuietHours = {
-      on: row.quiet_on,
-      startHour: row.quiet_start,
-      endHour: row.quiet_end,
-    };
-    const ok = await tryRow("flushQuietHours", row.id, async () => {
-      if (inQuietHours(now, row.timezone, quiet)) {
-        await deps.db.query(
-          `update notifications set push_held_until = $2
-           where id = $1 and push_sent_at is null and read_at is null`,
-          [
-            row.id,
-            new Date(quietHoursEnd(now, row.timezone, quiet)).toISOString(),
-          ],
-        );
-      } else if ((await pushNotification(deps, row.id)).pushed) {
-        count++;
-      }
+    const ok = await tryRow("flushQuietHours", id, async () => {
+      if (await holdIfQuiet(deps.db, now, id)) return;
+      if ((await pushNotification(deps, id)).pushed) count++;
     });
     if (!ok) failed++;
   }
