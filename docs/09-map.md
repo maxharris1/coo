@@ -72,6 +72,24 @@ All as MapLibre layers or HTML markers, so they zoom with the map:
 - **Night:** when the sun is down at the bird's position (use `isDaylight` from the engine),
   switch to the night style and add a few `coo-twinkle` stars in the map's corners.
 
+## Odd jobs on the map
+
+A bird on an odd job flies from its loft to the job's stored destination and straight back. The
+job map reuses the same map, pins and bird marker as a flight, with two legs instead of one plan:
+
+- `jobLegs(loft, dest, started_at, ends_at)` in `src/lib/game/jobDest.ts` builds both legs.
+  The out leg flies loft → destination from `started_at` to the midpoint. The back leg flies
+  destination → loft from the midpoint to `ends_at`. The midpoint is halfway between the two
+  times, rounded down to the millisecond.
+- Each leg is a `FlightPlan` with one `fly` segment from 0 to 1 and `arriveAtMs` at the leg's
+  end. There are no roosts, no delays, no weather and no flight-log events, and the engine's
+  `computeFlightPlan` is not used. `positionAt` moves the bird along a leg at a steady speed.
+- `legAt(legs, now)` gives the out leg before the midpoint and the back leg from the midpoint on.
+  At the midpoint the bird is at the destination and already flying home. There is no
+  `waiting` gap and no 30-minute sill wait. At `ends_at` it is landed at the loft.
+- The loft pin keeps the loft label and the destination pin keeps the job's label on both legs.
+  Both points are grid-snapped before they are stored, so the pins never show an exact spot.
+
 ## Camera
 
 - Position the bird marker every animation frame from `positionAt`. Do not move the map every frame.
