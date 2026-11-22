@@ -60,7 +60,9 @@ function holdFirstCommit(
   const connect = async () => {
     const client = await base.connect();
     let rollBack = false;
+    let claiming = false;
     const query = async (sql: string, params?: unknown[]) => {
+      if (sql.includes("sms_sent_at")) claiming = true;
       if (armed && sql === STAMP) {
         armed = false;
         if (fault === "update-error") return client.query("select 1/0");
@@ -80,7 +82,7 @@ function holdFirstCommit(
         replyHook();
         replyHook = undefined;
       }
-      if (first && sql === "COMMIT") {
+      if (first && claiming && sql === "COMMIT") {
         first = false;
         holding.open();
         await released.opened;
