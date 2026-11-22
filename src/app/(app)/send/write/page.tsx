@@ -74,10 +74,14 @@ function Compose() {
   useEffect(() => {
     if (!quoteFriend || !quoteBird) return;
     let live = true;
-    void quoteFor(fetch, quoteFriend, [quoteBird]).then((r) => {
+    void quoteFor(fetch, [quoteFriend], [quoteBird]).then((r) => {
       if (!live) return;
       if (r.ok)
-        setQuote({ friendId: quoteFriend, birdId: quoteBird, leg: r.quote });
+        setQuote({
+          friendId: quoteFriend,
+          birdId: quoteBird,
+          leg: r.quotes[0],
+        });
       else toast(r.message);
     });
     return () => {
@@ -103,12 +107,11 @@ function Compose() {
     setSending(true);
     const r = await release(fetch, {
       body: note,
-      friendId: friend.id,
-      birdId: bird.id,
+      sends: [{ friendId: friend.id, birdId: bird.id }],
     });
     if (r.ok) {
       clearDraft(friend.id);
-      router.push(`/send/takeoff/${r.flightId}`);
+      router.push(`/send/takeoff/${r.flightIds[0]}`);
       return;
     }
     setSending(false);

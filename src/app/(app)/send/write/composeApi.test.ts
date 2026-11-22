@@ -32,9 +32,9 @@ describe("quoteFor", () => {
   it("posts the exact quote body and returns the friend's leg", async () => {
     const { fetchImpl, seen } = fakeFetch(200, { recipients: [leg] });
 
-    const r = await quoteFor(fetchImpl, "f1", ["b1", "b2"]);
+    const r = await quoteFor(fetchImpl, ["f1"], ["b1", "b2"]);
 
-    expect(r).toEqual({ ok: true, quote: leg });
+    expect(r).toEqual({ ok: true, quotes: [leg] });
     expect(seen).toHaveLength(1);
     expect(seen[0].path).toBe("/api/flights/quote");
     expect(seen[0].init.method).toBe("POST");
@@ -47,9 +47,22 @@ describe("quoteFor", () => {
     });
   });
 
+  it("asks for several recipients and returns every leg", async () => {
+    const other = { ...leg, recipient: { friendId: "f2" } };
+    const { fetchImpl, seen } = fakeFetch(200, { recipients: [leg, other] });
+
+    const r = await quoteFor(fetchImpl, ["f1", "f2"], ["b1", "b2"]);
+
+    expect(r).toEqual({ ok: true, quotes: [leg, other] });
+    expect(JSON.parse(seen[0].init.body as string)).toEqual({
+      recipients: [{ friendId: "f1" }, { friendId: "f2" }],
+      birdIds: ["b1", "b2"],
+    });
+  });
+
   it("carries the API's message", async () => {
     const { fetchImpl } = fakeFetch(409, apiError("Set up your loft first"));
-    expect(await quoteFor(fetchImpl, "f1", ["b1"])).toEqual({
+    expect(await quoteFor(fetchImpl, ["f1"], ["b1"])).toEqual({
       ok: false,
       message: "Set up your loft first",
     });
@@ -57,14 +70,14 @@ describe("quoteFor", () => {
 
   it("fails when the reply has no leg", async () => {
     const { fetchImpl } = fakeFetch(200, { recipients: [] });
-    expect(await quoteFor(fetchImpl, "f1", ["b1"])).toEqual({
+    expect(await quoteFor(fetchImpl, ["f1"], ["b1"])).toEqual({
       ok: false,
       message: UNREACHABLE,
     });
   });
 
   it("fails when fetch throws", async () => {
-    expect(await quoteFor(throwing, "f1", ["b1"])).toEqual({
+    expect(await quoteFor(throwing, ["f1"], ["b1"])).toEqual({
       ok: false,
       message: UNREACHABLE,
     });
@@ -72,7 +85,10 @@ describe("quoteFor", () => {
 });
 
 describe("release", () => {
-  const send = { body: "Dinner Saturday?", friendId: "f1", birdId: "b1" };
+  const send = {
+    body: "Dinner Saturday?",
+    sends: [{ friendId: "f1", birdId: "b1" }],
+  };
 
   it("posts the exact release body and returns the flight id", async () => {
     const { fetchImpl, seen } = fakeFetch(201, {
@@ -81,7 +97,7 @@ describe("release", () => {
 
     const r = await release(fetchImpl, send);
 
-    expect(r).toEqual({ ok: true, flightId: "fl1" });
+    expect(r).toEqual({ ok: true, flightIds: ["fl1"] });
     expect(seen).toHaveLength(1);
     expect(seen[0].path).toBe("/api/flights");
     expect(seen[0].init.method).toBe("POST");
@@ -91,6 +107,37 @@ describe("release", () => {
     expect(JSON.parse(seen[0].init.body as string)).toEqual({
       body: "Dinner Saturday?",
       sends: [{ friendId: "f1", birdId: "b1" }],
+    });
+  });
+
+  it("posts every send and returns every flight id", async () => {
+    const { fetchImpl, seen } = fakeFetch(201, {
+      flights: [
+        { id: "fl1", kind: "delivery" },
+        { id: "fl2", kind: "delivery" },
+        { id: "fl3", kind: "delivery" },
+      ],
+    });
+    const sends = [
+      { friendId: "f1", birdId: "b1" },
+      { friendId: "f2", birdId: "b2" },
+      { friendId: "f3", birdId: "b3" },
+    ];
+
+    const r = await release(fetchImpl, { body: "Dinner Saturday?", sends });
+
+    expect(r).toEqual({ ok: true, flightIds: ["fl1", "fl2", "fl3"] });
+    expect(JSON.parse(seen[0].init.body as string)).toEqual({
+      body: "Dinner Saturday?",
+      sends,
+    });
+  });
+
+  it("fails when a flight in the reply has no id", async () => {
+    const { fetchImpl } = fakeFetch(201, { flights: [{ id: "fl1" }, {}] });
+    expect(await release(fetchImpl, send)).toEqual({
+      ok: false,
+      message: UNREACHABLE,
     });
   });
 

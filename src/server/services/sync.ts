@@ -5,6 +5,8 @@ import { isTimeZone, weekStart } from "@/lib/game/time";
 import type { BirdStatus } from "@/lib/game/types";
 import type { OnboardedCaller, Profile } from "@/server/auth";
 import type { Deps } from "@/server/deps";
+import { log } from "@/server/log";
+import type { UserId } from "@/server/ports/auth";
 import {
   toBirdRecord,
   toMe,
@@ -13,6 +15,7 @@ import {
   type Row,
 } from "@/server/rows";
 import { syncFlights } from "./flights/syncRead";
+import { syncPhoneLast4 } from "./onboarding";
 import { tick } from "./tick";
 import { syncVisits } from "./visits/syncRead";
 
@@ -73,23 +76,37 @@ export function toBirdView(b: BirdRecord, nowMs: number, owner: CareOwner) {
 }
 export type BirdView = ReturnType<typeof toBirdView>;
 
+async function backfillPhoneLast4(
+  deps: Deps,
+  id: UserId,
+): Promise<Profile | null> {
+  try {
+    return await syncPhoneLast4(deps.db, id);
+  } catch (err) {
+    const code = err instanceof Error && "code" in err ? err.code : null;
+    log.warn("sync.phone_last4_failed", {
+      code: typeof code === "string" ? code : null,
+    });
+    return null;
+  }
+}
+
 async function syncTimezone(
   deps: Deps,
-  caller: OnboardedCaller,
+  profile: Profile,
   timezone: string | null,
 ): Promise<Profile> {
-  const { profile } = caller;
   if (!timezone || timezone === profile.timezone || !isTimeZone(timezone)) {
     return profile;
   }
   const [updated] = await deps.db.query<Profile>(
     "update profiles set timezone = $2 where id = $1 and timezone <> $2 returning *",
-    [caller.userId, timezone],
+    [profile.id, timezone],
   );
   if (updated) return updated;
   const [current] = await deps.db.query<Profile>(
     "select * from profiles where id = $1",
-    [caller.userId],
+    [profile.id],
   );
   return current;
 }
@@ -101,8 +118,14 @@ export async function sync(
 ) {
   await tick(deps, { userId: caller.userId });
   const now = deps.clock.now();
-  const profile = await syncTimezone(deps, caller, timezone);
   const id = caller.userId;
+  const filled = await backfillPhoneLast4(deps, id);
+  const [current] = filled
+    ? [filled]
+    : await deps.db.query<Profile>("select * from profiles where id = $1", [
+        id,
+      ]);
+  const profile = await syncTimezone(deps, current, timezone);
   const week = weekStart(now, profile.timezone);
   const [
     birds,
