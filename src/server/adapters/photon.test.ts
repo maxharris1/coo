@@ -376,6 +376,27 @@ describe("photon geo_cache", () => {
     const rows = await db.query<{ key: string }>("select key from geo_cache");
     expect(rows.map((r) => r.key)).toEqual(["reverse:0.00,0.00"]);
   });
+
+  it("caches a point lookup per snapped point, never per cell or exact digits", async () => {
+    const { fetch, urls } = stubFetch(collection(BEDFORD_AVE));
+    const geocoder = photon({ baseUrl: BASE, fetch })(db, clock);
+
+    await geocoder.reverse(40.742123456, -73.987654321, "point");
+    await geocoder.reverse(40.731234567, -73.986543219, "point");
+    await geocoder.reverse(40.732, -73.9875, "point");
+
+    expect(urls.map((u) => u.search)).toEqual([
+      "?lat=40.742&lon=-73.9875&limit=1&lang=en",
+      "?lat=40.732&lon=-73.9875&limit=1&lang=en",
+    ]);
+    const rows = await db.query<{ key: string }>(
+      "select key from geo_cache order by key",
+    );
+    expect(rows.map((r) => r.key)).toEqual([
+      "reverse:point:40.732,-73.9875",
+      "reverse:point:40.742,-73.9875",
+    ]);
+  });
 });
 
 describe("photon failures", () => {

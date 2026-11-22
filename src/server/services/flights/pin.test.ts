@@ -182,6 +182,77 @@ describe("a destination pin the sender places by hand", () => {
     for (const digits of PIN_DIGITS) expect(seen).not.toContain(digits);
   });
 
+  it("labels the snapped pin, not a cached neighbour in the same reverse cell (ac-2)", async () => {
+    const NEARBY_PIN: Point = { lat: 40.742123456, lon: -73.987654321 };
+    const district = (name: string, lat: number, lon: number) => ({
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [lon, lat] },
+      properties: {
+        osm_key: "place",
+        osm_value: "suburb",
+        type: "district",
+        name,
+        city: "New York",
+        state: "New York",
+        country: "United States",
+        countrycode: "US",
+      },
+    });
+    const urls: string[] = [];
+    deps.geocoder = photon({
+      baseUrl: "https://photon.test",
+      fetch: (async (input: RequestInfo | URL) => {
+        const url = new URL(String(input));
+        urls.push(url.pathname + url.search);
+        const lat = url.searchParams.get("lat");
+        const feature =
+          url.pathname === "/api"
+            ? district("East Village", 40.7306, -73.9866)
+            : lat === "40.742"
+              ? district("Nearby District", 40.742, -73.9875)
+              : district("Pin District", 40.732, -73.9875);
+        return Response.json({
+          type: "FeatureCollection",
+          features: [feature],
+        });
+      }) as typeof fetch,
+    })(deps.db, deps.clock) as TestDeps["geocoder"];
+    const lines: string[] = [];
+    for (const level of ["log", "info", "warn", "error", "debug"] as const)
+      vi.spyOn(console, level).mockImplementation((...args: unknown[]) => {
+        lines.push(args.map(String).join(" "));
+      });
+    const placeId = (await searchPlaces(deps, max, "East Village")).results[0]
+      .placeId;
+    const quoteTo = async (pin: Point) =>
+      (await quote(deps, max, { recipients: [{ place: { placeId, pin } }] }))
+        .recipients[0].to;
+
+    expect(await quoteTo(NEARBY_PIN)).toEqual({ label: "Nearby District" });
+    expect(await quoteTo(EAST_VILLAGE_PIN)).toEqual({ label: "Pin District" });
+    expect(urls.filter((u) => u.startsWith("/reverse"))).toEqual([
+      "/reverse?lat=40.742&lon=-73.9875&limit=1&lang=en",
+      "/reverse?lat=40.732&lon=-73.9875&limit=1&lang=en",
+    ]);
+    const { flight } = await sendTo(placeId, EAST_VILLAGE_PIN);
+
+    expect(await storedDestination(flight.id)).toEqual({
+      to_lat: EAST_VILLAGE_PIN.lat,
+      to_lon: EAST_VILLAGE_PIN.lon,
+      to_label: "Pin District",
+    });
+    const cache = await deps.db.query<{ key: string; payload: unknown }>(
+      "select key, payload from geo_cache",
+    );
+    const seen = [
+      ...lines,
+      ...urls,
+      ...cache.map((row) => row.key + JSON.stringify(row.payload)),
+    ].join("\n");
+    for (const digits of [...PIN_DIGITS, "742123", "987654"])
+      expect(seen).not.toContain(digits);
+  });
+
   it("shows the exact destination to the sender and the link holder only (ac-3)", async () => {
     const { flight, token } = await sendTo(await heldPlace(), EAST_VILLAGE_PIN);
     const exact = { ...EAST_VILLAGE_PIN, label: "East Village" };

@@ -178,12 +178,14 @@ export async function legFor(
 
 async function pinLabel(deps: Deps, pin: Point): Promise<string> {
   const { lat, lon } = snap(pin.lat, pin.lon);
-  const name = await deps.geocoder.reverse(lat, lon).catch((error: unknown) => {
-    log.warn("geo.reverse_failed", {
-      error: error instanceof Error ? error.name : typeof error,
+  const name = await deps.geocoder
+    .reverse(lat, lon, "point")
+    .catch((error: unknown) => {
+      log.warn("geo.reverse_failed", {
+        error: error instanceof Error ? error.name : typeof error,
+      });
+      throw new AppError("unavailable", GEOCODER_UNAVAILABLE);
     });
-    throw new AppError("unavailable", GEOCODER_UNAVAILABLE);
-  });
   const label = name && roostLabel(name);
   if (!label) throw new AppError("invalid", PLACE_NOT_FOUND);
   return label;

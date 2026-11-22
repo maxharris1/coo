@@ -23,7 +23,13 @@ export interface GeoName {
   countryCode?: string;
 }
 
+export type ReversePrecision = "area" | "point";
+
 export interface Geocoder {
   search(q: string): Promise<GeoHit[]>;
-  reverse(lat: number, lon: number): Promise<GeoName | null>;
+  reverse(
+    lat: number,
+    lon: number,
+    precision?: ReversePrecision,
+  ): Promise<GeoName | null>;
 }
