@@ -10,6 +10,7 @@ export const ERROR_STATUS = {
   insufficient_seeds: 402,
   rate_limited: 429,
   gone: 410,
+  unavailable: 503,
   internal: 500,
 } as const satisfies Record<string, number>;
 

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Db } from "@/server/db";
 import { FakeClock } from "@/test/fakes/clock";
 import { testDb } from "@/test/testDb";
+import { config } from "@/lib/config";
 import { photon } from "./photon";
 
 const BASE = "https://photon.test";
@@ -151,8 +152,32 @@ describe("photon search", () => {
         region: "NY",
         country: "United States",
         countryCode: "US",
+        area: {
+          neighbourhood: "Williamsburg",
+          suburb: "Brooklyn",
+          city: "New York",
+          state: "New York",
+          stateCode: "NY",
+          country: "United States",
+          countryCode: "US",
+        },
       },
     ]);
+  });
+
+  it("names itself to Photon on every request", async () => {
+    const { fetch } = stubFetch(collection(WILLIAMSBURG));
+    const geocoder = photon({ baseUrl: BASE, fetch })(db, clock);
+
+    await geocoder.search("williamsburg");
+    await geocoder.reverse(40.714, -73.9625);
+
+    expect(fetch).toHaveBeenCalledTimes(2);
+    for (const [, init] of vi.mocked(fetch).mock.calls) {
+      expect(new Headers(init?.headers).get("user-agent")).toBe(
+        `${config.app.name} (https://github.com/maxharris1/coo)`,
+      );
+    }
   });
 
   it("names the country outside the US and keeps the full state name", async () => {
@@ -306,7 +331,11 @@ describe("photon geo_cache", () => {
     expect(stored).not.toContain('"200 ');
     expect(JSON.stringify(hits)).not.toContain("Bedford");
     expect(hits).toEqual([
-      expect.objectContaining({ kind: "address", label: "Williamsburg" }),
+      expect.objectContaining({
+        kind: "address",
+        label: "Williamsburg",
+        area: { neighbourhood: "Williamsburg", city: "New York" },
+      }),
     ]);
   });
 
@@ -454,7 +483,31 @@ describe("photon limits", () => {
     expect(peak).toBeLessThanOrEqual(3);
   });
 
-  it("gives up on a request after one second", async () => {
+  it("waits for an answer that takes a second and a half", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const fetch = vi.fn(
+      (_: RequestInfo | URL, init?: RequestInit) =>
+        new Promise<Response>((resolve, reject) => {
+          setTimeout(
+            () => resolve(Response.json(collection(WILLIAMSBURG))),
+            1500,
+          );
+          init?.signal?.addEventListener("abort", () =>
+            reject(init.signal?.reason),
+          );
+        }),
+    );
+    const geocoder = photon({ baseUrl: BASE, fetch })(db, clock);
+
+    const result = geocoder.search("williamsburg");
+    await vi.advanceTimersByTimeAsync(1500);
+
+    expect(await result).toEqual([
+      expect.objectContaining({ kind: "neighbourhood", label: "Williamsburg" }),
+    ]);
+  });
+
+  it("gives up on a request after three seconds", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     let started!: () => void;
     const fetchStarted = new Promise<void>((resolve) => (started = resolve));
@@ -474,7 +527,7 @@ describe("photon limits", () => {
     result.catch(() => {});
     await fetchStarted;
 
-    await vi.advanceTimersByTimeAsync(999);
+    await vi.advanceTimersByTimeAsync(2999);
     expect(settled).toBe(false);
     await vi.advanceTimersByTimeAsync(1);
     await expect(result).rejects.toThrow();
