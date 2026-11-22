@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { topFor } from "./shell";
+import { canvasFor, topFor } from "./shell";
 
 describe("topFor", () => {
   it.each([
@@ -37,5 +37,44 @@ describe("topFor", () => {
     "/more",
   ])("gives the cream page %s paper", (path) => {
     expect(topFor(path)).toBe("paper");
+  });
+});
+
+describe("canvasFor", () => {
+  it.each([
+    ["/welcome", "sun"],
+    ["/welcome/bird", "sun"],
+    ["/welcome/loft", "sun"],
+    ["/sign-in", "sun"],
+    ["/sign-in/verify", "sun"],
+    ["/join/priya-AbCd", "sun"],
+    ["/offline", "sun"],
+    ["/terms", "sun"],
+    ["/privacy", "sun"],
+    ["/welcome/install", "sky"],
+  ])("fills the canvas behind %s with %s", (path, canvas) => {
+    expect(canvasFor(path)).toBe(canvas);
+  });
+
+  it.each([
+    "/",
+    "/shop",
+    "/sill/v1",
+    "/sill/v1/takeoff",
+    "/send/takeoff/f1",
+    "/birds/b1",
+    "/flights/f1",
+    "/b/x",
+    "/settings",
+    "/flights",
+    "/flights/f1/incident",
+    "/birds/b1/closet",
+    "/sill",
+    "/sill/v1/reply",
+    "/send/write",
+    "/shop/extra",
+    "/more",
+  ])("keeps the canvas behind %s paper", (path) => {
+    expect(canvasFor(path)).toBe("paper");
   });
 });

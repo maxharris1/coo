@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import type { ReactElement, ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { config } from "@/lib/config";
-import RootLayout from "./layout";
+import RootLayout, { viewport } from "./layout";
 import { ThemeColor } from "./ThemeColor";
 
 const nav = vi.hoisted(() => ({ path: "/" }));
@@ -26,15 +26,19 @@ const TRACKER_TOP = readFileSync(
 ).match(/^\.tracker \{[^}]*?background: (#[0-9a-fA-F]{6});/m)![1];
 
 function page(path: string) {
-  let meta = { content: config.app.themeColor };
+  const viewportTags = () => [
+    { media: "(prefers-color-scheme: light)", content: config.app.themeColor },
+    { media: "(prefers-color-scheme: dark)", content: config.app.themeColor },
+  ];
+  let metas = viewportTags();
   const head = {};
-  const documentElement = {};
+  const documentElement = { dataset: {} as Record<string, string> };
   const observers: (() => void)[] = [];
   vi.stubGlobal("document", {
     documentElement,
     head,
-    querySelector: (selector: string) =>
-      selector === 'meta[name="theme-color"]' ? meta : null,
+    querySelectorAll: (selector: string) =>
+      selector === 'meta[name="theme-color"]' ? metas : [],
   });
   vi.stubGlobal("getComputedStyle", (element: unknown) => ({
     getPropertyValue: (token: string) =>
@@ -53,9 +57,10 @@ function page(path: string) {
   nav.path = path;
   expect(ThemeColor()).toBeNull();
   return {
-    colour: () => meta.content,
+    colours: () => metas.map(({ content }) => content),
+    canvas: () => documentElement.dataset.canvas,
     replaceViewport: () => {
-      meta = { content: config.app.themeColor };
+      metas = viewportTags();
       observers.forEach((notify) => notify());
     },
   };
@@ -71,19 +76,41 @@ describe("theme colour", () => {
     ["/sign-in", "#FFC93C"],
     ["/settings", "#FFF4DC"],
   ])("paints the status bar on %s in the page's top colour", (path, hex) => {
-    expect(page(path).colour()).toBe(hex);
+    expect(page(path).colours()).toEqual([hex, hex]);
   });
 
   it("paints the flight tracker in the day tracker's top colour", () => {
     expect(TRACKER_TOP).toBe("#d4ebb0");
-    expect(page("/flights/f1").colour()).toBe(TRACKER_TOP);
+    expect(page("/flights/f1").colours()).toEqual([TRACKER_TOP, TRACKER_TOP]);
   });
 
   it("keeps the page colour when a query-only navigation replaces the viewport tags", () => {
     const shoebox = page("/shoebox");
-    expect(shoebox.colour()).toBe("#FFF4DC");
+    expect(shoebox.colours()).toEqual(["#FFF4DC", "#FFF4DC"]);
     shoebox.replaceViewport();
-    expect(shoebox.colour()).toBe("#FFF4DC");
+    expect(shoebox.colours()).toEqual(["#FFF4DC", "#FFF4DC"]);
+  });
+
+  it.each([
+    ["/welcome", "sun"],
+    ["/sign-in", "sun"],
+    ["/welcome/install", "sky"],
+    ["/", "paper"],
+    ["/shop", "paper"],
+  ])("marks the canvas behind %s as %s", (path, canvas) => {
+    expect(page(path).canvas()).toBe(canvas);
+  });
+
+  it("ships a theme colour for both the light and the dark scheme", () => {
+    expect(viewport.themeColor).toEqual(
+      expect.arrayContaining([
+        {
+          media: "(prefers-color-scheme: light)",
+          color: config.app.themeColor,
+        },
+        { media: "(prefers-color-scheme: dark)", color: config.app.themeColor },
+      ]),
+    );
   });
 
   it("is rendered by the root layout", () => {

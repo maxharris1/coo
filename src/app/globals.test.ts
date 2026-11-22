@@ -24,4 +24,40 @@ describe("globals.css", () => {
     expect(rule).toMatch(/outline:\s*3px solid var\(--coo-tomato\)/);
     expect(rule).toMatch(/outline-offset:\s*2px/);
   });
+
+  it("paints the html canvas paper in the light scheme by default", () => {
+    const rule = /^html \{([^}]*)\}/m.exec(css)?.[1] ?? "";
+    expect(rule).toMatch(/background:\s*var\(--coo-paper\)/);
+    expect(rule).toMatch(/color-scheme:\s*light/);
+  });
+
+  it.each([
+    ["sun", "--coo-sun"],
+    ["sky", "--coo-sky"],
+  ])(
+    "fills html and body with the %s canvas on phone widths only",
+    (canvas, token) => {
+      const phone =
+        /@media \(max-width: 430px\) \{((?:[^{}]*\{[^}]*\})*)\s*\}/.exec(
+          css,
+        )?.[1] ?? "";
+      const selector = `html[data-canvas="${canvas}"]`;
+      const rule = new RegExp(
+        `${escape(selector)},\\s*${escape(selector)} body\\s*\\{([^}]*)\\}`,
+      ).exec(phone)?.[1];
+      expect(rule).toMatch(new RegExp(`background:\\s*var\\(${token}\\)`));
+      expect(css.split(selector)).toHaveLength(3);
+    },
+  );
+
+  it("keeps the body a paper column 430px wide on desktop", () => {
+    const rule = /^body \{([^}]*)\}/m.exec(css)?.[1] ?? "";
+    expect(rule).toMatch(/max-width:\s*430px/);
+    expect(rule).toMatch(/margin:\s*0 auto/);
+    expect(rule).toMatch(/background:\s*var\(--coo-paper\)/);
+  });
 });
+
+function escape(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}

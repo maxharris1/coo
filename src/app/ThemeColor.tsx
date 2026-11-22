@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
-import { topFor, type Top } from "@/components/shell";
+import { canvasFor, topFor, type Top } from "@/components/shell";
 
 const TOKEN: Record<Exclude<Top, "map">, string> = {
   sky: "--coo-sky",
@@ -25,12 +25,14 @@ export function ThemeColor() {
   const path = usePathname();
 
   useEffect(() => {
+    document.documentElement.dataset.canvas = canvasFor(path);
     const colour = colourFor(topFor(path));
     const paint = () => {
-      const meta = document.querySelector<HTMLMetaElement>(
+      for (const meta of document.querySelectorAll<HTMLMetaElement>(
         'meta[name="theme-color"]',
-      );
-      if (meta && meta.content !== colour) meta.content = colour;
+      )) {
+        if (meta.content !== colour) meta.content = colour;
+      }
     };
     paint();
     const observer = new MutationObserver(paint);

@@ -67,6 +67,11 @@
   box-sizing: border-box;
 }
 
+html {
+  background: var(--coo-paper);
+  color-scheme: light;
+}
+
 body {
   max-width: 430px;
   min-height: 100dvh;
@@ -77,6 +82,18 @@ body {
   color: var(--coo-ink);
   font-family: var(--coo-font-body);
   font-weight: 800;
+}
+
+@media (max-width: 430px) {
+  html[data-canvas="sun"],
+  html[data-canvas="sun"] body {
+    background: var(--coo-sun);
+  }
+
+  html[data-canvas="sky"],
+  html[data-canvas="sky"] body {
+    background: var(--coo-sky);
+  }
 }
 
 :focus-visible {
