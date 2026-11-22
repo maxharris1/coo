@@ -1,15 +1,30 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { E164 } from "@/lib/phone";
+import { pendingLink, rememberLink } from "../b/[slug]/linkSignUp";
 import { afterSignIn, rememberReturn, takeReturn } from "./returnTo";
 
 const CODE = "priya-AbCdEfGhIj_-";
 
+const LINK = {
+  token: "AbCdEfGhIjKl",
+  name: "Maya",
+  phone: "+15550100199" as E164,
+};
+
 const jar = new Map<string, string>();
+const session = new Map<string, string>();
 const written: string[] = [];
 
 const stubBrowser = (protocol = "http:") => {
   jar.clear();
+  session.clear();
   written.length = 0;
   vi.stubGlobal("location", { protocol });
+  vi.stubGlobal("sessionStorage", {
+    getItem: (k: string) => session.get(k) ?? null,
+    setItem: (k: string, v: string) => session.set(k, v),
+    removeItem: (k: string) => session.delete(k),
+  });
   vi.stubGlobal("document", {
     get cookie() {
       return [...jar].map(([name, value]) => `${name}=${value}`).join("; ");
@@ -98,6 +113,26 @@ describe("returning to an invite after sign-in", () => {
       rememberReturn(CODE);
       expect(afterSignIn("/welcome/install")).toBe("/welcome/install");
       expect(takeReturn()).toBe(`/join/${CODE}`);
+    });
+
+    it("returns to a newer invite over an abandoned guest signup", () => {
+      rememberLink(LINK);
+      rememberReturn(CODE);
+      expect(afterSignIn("/")).toBe(`/join/${CODE}`);
+      expect(pendingLink()).toBeNull();
+    });
+
+    it("sends a new user from a newer invite through full onboarding", () => {
+      rememberLink(LINK);
+      rememberReturn(CODE);
+      expect(afterSignIn("/welcome/install")).toBe("/welcome/install");
+    });
+
+    it("returns to a newer guest link over an abandoned invite", () => {
+      rememberReturn(CODE);
+      rememberLink(LINK);
+      expect(afterSignIn("/")).toBe(`/b/${LINK.token}`);
+      expect(takeReturn()).toBeNull();
     });
 
     it("sends a returning user home when there is no invite", () => {

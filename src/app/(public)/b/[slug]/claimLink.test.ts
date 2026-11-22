@@ -12,6 +12,18 @@ function fakeFetch(status: number, body: unknown) {
   return { calls, fetchImpl };
 }
 
+function interrupted() {
+  return new Response(
+    new ReadableStream({
+      start(c) {
+        c.enqueue(new TextEncoder().encode('{"visitId":'));
+        c.error(new TypeError("connection lost while reading response body"));
+      },
+    }),
+    { status: 200 },
+  );
+}
+
 describe("claimLink", () => {
   it("posts an empty body to the link's claim API", async () => {
     const { calls, fetchImpl } = fakeFetch(200, { friendId: "u1" });
@@ -46,6 +58,27 @@ describe("claimLink", () => {
     });
   });
 
+  it("retries when a successful claim's body is cut off mid-read", async () => {
+    const fetchImpl = (async () => interrupted()) as unknown as typeof fetch;
+    expect(await claimLink("k3Hq9ZtB2mXw7PaL", fetchImpl)).toEqual({
+      ok: false,
+      message: "We could not reach the loft. Try again.",
+      retry: true,
+    });
+  });
+
+  it("retries when a successful claim's body is not a claim", async () => {
+    for (const body of ["", "not json", "null", "{}", '{"visitId":"v-42"}']) {
+      const fetchImpl = (async () =>
+        new Response(body, { status: 200 })) as unknown as typeof fetch;
+      expect(await claimLink("k3Hq9ZtB2mXw7PaL", fetchImpl), body).toEqual({
+        ok: false,
+        message: "We could not reach the loft. Try again.",
+        retry: true,
+      });
+    }
+  });
+
   it("passes the API's error message through", async () => {
     const { fetchImpl } = fakeFetch(410, {
       error: { code: "gone", message: "This link has been claimed." },
@@ -53,7 +86,18 @@ describe("claimLink", () => {
     expect(await claimLink("k3Hq9ZtB2mXw7PaL", fetchImpl)).toEqual({
       ok: false,
       message: "This link has been claimed.",
+      retry: false,
     });
+  });
+
+  it("marks a server failure or rate limit as worth retrying", async () => {
+    for (const status of [500, 503, 429]) {
+      const { fetchImpl } = fakeFetch(status, {});
+      expect(await claimLink("k3Hq9ZtB2mXw7PaL", fetchImpl)).toMatchObject({
+        ok: false,
+        retry: true,
+      });
+    }
   });
 
   it("falls back to a plain message when the API cannot be reached", async () => {
@@ -63,6 +107,7 @@ describe("claimLink", () => {
     expect(await claimLink("k3Hq9ZtB2mXw7PaL", fetchImpl)).toEqual({
       ok: false,
       message: "We could not reach the loft. Try again.",
+      retry: true,
     });
   });
 });

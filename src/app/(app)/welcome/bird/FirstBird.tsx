@@ -1,8 +1,9 @@
 "use client";
 
-import { useReducer, useRef } from "react";
+import { useEffect, useReducer, useRef } from "react";
 import type { Dispatch, FormEvent, PointerEvent } from "react";
 import { useRouter } from "next/navigation";
+import { pendingLink } from "@/app/(public)/b/[slug]/linkSignUp";
 import { Bird } from "@/components/Bird";
 import { HatchScene } from "@/components/HatchScene";
 import {
@@ -172,6 +173,10 @@ function RoommateStep({ state, dispatch }: PanelProps) {
 
 export function FirstBird() {
   const [state, dispatch] = useReducer(firstBird, undefined, initialFirstBird);
+  useEffect(() => {
+    const link = pendingLink();
+    if (link) dispatch({ type: "yourName", name: link.name });
+  }, []);
   const Panel = state.panel === "roommate" ? RoommateStep : FirstPanel;
   return <Panel state={state} dispatch={dispatch} />;
 }

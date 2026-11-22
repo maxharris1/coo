@@ -32,7 +32,22 @@ describe("loft state", () => {
       pending: null,
       busy: false,
       error: null,
+      linked: null,
     });
+  });
+
+  it("prefills from a guest link only before anything is chosen", () => {
+    const here = { lat: 40.7, lon: -73.96, label: "Williamsburg", city: null };
+    const chosen = loft(initialLoft(), {
+      type: "located",
+      roost: here,
+      pending: null,
+    });
+    const after = loft(chosen, {
+      type: "linked",
+      roost: { lat: 39.95, lon: -75.16, label: "Philadelphia", city: null },
+    });
+    expect(after).toBe(chosen);
   });
 
   it("keeps the typed search and clears old results when it changes", () => {

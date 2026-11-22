@@ -1,8 +1,13 @@
 "use client";
 
-import { useReducer } from "react";
+import { useEffect, useReducer } from "react";
 import type { Dispatch, FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import {
+  finishLinkSignUp,
+  linkRoost,
+  pendingLink,
+} from "@/app/(public)/b/[slug]/linkSignUp";
 import { takeReturn } from "@/app/(public)/join/returnTo";
 import {
   initialLoft,
@@ -75,10 +80,14 @@ function useActions(state: LoftState, dispatch: Dispatch<LoftAction>): Actions {
         const saved = await saveLoft(state.pending);
         if (!saved.ok) return fail(saved.message);
       }
-      router.push(takeReturn() ?? "/");
+      const finished = await finishLinkSignUp();
+      if (finished.kind === "retry") return fail(finished.message);
+      router.push(finished.kind === "go" ? finished.to : (takeReturn() ?? "/"));
     },
   };
 }
+
+const FROM_LINK = "Is this where birds should find you?";
 
 export function LoftForm({
   state,
@@ -90,6 +99,7 @@ export function LoftForm({
   actions: Actions;
 }) {
   const { roost, busy } = state;
+  const fromLink = roost !== null && roost === state.linked;
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!busy) void actions.home();
@@ -160,6 +170,7 @@ export function LoftForm({
 
       {roost && (
         <form className={styles.preview} onSubmit={submit}>
+          {fromLink && <p className={styles.note}>{FROM_LINK}</p>}
           <p className={styles.roost} aria-live="polite">
             {`Your roost: ${[roost.label, roost.city].filter(Boolean).join(", ")}`}
           </p>
@@ -189,5 +200,12 @@ export function LoftForm({
 export function Loft() {
   const [state, dispatch] = useReducer(loft, undefined, initialLoft);
   const actions = useActions(state, dispatch);
+  useEffect(() => {
+    const link = pendingLink();
+    if (!link) return;
+    void linkRoost(link.token).then(
+      (roost) => roost && dispatch({ type: "linked", roost }),
+    );
+  }, []);
   return <LoftForm state={state} dispatch={dispatch} actions={actions} />;
 }

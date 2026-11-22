@@ -41,6 +41,19 @@ const located = loft(initialLoft(), {
 });
 
 describe("/welcome/loft", () => {
+  it("asks whether the link's destination is home when prefilled from a guest link", () => {
+    const linked = loft(initialLoft(), {
+      type: "linked",
+      roost: { lat: 39.95, lon: -75.16, label: "Philadelphia", city: null },
+    });
+    expect(linked.pending).toEqual({ lat: 39.95, lon: -75.16 });
+    expect(render(linked)).toContain("Your roost: Philadelphia");
+    expect(render(linked)).toContain("Is this where birds should find you?");
+    expect(render(located)).not.toContain(
+      "Is this where birds should find you?",
+    );
+  });
+
   it("asks where birds should find you as step 3 of 3", () => {
     expect(html).toContain("Step 3 of 3");
     expect(html).toMatch(/<h1[^>]*>Where should birds find you\?<\/h1>/);
