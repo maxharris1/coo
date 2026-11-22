@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { guestClaimPost } from "@/app/api/guest/[token]/claim/post";
 import { guestGet } from "@/app/api/guest/[token]/get";
 import type { Db } from "@/server/db";
 import type { UserId } from "@/server/ports/auth";
+import { pair } from "@/server/rows";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
 import { geoClient } from "@/test/geoRoute";
 import { getGuestLink } from "./guestLinks/get";
@@ -245,5 +247,63 @@ describe("scenario 6: guest (expiry)", () => {
 
     expect(await linkState()).toEqual({ status: "claimed", returned_at: null });
     expect(await expiredNotices()).toEqual([]);
+  });
+});
+
+describe("scenario 6: guest (claim)", () => {
+  it("Sam claims Max's landed note: they become friends, the waiting visit moves to Sam and Max is told once", async () => {
+    const rosa = world.rosa.id as UserId;
+    await deps.db.query(
+      "delete from friendships where a_id = $1 and b_id = $2",
+      [...pair(max, rosa)],
+    );
+    const { flightId, token, arriveAt } = await sendToSam();
+    deps.clock.set(arriveAt + MINUTE_MS);
+    await tick(deps);
+
+    const claimer = geoClient(
+      deps,
+      (r) => guestClaimPost(r, () => PEPPER),
+      `/api/guest/${token}/claim`,
+    );
+    const { jar } = await claimer.signIn("+15550000003");
+
+    const first = await claimer.post({}, jar);
+    expect(first.status).toBe(200);
+    const [visit] = await deps.db.query<{ id: string; host_id: string }>(
+      "select id, host_id from visits where flight_id = $1",
+      [flightId],
+    );
+    expect(withoutServerNow(first.json)).toEqual({
+      friendId: max,
+      visitId: visit.id,
+    });
+    expect(visit.host_id).toBe(rosa);
+
+    const friendships = await deps.db.query<{ via: string; status: string }>(
+      "select via, status from friendships where a_id = $1 and b_id = $2",
+      [...pair(max, rosa)],
+    );
+    expect(friendships).toEqual([{ via: "guest_link", status: "accepted" }]);
+    const [delivered] = await deps.db.query<{
+      counterpart_id: string;
+      recipient_id: string;
+    }>(
+      `select f.counterpart_id, n.recipient_id from flights f
+       join notes n on n.id = f.note_id where f.id = $1`,
+      [flightId],
+    );
+    expect(delivered).toEqual({ counterpart_id: rosa, recipient_id: rosa });
+    expect(await linkState()).toEqual({ status: "claimed", returned_at: null });
+
+    const again = await claimer.post({}, jar);
+    expect(again.status).toBe(200);
+    expect(withoutServerNow(again.json)).toEqual(withoutServerNow(first.json));
+
+    const joined = await deps.db.query<{ title: string }>(
+      "select title from notifications where kind = 'friend-joined' and user_id = $1",
+      [max],
+    );
+    expect(joined).toEqual([{ title: "Rosa made a loft" }]);
   });
 });

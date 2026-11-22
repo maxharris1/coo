@@ -8,7 +8,7 @@ import { friendshipBetween } from "../friends";
 import { notificationText, recordNotification } from "../notify";
 import { deliver } from "../notify/deliver";
 import { hashToken } from "./create";
-import { NO_SUCH_LINK } from "./get";
+import { guestIpLimit, NO_SUCH_LINK } from "./get";
 
 export type ClaimResult = { friendId: UserId; visitId?: string };
 
@@ -41,8 +41,10 @@ export async function claimGuestLink(
   deps: Deps,
   me: UserId,
   pepper: string,
+  ip: string,
   token: string,
 ): Promise<ClaimResult> {
+  await guestIpLimit(deps, ip);
   const shape = new RegExp(
     `^[A-Za-z0-9]{${deps.config.game.guestLinks.tokenChars}}$`,
   );

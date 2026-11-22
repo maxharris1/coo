@@ -97,7 +97,7 @@ describe.skipIf(!url)("claimGuestLink on PostgreSQL", () => {
         timeUp: () => false,
       });
       await landingHoldsFlight.opened;
-      const claim = claimGuestLink(deps, rosa, PEPPER, token);
+      const claim = claimGuestLink(deps, rosa, PEPPER, "203.0.113.7", token);
       await untilLockWait(admin, database);
       resumeLanding.open();
 

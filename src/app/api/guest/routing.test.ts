@@ -35,6 +35,7 @@ const precedence = getSortedRoutes([...routeFiles.keys()]);
 const BODIES: Record<string, unknown> = {
   report: { reason: "Spam" },
   notify: { phone: "212 555 0142", consent: true },
+  claim: {},
 };
 
 async function dispatch(method: "GET" | "POST", url: string) {
@@ -78,6 +79,7 @@ describe("guest link routing (ac-2)", () => {
     ["GET", "/api/guest/notify", "/api/guest/AAAAAAAAAAAAAAAA"],
     ["POST", "/api/guest//notify", "/api/guest/AAAAAAAAAAAAAAAA/notify"],
     ["POST", "/api/guest/notify", "/api/guest/AAAAAAAAAAAAAAAA/notify"],
+    ["GET", "/api/guest/claim", "/api/guest/AAAAAAAAAAAAAAAA"],
   ] as const)(
     "%s %s reaches a handler that answers like a wrong token",
     async (method, url, wrongUrl) => {
@@ -89,6 +91,23 @@ describe("guest link routing (ac-2)", () => {
 
       expect(missing.route).toBeDefined();
       expect(missing.status).toBe(404);
+      expect(withoutServerNow(missing.json)).toEqual(
+        withoutServerNow(wrong.json),
+      );
+    },
+  );
+});
+
+describe("guest claim routing", () => {
+  it.each(["/api/guest//claim", "/api/guest/claim"])(
+    "POST %s reaches the claim handler, which wants a signed-in caller",
+    async (url) => {
+      const wrong = await dispatch("POST", "/api/guest/AAAAAAAAAAAAAAAA/claim");
+      const missing = await dispatch("POST", url);
+
+      expect(wrong.status).toBe(401);
+      expect(missing.route).toBe("/api/guest/claim");
+      expect(missing.status).toBe(401);
       expect(withoutServerNow(missing.json)).toEqual(
         withoutServerNow(wrong.json),
       );

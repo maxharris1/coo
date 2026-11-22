@@ -67,6 +67,10 @@ const GET_ENDPOINTS: Record<
     build: (r) => guestGet(r, () => "test-pepper"),
     url: "/api/guest/AAAAAAAAAAAAAAAA",
   },
+  "src/app/api/guest/claim/route.ts": {
+    build: (r) => guestGet(r, () => "test-pepper"),
+    url: "/api/guest/claim",
+  },
   "src/app/api/guest/notify/route.ts": {
     build: (r) => guestGet(r, () => "test-pepper"),
     url: "/api/guest/notify",
