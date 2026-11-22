@@ -78,6 +78,7 @@ describe("(app) shell", () => {
     ["/send/write", "Compose"],
     ["/send/forecast", "Forecast"],
     ["/send/takeoff/f1", "Takeoff"],
+    ["/send/share/f1", "ShareLink"],
     ["/sill/v1", "Landed"],
     ["/sill/v1/reply", "Reply"],
     ["/sill/v1/takeoff", "TakeoffHome"],
