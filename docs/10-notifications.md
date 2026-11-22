@@ -8,7 +8,8 @@ opened from the home screen, so install is step 1 of onboarding.
 - `public/manifest.webmanifest` from `assets/`: `display: standalone`, portrait, theme colour sky,
   background paper, icons 192, 512 and maskable 512. Name and short name from `config/app.json`.
 - `<link rel="apple-touch-icon">` to the 180 px icon, `apple-mobile-web-app-capable`, status bar
-  style default, `viewport-fit=cover`, and safe-area padding on the tab bar and headers.
+  style `black-translucent` (so content draws under the status bar when installed),
+  `viewport-fit=cover`, and safe-area padding on the tab bar and headers.
 - Detect "running installed" with `matchMedia('(display-mode: standalone)')` or
   `navigator.standalone`. When true, set `installed` in settings once.
 - The Install screen (drawn) shows iPhone steps on iOS Safari. On Android Chrome, capture the
