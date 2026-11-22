@@ -8,6 +8,7 @@ import {
   perchSlots,
   type Chip,
   type FlightLite,
+  type PerchSlot,
   type Visiting,
 } from "./flockRows";
 
@@ -22,6 +23,12 @@ const CHIP_TONE: Record<Chip, string> = {
   Scheduled: "sand",
   "On a sill": "sky",
   "On a job": "sun",
+};
+
+const SLOT_OFFER: Record<PerchSlot, { href: string; label: string } | null> = {
+  roommate: { href: "/aviary/roommate", label: "A roommate is waiting" },
+  egg: { href: "/aviary", label: "An egg is ready" },
+  empty: null,
 };
 
 function Avatar({
@@ -159,15 +166,16 @@ export function Flock({
             </li>
           );
         })}
-        {slots.map((slot, i) =>
-          slot === "egg" ? (
+        {slots.map((slot, i) => {
+          const offer = SLOT_OFFER[slot];
+          return offer ? (
             <li
-              key="egg"
-              data-perch="egg"
+              key={slot}
+              data-perch={slot}
               className={`${styles.slot} ${styles.eggSlot}`}
             >
-              <Link href="/aviary" className={styles.slotLink}>
-                An egg is ready
+              <Link href={offer.href} className={styles.slotLink}>
+                {offer.label}
               </Link>
             </li>
           ) : (
@@ -177,8 +185,8 @@ export function Flock({
               className={styles.slot}
               aria-label="Empty perch"
             />
-          ),
-        )}
+          );
+        })}
       </ul>
     </main>
   );

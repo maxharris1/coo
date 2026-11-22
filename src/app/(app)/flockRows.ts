@@ -1,5 +1,6 @@
 import type { SyncPayload } from "@/components/sync";
 import { clockTime, duration } from "@/lib/format";
+import { roommateOwed } from "@/lib/starter";
 import type { CannotFly } from "@/server/services/sync";
 
 type FlockBird = SyncPayload["birds"][number];
@@ -127,16 +128,19 @@ export function flockRow(bird: FlockBird, ctx: RowContext): FlockRow {
   }
 }
 
-export type PerchSlot = "egg" | "empty";
+export type PerchSlot = "roommate" | "egg" | "empty";
 
 export function perchSlots(
   birds: number,
   perches: number,
   egg: { status: string } | null,
 ): PerchSlot[] {
-  const free = Math.max(0, perches - birds);
-  return Array.from({ length: free }, (_, i) =>
-    i === 0 && egg?.status === "ready" ? "egg" : "empty",
+  const queue: PerchSlot[] = [];
+  if (birds > 0 && roommateOwed(birds, perches)) queue.push("roommate");
+  if (egg?.status === "ready") queue.push("egg");
+  return Array.from(
+    { length: Math.max(0, perches - birds) },
+    (_, i) => queue[i] ?? "empty",
   );
 }
 

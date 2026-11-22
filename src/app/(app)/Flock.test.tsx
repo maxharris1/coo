@@ -110,23 +110,59 @@ describe("Flock on Main", () => {
     expect(html).toContain("4 of 6 perches");
     expect(html.match(/data-perch="empty"/g)).toHaveLength(2);
     expect(html).not.toContain("An egg is ready");
+    expect(html).not.toContain("A roommate is waiting");
   });
 
   it("says an egg is ready in the first empty slot (ac-3)", () => {
     const html = render(
       data({
-        birds: [bird("Gerald")],
-        perches: 3,
+        birds: [bird("Gerald"), bird("Brenda")],
+        perches: 4,
         egg: { status: "ready", deliveriesToGo: 0 },
       }),
     );
-    expect(html).toContain("1 of 3 perches");
+    expect(html).toContain("2 of 4 perches");
     expect(html.match(/data-perch="egg"/g)).toHaveLength(1);
     expect(html.match(/data-perch="empty"/g)).toHaveLength(1);
     expect(html.indexOf('data-perch="egg"')).toBeLessThan(
       html.indexOf('data-perch="empty"'),
     );
     expect(html).toContain("An egg is ready");
+  });
+
+  it("says a roommate is waiting in the first empty slot (ac-4)", () => {
+    const html = render(data({ birds: [bird("Gerald")], perches: 3 }));
+    expect(html.match(/data-perch="roommate"/g)).toHaveLength(1);
+    expect(html.match(/data-perch="empty"/g)).toHaveLength(1);
+    expect(html.indexOf('data-perch="roommate"')).toBeLessThan(
+      html.indexOf('data-perch="empty"'),
+    );
+    expect(html).toMatch(
+      /<a[^>]*href="\/aviary\/roommate"[^>]*>A roommate is waiting<\/a>/,
+    );
+  });
+
+  it("gives a ready egg the slot after the roommate (ac-4)", () => {
+    const html = render(
+      data({
+        birds: [bird("Gerald")],
+        perches: 4,
+        egg: { status: "ready", deliveriesToGo: 0 },
+      }),
+    );
+    const order = [...html.matchAll(/data-perch="(\w+)"/g)].map((m) => m[1]);
+    expect(order).toEqual(["roommate", "egg", "empty"]);
+  });
+
+  it("drops the roommate slot once the roommate is adopted (ac-4)", () => {
+    const before = render(data({ birds: [bird("Gerald")], perches: 3 }));
+    expect(before).toContain("A roommate is waiting");
+    const after = render(
+      data({ birds: [bird("Gerald"), bird("Brenda")], perches: 3 }),
+    );
+    expect(after).not.toContain('data-perch="roommate"');
+    expect(after).not.toContain("A roommate is waiting");
+    expect(after.match(/data-perch="empty"/g)).toHaveLength(1);
   });
 
   it("shows an incoming card for each flight headed to me (ac-3)", () => {

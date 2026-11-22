@@ -27,8 +27,9 @@ Shows: greeting line by time of day with a count of birds home and away; the see
 "Incoming" card for each bird headed to me (tap → tracker); "Your flock" with one row per bird:
 avatar, name, one status line, a status chip (Ready, Flying, Resting, Scheduled, On a sill, On a
 job) or a "Feed me" button when hungry; "n of m perches"; a link to the post office (More).
-Rows tap to the bird's page. "Feed me" feeds in place. Empty perches show as dashed slots; with a
-ready egg the first empty slot says "An egg is ready".
+Rows tap to the bird's page. "Feed me" feeds in place. Empty perches show as dashed slots. While a
+roommate is owed, the first says "A roommate is waiting" (tap → `/aviary/roommate`). A ready egg
+takes the next empty slot: "An egg is ready" (tap → `/aviary`).
 
 ### Recipients (`/send`)
 Shows: at the top, any bird of a friend's on my sill ("A reply rides home free" → Reply);

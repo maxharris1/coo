@@ -188,25 +188,43 @@ describe("flockRow (ac-2)", () => {
   });
 });
 
-describe("perchSlots (ac-3)", () => {
-  it("leaves one empty slot per free perch", () => {
+describe("perchSlots", () => {
+  const ready = { status: "ready" };
+
+  it("leaves one empty slot per free perch (ac-3)", () => {
     expect(perchSlots(4, 5, null)).toEqual(["empty"]);
+    expect(perchSlots(2, 4, { status: "incubating" })).toEqual([
+      "empty",
+      "empty",
+    ]);
+  });
+
+  it("puts a ready egg in the first empty slot only (ac-3)", () => {
+    expect(perchSlots(2, 5, ready)).toEqual(["egg", "empty", "empty"]);
+  });
+
+  it("has no slots when every perch is taken (ac-3)", () => {
+    expect(perchSlots(5, 5, ready)).toEqual([]);
+  });
+
+  it("puts an owed roommate in the first empty slot (ac-4)", () => {
+    expect(perchSlots(1, 3, null)).toEqual(["roommate", "empty"]);
     expect(perchSlots(1, 3, { status: "incubating" })).toEqual([
-      "empty",
-      "empty",
-    ]);
-  });
-
-  it("puts a ready egg in the first empty slot only", () => {
-    expect(perchSlots(2, 5, { status: "ready" })).toEqual([
-      "egg",
-      "empty",
+      "roommate",
       "empty",
     ]);
   });
 
-  it("has no slots when every perch is taken", () => {
-    expect(perchSlots(5, 5, { status: "ready" })).toEqual([]);
+  it("gives a ready egg the slot after the roommate (ac-4)", () => {
+    expect(perchSlots(1, 3, ready)).toEqual(["roommate", "egg"]);
+    expect(perchSlots(1, 4, ready)).toEqual(["roommate", "egg", "empty"]);
+    expect(perchSlots(1, 2, ready)).toEqual(["roommate"]);
+  });
+
+  it("never offers a roommate to a loft with no birds or two or more (ac-4)", () => {
+    expect(perchSlots(0, 3, null)).not.toContain("roommate");
+    expect(perchSlots(2, 5, null)).not.toContain("roommate");
+    expect(perchSlots(4, 5, ready)).not.toContain("roommate");
   });
 });
 
