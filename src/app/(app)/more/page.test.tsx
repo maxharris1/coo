@@ -2,12 +2,25 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { SyncContext, type SyncState } from "@/components/SyncProvider";
+import {
+  SyncContext,
+  SyncProvider,
+  type SyncState,
+} from "@/components/SyncProvider";
+import { config } from "@/lib/config";
 import type { SyncPayload } from "@/components/sync";
 import { MORE_ROWS, type MoreSources } from "./more";
 import MorePage from "./page";
 
-const view = vi.hoisted(() => ({ renders: [] as MoreSources[] }));
+const view = vi.hoisted(() => ({
+  renders: [] as MoreSources[],
+  stubLoader: false,
+}));
+
+vi.mock("@/components/Loader", async (actual) => {
+  const { Loader } = await actual<typeof import("@/components/Loader")>();
+  return { Loader: () => (view.stubLoader ? null : <Loader />) };
+});
 
 vi.mock("./MoreView", () => ({
   MoreView: ({ sources }: { sources: MoreSources }) => {
@@ -82,7 +95,11 @@ const sync = (data: SyncPayload | null): SyncState => ({
 const lines = () =>
   MORE_ROWS.map((row) => row.sub(view.renders[view.renders.length - 1]));
 
-async function mount() {
+async function mount(tree = (
+  <SyncContext.Provider value={sync(SYNC)}>
+    <MorePage />
+  </SyncContext.Provider>
+)) {
   root = createRoot(
     Object.assign(new EventTarget(), {
       nodeType: 1,
@@ -90,13 +107,7 @@ async function mount() {
       ownerDocument: new EventTarget(),
     }) as unknown as Element,
   );
-  await act(async () =>
-    root.render(
-      <SyncContext.Provider value={sync(SYNC)}>
-        <MorePage />
-      </SyncContext.Provider>,
-    ),
-  );
+  await act(async () => root.render(tree));
 }
 
 const settle = () =>
@@ -107,6 +118,7 @@ const settle = () =>
 
 beforeEach(() => {
   view.renders.length = 0;
+  view.stubLoader = false;
   failing = new Set();
   release = () => {};
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
@@ -156,5 +168,50 @@ describe("/more page", () => {
     const rendered = view.renders.length;
     await settle();
     expect(view.renders).toHaveLength(rendered);
+  });
+
+  it("keeps a source batch that outlasts several sync polls", async () => {
+    const pollMs = config.game.sync.pollSeconds * 1000;
+    const slowMs = pollMs + 5_000;
+    let inFlight = 0;
+    let mostInFlight = 0;
+    vi.useFakeTimers({ now: 0 });
+    view.stubLoader = true;
+    vi.stubGlobal(
+      "document",
+      Object.assign(new EventTarget(), { visibilityState: "visible" }),
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: RequestInfo | URL) => {
+        const path = String(url);
+        if (path === "/api/sync") {
+          return Promise.resolve(
+            Response.json({ ...SYNC, serverNow: Date.now() }),
+          );
+        }
+        mostInFlight = Math.max(mostInFlight, ++inFlight);
+        return new Promise<Response>((resolve) =>
+          setTimeout(() => {
+            inFlight--;
+            resolve(Response.json(BODIES[path]));
+          }, slowMs),
+        );
+      }),
+    );
+    try {
+      await mount(
+        <SyncProvider>
+          <MorePage />
+        </SyncProvider>,
+      );
+      for (let ms = 0; ms < pollMs * 7.5; ms += 5_000) {
+        await act(() => vi.advanceTimersByTimeAsync(5_000));
+      }
+      expect(lines()).toEqual(MOCK_LINES);
+      expect(mostInFlight, "source requests in flight at once").toBe(3);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

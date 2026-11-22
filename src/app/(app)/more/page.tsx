@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Loader } from "@/components/Loader";
 import { useSync } from "@/components/SyncProvider";
 import { loadMoreSources, type MoreSources } from "./more";
@@ -9,16 +9,23 @@ import { MoreView } from "./MoreView";
 export default function MorePage() {
   const { data } = useSync();
   const [fetched, setFetched] = useState<MoreSources | null>(null);
+  const mounted = useRef(false);
+  const loading = useRef(false);
 
   useEffect(() => {
-    if (!data) return;
-    let live = true;
-    void loadMoreSources(data, fetch).then((sources) => {
-      if (live) setFetched(sources);
-    });
+    mounted.current = true;
     return () => {
-      live = false;
+      mounted.current = false;
     };
+  }, []);
+
+  useEffect(() => {
+    if (!data || loading.current) return;
+    loading.current = true;
+    void loadMoreSources(data, fetch).then((sources) => {
+      loading.current = false;
+      if (mounted.current) setFetched(sources);
+    });
   }, [data]);
 
   if (!data) return <Loader />;
