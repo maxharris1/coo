@@ -134,6 +134,7 @@ export async function sync(
     eggs,
     cards,
     [jobs],
+    mapJobs,
     found,
     [unread],
     [friends],
@@ -164,6 +165,10 @@ export async function sync(
       "select count(*) filter (where status = 'running')::int as running, count(*) filter (where status = 'done')::int as done from jobs where user_id = $1",
       [id],
     ),
+    deps.db.query<{ id: string; bird_id: string }>(
+      "select id, bird_id from jobs where user_id = $1 and status = 'running' and dest_lat is not null",
+      [id],
+    ),
     deps.db.query<{ id: string }>(
       "select id from found_objects where user_id = $1 and traded_at is null order by found_at, id",
       [id],
@@ -181,11 +186,15 @@ export async function sync(
   ]);
   const [egg] = eggs;
   const [card] = cards;
+  const jobOf = new Map(mapJobs.map((j) => [j.bird_id, j.id]));
   return {
     me: toMe(profile),
-    birds: birds.map((r) =>
-      toBirdView(toBirdRecord(r), now, { hasBirdbath: profile.has_birdbath }),
-    ),
+    birds: birds.map((r) => ({
+      ...toBirdView(toBirdRecord(r), now, {
+        hasBirdbath: profile.has_birdbath,
+      }),
+      jobId: jobOf.get(r.id) ?? null,
+    })),
     closet: gear.map((g) => g.gear_id),
     outfits: outfits.map(toOutfit),
     flights,

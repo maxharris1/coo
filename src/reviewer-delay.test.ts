@@ -15,7 +15,7 @@ const record: BirdRecord = {
   hungryNotified: false, status: "flying", busyKind: null, busyUntil: null,
   gear: ["goggles"], hatchedAt: now,
 };
-const bird = toBirdView(record, now, { hasBirdbath: false });
+const bird = { ...toBirdView(record, now, { hasBirdbath: false }), jobId: null };
 const from = { lat: 40.7, lon: -74 };
 const to = { lat: 34.05, lon: -118.24 };
 const input: FlightInput = {
