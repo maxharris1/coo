@@ -4,10 +4,12 @@ import { settingsPatch } from "@/app/api/settings/patch";
 import { syncGet } from "@/app/api/sync/get";
 import { toE164 } from "@/lib/phone";
 import { createJsonRoute } from "@/server/http";
+import type { UserId } from "@/server/ports/auth";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
 import { FakeJar } from "@/test/fakes/jar";
 import { seedWorld, type Person, type World } from "@/test/seedWorld";
 import { notify } from "../notify";
+import { updateSettings, type SettingsInput } from "../settings";
 import { tick } from "../tick";
 import { flushQuietHours } from "./flushQuietHours";
 
@@ -97,6 +99,21 @@ async function syncTimezone(person: Person, phone: string, timezone: string) {
   );
   expect(profile.timezone).toBe(timezone);
 }
+
+function saveAfterQuery(person: Person, match: RegExp, input: SettingsInput) {
+  const query = deps.db.query.bind(deps.db);
+  let armed = true;
+  vi.spyOn(deps.db, "query").mockImplementation(async (sql, params) => {
+    const rows = await query(sql, params);
+    if (armed && match.test(sql)) {
+      armed = false;
+      await updateSettings(deps, person.id as UserId, input);
+    }
+    return rows as never;
+  });
+}
+
+const CANDIDATES = /push_held_until <= \$2/;
 
 async function flushAt(at: number, userId?: string) {
   deps.clock.set(at);
@@ -283,6 +300,26 @@ describe("tick step 11: flush quiet hours", () => {
       expect(await pushSentAt(held.id)).toEqual(new Date(NINE_AM_NY));
     });
 
+    it("keeps a 23:00 hold that came due at 07:00 quiet after the quiet end moves to 09:00", async () => {
+      await subscribe(world.priya);
+      const held = await hold(world.priya, ELEVEN_PM_NY);
+      deps.clock.set(SEVEN_AM_NY);
+      const cookie = await signIn(world.priya, "+15550000002");
+      await patchSettings(cookie, { quietEnd: 9 });
+      const response = await syncGet(createJsonRoute(async () => deps))(
+        new NextRequest("https://coo.test/api/sync", { headers: { cookie } }),
+      );
+      expect((await response.json()).me.settings.quietEnd).toBe(9);
+
+      expect(await flushAt(SEVEN_AM_NY)).toBe(0);
+      expect(await flushAt(NINE_AM_NY - 1)).toBe(0);
+      expect(deps.push.sent).toEqual([]);
+      expect(await pushSentAt(held.id)).toBeNull();
+      expect(await flushAt(NINE_AM_NY)).toBe(1);
+      expect(deps.push.sent.map((s) => s.payload.tag)).toEqual([held.tag]);
+      expect(await pushSentAt(held.id)).toEqual(new Date(NINE_AM_NY));
+    });
+
     it("releases the hold at 06:00 when the quiet end moves from 07:00 to 06:00", async () => {
       await subscribe(world.priya);
       await hold(world.priya, ELEVEN_PM_NY);
@@ -305,6 +342,45 @@ describe("tick step 11: flush quiet hours", () => {
       expect(await flushAt(TWO_AM_NY)).toBe(1);
     });
 
+    it("releases a due 23:00 hold on the next tick when quiet hours are switched off mid-flush", async () => {
+      await subscribe(world.priya);
+      const held = await hold(world.priya, ELEVEN_PM_NY);
+      deps.clock.set(SEVEN_AM_NY);
+      await patchSettings(await signIn(world.priya, "+15550000002"), {
+        quietEnd: 9,
+      });
+      saveAfterQuery(world.priya, CANDIDATES, { quietOn: false });
+
+      await flushAt(SEVEN_AM_NY);
+      await flushAt(SEVEN_AM_NY);
+      expect(deps.push.sent.map((s) => s.payload.tag)).toEqual([held.tag]);
+      expect(await pushSentAt(held.id)).toEqual(new Date(SEVEN_AM_NY));
+    });
+
+    it("still pushes an overdue hold when quiet hours are switched off mid-flush", async () => {
+      await patchSettings(await signIn(world.priya, "+15550000002"), {
+        quietStart: 20,
+        quietEnd: 9,
+      });
+      await subscribe(world.priya);
+      const created = ELEVEN_PM_NY;
+      const held = await hold(world.priya, created);
+      const now = created + 22 * HOUR_MS;
+      await deps.db.query(
+        "update notifications set push_held_until = $2 where id = $1",
+        [held.id, new Date(created).toISOString()],
+      );
+      deps.clock.set(now);
+      saveAfterQuery(world.priya, CANDIDATES, { quietOn: false });
+
+      await flushAt(now);
+      await flushAt(now);
+      expect(
+        deps.push.sent.filter((s) => s.payload.tag === held.tag),
+      ).toHaveLength(1);
+      expect(await pushSentAt(held.id)).toEqual(new Date(now));
+    });
+
     it("leaves a daytime no-subscription skip unflushed", async () => {
       const skipped = await hold(world.priya, NOON_NY);
       await subscribe(world.priya);
@@ -314,6 +390,17 @@ describe("tick step 11: flush quiet hours", () => {
 
       expect(await flushAt(NINE_AM_NY)).toBe(0);
       expect(await pushSentAt(skipped.id)).toBeNull();
+    });
+  });
+
+  describe("when quiet hours are switched off while a new push is being decided", () => {
+    it("pushes at once instead of holding under the old quiet hours", async () => {
+      await subscribe(world.priya);
+      saveAfterQuery(world.priya, /select n\.kind, p\.\*/, { quietOn: false });
+      const held = await hold(world.priya, ELEVEN_PM_NY);
+
+      expect(deps.push.sent.map((s) => s.payload.tag)).toEqual([held.tag]);
+      expect(await pushSentAt(held.id)).toEqual(new Date(ELEVEN_PM_NY));
     });
   });
 
@@ -338,14 +425,17 @@ describe("tick step 11: flush quiet hours", () => {
       expect(await pushSentAt(held.id)).toEqual(new Date(SEVEN_AM_NY));
     });
 
-    it("keeps the release instant decided at hold time", async () => {
+    it("holds until quiet hours end in the new time zone", async () => {
       await subscribe(world.priya);
       const held = await hold(world.priya, ELEVEN_PM_NY);
       await syncTimezone(world.priya, "+15550000002", "America/Los_Angeles");
 
-      expect(await flushAt(SEVEN_AM_NY - 1)).toBe(0);
-      expect(await flushAt(SEVEN_AM_NY)).toBe(1);
-      expect(await pushSentAt(held.id)).toEqual(new Date(SEVEN_AM_NY));
+      expect(await flushAt(SEVEN_AM_NY)).toBe(0);
+      expect(await flushAt(SEVEN_AM_NY + 3 * HOUR_MS - 1)).toBe(0);
+      expect(await flushAt(SEVEN_AM_NY + 3 * HOUR_MS)).toBe(1);
+      expect(await pushSentAt(held.id)).toEqual(
+        new Date(SEVEN_AM_NY + 3 * HOUR_MS),
+      );
     });
   });
 });

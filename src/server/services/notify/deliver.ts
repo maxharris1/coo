@@ -45,7 +45,12 @@ export function settings(deps: Deps): ReadonlyMap<string, Setting> {
   );
 }
 
-function quietHours(profile: Row<"profiles">): QuietHours {
+type QuietPolicy = Pick<
+  Row<"profiles">,
+  "timezone" | "quiet_on" | "quiet_start" | "quiet_end"
+>;
+
+function quietHours(profile: QuietPolicy): QuietHours {
   return {
     on: profile.quiet_on,
     startHour: profile.quiet_start,
@@ -72,6 +77,35 @@ export async function rescheduleHeld(
   );
 }
 
+export async function holdIfQuiet(
+  db: Db,
+  now: number,
+  notificationId: string,
+): Promise<boolean> {
+  return db.tx(async (tx) => {
+    const [profile] = await tx.query<QuietPolicy>(
+      `select p.timezone, p.quiet_on, p.quiet_start, p.quiet_end
+       from notifications n
+       join profiles p on p.id = n.user_id
+       where n.id = $1
+       for share of p`,
+      [notificationId],
+    );
+    if (!profile) return false;
+    const quiet = quietHours(profile);
+    if (!inQuietHours(now, profile.timezone, quiet)) return false;
+    await tx.query(
+      `update notifications set push_held_until = $2
+       where id = $1 and push_sent_at is null and read_at is null`,
+      [
+        notificationId,
+        new Date(quietHoursEnd(now, profile.timezone, quiet)).toISOString(),
+      ],
+    );
+    return true;
+  });
+}
+
 export async function deliver(
   deps: Deps,
   notificationId: string,
@@ -85,17 +119,7 @@ export async function deliver(
   if (!row) return { pushed: false, reason: "missing" };
   const setting = settings(deps).get(row.kind);
   if (setting && !row[setting]) return { pushed: false, reason: "setting-off" };
-  const now = deps.clock.now();
-  const quiet = quietHours(row);
-  if (inQuietHours(now, row.timezone, quiet)) {
-    await deps.db.query(
-      `update notifications set push_held_until = $2
-       where id = $1 and push_sent_at is null and read_at is null`,
-      [
-        notificationId,
-        new Date(quietHoursEnd(now, row.timezone, quiet)).toISOString(),
-      ],
-    );
+  if (await holdIfQuiet(deps.db, deps.clock.now(), notificationId)) {
     return { pushed: false, reason: "quiet" };
   }
   const outcome = await pushNotification(deps, notificationId);
