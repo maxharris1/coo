@@ -34,7 +34,7 @@ export function EarnView({
 }: {
   state: EarnState;
   onRetry: () => void;
-  onChanged: () => void;
+  onChanged: () => Promise<void>;
 }) {
   return (
     <main className={styles.screen}>

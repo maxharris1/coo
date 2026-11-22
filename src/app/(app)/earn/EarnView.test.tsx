@@ -51,7 +51,7 @@ const EARN: Earn = {
   earned: null,
 };
 
-const onChanged = () => {};
+const onChanged = async () => {};
 
 const render = (state: EarnState) =>
   renderToStaticMarkup(

@@ -4,12 +4,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastContext } from "@/components/Toasts";
 import type { LocalDate } from "@/lib/game/time";
 import type { Earn } from "@/server/services/earn";
+import { renderToStaticMarkup } from "react-dom/server";
+import type { SyncPayload } from "@/components/sync";
 import { earnTop, type EarnState } from "./earn";
+import { JobsList } from "./JobsPanel";
 import EarnPage from "./page";
 
 const states: EarnState[] = [];
 let retry: () => void = () => {};
-let changed: () => void = () => {};
+let changed: () => Promise<void> = async () => {};
 
 vi.mock("./EarnView", () => ({
   EarnView: ({
@@ -19,7 +22,7 @@ vi.mock("./EarnView", () => ({
   }: {
     state: EarnState;
     onRetry: () => void;
-    onChanged: () => void;
+    onChanged: () => Promise<void>;
   }) => {
     states.push(state);
     retry = onRetry;
@@ -162,6 +165,84 @@ describe("/earn page lifecycle", () => {
       jobs: later.jobs,
       found: later.found,
     });
+
+    await act(async () => root.unmount());
+  });
+
+  it("keeps the newest allowance when Earn reloads resolve out of order", async () => {
+    const OFFERS: Earn["jobs"]["offers"] = [
+      { id: "job-deli", text: "Rush a slip", minutes: 12, pay: 8 },
+    ];
+    respond = () =>
+      Response.json({ ...EARN, jobs: { offers: OFFERS, leftToday: 2 } });
+    const root = createRoot(
+      Object.assign(new EventTarget(), {
+        nodeType: 1,
+        tagName: "DIV",
+        ownerDocument: document,
+      }) as unknown as Element,
+    );
+    await act(async () =>
+      root.render(
+        <ToastContext.Provider value={toast}>
+          <EarnPage />
+        </ToastContext.Provider>,
+      ),
+    );
+    await settle();
+
+    const pending: ((left: number) => void)[] = [];
+    respond = () => {
+      throw new Error("unused");
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        () =>
+          new Promise<Response>((resolve) =>
+            pending.push((left) =>
+              resolve(
+                Response.json({
+                  ...EARN,
+                  jobs: { offers: OFFERS, leftToday: left },
+                }),
+              ),
+            ),
+          ),
+      ),
+    );
+
+    let firstDone = false;
+    let secondDone = false;
+    await act(async () => {
+      void changed().then(() => (firstDone = true));
+      void changed().then(() => (secondDone = true));
+    });
+    expect(pending).toHaveLength(2);
+
+    await act(async () => pending[1](0));
+    await settle();
+    await act(async () => pending[0](1));
+    await settle();
+    expect(firstDone && secondDone).toBe(true);
+
+    const last = states.at(-1);
+    expect(last?.kind).toBe("ready");
+    const jobs = last?.kind === "ready" ? last.jobs : EARN.jobs;
+    expect(jobs.leftToday).toBe(0);
+
+    const markup = renderToStaticMarkup(
+      <JobsList
+        jobs={jobs}
+        birds={
+          [{ id: "b-pip", name: "Pip", status: "home" }] as SyncPayload["birds"]
+        }
+        timeZone="UTC"
+        sending={false}
+        onSend={() => {}}
+      />,
+    );
+    expect(markup).toMatch(/<button[^>]*disabled[^>]*>Send Pip<\/button>/);
 
     await act(async () => root.unmount());
   });

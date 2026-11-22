@@ -26,13 +26,13 @@ export async function sendJob(
   birdId: string,
   start: (jobId: string, birdId: string) => Promise<Result<unknown>>,
   refresh: () => void,
-  onChanged: () => void,
+  onChanged: () => Promise<void>,
   toast: (message: string) => void,
 ): Promise<void> {
   const result = await start(jobId, birdId);
   if (!result.ok) toast(result.message);
   refresh();
-  onChanged();
+  await onChanged();
 }
 
 export function JobsList({
@@ -99,7 +99,7 @@ export function JobsPanel({
 }: {
   jobs: Earn["jobs"];
   found: Earn["found"];
-  onChanged: () => void;
+  onChanged: () => Promise<void>;
 }) {
   const { data, refresh } = useSync();
   const toast = useToast();

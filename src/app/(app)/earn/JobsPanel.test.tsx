@@ -193,7 +193,9 @@ describe("sendJob (ac-1)", () => {
       "b-gerald",
       start,
       () => calls.push("refresh"),
-      () => calls.push("changed"),
+      async () => {
+        calls.push("changed");
+      },
       toast,
     );
     expect(start).toHaveBeenCalledWith("job-deli", "b-gerald");
@@ -209,11 +211,29 @@ describe("sendJob (ac-1)", () => {
       "b-gerald",
       async () => ({ ok: false, message: "Gerald is not home right now." }),
       refresh,
-      () => {},
+      async () => {},
       toast,
     );
     expect(toast).toHaveBeenCalledWith("Gerald is not home right now.");
     expect(refresh).toHaveBeenCalled();
+  });
+
+  it("stays pending until the Earn reload finishes", async () => {
+    let finishReload = () => {};
+    let done = false;
+    const sent = sendJob(
+      "job-deli",
+      "b-gerald",
+      async () => ({ ok: true as const, data: null }),
+      () => {},
+      () => new Promise<void>((resolve) => (finishReload = resolve)),
+      vi.fn(),
+    ).then(() => (done = true));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(done).toBe(false);
+    finishReload();
+    await sent;
+    expect(done).toBe(true);
   });
 });
 
@@ -231,7 +251,7 @@ describe("JobsPanel mounted (ac-1)", () => {
         }
       >
         <ToastProvider>
-          <JobsPanel jobs={JOBS} found={[]} onChanged={() => {}} />
+          <JobsPanel jobs={JOBS} found={[]} onChanged={async () => {}} />
         </ToastProvider>
       </SyncContext.Provider>,
     );

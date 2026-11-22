@@ -9,10 +9,12 @@ export default function EarnPage() {
   const [state, setState] = useState<EarnState>({ kind: "loading" });
   const toast = useToast();
   const live = useRef(true);
+  const latest = useRef(0);
 
   const load = useCallback(() => {
-    void loadEarn().then((r) => {
-      if (!live.current) return;
+    const request = ++latest.current;
+    return loadEarn().then((r) => {
+      if (!live.current || request !== latest.current) return;
       if (r.ok) {
         setState({
           kind: "ready",
@@ -29,7 +31,7 @@ export default function EarnPage() {
 
   useEffect(() => {
     live.current = true;
-    load();
+    void load();
     return () => {
       live.current = false;
     };
@@ -37,7 +39,7 @@ export default function EarnPage() {
 
   const onRetry = () => {
     setState({ kind: "loading" });
-    load();
+    void load();
   };
 
   return <EarnView state={state} onRetry={onRetry} onChanged={load} />;
