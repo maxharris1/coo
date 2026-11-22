@@ -1,6 +1,7 @@
 import type { ComponentProps } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import type { Doodle } from "@/lib/game/notes";
 import type { ReplyModel } from "./replyModel";
 import { ReplyView } from "./ReplyView";
 
@@ -15,6 +16,7 @@ const MODEL: ReplyModel = {
   speed: "43 mph",
   wroteLabel: "Priya wrote",
   note: "Saturday works. Bring the bread.",
+  doodle: null,
   limit: 140,
   wait: "She waits 28 more minutes, then heads home with or without a reply.",
   release: "Send Dumpling home",
@@ -97,5 +99,46 @@ describe("ReplyView (ac-1)", () => {
     ["a reply is sending", { sending: true }],
   ] as const)("disables release when %s", (_, over) => {
     expect(releaseTag(render(over))).toContain("disabled");
+  });
+});
+
+const DOODLE: Doodle = {
+  v: 1,
+  w: 300,
+  h: 200,
+  strokes: [
+    {
+      color: "ink",
+      width: "marker",
+      points: [
+        [10, 20],
+        [30, 40],
+      ],
+    },
+    { color: "tomato", width: "fine", points: [[50, 60]] },
+  ],
+};
+
+describe("ReplyView, their note with a doodle (#678 ac-1, ac-3)", () => {
+  it("draws their doodle above their words", () => {
+    const html = render({ model: { ...MODEL, doodle: DOODLE } });
+    expect(html).toMatch(
+      /<svg role="img" aria-label="A doodle in ink and tomato"[^>]*viewBox="0 0 300 200"/,
+    );
+    expect(html.indexOf("A doodle in ink and tomato")).toBeLessThan(
+      html.indexOf("Saturday works. Bring the bread."),
+    );
+  });
+
+  it("shows a doodle-only note without an empty paragraph", () => {
+    const html = render({ model: { ...MODEL, note: "", doodle: DOODLE } });
+    expect(html).toContain('aria-label="A doodle in ink and tomato"');
+    expect(html).not.toContain("theirNote");
+  });
+
+  it("leaves a text-only note without a doodle frame", () => {
+    const html = render();
+    expect(html).not.toContain("A doodle");
+    expect(html).not.toMatch(/class="[^"]*doodle/);
   });
 });

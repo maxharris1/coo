@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { Units } from "@/lib/format";
+import type { Doodle } from "@/lib/game/notes";
 import type { ShoeboxNote } from "@/server/services/notes";
 import { NoteCard } from "./NoteCard";
 
@@ -122,5 +123,46 @@ describe("NoteCard (ac-1)", () => {
   it("leaves out the bird row when no bird carried the note", () => {
     const words = text(render({ bird: null, trip: null }));
     expect(words).not.toContain("Dumpling");
+  });
+});
+
+const DOODLE: Doodle = {
+  v: 1,
+  w: 300,
+  h: 200,
+  strokes: [
+    {
+      color: "ink",
+      width: "marker",
+      points: [
+        [10, 20],
+        [30, 40],
+      ],
+    },
+    { color: "tomato", width: "fine", points: [[50, 60]] },
+  ],
+};
+
+describe("NoteCard, with a doodle (#678 ac-1, ac-3)", () => {
+  it("draws the doodle above the hand-font body", () => {
+    const html = render({ doodle: DOODLE });
+    expect(html).toMatch(
+      /<svg role="img" aria-label="A doodle in ink and tomato"[^>]*viewBox="0 0 300 200"/,
+    );
+    expect(html).toMatch(
+      /A doodle in ink and tomato[\s\S]*<p class="[^"]*body[^"]*">Saturday works\. Bring the bread\.<\/p>/,
+    );
+  });
+
+  it("shows a doodle-only note without an empty paragraph", () => {
+    const html = render({ body: "", doodle: DOODLE });
+    expect(html).toContain('aria-label="A doodle in ink and tomato"');
+    expect(html).not.toMatch(/<p class="[^"]*body[^"]*"><\/p>/);
+  });
+
+  it("leaves a text-only note without a doodle frame", () => {
+    const html = render();
+    expect(html).not.toContain("A doodle");
+    expect(html).not.toMatch(/class="[^"]*doodle/);
   });
 });

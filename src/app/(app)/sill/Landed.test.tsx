@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { config } from "@/lib/config";
+import type { Doodle } from "@/lib/game/notes";
 import type { Units } from "@/lib/format";
 import type { SyncVisit } from "@/server/services/visits/syncRead";
 import { GoneHome, Landed } from "./Landed";
@@ -221,5 +222,56 @@ describe("Landed styles", () => {
   it("keeps tap targets at least 44px and respects reduced motion", () => {
     expect(css).toContain("var(--coo-touch)");
     expect(css).toContain("prefers-reduced-motion");
+  });
+});
+
+const DOODLE: Doodle = {
+  v: 1,
+  w: 300,
+  h: 200,
+  strokes: [
+    {
+      color: "ink",
+      width: "marker",
+      points: [
+        [10, 20],
+        [30, 40],
+      ],
+    },
+    { color: "tomato", width: "fine", points: [[50, 60]] },
+  ],
+};
+
+describe("Landed, with a doodle (#678 ac-1, ac-3)", () => {
+  it("draws the doodle above the words with its accessible name", () => {
+    const html = render({
+      note: { id: "n1", body: BODY, doodle: DOODLE, createdAt: created },
+    });
+    expect(html).toMatch(
+      /<svg role="img" aria-label="A doodle in ink and tomato"[^>]*viewBox="0 0 300 200"/,
+    );
+    expect(html.indexOf("A doodle in ink and tomato")).toBeLessThan(
+      html.indexOf(BODY),
+    );
+    expect(text(html)).toContain(BODY);
+  });
+
+  it("shows a doodle-only note without an empty paragraph", () => {
+    const html = render({
+      note: { id: "n1", body: "", doodle: DOODLE, createdAt: created },
+    });
+    expect(html).toContain('aria-label="A doodle in ink and tomato"');
+    expect(html).not.toMatch(/<p class="[^"]*noteBody[^"]*"><\/p>/);
+    expect(html).not.toContain("noteBody");
+  });
+
+  it("leaves a text-only note without a doodle frame", () => {
+    const html = render();
+    expect(html).not.toContain("A doodle");
+    expect(html).not.toMatch(/class="[^"]*doodle/);
+  });
+
+  it("sizes the doodle to the card", () => {
+    expect(css).toMatch(/\.doodle \{[^}]*width: 100%/);
   });
 });

@@ -120,6 +120,13 @@
   color: var(--coo-muted);
 }
 
+.doodle {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-top: 2px;
+}
+
 .theirNote {
   margin: 0;
   font-family: var(--coo-font-hand);

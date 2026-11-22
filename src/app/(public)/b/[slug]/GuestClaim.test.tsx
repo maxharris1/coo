@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { config } from "@/lib/config";
 import type { FlightInput, FlightPlan } from "@/lib/flight/engine";
+import type { Doodle } from "@/lib/game/notes";
 import type { GuestView as Guest } from "@/server/services/guestLinks/get";
 import {
   GuestClaim,
@@ -293,5 +294,51 @@ describe("GuestClaim styling", () => {
     expect(
       readFileSync(new URL("./GuestClaim.module.css", import.meta.url), "utf8"),
     ).toMatch(/min-height: var\(--coo-touch\)/);
+  });
+});
+
+const DOODLE: Doodle = {
+  v: 1,
+  w: 300,
+  h: 200,
+  strokes: [
+    {
+      color: "ink",
+      width: "marker",
+      points: [
+        [10, 20],
+        [30, 40],
+      ],
+    },
+    { color: "tomato", width: "fine", points: [[50, 60]] },
+  ],
+};
+
+describe("Guest page, landed with a doodle (#678 ac-1, ac-3)", () => {
+  const withDoodle = (body = BODY) => {
+    const g = guestLanded();
+    return guestLanded({ note: { ...g.note, body, doodle: DOODLE } });
+  };
+
+  it("reveals the doodle above the note once the bird has landed", () => {
+    const html = render(withDoodle());
+    expect(html).toMatch(
+      /<svg role="img" aria-label="A doodle in ink and tomato"[^>]*viewBox="0 0 300 200"/,
+    );
+    expect(html.indexOf("A doodle in ink and tomato")).toBeLessThan(
+      html.indexOf("Dinner Saturday?"),
+    );
+  });
+
+  it("shows a doodle-only note without an empty paragraph", () => {
+    const html = render(withDoodle(""));
+    expect(html).toContain('aria-label="A doodle in ink and tomato"');
+    expect(html).not.toContain("noteBody");
+  });
+
+  it("leaves a text-only note without a doodle frame", () => {
+    const html = render(guestLanded());
+    expect(html).not.toContain("A doodle");
+    expect(html).not.toMatch(/class="[^"]*doodle/);
   });
 });

@@ -1,4 +1,5 @@
 import { Bird, type Look } from "@/components/Bird";
+import { DoodleView } from "@/components/doodle/DoodleView";
 import { duration, shortDistance, type Units } from "@/lib/format";
 import type { ShoeboxNote } from "@/server/services/notes";
 import { postmark, postmarkLabel } from "../sill/landedModel";
@@ -57,7 +58,10 @@ export function NoteCard({ note, index, timeZone, units }: NoteCardProps) {
       <div className={styles.head}>
         {HEADS[note.direction]} {note.with.name.toUpperCase()}
       </div>
-      <p className={styles.body}>{note.body}</p>
+      {note.doodle && (
+        <DoodleView doodle={note.doodle} className={styles.doodle} />
+      )}
+      {note.body && <p className={styles.body}>{note.body}</p>}
       {note.bird && (
         <div className={styles.trip}>
           <span className={styles.avatar} aria-hidden="true">
