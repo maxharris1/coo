@@ -15,7 +15,7 @@ const seen = vi.hoisted(() => ({
   loading: false,
   push: vi.fn(),
   toast: vi.fn(),
-  to: "u2" as string | null,
+  to: "u2" as string | string[] | null,
   drafts: new Map<string, unknown>(),
 }));
 
@@ -43,7 +43,7 @@ vi.mock("@/components/Loader", () => ({
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: seen.push }),
   useSearchParams: () =>
-    new URLSearchParams(seen.to === null ? "" : `to=${seen.to}`),
+    new URLSearchParams([seen.to ?? []].flat().map((id) => ["to", id])),
 }));
 
 const PRIYA = {
@@ -99,11 +99,24 @@ const BIRDS = [
   },
 ];
 
+const SAM = {
+  ...PRIYA,
+  id: "u4",
+  name: "Sam",
+  handle: "sam",
+  where: "Albany",
+  distanceMi: 136,
+};
+
 const RELEASE = Date.parse("2026-11-20T14:32:00Z");
 
-const legFor = (birdIds: string[]) => ({
-  recipient: { friendId: "u2" },
-  distanceMi: 81.3,
+const MILES: Record<string, number> = { u2: 81.3, u3: 215, u4: 136 };
+
+type QuoteBody = { recipients: { friendId: string }[]; birdIds: string[] };
+
+const legFor = (birdIds: string[], friendId = "u2") => ({
+  recipient: { friendId },
+  distanceMi: MILES[friendId],
   from: { label: "New York" },
   to: { label: "Philadelphia" },
   quotes: birdIds.map((birdId) => ({
@@ -121,7 +134,7 @@ const legFor = (birdIds: string[]) => ({
 });
 
 let friends: { status: number; body: unknown };
-let quoted: (birdIds: string[]) => Promise<{ status: number; body: unknown }>;
+let quoted: (body: QuoteBody) => Promise<{ status: number; body: unknown }>;
 let released: Promise<{ status: number; body: unknown }>;
 let birds: unknown[];
 let root: Root | null;
@@ -175,7 +188,7 @@ const fetchMock = vi.fn<typeof fetch>(async (url, init) => {
       : path === "/api/flights"
         ? await released
         : path === "/api/flights/quote"
-          ? await quoted(JSON.parse(String(init?.body)).birdIds)
+          ? await quoted(JSON.parse(String(init?.body)))
           : { status: 404, body: {} };
   return Response.json(reply.body, { status: reply.status });
 });
@@ -188,10 +201,15 @@ const quoteBodies = () =>
     .filter(([url]) => String(url) === "/api/flights/quote")
     .map(([, init]) => JSON.parse(String(init?.body)));
 
-const pick = (id: string) => act(async () => view().onPick(id));
+const row = (i = 0) => view().rows[i];
+
+const pickFor = (friendId: string, id: string) =>
+  act(async () => view().onPick(friendId, id));
+
+const pick = (id: string) => pickFor(row().friendId, id);
 
 const releaseLabel = () =>
-  view().birds.find((b) => b.id === view().pickedId)?.name ?? null;
+  view().birds.find((b) => b.id === row().pickedId)?.name ?? null;
 
 beforeEach(() => {
   seen.view = null;
@@ -203,9 +221,9 @@ beforeEach(() => {
   seen.drafts.clear();
   fetchMock.mockClear();
   friends = { status: 200, body: { friends: [PRIYA], guestLinks: [] } };
-  quoted = async (birdIds) => ({
+  quoted = async ({ recipients, birdIds }) => ({
     status: 200,
-    body: { recipients: [legFor(birdIds)] },
+    body: { recipients: recipients.map((r) => legFor(birdIds, r.friendId)) },
   });
   released = Promise.resolve({
     status: 201,
@@ -231,14 +249,20 @@ describe("Compose page (ac-1)", () => {
   it("shows the friend from ?to= and the fastest ready bird", async () => {
     await show();
     expect(view()).toMatchObject({
-      recipient: {
-        name: "Priya",
-        line: "Philadelphia, 81 miles as the pigeon flies",
-      },
+      rows: [
+        {
+          friendId: "u2",
+          recipient: {
+            name: "Priya",
+            line: "Philadelphia, 81 miles as the pigeon flies",
+          },
+          pickedId: "b2",
+          tooLong: false,
+          forecastHref: "/send/forecast?to=u2",
+        },
+      ],
       note: "",
       counter: { text: "0 of 140 characters", over: false },
-      pickedId: "b2",
-      forecastHref: "/send/forecast?to=u2",
       sending: false,
     });
     expect(releaseLabel()).toBe("Crumbs");
@@ -256,8 +280,8 @@ describe("Compose page (ac-1)", () => {
   it("has no bird to release when nobody can fly", async () => {
     birds = [BIRDS[2]];
     await show();
-    expect(view().pickedId).toBeNull();
-    expect(view().stats).toBeNull();
+    expect(row().pickedId).toBeNull();
+    expect(row().stats).toBeNull();
   });
 
   it("waits on the loader until the friends arrive", async () => {
@@ -331,20 +355,20 @@ describe("Compose page picker (ac-1)", () => {
       recipients: [{ friendId: "u2" }],
       birdIds: ["b1"],
     });
-    expect(view().stats?.odds).toBe("94%");
+    expect(row().stats?.odds).toBe("94%");
   });
 
   it("lets a hungry bird be picked", async () => {
     await show();
     await pick("b4");
-    expect(view().pickedId).toBe("b4");
+    expect(row().pickedId).toBe("b4");
     expect(releaseLabel()).toBe("Pip");
   });
 
   it("ignores a pick of a blocked bird", async () => {
     await show();
     await pick("b3");
-    expect(view().pickedId).toBe("b2");
+    expect(row().pickedId).toBe("b2");
     expect(quoteBodies().map((b) => b.birdIds)).toEqual([["b2"]]);
   });
 
@@ -363,7 +387,7 @@ describe("Compose page picker (ac-1)", () => {
 describe("Compose page stats (ac-2)", () => {
   it("shows the quote's stats and forecast line", async () => {
     await show();
-    expect(view().stats).toEqual({
+    expect(row().stats).toEqual({
       distance: "81 mi",
       flightTime: "1h 48m",
       odds: "81%",
@@ -375,41 +399,41 @@ describe("Compose page stats (ac-2)", () => {
     await show();
     quoted = () => new Promise(() => {});
     await pick("b1");
-    expect(view().stats).toBeNull();
+    expect(row().stats).toBeNull();
   });
 
   it("drops the old friend's stats while the new friend's quote is on its way", async () => {
     friends = { status: 200, body: { friends: [PRIYA, ALEX], guestLinks: [] } };
     await show();
-    expect(view().stats?.distance).toBe("81 mi");
+    expect(row().stats?.distance).toBe("81 mi");
     quoted = () => new Promise(() => {});
     await sendTo("u3");
-    expect(view().recipient.name).toBe("Alex");
-    expect(view().stats).toBeNull();
+    expect(row().recipient.name).toBe("Alex");
+    expect(row().stats).toBeNull();
   });
 
   it("shows no stats when the new friend's quote fails", async () => {
     friends = { status: 200, body: { friends: [PRIYA, ALEX], guestLinks: [] } };
     await show();
-    expect(view().stats?.distance).toBe("81 mi");
+    expect(row().stats?.distance).toBe("81 mi");
     quoted = async () => ({
       status: 500,
       body: { error: { code: "internal", message: "Quote unavailable" } },
     });
     await sendTo("u3");
-    expect(view().recipient.name).toBe("Alex");
+    expect(row().recipient.name).toBe("Alex");
     expect(seen.toast).toHaveBeenCalledExactlyOnceWith("Quote unavailable");
-    expect(view().stats).toBeNull();
+    expect(row().stats).toBeNull();
   });
 
   it("drops the bird's old stats when it is picked again", async () => {
     await show();
-    expect(view().stats?.odds).toBe("81%");
+    expect(row().stats?.odds).toBe("81%");
     quoted = () => new Promise(() => {});
     await pick("b1");
     await pick("b2");
-    expect(view().pickedId).toBe("b2");
-    expect(view().stats).toBeNull();
+    expect(row().pickedId).toBe("b2");
+    expect(row().stats).toBeNull();
   });
 
   it("toasts the API's message when the quote fails", async () => {
@@ -423,7 +447,7 @@ describe("Compose page stats (ac-2)", () => {
       },
     });
     await show();
-    expect(view().stats).toBeNull();
+    expect(row().stats).toBeNull();
     expect(seen.toast).toHaveBeenCalledExactlyOnceWith(
       "Something went sideways. Nothing was lost. Try again.",
     );
@@ -539,5 +563,148 @@ describe("Compose page draft for the forecast", () => {
       birdId: "b2",
       body: "Dinner Saturday?",
     });
+  });
+});
+
+const FOUR_FRIENDS = { friends: [PRIYA, ALEX, SAM], guestLinks: [] };
+
+describe("Compose page for several recipients", () => {
+  beforeEach(() => {
+    friends = { status: 200, body: FOUR_FRIENDS };
+    seen.to = ["u2", "u3", "u4"];
+    released = Promise.resolve({
+      status: 201,
+      body: { flights: [{ id: "f1" }, { id: "f2" }, { id: "f3" }] },
+    });
+  });
+
+  it("three recipients show three rows and Release posts three sends and goes to Takeoff for the first flight", async () => {
+    await show();
+    expect(
+      view().rows.map((r) => [r.friendId, r.recipient.name, r.pickedId]),
+    ).toEqual([
+      ["u2", "Priya", "b4"],
+      ["u3", "Alex", "b2"],
+      ["u4", "Sam", "b1"],
+    ]);
+    expect(view().rows.map((r) => r.forecastHref)).toEqual([
+      "/send/forecast?to=u2",
+      "/send/forecast?to=u3",
+      "/send/forecast?to=u4",
+    ]);
+    expect(quoteBodies()).toEqual([
+      {
+        recipients: [
+          { friendId: "u2" },
+          { friendId: "u3" },
+          { friendId: "u4" },
+        ],
+        birdIds: ["b1", "b2", "b4"],
+      },
+    ]);
+    expect(view().rows.map((r) => r.stats?.distance)).toEqual([
+      "81 mi",
+      "215 mi",
+      "136 mi",
+    ]);
+    expect(view().rows.map((r) => r.stats?.odds)).toEqual([
+      "81%",
+      "81%",
+      "94%",
+    ]);
+
+    await type("Dinner Saturday?");
+    await act(async () => view().onRelease());
+    const calls = flightCalls();
+    expect(calls).toHaveLength(1);
+    expect(JSON.parse(String(calls[0][1]?.body))).toEqual({
+      body: "Dinner Saturday?",
+      sends: [
+        { friendId: "u2", birdId: "b4" },
+        { friendId: "u3", birdId: "b2" },
+        { friendId: "u4", birdId: "b1" },
+      ],
+    });
+    expect(seen.push).toHaveBeenCalledExactlyOnceWith("/send/takeoff/f1");
+    expect(seen.drafts.size).toBe(0);
+  });
+
+  it("swaps birds between two rows without a new quote", async () => {
+    await show();
+    await pickFor("u2", "b2");
+    expect(view().rows.map((r) => r.pickedId)).toEqual(["b2", "b4", "b1"]);
+    expect(quoteBodies()).toHaveLength(1);
+    expect(view().rows.map((r) => r.stats?.odds)).toEqual([
+      "81%",
+      "81%",
+      "94%",
+    ]);
+    await type("Dinner Saturday?");
+    await act(async () => view().onRelease());
+    expect(JSON.parse(String(flightCalls()[0][1]?.body)).sends).toEqual([
+      { friendId: "u2", birdId: "b2" },
+      { friendId: "u3", birdId: "b4" },
+      { friendId: "u4", birdId: "b1" },
+    ]);
+  });
+
+  it("ignores a pick of a blocked bird on any row", async () => {
+    await show();
+    await pickFor("u3", "b3");
+    expect(view().rows.map((r) => r.pickedId)).toEqual(["b4", "b2", "b1"]);
+  });
+
+  it("says so when one of several friends is not in the address book", async () => {
+    seen.to = ["u2", "nobody", "u3"];
+    await show();
+    expect(seen.view).toBeNull();
+    expect(seen.missing).toBe("That friend is not in your address book.");
+  });
+
+  it("shows a friend named twice in the link once", async () => {
+    seen.to = ["u2", "u2"];
+    await show();
+    expect(view().rows.map((r) => r.friendId)).toEqual(["u2"]);
+  });
+
+  it("counts against the smallest note limit and flags each row that overflows", async () => {
+    await show();
+    await type("x".repeat(200));
+    expect(view().counter).toEqual({
+      text: "200 of 140 characters",
+      over: true,
+    });
+    expect(view().rows.map((r) => r.tooLong)).toEqual([true, true, false]);
+  });
+
+  it("leaves a row without a bird when the flock runs short", async () => {
+    birds = [BIRDS[0], BIRDS[2]];
+    await show();
+    expect(view().rows.map((r) => r.pickedId)).toEqual([null, "b1", null]);
+    expect(view().rows.map((r) => r.stats)).toEqual([
+      null,
+      expect.objectContaining({ distance: "215 mi" }),
+      null,
+    ]);
+  });
+
+  it("drafts every row and keeps them when the release fails", async () => {
+    released = Promise.resolve({
+      status: 409,
+      body: {
+        error: { code: "conflict", message: "Crumbs is not home right now." },
+      },
+    });
+    await show();
+    await type("Hi all");
+    await act(async () => view().onRelease());
+    expect([...seen.drafts.values()]).toEqual([
+      { friendId: "u2", birdId: "b4", body: "Hi all" },
+      { friendId: "u3", birdId: "b2", body: "Hi all" },
+      { friendId: "u4", birdId: "b1", body: "Hi all" },
+    ]);
+    expect(seen.toast).toHaveBeenCalledExactlyOnceWith(
+      "Crumbs is not home right now.",
+    );
   });
 });
