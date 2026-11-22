@@ -3,6 +3,8 @@ import type { Flight } from "@/server/services/flights/shape";
 
 export type TakeoffCopy = { released: string; headline: string; note: string };
 
+export const TRACKER_AFTER_MS = 2500;
+
 const HEADLINES: Record<Pronoun, string> = {
   he: "And he's off",
   she: "And she's off",

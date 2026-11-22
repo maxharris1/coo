@@ -223,7 +223,11 @@ describe("/sill/[visitId]/reply (ac-1)", () => {
     const [[url, init]] = replyCalls();
     expect(String(url)).toBe("/api/visits/v1/reply");
     expect(JSON.parse(String(init?.body))).toEqual({ body: REPLY });
-    expect(readHandoff("v1")).toEqual({ flightId: "f1", pronoun: "she" });
+    expect(readHandoff("v1")).toEqual({
+      flightId: "f1",
+      pronoun: "she",
+      breed: "city",
+    });
     expect(seen.replace).toHaveBeenCalledWith("/sill/v1/takeoff");
     expect(seen.toasts).toEqual([]);
   });

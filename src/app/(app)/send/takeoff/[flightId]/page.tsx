@@ -9,10 +9,8 @@ import type { Flight } from "@/server/services/flights/shape";
 import type { BirdView } from "@/server/services/sync";
 import { FlightError } from "../../../flights/[id]/FlightError";
 import { type FlightResult, loadFlight } from "../../../flights/[id]/flightApi";
-import { takeoffCopy } from "./takeoffCopy";
+import { TRACKER_AFTER_MS, takeoffCopy } from "./takeoffCopy";
 import { TakeoffView } from "./TakeoffView";
-
-const TRACKER_AFTER_MS = 2500;
 
 const reducedMotion = () =>
   window.matchMedia("(prefers-reduced-motion: reduce)").matches;
