@@ -204,8 +204,15 @@ function normalizeQuery(q: string): string {
   return q.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
+const digest = (text: string) =>
+  createHash("sha256").update(text).digest("hex");
+
 function searchKey(query: string): string {
-  return `search:v2:${createHash("sha256").update(query).digest("hex")}`;
+  return `search:v2:${digest(query)}`;
+}
+
+function reverseKey(cell: string): string {
+  return `reverse:v2:${digest(cell)}`;
 }
 
 function reverseCell(deg: number): string {
@@ -287,10 +294,11 @@ export function photon(opts: {
     },
     async reverse(lat, lon, precision = "area") {
       const at = precision === "point" ? snap(lat, lon) : { lat, lon };
-      const key =
+      const key = reverseKey(
         precision === "point"
-          ? `reverse:point:${at.lat},${at.lon}`
-          : `reverse:${reverseCell(lat)},${reverseCell(lon)}`;
+          ? `point:${at.lat},${at.lon}`
+          : `${reverseCell(lat)},${reverseCell(lon)}`,
+      );
       const { name } = await cached(
         db,
         clock,

@@ -110,7 +110,7 @@ export async function quote(
 
   return {
     recipients: legs.map(({ from, to }, r) => ({
-      recipient: input.recipients[r],
+      recipient: withoutPin(input.recipients[r]),
       distanceMi: Math.round(haversineMi(from.point, to.point) * 10) / 10,
       from: { label: from.label },
       to: { label: to.label },
@@ -133,6 +133,12 @@ export async function quote(
       }),
     })),
   };
+}
+
+function withoutPin(recipient: QuoteRecipient): QuoteRecipient {
+  return "place" in recipient
+    ? { place: { placeId: recipient.place.placeId } }
+    : recipient;
 }
 
 function releaseTimes(deps: Deps, at: number[] | undefined): number[] {

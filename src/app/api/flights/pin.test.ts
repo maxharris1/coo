@@ -163,12 +163,13 @@ describe("a pinned guest send over HTTP", () => {
       expect(text).not.toContain("Bedford");
       expect(text).not.toContain("11249");
     }
-    for (const text of [JSON.stringify(sent.json), rows, logged])
+    for (const text of [responses, rows, logged])
       for (const digits of PIN_DIGITS) expect(text).not.toContain(digits);
     const cache = await deps.db.query<{ key: string; payload: unknown }>(
       "select key, payload from geo_cache",
     );
     const cached = JSON.stringify(cache);
+    for (const { key } of cache) expect(key).not.toMatch(/\d\.\d|,/);
     for (const digits of PIN_DIGITS) {
       expect(logged).not.toContain(digits);
       expect(cached).not.toContain(digits);
