@@ -3,6 +3,7 @@
   min-height: 100dvh;
   max-width: 480px;
   margin: 0 auto;
+  margin-top: calc(-1 * var(--coo-safe-top));
   display: flex;
   flex-direction: column;
   gap: 12px;
