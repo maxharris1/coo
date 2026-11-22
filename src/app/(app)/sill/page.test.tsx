@@ -30,6 +30,7 @@ const visit = (id: string, bird: string, leavesInMin: number): SyncVisit => ({
   leavesAt: NOW + leavesInMin * MIN,
   status: "waiting",
   snackGiven: false,
+  returnMi: 81,
   flight: { distanceMi: 81, durationMs: 112 * MIN, delayKind: "none" },
 });
 

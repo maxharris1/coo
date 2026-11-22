@@ -9,11 +9,11 @@ import { asUnits, type Units } from "@/lib/format";
 import type { FriendRow } from "@/server/services/friends";
 import type { SyncVisit } from "@/server/services/visits/syncRead";
 import { GoneHome, Landed } from "../Landed";
-import { landedState, type SenderCity } from "../landedModel";
+import { landedState, sharedCity, type SenderCity } from "../landedModel";
+import { useServerNow } from "../useServerNow";
 
 type Departed = { birdName: string; ownerId: string };
 
-const TICK_MS = 1000;
 const UNREACHABLE = "We could not reach the loft. Try again.";
 const departedKey = (id: string) => `coo.sill.departed.${id}`;
 const landedKey = (id: string) => `coo.sill.landed.${id}`;
@@ -53,14 +53,6 @@ const markLanded = (id: string) =>
 const reducedMotion = () =>
   window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-function sharedCity(friend: FriendRow | undefined): SenderCity | null {
-  if (!friend || friend.theyShow !== "city" || !friend.where) return null;
-  const cut = friend.where.lastIndexOf(", ");
-  return cut < 0
-    ? { name: friend.where, region: null }
-    : { name: friend.where.slice(0, cut), region: friend.where.slice(cut + 2) };
-}
-
 async function senderCity(ownerId: string): Promise<SenderCity | null> {
   try {
     const res = await fetch("/api/friends", { cache: "no-store" });
@@ -88,15 +80,6 @@ async function postSnack(id: string): Promise<string | null> {
   } catch {
     return UNREACHABLE;
   }
-}
-
-function useServerNow(offsetMs: number): number {
-  const [now, setNow] = useState(() => Date.now() + offsetMs);
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now() + offsetMs), TICK_MS);
-    return () => clearInterval(timer);
-  }, [offsetMs]);
-  return now;
 }
 
 function VisitScreen({

@@ -29,6 +29,7 @@ const visit = (over: Partial<SyncVisit> = {}): SyncVisit => ({
   leavesAt: leaves,
   status: "waiting",
   snackGiven: false,
+  returnMi: 81,
   flight: { distanceMi: 81.2, durationMs: 112 * MINUTE, delayKind: "minor" },
   ...over,
 });

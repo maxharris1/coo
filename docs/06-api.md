@@ -40,7 +40,7 @@ type Flight = { id, kind: 'delivery'|'return', status, bird: BirdLite, owner: Pe
   releaseAt, arriveAt?, distanceMi?, odds?, plan?: FlightPlan, input?: FlightInputPublic,
   placeNames, searchParty?: 'found'|'not_found', role: 'mine'|'incoming', hasNote: boolean };
 type Visit = { id, bird: BirdLite, owner: PersonLite, note: { id, body, createdAt }, arrivedAt,
-  leavesAt, status, snackGiven, flight: { distanceMi, durationMs, delayKind } };
+  leavesAt, status, snackGiven, returnMi, flight: { distanceMi, durationMs, delayKind } };  // returnMi: the return leg if sent home now
 type PersonLite = { id, name, handle };
 ```
 

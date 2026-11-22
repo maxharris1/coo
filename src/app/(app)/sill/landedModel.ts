@@ -1,3 +1,4 @@
+import type { FriendRow } from "@/server/services/friends";
 import type { SyncVisit } from "@/server/services/visits/syncRead";
 import { distance, duration, type Units } from "@/lib/format";
 
@@ -15,6 +16,14 @@ const delayTails: Record<DelayKind, string> = {
   minor: ", with one snack stop nobody will discuss",
   major: ", the long way round",
 };
+
+export function sharedCity(friend: FriendRow | undefined): SenderCity | null {
+  if (!friend || friend.theyShow !== "city" || !friend.where) return null;
+  const cut = friend.where.lastIndexOf(", ");
+  return cut < 0
+    ? { name: friend.where, region: null }
+    : { name: friend.where.slice(0, cut), region: friend.where.slice(cut + 2) };
+}
 
 export function landedState(
   visit: Pick<SyncVisit, "leavesAt">,
