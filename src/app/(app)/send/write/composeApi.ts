@@ -1,3 +1,4 @@
+import type { Note } from "@/lib/game/notes";
 import type {
   QuoteRecipient,
   RecipientQuote,
@@ -47,9 +48,13 @@ function isLink(l: unknown): l is GuestLink {
 
 export async function release(
   fetchImpl: typeof fetch,
-  send: { body: string; sends: readonly Send[] },
+  { body, doodle, sends }: Note & { sends: readonly Send[] },
 ): Promise<ReleaseResult> {
-  const r = await post(fetchImpl, "/api/flights", send);
+  const r = await post(
+    fetchImpl,
+    "/api/flights",
+    doodle ? { body, doodle, sends } : { body, sends },
+  );
   if (!r.ok) return r;
   const reply = r.json as {
     flights?: { id?: unknown }[];

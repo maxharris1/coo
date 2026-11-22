@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SyncContext, type SyncState } from "@/components/SyncProvider";
 import { ToastContext } from "@/components/Toasts";
 import type { SyncPayload } from "@/components/sync";
+import type { Doodle } from "@/lib/game/notes";
 import { takeLink } from "../share/[flightId]/linkHandoff";
 import type { ComposeView, NoRecipient } from "./ComposeView";
 import { pinKey } from "./guest";
@@ -597,6 +598,97 @@ describe("Compose page release (ac-2)", () => {
     );
     expect(seen.push).not.toHaveBeenCalled();
     expect(view()).toMatchObject({ note: "Dinner Saturday?", sending: false });
+  });
+});
+
+const DOODLE: Doodle = {
+  v: 1,
+  w: 300,
+  h: 200,
+  strokes: [{ color: "ink", width: "fine", points: [[10, 20]] }],
+};
+
+const draw = (doodle: Doodle | null) =>
+  act(async () => view().onDoodle(doodle));
+
+const releasedBody = () => JSON.parse(String(flightCalls()[0][1]?.body));
+
+describe("Compose page doodle", () => {
+  it("starts with an empty pad", async () => {
+    await show();
+    expect(view().doodle).toBeNull();
+  });
+
+  it("releases a doodle with no text", async () => {
+    await show();
+    await draw(DOODLE);
+    expect(view().doodle).toEqual(DOODLE);
+    await act(async () => view().onRelease());
+    expect(releasedBody()).toEqual({
+      body: "",
+      doodle: DOODLE,
+      sends: [{ friendId: "u2", birdId: "b2" }],
+    });
+    expect(seen.push).toHaveBeenCalledExactlyOnceWith("/send/takeoff/f1");
+  });
+
+  it("releases the words and the doodle together", async () => {
+    await show();
+    await type("Dinner Saturday?");
+    await draw(DOODLE);
+    await act(async () => view().onRelease());
+    expect(releasedBody()).toMatchObject({
+      body: "Dinner Saturday?",
+      doodle: DOODLE,
+    });
+  });
+
+  it("leaves the doodle out once the pad is cleared", async () => {
+    await show();
+    await type("Dinner Saturday?");
+    await draw(DOODLE);
+    await draw(null);
+    await act(async () => view().onRelease());
+    expect(releasedBody()).toEqual({
+      body: "Dinner Saturday?",
+      sends: [{ friendId: "u2", birdId: "b2" }],
+    });
+  });
+
+  it("keeps the words and the doodle and toasts when the release fails", async () => {
+    released = Promise.resolve({
+      status: 500,
+      body: { error: { code: "internal", message: "Something broke." } },
+    });
+    await show();
+    await type("Dinner Saturday?");
+    await draw(DOODLE);
+    await act(async () => view().onRelease());
+    expect(seen.toast).toHaveBeenCalledExactlyOnceWith("Something broke.");
+    expect(seen.push).not.toHaveBeenCalled();
+    expect(view()).toMatchObject({
+      note: "Dinner Saturday?",
+      doodle: DOODLE,
+      sending: false,
+    });
+  });
+
+  it("keeps the words and the doodle and toasts when the phone is offline", async () => {
+    const offline = Promise.reject(new TypeError("Failed to fetch"));
+    offline.catch(() => {});
+    released = offline;
+    await show();
+    await type("Dinner Saturday?");
+    await draw(DOODLE);
+    await act(async () => view().onRelease());
+    expect(seen.toast).toHaveBeenCalledExactlyOnceWith(
+      "We could not reach the loft. Try again.",
+    );
+    expect(view()).toMatchObject({
+      note: "Dinner Saturday?",
+      doodle: DOODLE,
+      sending: false,
+    });
   });
 });
 
