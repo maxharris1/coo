@@ -120,6 +120,22 @@ describe("tab bar", () => {
     expect(bar(synced({ data: null }))).not.toContain("a bird is waiting");
   });
 
+  it("lights Loft on the loft and on the post office it opens", () => {
+    const current = (path: string) => {
+      nav.path = path;
+      return [
+        ...bar(synced({})).matchAll(
+          /<a [^>]*aria-current="page"[^>]*>(.*?)<\/a>/g,
+        ),
+      ].map((m) => m[1].replace(/<[^>]+>/g, ""));
+    };
+    expect(current("/")).toEqual(["Loft"]);
+    expect(current("/more")).toEqual(["Loft"]);
+    expect(current("/flights")).toEqual(["Flights"]);
+    expect(current("/moreover")).toEqual([]);
+    expect(current("/birds/b1")).toEqual([]);
+  });
+
   it("gives every tab a target of at least 44 px", () => {
     const css = readFileSync(
       new URL("./TabBar.module.css", import.meta.url),
