@@ -179,6 +179,17 @@
   animation: coo-rain 0.7s ease-in infinite alternate;
 }
 
+@keyframes coo-rain {
+  from {
+    transform: translateY(-3px);
+    opacity: 0.3;
+  }
+  to {
+    transform: translateY(4px);
+    opacity: 1;
+  }
+}
+
 .drops path:nth-child(2) {
   animation-delay: 0.2s;
 }
