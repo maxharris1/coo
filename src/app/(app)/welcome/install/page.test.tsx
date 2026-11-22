@@ -180,20 +180,36 @@ describe("/welcome/install page", () => {
     redirect.mockReset();
   });
 
-  it("sends an onboarded person home", async () => {
-    requireUser.mockResolvedValue({
-      userId: "u1",
-      profile: { onboarded_at: new Date(0) },
-    });
+  const show = async (profile: object | null) => {
+    requireUser.mockResolvedValue({ userId: "u1", profile });
     const { default: InstallPage } = await import("./page");
-    await InstallPage();
+    return renderToStaticMarkup(await InstallPage());
+  };
+
+  it("shows the screen to an onboarded person who has not installed (ac-1)", async () => {
+    const html = await show({ onboarded_at: new Date(0), installed: false });
+    expect(redirect).not.toHaveBeenCalled();
+    expect(html).toContain(`Put ${config.app.name} on your home screen`);
+  });
+
+  it("sends an onboarded person who has installed home (ac-2)", async () => {
+    await show({ onboarded_at: new Date(0), installed: true });
     expect(redirect).toHaveBeenCalledWith("/");
   });
 
-  it("shows the screen to a person with no profile yet", async () => {
-    requireUser.mockResolvedValue({ userId: "u1", profile: null });
-    const { default: InstallPage } = await import("./page");
-    const html = renderToStaticMarkup(await InstallPage());
+  it("skips to First bird for a new person who has installed (ac-2)", async () => {
+    await show({ onboarded_at: null, installed: true });
+    expect(redirect).toHaveBeenCalledWith("/welcome/bird");
+  });
+
+  it("shows the screen to a new person who has not installed (ac-3)", async () => {
+    const html = await show({ onboarded_at: null, installed: false });
+    expect(redirect).not.toHaveBeenCalled();
+    expect(html).toContain(`Put ${config.app.name} on your home screen`);
+  });
+
+  it("shows the screen to a person with no profile yet (ac-3)", async () => {
+    const html = await show(null);
     expect(redirect).not.toHaveBeenCalled();
     expect(html).toContain(`Put ${config.app.name} on your home screen`);
   });
