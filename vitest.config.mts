@@ -14,6 +14,7 @@ export default defineConfig({
     env: { APP_ENV: "test" },
     include: ["src/**/*.test.{ts,tsx}"],
     globalSetup: ["src/test/globalSetup.ts"],
+    setupFiles: ["src/test/setup.ts"],
     testTimeout: 15000,
     hookTimeout: 15000,
     slowTestThreshold: SLOW_TEST_THRESHOLD_MS,

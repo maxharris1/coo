@@ -4,6 +4,22 @@ import { inject } from "vitest";
 import { TYPE_PARSERS, type Db } from "@/server/db";
 
 let template: Blob | undefined;
+let inTest = false;
+const testScoped: PGlite[] = [];
+const fileScoped: PGlite[] = [];
+
+export function startTestScope(): void {
+  inTest = true;
+}
+
+export async function closeTestScope(): Promise<void> {
+  inTest = false;
+  await Promise.all(testScoped.splice(0).map((pg) => pg.close()));
+}
+
+export async function closeFileScope(): Promise<void> {
+  await Promise.all(fileScoped.splice(0).map((pg) => pg.close()));
+}
 
 function txDb(t: Transaction): Db {
   const db: Db = {
@@ -21,6 +37,7 @@ export async function testDb(): Promise<Db> {
     loadDataDir: template,
     parsers: TYPE_PARSERS,
   });
+  (inTest ? testScoped : fileScoped).push(pg);
   return {
     async query<T>(sql: string, params?: unknown[]) {
       return (await pg.query<T>(sql, params)).rows;
