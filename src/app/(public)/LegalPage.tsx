@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { config } from "@/lib/config";
+import { fill } from "@/lib/format";
 import styles from "./auth.module.css";
 import legal from "./legal.module.css";
 
@@ -8,6 +9,12 @@ export type LegalDoc = {
   intro: string;
   sections: readonly { heading: string; paragraphs: readonly string[] }[];
 };
+
+export function contactLine(supportEmail: string): string {
+  return supportEmail.endsWith(".example")
+    ? config.copy.legal.contact.withoutEmail
+    : fill(config.copy.legal.contact.withEmail, { email: supportEmail });
+}
 
 export function LegalPage({
   doc,
@@ -32,7 +39,9 @@ export function LegalPage({
           <h2 className={legal.heading}>{section.heading}</h2>
           {section.paragraphs.map((paragraph) => (
             <p key={paragraph} className={legal.text}>
-              {paragraph}
+              {paragraph === "{contact}"
+                ? contactLine(config.app.supportEmail)
+                : paragraph}
             </p>
           ))}
         </section>

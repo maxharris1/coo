@@ -1,7 +1,9 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { config } from "@/lib/config";
 import PrivacyPage from "../privacy/page";
 import TermsPage from "../terms/page";
+import { contactLine } from "./LegalPage";
 
 const text = (html: string) =>
   html
@@ -78,5 +80,32 @@ describe("/terms", () => {
   it("states the age limit and points at the privacy page", () => {
     expect(terms).toContain("13");
     expect(termsHtml).toMatch(/<a[^>]*href="\/privacy"/);
+  });
+});
+
+describe("contact line", () => {
+  it("points at GitHub issues while the support email is a placeholder", () => {
+    expect(contactLine("hello@coo.example")).toBe(
+      config.copy.legal.contact.withoutEmail,
+    );
+    expect(contactLine("hello@coo.example")).toContain(
+      "open an issue at github.com/maxharris1/coo",
+    );
+  });
+
+  it("names the support email once it is a real address", () => {
+    expect(contactLine("hi@real.org")).toBe(
+      "Questions, privacy requests or help: hi@real.org.",
+    );
+  });
+
+  it.each([
+    ["/privacy", privacyHtml],
+    ["/terms", termsHtml],
+  ])("%s ends with the contact line and never shows .example", (_, html) => {
+    const lastParagraph = [...html.matchAll(/<p[^>]*>([^<]*)<\/p>/g)].at(-1);
+    expect(lastParagraph?.[1]).toBe(contactLine(config.app.supportEmail));
+    expect(html).not.toContain(".example");
+    expect(html).not.toContain("{contact}");
   });
 });
