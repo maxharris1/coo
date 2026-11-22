@@ -104,6 +104,23 @@ function bestQuote(quotes: BirdQuote[], now: number): BirdQuote | null {
   return best;
 }
 
+const DAY_MS = 86_400_000;
+
+function landingDay(q: BirdQuote, tz: string): string {
+  const days =
+    (Date.parse(localDate(q.arriveAt, tz)) -
+      Date.parse(localDate(q.releaseAt, tz))) /
+    DAY_MS;
+  if (days === 0) return "";
+  if (days === 1) return " tomorrow";
+  return ` ${new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+    month: "short",
+    day: "numeric",
+    timeZone: tz,
+  }).format(q.arriveAt)}`;
+}
+
 export function forecastModel(
   leg: RecipientQuote,
   bird: { id: string; name: string },
@@ -122,10 +139,6 @@ export function forecastModel(
     weekday: "long",
     timeZone: tz,
   }).format(selected.releaseAt);
-  const tomorrow =
-    localDate(selected.arriveAt, tz) !== localDate(selected.releaseAt, tz)
-      ? " tomorrow"
-      : "";
 
   return {
     route: `${leg.from.label} to ${leg.to.label}, ${day}`,
@@ -142,7 +155,7 @@ export function forecastModel(
       heading: selectedNow
         ? "Arrival odds leaving now"
         : `Arrival odds leaving at ${clockTime(new Date(selected.releaseAt), tz)}`,
-      detail: `About ${duration(selected.durationMs)}. Lands near ${clockTime(new Date(selected.arriveAt), tz)}${tomorrow}.`,
+      detail: `About ${duration(selected.durationMs)}. Lands near ${clockTime(new Date(selected.arriveAt), tz)}${landingDay(selected, tz)}.`,
     },
     factors: selected.factors.map((f) => ({
       kind: f.kind,

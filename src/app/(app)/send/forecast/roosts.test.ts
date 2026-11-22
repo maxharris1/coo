@@ -64,3 +64,37 @@ describe("an hour whose flight would not arrive before sunset (ac-1)", () => {
     expect(model.selected.detail).toMatch(/ tomorrow\.$/);
   });
 });
+
+describe("a flight that roosts more than one night", () => {
+  it("names the day it lands instead of saying tomorrow", async () => {
+    const deps = await makeTestDeps();
+    const world = await seedWorld(deps.db, deps.clock.now());
+    await deps.db.query(
+      `update profiles set home_lat = 41.88, home_lon = -87.63, home_label = 'The Loop',
+         home_city = 'Chicago', home_city_lat = 41.88, home_city_lon = -87.63
+       where id = $1`,
+      [world.priya.id],
+    );
+    const releaseAt = Date.parse("2026-11-19T20:00:00Z");
+    const now = deps.clock.now();
+    const { recipients } = await quote(deps, world.max.id as UserId, {
+      recipients: [{ friendId: world.priya.id as UserId }],
+      birdIds: [world.max.birds[0].id],
+      at: [releaseAt],
+    });
+    const [flight] = recipients[0].quotes;
+    expect(flight.roostsOvernight).toBe(true);
+
+    const model = forecastModel(
+      recipients[0],
+      { id: world.max.birds[0].id, name: "Gerald" },
+      releaseAt,
+      now,
+      TZ,
+      "mi",
+    );
+
+    expect(model.selected.detail).toMatch(/ Saturday, Nov 21\.$/);
+    expect(model.selected.detail).not.toContain("tomorrow");
+  });
+});
