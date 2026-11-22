@@ -4,6 +4,7 @@ import { Bird } from "@/components/Bird";
 import { HatchScene } from "@/components/HatchScene";
 import { config } from "@/lib/config";
 import styles from "../auth.module.css";
+import { LegalLinks } from "../LegalLinks";
 
 export const metadata: Metadata = { title: "Hello" };
 
@@ -36,6 +37,7 @@ export default function HelloPage() {
           I already have a loft
         </Link>
       </div>
+      <LegalLinks />
     </main>
   );
 }

@@ -36,6 +36,11 @@ describe("/sign-in (Phone)", () => {
     expect(input("sign-in-country")).toContain('value="+1"');
   });
 
+  it("links to privacy and terms", () => {
+    expect(html).toMatch(/<a[^>]*href="\/privacy"[^>]*>Privacy<\/a>/);
+    expect(html).toMatch(/<a[^>]*href="\/terms"[^>]*>Terms<\/a>/);
+  });
+
   it("keeps the number out of URLs and web storage", () => {
     for (const file of [
       "./page.tsx",

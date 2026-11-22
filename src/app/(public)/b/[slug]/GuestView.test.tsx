@@ -101,6 +101,12 @@ describe("Guest page, sealed (Guest.png)", () => {
     expect(html).toMatch(/<button[^>]*>Report this link<\/button>/);
   });
 
+  it("links to privacy and terms", () => {
+    const html = render(guestFlying());
+    expect(html).toMatch(/<a[^>]*href="\/privacy"[^>]*>Privacy<\/a>/);
+    expect(html).toMatch(/<a[^>]*href="\/terms"[^>]*>Terms<\/a>/);
+  });
+
   it("names the bird when the flight has not taken off yet", () => {
     const g = guestFlying({
       flight: { ...guestFlying().flight, status: "scheduled", plan: undefined },

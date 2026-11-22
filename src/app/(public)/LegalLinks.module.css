@@ -1,0 +1,20 @@
+.links {
+  margin-top: auto;
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--coo-touch);
+  color: var(--coo-ink);
+}
+
+.links a:focus-visible {
+  outline: 3px solid var(--coo-ink);
+  outline-offset: 2px;
+}

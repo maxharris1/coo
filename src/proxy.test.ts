@@ -165,6 +165,8 @@ describe("proxy for a signed-out visitor", () => {
       "/join/k3x9",
       "/%77elcome",
       "/join/k3x%39",
+      "/privacy",
+      "/terms",
     ])("lets public page %s through", async (path) => {
       expectPassThrough(await signedOutRequest(path, visitor));
     });
@@ -213,8 +215,8 @@ const OUTSIDE_GROUPS: Record<string, RouteKind> = {
   "/dev/birds": "public",
   "/dev/components": "public",
   "/dev/map": "public",
-  "/privacy": "app",
-  "/terms": "app",
+  "/privacy": "public",
+  "/terms": "public",
 };
 
 function walk(dir: string): string[] {

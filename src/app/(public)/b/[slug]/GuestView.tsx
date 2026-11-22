@@ -7,6 +7,7 @@ import { config } from "@/lib/config";
 import { positionAt } from "@/lib/flight/engine";
 import { clockTime, duration, pronounTokens } from "@/lib/format";
 import type { GuestView as Guest } from "@/server/services/guestLinks/get";
+import { LegalLinks } from "../../LegalLinks";
 import { GuestClaim } from "./GuestClaim";
 import { GuestExpired } from "./GuestExpired";
 import styles from "./Guest.module.css";
@@ -202,6 +203,7 @@ function GuestLive({
         </Link>
         <GuestReport token={token} onReported={onReported} />
       </div>
+      <LegalLinks />
     </main>
   );
 }
