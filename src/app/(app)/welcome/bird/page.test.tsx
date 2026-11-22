@@ -61,7 +61,7 @@ describe("/welcome/bird", () => {
   });
 
   it("keeps every control at least the 44 px touch size", () => {
-    for (const cls of ["arrow", "shuffle", "chip", "adopt"]) {
+    for (const cls of ["arrow", "shuffle", "adopt"]) {
       const rule = css.match(new RegExp(`\\.${cls} \\{[^}]*\\}`))?.[0];
       expect(rule, `.${cls}`).toMatch(
         /min-(height|block-size): (var\(--coo-touch\)|4[4-9]px|[5-9]\dpx)/,

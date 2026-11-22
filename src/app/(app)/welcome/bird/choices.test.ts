@@ -5,7 +5,6 @@ import {
   firstBird,
   initialFirstBird,
   onboardingBody,
-  PRONOUNS,
   roommateLook,
   submitOnboarding,
 } from "./choices";
@@ -32,10 +31,6 @@ describe("first bird choices", () => {
 
   it("starts on Gerald, named Gerald", () => {
     expect(start).toMatchObject({ index: 0, name: "Gerald" });
-  });
-
-  it("offers he, she and they", () => {
-    expect(PRONOUNS.map((p) => p.value)).toEqual(["he", "she", "they"]);
   });
 });
 

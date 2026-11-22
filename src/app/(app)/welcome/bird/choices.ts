@@ -2,14 +2,7 @@ import birds from "../../../../../public/assets/data/birds.json";
 import type { Look } from "@/components/Bird";
 import { freeBirdName, sameBirdName } from "@/lib/birdName";
 import { config } from "@/lib/config";
-
-export type Pronoun = "he" | "she" | "they";
-
-export const PRONOUNS: readonly { value: Pronoun; label: string }[] = [
-  { value: "he", label: "he/him" },
-  { value: "she", label: "she/her" },
-  { value: "they", label: "they/them" },
-];
+import type { Pronoun } from "@/lib/format";
 
 const isLook = (look: string): look is Look => look in birds;
 

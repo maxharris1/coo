@@ -6,9 +6,9 @@ import { useRouter } from "next/navigation";
 import { pendingLink } from "@/app/(public)/b/[slug]/linkSignUp";
 import { Bird } from "@/components/Bird";
 import { HatchScene } from "@/components/HatchScene";
+import { PronounChips } from "@/components/PronounChips";
 import {
   FIRST_BIRD,
-  PRONOUNS,
   firstBird,
   initialFirstBird,
   onboardingBody,
@@ -16,7 +16,6 @@ import {
   submitOnboarding,
   type FirstBirdAction,
   type FirstBirdState,
-  type Pronoun,
 } from "./choices";
 import styles from "./page.module.css";
 
@@ -34,36 +33,6 @@ function Arrow({ d }: { d: string }) {
         strokeLinejoin="round"
       />
     </svg>
-  );
-}
-
-function PronounChips({
-  name,
-  value,
-  onChange,
-}: {
-  name: string;
-  value: Pronoun;
-  onChange: (pronoun: Pronoun) => void;
-}) {
-  return (
-    <fieldset className={styles.pronouns}>
-      <legend className={styles.label}>Pronoun</legend>
-      <div className={styles.chips}>
-        {PRONOUNS.map((p) => (
-          <label key={p.value} className={styles.chip}>
-            <input
-              type="radio"
-              name={name}
-              value={p.value}
-              checked={value === p.value}
-              onChange={() => onChange(p.value)}
-            />
-            {p.label}
-          </label>
-        ))}
-      </div>
-    </fieldset>
   );
 }
 

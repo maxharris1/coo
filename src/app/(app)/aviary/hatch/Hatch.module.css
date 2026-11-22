@@ -125,48 +125,6 @@
   color: var(--coo-ink);
 }
 
-.pronouns {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  min-width: 0;
-}
-
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.chip {
-  display: inline-flex;
-  align-items: center;
-  min-height: var(--coo-touch);
-  padding: 0 16px;
-  background: var(--coo-card);
-  border: var(--coo-line-thin);
-  border-radius: var(--coo-radius-pill);
-  font-weight: 900;
-  font-size: 14px;
-  cursor: pointer;
-}
-
-.chip input {
-  position: absolute;
-  opacity: 0;
-  width: 1px;
-  height: 1px;
-  margin: 0;
-}
-
-.chip:has(input:checked) {
-  background: var(--coo-ink);
-  color: var(--coo-card);
-}
-
 .go,
 .done {
   display: flex;
@@ -191,7 +149,6 @@
   cursor: default;
 }
 
-.chip:has(input:focus-visible),
 .back:focus-visible,
 .name:focus-visible,
 .go:focus-visible,
