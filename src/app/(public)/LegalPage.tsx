@@ -6,6 +6,7 @@ import legal from "./legal.module.css";
 
 export type LegalDoc = {
   title: string;
+  effective: string;
   intro: string;
   sections: readonly { heading: string; paragraphs: readonly string[] }[];
 };
@@ -29,10 +30,8 @@ export function LegalPage({
         <p className={styles.logo}>{config.app.name.toLowerCase()}</p>
         <p className={styles.tagline}>{config.app.tagline}</p>
       </div>
-      <aside role="note" className={legal.banner}>
-        {config.copy.legal.draft}
-      </aside>
       <h1 className={styles.title}>{doc.title}</h1>
+      <p className={legal.effective}>{`Effective ${doc.effective}`}</p>
       <p className={legal.text}>{doc.intro}</p>
       {doc.sections.map((section) => (
         <section key={section.heading} className={legal.section}>
