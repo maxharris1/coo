@@ -152,36 +152,6 @@
   overflow-wrap: anywhere;
 }
 
-.map {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 16 / 10;
-  overflow: hidden;
-  background: var(--coo-paper);
-  border: var(--coo-line);
-  border-radius: var(--coo-radius-tile);
-  box-shadow: var(--coo-shadow-2);
-}
-
-.mapCanvas {
-  position: absolute;
-  inset: 0;
-}
-
-.pinHolder {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-}
-
-.pin {
-  width: 32px;
-  height: 32px;
-}
-
 .note {
   padding: 0 4px;
   text-align: center;

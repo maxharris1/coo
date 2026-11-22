@@ -3,6 +3,8 @@
 import { useEffect, useReducer } from "react";
 import type { Dispatch, FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { PinMap } from "@/components/PinMap";
+import { snap, type Point } from "@/lib/game/privacy";
 import {
   finishLinkSignUp,
   linkRoost,
@@ -21,7 +23,6 @@ import {
   type LoftAction,
   type LoftState,
 } from "./roost";
-import { RoostMap } from "./RoostMap";
 import styles from "./page.module.css";
 
 type Actions = {
@@ -29,6 +30,7 @@ type Actions = {
   search: () => Promise<void>;
   pick: (placeId: string) => Promise<void>;
   townCentre: () => Promise<void>;
+  move: (point: Point) => Promise<void>;
   home: () => Promise<void>;
 };
 
@@ -36,20 +38,28 @@ function useActions(state: LoftState, dispatch: Dispatch<LoftAction>): Actions {
   const router = useRouter();
   const fail = (message: string) => dispatch({ type: "failed", message });
 
+  const settleAt = async (point: Point) => {
+    const here = await lookHere(point);
+    if (!here.ok) return fail(here.message);
+    const { place, message } = here.data;
+    if (!place) return fail(message ?? NO_LOCATION);
+    dispatch({
+      type: "located",
+      roost: { ...point, ...place },
+      pending: point,
+    });
+  };
+
   return {
     async locate() {
       dispatch({ type: "busy" });
       const point = await position().catch(() => null);
       if (!point) return fail(NO_LOCATION);
-      const here = await lookHere(point);
-      if (!here.ok) return fail(here.message);
-      const { place, message } = here.data;
-      if (!place) return fail(message ?? NO_LOCATION);
-      dispatch({
-        type: "located",
-        roost: { ...point, ...place },
-        pending: point,
-      });
+      await settleAt(point);
+    },
+    async move(point) {
+      dispatch({ type: "busy" });
+      await settleAt(point);
     },
     async search() {
       const q = state.query.trim();
@@ -174,7 +184,15 @@ export function LoftForm({
           <p className={styles.roost} aria-live="polite">
             {`Your roost: ${[roost.label, roost.city].filter(Boolean).join(", ")}`}
           </p>
-          <RoostMap key={`${roost.lat},${roost.lon}`} roost={roost} />
+          <PinMap
+            key={`${roost.lat},${roost.lon}`}
+            start={roost}
+            label={roost.label}
+            settle={snap}
+            onMove={(point) => {
+              if (!busy) void actions.move(point);
+            }}
+          />
           <p className={styles.note}>We keep the roost, not your address.</p>
           <div className={styles.footer}>
             {roost.city && (

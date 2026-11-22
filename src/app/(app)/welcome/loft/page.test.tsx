@@ -11,6 +11,10 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push: () => {} }) }));
 
 const html = decode(renderToStaticMarkup(<LoftPage />));
 const css = readFileSync(new URL("./page.module.css", import.meta.url), "utf8");
+const mapCss = readFileSync(
+  new URL("../../../../components/PinMap.module.css", import.meta.url),
+  "utf8",
+);
 const noop = async () => {};
 const render = (state: LoftState) =>
   decode(
@@ -23,6 +27,7 @@ const render = (state: LoftState) =>
           search: noop,
           pick: noop,
           townCentre: noop,
+          move: noop,
           home: noop,
         }}
       />,
@@ -123,6 +128,6 @@ describe("/welcome/loft", () => {
   it("fits phones from 360 px: the column never sets a fixed width and the map scales", () => {
     expect(css).toMatch(/\.page \{[^}]*max-width: 480px/);
     expect(css).not.toMatch(/(?<!max-|min-)width: (3[6-9]\d|4\d\d)px/);
-    expect(css).toMatch(/\.map \{[^}]*width: 100%[^}]*aspect-ratio/);
+    expect(mapCss).toMatch(/\.map \{[^}]*width: 100%[^}]*aspect-ratio/);
   });
 });

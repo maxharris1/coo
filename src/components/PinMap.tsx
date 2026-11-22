@@ -3,15 +3,29 @@
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef } from "react";
 import { mountMap, type MountedMap } from "@/components/mountMap";
-import { STOCK_STYLE, type Roost } from "./roost";
-import styles from "./page.module.css";
+import type { Point } from "@/lib/game/privacy";
+import styles from "./PinMap.module.css";
+
+export const STOCK_STYLE = "https://tiles.openfreemap.org/styles/liberty";
 
 const BLOCK_ZOOM = 15;
 
-export function RoostMap({ roost }: { roost: Roost }) {
+export type PinMapProps = {
+  start: Point;
+  label: string;
+  onMove?: (point: Point) => void;
+  settle?: (lat: number, lon: number) => Point;
+};
+
+export function PinMap({ start, label, onMove, settle }: PinMapProps) {
   const container = useRef<HTMLDivElement>(null);
   const pin = useRef<HTMLDivElement>(null);
-  const { lat, lon } = roost;
+  const handlers = useRef({ onMove, settle });
+  const { lat, lon } = start;
+
+  useEffect(() => {
+    handlers.current = { onMove, settle };
+  });
 
   useEffect(() => {
     let mounted: MountedMap | null = null;
@@ -25,13 +39,27 @@ export function RoostMap({ roost }: { roost: Roost }) {
           style: STOCK_STYLE,
           center: [lon, lat],
           zoom: BLOCK_ZOOM,
-          interactive: false,
+          interactive: Boolean(handlers.current.onMove),
         },
         { compact: true },
       );
-      new lib.Marker({ element: pin.current })
+      if (!handlers.current.onMove) {
+        new lib.Marker({ element: pin.current })
+          .setLngLat([lon, lat])
+          .addTo(mounted.map);
+        return;
+      }
+      const marker = new lib.Marker({ element: pin.current, draggable: true })
         .setLngLat([lon, lat])
         .addTo(mounted.map);
+      const moveTo = ({ lat, lng }: { lat: number; lng: number }) => {
+        const { onMove, settle } = handlers.current;
+        const point = settle ? settle(lat, lng) : { lat, lon: lng };
+        marker.setLngLat([point.lon, point.lat]);
+        onMove?.(point);
+      };
+      marker.on("dragend", () => moveTo(marker.getLngLat()));
+      mounted.map.on("click", (e) => moveTo(e.lngLat));
     });
     return () => {
       cancelled = true;
@@ -43,7 +71,7 @@ export function RoostMap({ roost }: { roost: Roost }) {
     <div
       className={styles.map}
       role="img"
-      aria-label={`Map of ${roost.label} with your roost pin`}
+      aria-label={`Map of ${label} with your roost pin`}
     >
       <div ref={container} className={styles.mapCanvas} />
       <div className={styles.pinHolder}>

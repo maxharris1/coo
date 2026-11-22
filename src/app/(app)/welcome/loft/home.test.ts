@@ -1,13 +1,14 @@
 import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { initialLoft } from "./roost";
+import { initialLoft, loft, type LoftState } from "./roost";
 
 const push = vi.hoisted(() => vi.fn());
 const dispatch = vi.hoisted(() => vi.fn());
+const current = vi.hoisted(() => ({ state: null as LoftState | null }));
 
 vi.mock("react", async (actual) => ({
   ...(await actual<typeof import("react")>()),
-  useReducer: () => [initialLoft(), dispatch],
+  useReducer: () => [current.state ?? initialLoft(), dispatch],
   useEffect: () => {},
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
@@ -16,10 +17,13 @@ const { Loft } = await import("./Loft");
 
 const CODE = "priya-AbCdEfGhIj_-";
 
-const home = () =>
-  (
-    Loft() as ReactElement<{ actions: { home: () => Promise<void> } }>
-  ).props.actions.home();
+type Actions = {
+  home: () => Promise<void>;
+  move: (p: { lat: number; lon: number }) => Promise<void>;
+};
+const actions = () =>
+  (Loft() as ReactElement<{ actions: Actions }>).props.actions;
+const home = () => actions().home();
 
 describe("finishing onboarding", () => {
   beforeEach(() => {
@@ -85,6 +89,80 @@ describe("finishing onboarding", () => {
   it("goes home when there is no invite", async () => {
     vi.stubGlobal("document", { cookie: "" });
     await home();
+    expect(push).toHaveBeenCalledWith("/");
+  });
+});
+
+describe("moving the roost pin", () => {
+  const settled = { lat: 40.714, lon: -73.9625 };
+  const picked = loft(initialLoft(), {
+    type: "located",
+    roost: {
+      lat: 40.73,
+      lon: -73.9875,
+      label: "East Village",
+      city: "New York, NY",
+      placeId: "p1",
+    },
+    pending: null,
+  });
+
+  beforeEach(() => {
+    push.mockReset();
+    dispatch.mockReset();
+  });
+  afterEach(() => {
+    current.state = null;
+    vi.unstubAllGlobals();
+  });
+
+  it("names the settled spot and holds it to save", async () => {
+    const urls: string[] = [];
+    vi.stubGlobal("fetch", async (url: string) => {
+      urls.push(url);
+      return new Response(
+        JSON.stringify({
+          place: { label: "Williamsburg", city: "New York, NY" },
+        }),
+      );
+    });
+    current.state = picked;
+
+    await actions().move(settled);
+
+    expect(urls).toEqual(["/api/geo/here?lat=40.714&lon=-73.9625"]);
+    expect(dispatch).toHaveBeenLastCalledWith({
+      type: "located",
+      roost: { ...settled, label: "Williamsburg", city: "New York, NY" },
+      pending: settled,
+    });
+  });
+
+  it("saves the moved roost through the {lat, lon} loft body on 'This is home'", async () => {
+    const posts: unknown[] = [];
+    vi.stubGlobal("document", { cookie: "" });
+    vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+      posts.push([url, init?.method, JSON.parse(String(init?.body))]);
+      return new Response(
+        JSON.stringify({
+          loft: {
+            ...settled,
+            label: "Williamsburg",
+            city: "New York, NY",
+            travelling: false,
+          },
+        }),
+      );
+    });
+    current.state = loft(picked, {
+      type: "located",
+      roost: { ...settled, label: "Williamsburg", city: "New York, NY" },
+      pending: settled,
+    });
+
+    await home();
+
+    expect(posts).toEqual([["/api/loft", "POST", settled]]);
     expect(push).toHaveBeenCalledWith("/");
   });
 });
