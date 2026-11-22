@@ -62,7 +62,14 @@
   "notes": {
     "baseLimit": 140,
     "tubeLimit": 280,
-    "pouterMultiplier": 2
+    "pouterMultiplier": 2,
+    "doodle": {
+      "width": 300,
+      "height": 200,
+      "maxStrokes": 60,
+      "maxPoints": 2500,
+      "maxBytes": 32768
+    }
   },
   "start": {
     "seeds": 60,

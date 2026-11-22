@@ -17,7 +17,7 @@ Decisions Max made. Treat them as fixed. Each one names where it shows up.
 | 11 | Homing | Light touch. A bird waits 30 minutes on the sill. A reply rides home free | `docs/04` |
 | 12 | Return trip | Real time, same rules as the trip out | `docs/04` |
 | 13 | Starting flock | Two birds. The first egg hatches after 5 deliveries | `docs/04` |
-| 14 | Notes | Text only. 140 characters. 280 with the roomy tube | `docs/04` |
+| 14 | Notes | Text, a finger doodle, or both. Text is 140 characters, 280 with the roomy tube. A doodle is the same size for every bird (revised 2026-11-22, see below) | `docs/04` |
 | 15 | No push available | Send a text message when a bird lands | `docs/10` |
 | 16 | Location | Block level for all friends by default: the nearest roost, never an address. A friend can be turned down to city level | `docs/12` |
 | 17 | Loft | Fixed home loft, with a travel switch | `docs/04` |
@@ -25,6 +25,9 @@ Decisions Max made. Treat them as fixed. Each one names where it shows up.
 | 19 | Name | Build as "Coo". Name and domain in one config file. Alternatives suggested | `config/app.json`, `docs/16` |
 | 20 | Handoff | A repo-ready folder, zipped | this packet |
 | 21 | First users | Max's friends | `docs/00` |
+
+Max overruled the first Decision 14 ("Text only") on 2026-11-22 at 10:00 AM ET. Notes may now
+carry a finger doodle as well as, or instead of, text. Text limits are unchanged.
 
 ## Defaults chosen without asking
 

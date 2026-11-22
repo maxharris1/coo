@@ -66,8 +66,21 @@ when that text is sent. `expires_at` is set at landing. Details in `docs/11-gues
 ### notes
 The message. `recipient_id` is null while the recipient is a guest and is filled on claim.
 `reply_to` links a reply to the note it answers. `delivered_at` is set at landing; before that
-the body must never be sent to the recipient. `returned_at` marks a guest note whose link expired.
-The 560 limit in SQL is the largest any bird can carry; the real limit is checked in code.
+neither the body nor the doodle may be sent to the recipient. `returned_at` marks a guest note
+whose link expired. The 560 limit in SQL is the largest any bird can carry; the real limit is
+checked in code.
+
+A note is text, a doodle, or both. `body` is the trimmed text and may be empty only when `doodle`
+is set. `doodle` is `jsonb`, null for a text-only note, in this shape:
+
+```json
+{ "v": 1, "w": 300, "h": 200, "strokes": [{ "color": "ink", "width": "marker", "points": [[12, 40], [14, 41]] }] }
+```
+
+`validateDoodle` in `src/lib/game/notes.ts` is the one place a doodle is checked, against the
+limits in `config/game.json` under `notes.doodle`. SQL keeps two backstops:
+`notes_body_check` (body 0 to 560 characters, and at least 1 unless there is a doodle) and
+`notes_doodle_check` (a JSON object of at most 65,536 bytes as text).
 
 ### flights
 One trip by one bird.

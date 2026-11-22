@@ -18,9 +18,21 @@ A new account gets:
 
 ## 2. Notes
 
-- Plain text. Trim whitespace. Count characters by Unicode code point.
-- Limit 140. 280 if the carrying bird wears the roomy tube. A Pouter doubles its limit
-  (280, or 560 with the tube); the app shows the overflow as a second card.
+- A note is text, a finger doodle, or both. It must have some text or a doodle.
+- Text is plain. Trim whitespace. Count characters by Unicode code point.
+- Text limit 140. 280 if the carrying bird wears the roomy tube. A Pouter doubles its limit
+  (280, or 560 with the tube); the app shows the overflow as a second card. The tube and the
+  Pouter add room for words only.
+- A doodle is the same size for every bird. It is a list of strokes on a 300 by 200 canvas, with
+  the stroke, point and size limits in `config/game.json` under `notes.doodle`. Points are whole
+  numbers inside the canvas. A lone point is a dot.
+- Stroke colours are palette names only: `ink` (the default), `stamp`, `tomato`, and `sun`, `sky`
+  and `mint` drawn with an ink outline so they read on the card. Widths are `fine` and `marker`,
+  both a chunky felt tip. The app never accepts hex colours, SVG or a picture.
+- A slight ink wobble is baked into the saved points when a stroke is finished. It is not added
+  again when the doodle is drawn.
+- Screen readers announce a doodle as "A doodle", or "A doodle in {colors}" when it uses colours
+  other than ink. There is no caption.
 - A reply uses the limit of the bird it rides on.
 - No editing, no unsending. A scheduled send can be cancelled until it is released.
 
