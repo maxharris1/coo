@@ -43,7 +43,7 @@ function forecastFor(units: Units): string {
     <ComposeView
       rows={[
         {
-          friendId: "f1",
+          id: "f1",
           recipient: { name: "Priya", line: "Chicago" },
           pickedId: "b1",
           tooLong: false,

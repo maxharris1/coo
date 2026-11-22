@@ -60,7 +60,7 @@ const STATS = {
 };
 
 const PRIYA_ROW: ComposeRow = {
-  friendId: "u2",
+  id: "u2",
   recipient: {
     name: "Priya",
     line: "Philadelphia, 81 miles as the pigeon flies",
@@ -246,6 +246,12 @@ describe("ComposeView stats (ac-2)", () => {
     );
   });
 
+  it("shows the forecast line without a link when there is no forecast page", () => {
+    const html = one({ forecastHref: null });
+    expect(html).toContain("Lands around 11:20 am. Clear skies over Jersey.");
+    expect(html).not.toContain(">Forecast<");
+  });
+
   it("holds the stats back until the quote arrives", () => {
     const html = one({ stats: null });
     expect(html).not.toContain("Arrival odds");
@@ -326,7 +332,7 @@ describe("ComposeView events (ac-2)", () => {
 });
 
 const ALEX_ROW: ComposeRow = {
-  friendId: "u3",
+  id: "u3",
   recipient: { name: "Alex", line: "Boston, 215 miles as the pigeon flies" },
   pickedId: "b2",
   tooLong: false,
@@ -335,7 +341,7 @@ const ALEX_ROW: ComposeRow = {
 };
 
 const SAM_ROW: ComposeRow = {
-  friendId: "u4",
+  id: "u4",
   recipient: { name: "Sam", line: "Albany, 136 miles as the pigeon flies" },
   pickedId: "b4",
   tooLong: false,

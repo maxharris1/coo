@@ -36,7 +36,9 @@ export type PickerOption = {
 
 export type Counter = { text: string; over: boolean };
 
-export type Assignment = readonly { friendId: string; birdId: string | null }[];
+export type Assignment = readonly { id: string; birdId: string | null }[];
+
+type Destination = { id: string; distanceMi: number | null };
 
 export type Overflow = { birdName: string; limit: number };
 
@@ -166,31 +168,31 @@ export function canRelease(
   return note.trim() !== "" && !count.over && birdName !== null && !sending;
 }
 
-const farthestFirst = (a: FriendRow, b: FriendRow) =>
+const farthestFirst = (a: Destination, b: Destination) =>
   (b.distanceMi ?? -Infinity) - (a.distanceMi ?? -Infinity);
 
 export function assignBirds(
-  friends: readonly FriendRow[],
+  destinations: readonly Destination[],
   birds: readonly SyncBird[],
 ): Assignment {
   const fliers = readyBySpeed(birds);
   const birdOf = new Map(
-    [...friends]
+    [...destinations]
       .sort(farthestFirst)
-      .map((f, i) => [f.id, fliers[i]?.id ?? null]),
+      .map((d, i) => [d.id, fliers[i]?.id ?? null]),
   );
-  return friends.map((f) => ({
-    friendId: f.id,
-    birdId: birdOf.get(f.id) ?? null,
+  return destinations.map((d) => ({
+    id: d.id,
+    birdId: birdOf.get(d.id) ?? null,
   }));
 }
 
 export function swapBird(
   rows: Assignment,
-  friendId: string,
+  id: string,
   birdId: string,
 ): Assignment {
-  const row = rows.find((r) => r.friendId === friendId);
+  const row = rows.find((r) => r.id === id);
   if (!row) return rows;
   return rows.map((r) => {
     if (r === row) return { ...r, birdId };
