@@ -111,7 +111,9 @@ Body: `{ recipients: [{ friendId } | { place: { placeId, pin?: { lat, lon } } }]
 
 `pin` is an exact destination the sender placed by hand on the map for a held place. With it,
 the leg ends at the pin and `to.label` is the neighbourhood (or city) of the snapped pin.
-Without it, the leg ends at the held place's snapped point, as before. See rule 1 of
+Without it, the leg ends at the held place's snapped point, as before. If the snapped pin has
+no neighbourhood or city, the request is refused with `invalid`. If the geocoder fails, it is
+refused with `unavailable`. The held place's label is never used for a pin. See rule 1 of
 `docs/12-security-privacy.md`.
 
 For each recipient returns distance, the endpoints' labels, and for each requested time

@@ -21,6 +21,7 @@ import { roostLabel } from "@/lib/places";
 import { isWeekend } from "@/lib/game/time";
 import type { Deps } from "@/server/deps";
 import { AppError } from "@/server/errors";
+import { log } from "@/server/log";
 import type { UserId } from "@/server/ports/auth";
 import { toBirdRecord, type BirdRecord, type Row } from "@/server/rows";
 import {
@@ -30,7 +31,11 @@ import {
   type LoftColumns,
 } from "@/server/services/friends";
 import { factorsFor, type Factor } from "./factors";
-import { resolvePlace } from "@/server/services/places";
+import {
+  GEOCODER_UNAVAILABLE,
+  PLACE_NOT_FOUND,
+  resolvePlace,
+} from "@/server/services/places";
 import { sampleWeather } from "@/server/services/weather";
 
 export type QuoteRecipient =
@@ -153,7 +158,7 @@ export async function legFor(
       return { from: roost, to: { point: place.roost, label: place.label } };
     return {
       from: roost,
-      to: { point: pin, label: await pinLabel(deps, pin, place.label) },
+      to: { point: pin, label: await pinLabel(deps, pin) },
     };
   }
   const them = recipient.friendId;
@@ -171,14 +176,17 @@ export async function legFor(
   return { from, to };
 }
 
-async function pinLabel(
-  deps: Deps,
-  pin: Point,
-  fallback: string,
-): Promise<string> {
+async function pinLabel(deps: Deps, pin: Point): Promise<string> {
   const { lat, lon } = snap(pin.lat, pin.lon);
-  const name = await deps.geocoder.reverse(lat, lon).catch(() => null);
-  return (name && roostLabel(name)) ?? fallback;
+  const name = await deps.geocoder.reverse(lat, lon).catch((error: unknown) => {
+    log.warn("geo.reverse_failed", {
+      error: error instanceof Error ? error.name : typeof error,
+    });
+    throw new AppError("unavailable", GEOCODER_UNAVAILABLE);
+  });
+  const label = name && roostLabel(name);
+  if (!label) throw new AppError("invalid", PLACE_NOT_FOUND);
+  return label;
 }
 
 export function endpointOf(shows: Shows, lofts: Lofts): Endpoint | null {

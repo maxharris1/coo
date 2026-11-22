@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { snap, type Point } from "@/lib/game/privacy";
 import { photon } from "@/server/adapters/photon";
 import type { UserId } from "@/server/ports/auth";
+import type { Geocoder } from "@/server/ports/geocoder";
 import { getGuestLink } from "@/server/services/guestLinks/get";
 import { searchPlaces } from "@/server/services/places";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
@@ -22,6 +23,7 @@ const BODY = "Come see the new loft";
 const WILLIAMSBURG_ROOST = { lat: 40.708, lon: -73.9575 };
 const EAST_VILLAGE_PIN: Point = { lat: 40.731234567, lon: -73.986543219 };
 const PIN_DIGITS = ["731234", "986543"];
+const BOSTON_PIN: Point = { lat: 42.351234567, lon: -71.081234567 };
 
 let deps: TestDeps;
 let world: World;
@@ -208,4 +210,50 @@ describe("a destination pin the sender places by hand", () => {
         expect(JSON.stringify(page)).not.toContain(digits);
     }
   });
+
+  describe.each<[string, Geocoder["reverse"], string]>([
+    ["has no answer", async () => null, "invalid"],
+    [
+      "names only a country",
+      async () => ({ country: "United States", countryCode: "US" }),
+      "invalid",
+    ],
+    [
+      "fails",
+      async () => {
+        throw new Error("photon down");
+      },
+      "unavailable",
+    ],
+  ])(
+    "refuses a pin whose neighbourhood the geocoder %s (ac-2)",
+    (_, reverse, code) => {
+      beforeEach(() => {
+        vi.spyOn(deps.geocoder, "reverse").mockImplementation(reverse);
+      });
+
+      it("refuses the quote rather than borrow the held place's label", async () => {
+        const placeId = await heldPlace();
+
+        expect(
+          await refusal(
+            quote(deps, max, {
+              recipients: [{ place: { placeId, pin: BOSTON_PIN } }],
+            }),
+          ),
+        ).toBe(code);
+      });
+
+      it("refuses the send and stores no flight", async () => {
+        const placeId = await heldPlace();
+
+        expect(await refusal(sendTo(placeId, BOSTON_PIN))).toBe(code);
+        expect(
+          await deps.db.query("select id from flights where to_lat = $1", [
+            BOSTON_PIN.lat,
+          ]),
+        ).toEqual([]);
+      });
+    },
+  );
 });
