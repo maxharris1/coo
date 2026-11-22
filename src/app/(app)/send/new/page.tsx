@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Loader } from "@/components/Loader";
 import { useToast } from "@/components/Toasts";
 import { snap, type Point } from "@/lib/game/privacy";
@@ -30,6 +30,7 @@ function NewRecipient() {
   const [query, setQuery] = useState("");
   const [settled, setSettled] = useState<Settled | null>(null);
   const [picked, setPicked] = useState<Picked | null>(null);
+  const latestPick = useRef<Picked | null>(null);
 
   const q = query.trim();
   const settledQuery = settled?.query;
@@ -60,15 +61,18 @@ function NewRecipient() {
   };
 
   const onPick = ({ placeId, label }: PlaceResult) => {
-    setPicked({ placeId, label, spot: null });
+    const pick: Picked = { placeId, label, spot: null };
+    latestPick.current = pick;
+    setPicked(pick);
     setQuery(label);
     setSettled((s) => keepResultsFor(s, label));
     sessionStorage.removeItem(pinKey(placeId));
     void placeStart(placeId).then((r) => {
+      if (latestPick.current !== pick) return;
       if (!r.ok) return toast(r.message);
       const { start } = r.data;
       setPicked((p) =>
-        p?.placeId === placeId ? { ...p, spot: { start, pin: start } } : p,
+        p === pick ? { ...pick, spot: { start, pin: start } } : p,
       );
     });
   };

@@ -336,8 +336,56 @@ describe("NewRecipient page pin", () => {
     });
   });
 
+  it("keeps the moved pin when an older lookup for the same place lands late", async () => {
+    const late: ((r: Response) => void)[] = [];
+    place = () => new Promise((resolve) => late.push(resolve));
+    await show();
+    await pick(FISHTOWN);
+    await act(async () => view().onPick(PHILLY));
+    await act(async () => view().onPick(FISHTOWN));
+    const [firstFishtown, , lastFishtown] = late;
+    await act(async () => lastFishtown(Response.json({ start: START })));
+    const moved = snap(39.976, -75.13);
+    await act(async () => view().onPin(moved));
+    await act(async () => firstFishtown(Response.json({ start: START })));
+    expect(view().picked?.spot).toEqual({ start: START, pin: moved });
+    expect(JSON.parse(stored.get(pinKey("p1"))!)).toEqual(moved);
+  });
+
+  it("keeps the moved pin when picking the same place twice and the first lookup lands last", async () => {
+    const late: ((r: Response) => void)[] = [];
+    place = () => new Promise((resolve) => late.push(resolve));
+    await show();
+    await pick(FISHTOWN);
+    await act(async () => view().onPick(FISHTOWN));
+    const [first, second] = late;
+    await act(async () => second(Response.json({ start: START })));
+    const moved = snap(39.976, -75.13);
+    await act(async () => view().onPin(moved));
+    await act(async () => first(Response.json({ start: START })));
+    expect(view().picked?.spot).toEqual({ start: START, pin: moved });
+  });
+
+  it("stays quiet when a lookup that was superseded fails", async () => {
+    const late: ((r: Response) => void)[] = [];
+    place = () => new Promise((resolve) => late.push(resolve));
+    await show();
+    await pick(FISHTOWN);
+    await act(async () => view().onPick(PHILLY));
+    await act(async () => late[1](Response.json({ start: PHILLY_START })));
+    await act(async () =>
+      late[0](Response.json({ error: { message: "slow" } }, { status: 503 })),
+    );
+    expect(toast).not.toHaveBeenCalled();
+    expect(view().picked?.spot).toEqual({
+      start: PHILLY_START,
+      pin: PHILLY_START,
+    });
+  });
+
   it("toasts the reason and keeps the pick when the starting point fails", async () => {
-    const message = "The map is slow to answer right now. Try again in a moment.";
+    const message =
+      "The map is slow to answer right now. Try again in a moment.";
     place = () =>
       Promise.resolve(Response.json({ error: { message } }, { status: 503 }));
     await show();
