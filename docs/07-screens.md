@@ -103,6 +103,16 @@ Sections: Your birds (scheduled, flying and delayed), Coming to you, Landed toda
 "Earlier" list that pages. Each row taps to the tracker. Odd jobs in progress appear under
 Your birds with their end time.
 
+### Job (`/jobs/[id]`) — the odd-job tracker
+Owner only. Another user's job id shows "We could not find this job." with a link back to Earn.
+The map reuses the tracker's `MapView` with the two legs from `jobLegs`. On the way out the bird
+flies from the "Your loft" pin to the destination pin, and the card says "On an odd job". From
+the midpoint it flies back with no wait and the card says "Heading home". The pin labels swap
+with the leg, so each pin keeps its own name. Both legs show "Home at {ends_at}" and the job's
+text. Once the job is done or `ends_at` has passed, the page says "{bird} is home." and links to
+Earn. A job started before destinations were stored has no map and shows the text card only.
+There are no odds, search party or seeds line.
+
 ### Landed (`/sill/[visitId]`) and the Sill tab (`/sill`)
 `/sill` lists birds waiting on my sill, soonest to leave first, then notes that arrived in the
 last 7 days. With one waiting bird it opens that bird's Landed screen directly.
