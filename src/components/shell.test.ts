@@ -7,6 +7,7 @@ describe("topFor", () => {
     ["/shop", "tomato"],
     ["/sill/v1", "sky"],
     ["/send/takeoff/f1", "sky"],
+    ["/sill/v1/takeoff", "sky"],
     ["/birds/b1", "sky"],
     ["/flights/f1", "map"],
     ["/welcome/install", "sky"],

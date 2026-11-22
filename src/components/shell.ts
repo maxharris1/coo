@@ -19,6 +19,7 @@ const COLOURED_TOPS = [
   { pattern: /^\/shop$/, top: "tomato" },
   { pattern: /^\/sill\/[^/]+$/, top: "sky" },
   { pattern: /^\/send\/takeoff\/[^/]+$/, top: "sky" },
+  { pattern: /^\/sill\/[^/]+\/takeoff$/, top: "sky" },
   { pattern: /^\/birds\/[^/]+$/, top: "sky" },
   { pattern: /^\/flights\/[^/]+$/, top: "map" },
   { pattern: /^\/welcome\/install$/, top: "sky" },

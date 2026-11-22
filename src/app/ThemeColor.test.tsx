@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import type { ReactElement, ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import day from "../../public/map/coo-day.style.json";
+import { config } from "@/lib/config";
 import RootLayout from "./layout";
 import { ThemeColor } from "./ThemeColor";
 
@@ -20,15 +20,19 @@ const TOKENS = Object.fromEntries(
   ].map(([, name, hex]) => [name, ` ${hex}`]),
 );
 
-const LAND = day.layers.find((layer) => layer.id === "land")!.paint as {
-  "background-color": string;
-};
+const TRACKER_TOP = readFileSync(
+  "src/components/Tracker.module.css",
+  "utf8",
+).match(/^\.tracker \{[^}]*?background: (#[0-9a-fA-F]{6});/m)![1];
 
 function page(path: string) {
-  const meta = { content: "" };
+  let meta = { content: config.app.themeColor };
+  const head = {};
   const documentElement = {};
+  const observers: (() => void)[] = [];
   vi.stubGlobal("document", {
     documentElement,
+    head,
     querySelector: (selector: string) =>
       selector === 'meta[name="theme-color"]' ? meta : null,
   });
@@ -36,9 +40,25 @@ function page(path: string) {
     getPropertyValue: (token: string) =>
       element === documentElement ? (TOKENS[token] ?? "") : "",
   }));
+  vi.stubGlobal(
+    "MutationObserver",
+    class {
+      constructor(private readonly notify: () => void) {}
+      observe(target: unknown) {
+        if (target === head) observers.push(this.notify);
+      }
+      disconnect() {}
+    },
+  );
   nav.path = path;
   expect(ThemeColor()).toBeNull();
-  return meta.content;
+  return {
+    colour: () => meta.content,
+    replaceViewport: () => {
+      meta = { content: config.app.themeColor };
+      observers.forEach((notify) => notify());
+    },
+  };
 }
 
 afterEach(() => vi.unstubAllGlobals());
@@ -46,15 +66,24 @@ afterEach(() => vi.unstubAllGlobals());
 describe("theme colour", () => {
   it.each([
     ["/", "#A9DDF7"],
+    ["/sill/v1/takeoff", "#A9DDF7"],
     ["/shop", "#F4623F"],
     ["/sign-in", "#FFC93C"],
     ["/settings", "#FFF4DC"],
   ])("paints the status bar on %s in the page's top colour", (path, hex) => {
-    expect(page(path)).toBe(hex);
+    expect(page(path).colour()).toBe(hex);
   });
 
-  it("paints the flight tracker in the land colour of the day map", () => {
-    expect(page("/flights/f1")).toBe(LAND["background-color"]);
+  it("paints the flight tracker in the day tracker's top colour", () => {
+    expect(TRACKER_TOP).toBe("#d4ebb0");
+    expect(page("/flights/f1").colour()).toBe(TRACKER_TOP);
+  });
+
+  it("keeps the page colour when a query-only navigation replaces the viewport tags", () => {
+    const shoebox = page("/shoebox");
+    expect(shoebox.colour()).toBe("#FFF4DC");
+    shoebox.replaceViewport();
+    expect(shoebox.colour()).toBe("#FFF4DC");
   });
 
   it("is rendered by the root layout", () => {
