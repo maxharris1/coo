@@ -188,7 +188,7 @@ describe("claimGuestLink", () => {
     const { flight } = await replyToVisit(
       deps,
       await callerFor(rosa),
-      visitId as string,
+      visit.id,
       "Saturday works",
     );
     expect(flight).toMatchObject({ kind: "return" });

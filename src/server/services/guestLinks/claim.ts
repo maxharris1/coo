@@ -91,7 +91,7 @@ async function claim(
   if (!existing)
     await db.query(
       `insert into friendships (a_id, b_id, via, created_at)
-       values ($1, $2, 'guest_link', $3) on conflict do nothing`,
+       values ($1, $2, 'guest_link', $3)`,
       [...pair(me, sender), nowIso],
     );
 
@@ -125,12 +125,13 @@ async function claim(
     [[me, sender], nowIso],
   );
 
-  const name = people.find((p) => p.id === me)?.name ?? "";
+  const claimer = people.find((p) => p.id === me);
+  if (!claimer) throw new AppError("not_found", "No profile");
   const created = await recordNotification(db, now, {
     userId: sender,
     kind: "friend-joined",
     refId: link.id,
-    ...notificationText("friend-joined", { friend: name }),
+    ...notificationText("friend-joined", { friend: claimer.name }),
   });
   return created?.id ?? null;
 }
