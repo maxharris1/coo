@@ -88,6 +88,11 @@ const payload = (
     outfits,
   }) as unknown as SyncPayload;
 
+const fetchedAt = (data: SyncPayload, at: number): SyncPayload => ({
+  ...data,
+  serverNow: at,
+});
+
 const CLOSET = ["goggles", "band", "beanie", "scarf", "bell"];
 
 let refresh = vi.fn();
@@ -386,10 +391,103 @@ describe("/birds/[id]/closet (ac-1)", () => {
       const { answerAll } = deferredFetch();
       syncWith(payload([bare], ["goggles", "scarf"]));
       tile("goggles").props.onClick?.();
+      await flush();
       await answerAll();
-      syncWith(payload([bird({ gear: ["scarf"] })], ["goggles", "scarf"]));
+      syncWith(
+        fetchedAt(
+          payload([bird({ gear: ["scarf"] })], ["goggles", "scarf"]),
+          Date.now() + 1,
+        ),
+      );
       expect(tile("goggles").props["aria-pressed"]).toBe(false);
       expect(tile("scarf").props["aria-pressed"]).toBe(true);
+    });
+  });
+
+  describe("a focus sync that lands mid-save (#589)", () => {
+    const bare = bird({ gear: [] });
+    const heldFetch = (fail: string[] = []) => {
+      const bodies: { items?: string[] }[] = [];
+      const answers: (() => void)[] = [];
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(
+          (_url: string, init?: RequestInit) =>
+            new Promise<Response>((resolve) => {
+              const body = JSON.parse(String(init?.body));
+              bodies.push(body);
+              const refused = body.items?.some((i: string) => fail.includes(i));
+              answers.push(() =>
+                resolve(
+                  refused
+                    ? Response.json(
+                        { error: { code: "conflict", message: "No." } },
+                        { status: 409 },
+                      )
+                    : Response.json({ bird: {}, skipped: [] }),
+                ),
+              );
+            }),
+        ),
+      );
+      const answerNext = async () => {
+        answers.shift()!();
+        await flush();
+      };
+      return { bodies, answerNext };
+    };
+    const stale = () =>
+      fetchedAt(payload([bare], ["goggles", "scarf", "band"]), Date.now());
+
+    it("persists goggles and scarf in the reviewer's repro", async () => {
+      const { bodies, answerNext } = heldFetch();
+      syncWith(payload([bare], ["goggles", "scarf"]));
+      tile("goggles").props.onClick?.();
+      await flush();
+      syncWith(stale());
+      expect(tile("goggles").props["aria-pressed"]).toBe(true);
+      await answerNext();
+      expect(refresh).toHaveBeenCalledOnce();
+      expect(tile("goggles").props["aria-pressed"]).toBe(true);
+      tile("scarf").props.onClick?.();
+      await flush();
+      await answerNext();
+      expect(bodies).toEqual([
+        { items: ["goggles"] },
+        { items: ["goggles", "scarf"] },
+      ]);
+    });
+
+    it("keeps the saved selection when the stale snapshot lands after the PUT", async () => {
+      const { bodies, answerNext } = heldFetch();
+      syncWith(payload([bare], ["goggles", "scarf"]));
+      const stand = stale();
+      tile("goggles").props.onClick?.();
+      await flush();
+      await answerNext();
+      syncWith(stand);
+      tile("scarf").props.onClick?.();
+      await flush();
+      expect(bodies.at(-1)).toEqual({ items: ["goggles", "scarf"] });
+    });
+
+    it("falls back to the last good selection, not the snapshot, when a save fails", async () => {
+      const { bodies, answerNext } = heldFetch(["scarf"]);
+      syncWith(payload([bare], ["goggles", "scarf", "band"]));
+      const stand = stale();
+      tile("goggles").props.onClick?.();
+      await flush();
+      await answerNext();
+      syncWith(stand);
+      tile("scarf").props.onClick?.();
+      await flush();
+      await answerNext();
+      expect(toasts).toEqual(["No."]);
+      expect(tile("goggles").props["aria-pressed"]).toBe(true);
+      expect(tile("scarf").props["aria-pressed"]).toBe(false);
+      tile("band").props.onClick?.();
+      await flush();
+      expect(bodies.at(-1)).toEqual({ items: ["goggles", "band"] });
     });
   });
 
