@@ -9,11 +9,21 @@ import EarnPage from "./page";
 
 const states: EarnState[] = [];
 let retry: () => void = () => {};
+let changed: () => void = () => {};
 
 vi.mock("./EarnView", () => ({
-  EarnView: ({ state, onRetry }: { state: EarnState; onRetry: () => void }) => {
+  EarnView: ({
+    state,
+    onRetry,
+    onChanged,
+  }: {
+    state: EarnState;
+    onRetry: () => void;
+    onChanged: () => void;
+  }) => {
     states.push(state);
     retry = onRetry;
+    changed = onChanged;
     return null;
   },
 }));
@@ -116,6 +126,41 @@ describe("/earn page lifecycle", () => {
       top: earnTop(EARN),
       jobs: EARN.jobs,
       found: EARN.found,
+    });
+
+    await act(async () => root.unmount());
+  });
+
+  it("reloads Earn in place after a job starts", async () => {
+    respond = () => Response.json(EARN);
+    const root = createRoot(
+      Object.assign(new EventTarget(), {
+        nodeType: 1,
+        tagName: "DIV",
+        ownerDocument: document,
+      }) as unknown as Element,
+    );
+    await act(async () =>
+      root.render(
+        <ToastContext.Provider value={toast}>
+          <EarnPage />
+        </ToastContext.Provider>,
+      ),
+    );
+    await settle();
+
+    const later = { ...EARN, jobs: { offers: [], leftToday: 1 } };
+    respond = () => Response.json(later);
+    const before = states.length;
+    await act(async () => changed());
+    await settle();
+
+    expect(states.slice(before)).not.toContainEqual({ kind: "loading" });
+    expect(states.at(-1)).toEqual({
+      kind: "ready",
+      top: earnTop(later),
+      jobs: later.jobs,
+      found: later.found,
     });
 
     await act(async () => root.unmount());

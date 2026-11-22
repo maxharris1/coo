@@ -51,8 +51,12 @@ const EARN: Earn = {
   earned: null,
 };
 
+const onChanged = () => {};
+
 const render = (state: EarnState) =>
-  renderToStaticMarkup(<EarnView state={state} onRetry={() => {}} />);
+  renderToStaticMarkup(
+    <EarnView state={state} onRetry={() => {}} onChanged={onChanged} />,
+  );
 
 const ready = (earn: Earn = EARN) =>
   render({
@@ -151,7 +155,7 @@ describe("/earn punch card", () => {
   it("hands jobs and found objects to the jobs panel", () => {
     panels.length = 0;
     ready();
-    expect(panels).toEqual([{ jobs: EARN.jobs, found: EARN.found }]);
+    expect(panels).toEqual([{ jobs: EARN.jobs, found: EARN.found, onChanged }]);
   });
 });
 

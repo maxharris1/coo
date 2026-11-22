@@ -40,5 +40,5 @@ export default function EarnPage() {
     load();
   };
 
-  return <EarnView state={state} onRetry={onRetry} />;
+  return <EarnView state={state} onRetry={onRetry} onChanged={load} />;
 }

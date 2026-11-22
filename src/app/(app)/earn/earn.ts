@@ -73,13 +73,13 @@ export function earnTop({ seeds, punchCard, payTable }: Earn): EarnTop {
 
 const UNREACHABLE = "We could not reach the loft. Try again.";
 
-type Result<T> =
+export type Result<T> =
   { ok: true; data: T } | { ok: false; message: string; code?: string };
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
 
-async function call<T>(fetchImpl: Fetch, url: string): Promise<Result<T>> {
+async function call<T>(send: () => Promise<Response>): Promise<Result<T>> {
   try {
-    const res = await fetchImpl(url);
+    const res = await send();
     const json: unknown = await res.json().catch(() => null);
     if (res.ok && json !== null) return { ok: true, data: json as T };
     const error = (
@@ -97,7 +97,23 @@ async function call<T>(fetchImpl: Fetch, url: string): Promise<Result<T>> {
 }
 
 export const loadEarn = (fetchImpl: Fetch = fetch, flightId?: string) =>
-  call<Earn>(
-    fetchImpl,
-    flightId ? `/api/earn?flight=${encodeURIComponent(flightId)}` : "/api/earn",
+  call<Earn>(() =>
+    fetchImpl(
+      flightId
+        ? `/api/earn?flight=${encodeURIComponent(flightId)}`
+        : "/api/earn",
+    ),
+  );
+
+export const startJob = (
+  jobId: string,
+  birdId: string,
+  fetchImpl: Fetch = fetch,
+) =>
+  call<unknown>(() =>
+    fetchImpl("/api/jobs", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ jobId, birdId }),
+    }),
   );
