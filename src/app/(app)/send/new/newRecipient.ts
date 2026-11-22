@@ -52,3 +52,12 @@ export function searchFor(query: string, settled: Settled | null): Search {
   if (!q) return { kind: "idle" };
   return settled?.query === q ? settled : { kind: "loading", query: q };
 }
+
+export function keepResultsFor(
+  settled: Settled | null,
+  label: string,
+): Settled | null {
+  return settled?.kind === "results"
+    ? { ...settled, query: label.trim() }
+    : settled;
+}

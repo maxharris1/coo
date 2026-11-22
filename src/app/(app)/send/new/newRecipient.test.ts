@@ -3,6 +3,7 @@ import type { PlaceResult } from "../../welcome/loft/roost";
 import { PREFILL_NAME_KEY } from "../recipients";
 import {
   canGoNext,
+  keepResultsFor,
   HELPER,
   nextHref,
   searchFor,
@@ -120,5 +121,27 @@ describe("searchFor", () => {
     expect(searchFor(" Fish ", found)).toEqual(found);
     const failed: Settled = { kind: "failed", query: "Fish" };
     expect(searchFor("Fish", failed)).toEqual(failed);
+  });
+});
+
+describe("keepResultsFor", () => {
+  it("files the shown results under the picked label so no new search runs", () => {
+    const found: Settled = {
+      kind: "results",
+      query: "Fish",
+      results: [FISHTOWN],
+    };
+    const kept = keepResultsFor(found, " Fishtown, Philadelphia ");
+    expect(searchFor("Fishtown, Philadelphia", kept)).toEqual({
+      kind: "results",
+      query: "Fishtown, Philadelphia",
+      results: [FISHTOWN],
+    });
+  });
+
+  it("leaves a failed or missing answer alone", () => {
+    const failed: Settled = { kind: "failed", query: "Fish" };
+    expect(keepResultsFor(failed, "Fishtown")).toBe(failed);
+    expect(keepResultsFor(null, "Fishtown")).toBeNull();
   });
 });

@@ -4,7 +4,12 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { Loader } from "@/components/Loader";
 import { useToast } from "@/components/Toasts";
 import { searchPlaces, type PlaceResult } from "../../welcome/loft/roost";
-import { searchFor, takePrefillName, type Settled } from "./newRecipient";
+import {
+  keepResultsFor,
+  searchFor,
+  takePrefillName,
+  type Settled,
+} from "./newRecipient";
 import { NewRecipientView } from "./NewRecipientView";
 
 const SEARCH_DELAY_MS = 300;
@@ -46,14 +51,10 @@ function NewRecipient() {
     if (picked && next !== picked.label) setPicked(null);
   };
 
-  // Re-keys the shown results under the picked label, so filling the field
-  // with it neither searches again nor swaps in fresh place ids.
   const onPick = (place: PlaceResult) => {
     setPicked(place);
     setQuery(place.label);
-    setSettled((s) =>
-      s?.kind === "results" ? { ...s, query: place.label.trim() } : s,
-    );
+    setSettled((s) => keepResultsFor(s, place.label));
   };
 
   return (
@@ -69,13 +70,13 @@ function NewRecipient() {
   );
 }
 
-// The handed-off name lives in sessionStorage, which the server cannot read,
-// so the form mounts on the client only and seeds its state from it directly.
-export default function NewRecipientPage() {
-  const onClient = useSyncExternalStore(
+const useOnClient = () =>
+  useSyncExternalStore(
     noSubscribe,
     () => true,
     () => false,
   );
-  return onClient ? <NewRecipient /> : <Loader />;
+
+export default function NewRecipientPage() {
+  return useOnClient() ? <NewRecipient /> : <Loader />;
 }
