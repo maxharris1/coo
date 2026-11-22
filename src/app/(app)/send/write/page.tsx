@@ -13,7 +13,7 @@ import type { FriendRow } from "@/server/services/friends";
 import { postCare } from "../../feed";
 import { feedThenRefresh } from "../../flockRows";
 import { loadFriends } from "../../friends/friendsApi";
-import { clearDraft, saveDraft } from "../forecast/draft";
+import { clearDraft, readDraft, saveDraft } from "../forecast/draft";
 import {
   type Assignment,
   assignBirds,
@@ -42,7 +42,10 @@ function Compose() {
   const toast = useToast();
   const { data, refresh } = useSync();
   const [friends, setFriends] = useState<Friends>({ kind: "loading" });
-  const [note, setNote] = useState("");
+  const [saved] = useState(() =>
+    friendIds.flatMap((id) => readDraft(id) ?? []),
+  );
+  const [note, setNote] = useState(saved[0]?.body ?? "");
   const [sending, setSending] = useState(false);
   const [swaps, setSwaps] = useState<Swaps | null>(null);
   const [legs, setLegs] = useState<RecipientQuote[]>([]);
@@ -74,7 +77,14 @@ function Compose() {
   const pickable = (id: string | null) =>
     options.some((o) => o.id === id && o.state.kind !== "blocked");
   const rows = (
-    swaps?.key === key ? swaps.rows : assignBirds(recipients, flock)
+    swaps?.key === key
+      ? swaps.rows
+      : saved
+          .filter((d) => pickable(d.birdId))
+          .reduce(
+            (rs, d) => swapBird(rs, d.friendId, d.birdId),
+            assignBirds(recipients, flock),
+          )
   ).map((r) => ({ ...r, birdId: pickable(r.birdId) ? r.birdId : null }));
   const birdOf = (id: string | null) => flock.find((b) => b.id === id);
   const sends: Send[] = rows.flatMap(({ friendId, birdId }) =>

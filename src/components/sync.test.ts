@@ -220,6 +220,15 @@ describe("startSync", () => {
     s.sync.stop();
   });
 
+  it("reports a whole-millisecond offset when the round trip is odd", async () => {
+    const s = setup();
+    await vi.advanceTimersByTimeAsync(1);
+    await s.respond(200, { serverNow: 0 });
+    const [result] = s.results;
+    expect(result.ok && Number.isInteger(result.offsetMs)).toBe(true);
+    s.sync.stop();
+  });
+
   it("anchors serverNow to the monotonic midpoint of the request, whatever the wall clock does", async () => {
     const s = setup();
     const sent = performance.now();
