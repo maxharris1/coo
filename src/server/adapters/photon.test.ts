@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Db } from "@/server/db";
 import { FakeClock } from "@/test/fakes/clock";
 import { testDb } from "@/test/testDb";
+import { config } from "@/lib/config";
 import { photon } from "./photon";
 
 const BASE = "https://photon.test";
@@ -174,7 +175,7 @@ describe("photon search", () => {
     expect(fetch).toHaveBeenCalledTimes(2);
     for (const [, init] of vi.mocked(fetch).mock.calls) {
       expect(new Headers(init?.headers).get("user-agent")).toBe(
-        "Coo (https://github.com/maxharris1/coo)",
+        `${config.app.name} (https://github.com/maxharris1/coo)`,
       );
     }
   });

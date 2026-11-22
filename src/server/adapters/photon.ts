@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
+import { config } from "@/lib/config";
 import { snap } from "@/lib/game/privacy";
 import type { Clock } from "../clock";
 import type { Db } from "../db";
@@ -7,7 +8,7 @@ import type { GeoHit, GeoName, Geocoder } from "../ports/geocoder";
 
 const MAX_IN_FLIGHT = 3;
 const TIMEOUT_MS = 3000;
-const USER_AGENT = "Coo (https://github.com/maxharris1/coo)";
+const USER_AGENT = `${config.app.name} (https://github.com/maxharris1/coo)`;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const SEARCH_TTL_MS = DAY_MS;
 const REVERSE_TTL_MS = 30 * DAY_MS;
