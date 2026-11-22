@@ -367,3 +367,45 @@ describe("syncPhoneLast4 as coo_app", () => {
     expect(await phoneLast4(b)).toBe("0000");
   });
 });
+
+describe("onboard: the two starter birds never share a name (#695)", () => {
+  it("rejects a roommate with the first bird's name, ignoring case and spaces, and writes nothing", async () => {
+    const user = await newUser();
+
+    await expect(
+      onboard(deps, user, {
+        ...BODY,
+        secondBird: { name: " gerald ", pronoun: "they" },
+      }),
+    ).rejects.toMatchObject({
+      code: "conflict",
+      status: 409,
+      message: "You already have a bird called Gerald.",
+    });
+
+    const r = await rows(user);
+    expect(r.profiles).toHaveLength(0);
+    expect(r.birds).toHaveLength(0);
+    expect(r.ledger).toHaveLength(0);
+
+    await onboard(deps, user, {
+      ...BODY,
+      secondBird: { name: "Pip", pronoun: "they" },
+    });
+    expect((await rows(user)).birds).toHaveLength(2);
+  });
+
+  it("gives an unnamed roommate a different name when the first bird on Kevin is called Gerald", async () => {
+    const user = await newUser();
+
+    const { birds } = await onboard(deps, user, {
+      ...BODY,
+      bird: { name: "Gerald", look: "kevin", pronoun: "he" },
+    });
+
+    const kevin = birds.find((b) => b.look === "kevin")!;
+    const roommate = birds.find((b) => b.look === "gerald")!;
+    expect(kevin.name).toBe("Gerald");
+    expect(roommate.name.trim().toLowerCase()).not.toBe("gerald");
+  });
+});

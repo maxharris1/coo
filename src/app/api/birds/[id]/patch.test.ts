@@ -202,3 +202,63 @@ describe("PATCH /api/birds/[id] (ac-5)", () => {
     });
   });
 });
+
+describe("PATCH /api/birds/[id] keeps names unique in a loft (#695)", () => {
+  const brenda = () => world.max.birds[1].id;
+
+  it("refuses another of my birds' names, ignoring case and spaces, with 409", async () => {
+    const jar = await signIn(MAX_PHONE);
+    const before = await birdRow(brenda());
+
+    const { status, json } = await patch(brenda(), { name: " gerald " }, jar);
+
+    expect(status).toBe(409);
+    expect(json.error).toEqual({
+      code: "conflict",
+      message: "You already have a bird called Gerald.",
+    });
+    expect(await birdRow(brenda())).toEqual(before);
+  });
+
+  it.each([["Brenda"], ["brenda"], ["Gus"], ["Kevin"]])(
+    "renames to %j, its own name or one free in my loft",
+    async (name) => {
+      const jar = await signIn(MAX_PHONE);
+
+      const { status } = await patch(brenda(), { name }, jar);
+
+      expect(status).toBe(200);
+      expect((await birdRow(brenda())).name).toBe(name);
+    },
+  );
+
+  describe("with two legacy birds already sharing a name", () => {
+    beforeEach(async () => {
+      await setBird(brenda(), "name = 'Gerald'");
+    });
+
+    it.each([
+      ["a pronoun only", { pronoun: "she" }, "Gerald"],
+      ["its own name", { name: "Gerald" }, "Gerald"],
+      ["its own name in new case", { name: "gerald" }, "gerald"],
+      ["a free name", { name: "Gus" }, "Gus"],
+    ])("still accepts %s", async (_, body, name) => {
+      const jar = await signIn(MAX_PHONE);
+
+      const { status } = await patch(brenda(), body, jar);
+
+      expect(status).toBe(200);
+      expect((await birdRow(brenda())).name).toBe(name);
+    });
+
+    it("refuses the other one taking the first one's new name", async () => {
+      const jar = await signIn(MAX_PHONE);
+      expect((await patch(brenda(), { name: "Gus" }, jar)).status).toBe(200);
+
+      const { status } = await patch(gerald, { name: "gus" }, jar);
+
+      expect(status).toBe(409);
+      expect((await birdRow(gerald)).name).toBe("Gerald");
+    });
+  });
+});

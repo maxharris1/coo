@@ -1,6 +1,7 @@
 import { randomBytes, randomInt } from "node:crypto";
 import { z } from "zod";
 import birdLooks from "../../../public/assets/data/birds.json";
+import { freeBirdName, sameBirdName } from "@/lib/birdName";
 import { isBlocked } from "@/lib/blocklist";
 import type { Config } from "@/lib/config";
 import { handleBase } from "@/lib/handle";
@@ -8,6 +9,7 @@ import type { Db } from "@/server/db";
 import type { Deps } from "@/server/deps";
 import { AppError } from "@/server/errors";
 import type { UserId } from "@/server/ports/auth";
+import { nameTaken } from "@/server/services/birdNames";
 import {
   toBirdRecord,
   toMe,
@@ -116,7 +118,12 @@ function secondBird(config: Config, body: Body) {
   const { looks } = config.game.start;
   const look = looks[(looks.indexOf(body.bird.look) + 1) % looks.length];
   const name =
-    body.secondBird?.name ?? birdLooks[look as keyof typeof birdLooks].name;
+    body.secondBird?.name ??
+    freeBirdName(
+      birdLooks[look as keyof typeof birdLooks].name,
+      [body.bird.name],
+      config.quirks.defaultNames,
+    );
   return { name, look, pronoun: body.secondBird?.pronoun ?? "they" };
 }
 
@@ -125,12 +132,13 @@ async function stockAccount(
   config: Config,
   user: UserId,
   body: Body,
+  second: ReturnType<typeof secondBird>,
   now: string,
 ): Promise<void> {
   const { start, eggs } = config.game;
   const { fears, loves } = config.quirks;
   const pick = (list: string[]) => list[randomInt(list.length)];
-  const birds = [body.bird, secondBird(config, body)];
+  const birds = [body.bird, second];
   for (const [i, bird] of birds.entries()) {
     const stats = start.birds[i];
     await db.query(
@@ -200,10 +208,13 @@ export async function onboard(
   input: unknown,
 ): Promise<OnboardingResult> {
   const body = parse(deps.config, input);
+  const second = secondBird(deps.config, body);
+  if (sameBirdName(body.bird.name, second.name))
+    throw nameTaken(body.bird.name);
   const now = new Date(deps.clock.now()).toISOString();
   return deps.db.tx(async (db) => {
     if (await claimProfile(db, caller, body, now)) {
-      await stockAccount(db, deps.config, caller, body, now);
+      await stockAccount(db, deps.config, caller, body, second, now);
     }
     await syncPhoneLast4(db, caller);
     return readAccount(db, caller);
