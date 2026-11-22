@@ -131,6 +131,37 @@
   gap: 8px;
 }
 
+.chips {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.chip {
+  min-height: var(--coo-touch);
+  padding: 4px 10px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1.15;
+  color: var(--coo-ink);
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  background: var(--coo-card);
+  border: var(--coo-line);
+  border-radius: var(--coo-radius-pill);
+}
+
+.chip[aria-pressed="true"] {
+  background: var(--coo-sun);
+  box-shadow: var(--coo-shadow-2);
+}
+
+.chip:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .tile {
   display: flex;
   flex-direction: column;

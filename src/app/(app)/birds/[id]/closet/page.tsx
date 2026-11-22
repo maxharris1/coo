@@ -10,6 +10,7 @@ import type { SyncPayload } from "@/components/sync";
 import { useToast } from "@/components/Toasts";
 import { ClosetTile } from "./ClosetTile";
 import {
+  applyOutfit,
   closetCells,
   effectsFor,
   pick,
@@ -90,12 +91,7 @@ export default function ClosetPage() {
   });
   const cells = closetCells(wardrobeFor(worn));
   const effects = effectsFor(worn);
-  const dress = (item: GearId) => {
-    const current =
-      saving.current?.birdId === bird.id ? saving.current.worn : worn;
-    const cell = closetCells(wardrobeFor(current)).find((c) => c.item === item);
-    const next = cell && pick(current, cell);
-    if (!next) return;
+  const save = (next: GearId[]) => {
     setShown({ data, birdId: bird.id, worn: next });
     const done = (saving.current?.done ?? Promise.resolve())
       .then(() => putGear(bird.id, next))
@@ -110,6 +106,21 @@ export default function ClosetPage() {
       });
     saving.current = { birdId: bird.id, worn: next, done };
   };
+  const dress = (item: GearId) => {
+    const current =
+      saving.current?.birdId === bird.id ? saving.current.worn : worn;
+    const cell = closetCells(wardrobeFor(current)).find((c) => c.item === item);
+    const next = cell && pick(current, cell);
+    if (next) save(next);
+  };
+  const outfits = data.outfits.map((outfit) => {
+    const gear = applyOutfit(wardrobeFor(worn), outfit);
+    const wearing =
+      gear.length > 0 &&
+      gear.length === worn.length &&
+      gear.every((item) => worn.includes(item));
+    return { outfit, gear, wearing };
+  });
 
   return (
     <main className={styles.screen}>
@@ -144,6 +155,27 @@ export default function ClosetPage() {
           )}
         </div>
       </section>
+      {outfits.length > 0 && (
+        <section className={styles.section}>
+          <div className={styles.sectionTop}>
+            <h2 className={styles.heading}>Saved outfits</h2>
+          </div>
+          <div className={styles.chips}>
+            {outfits.map(({ outfit, gear, wearing }) => (
+              <button
+                key={outfit.id}
+                type="button"
+                className={styles.chip}
+                aria-pressed={wearing}
+                disabled={gear.length === 0}
+                onClick={() => save(gear)}
+              >
+                {outfit.name}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
       <section className={styles.section}>
         <div className={styles.sectionTop}>
           <h2 className={styles.heading}>Closet</h2>
