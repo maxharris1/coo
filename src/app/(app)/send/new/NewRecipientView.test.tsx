@@ -42,6 +42,8 @@ const props = (over: Partial<Props> = {}): Props => ({
   onName: () => {},
   onQuery: () => {},
   onPick: () => {},
+  destination: null,
+  onMove: () => {},
   ...over,
 });
 
@@ -94,7 +96,7 @@ describe("NewRecipientView (ac-2)", () => {
     );
     expect(rowFor(html, "Philadelphia, PA")).toContain("Anywhere in the city");
     expect(rowFor(html, "Frankford Ave, Philadelphia")).toContain(
-      "Shown to nobody. Rounded to the nearest roost.",
+      "Rounded to the nearest roost. Drag the pin to their door.",
     );
   });
 
@@ -161,5 +163,19 @@ describe("NewRecipientView (ac-2)", () => {
     });
     expect(html).not.toContain("aria-pressed");
     expect(html).not.toContain(PLACE_NOT_FOUND);
+  });
+
+  it("shows no map until a place is picked and its pin is ready", () => {
+    expect(render()).not.toContain("Map of");
+  });
+
+  it("shows a draggable pin with its label under it once a pick has a starting point (ac-1)", () => {
+    const html = render({
+      destination: { at: { lat: 39.9705, lon: -75.1345 }, label: "Kensington" },
+    });
+    expect(html).toMatch(/role="group" aria-label="Map of Kensington/);
+    expect(html).toMatch(/role="button" tabindex="0"/i);
+    const map = html.indexOf("Map of Kensington");
+    expect(html.indexOf(">Kensington</p>")).toBeGreaterThan(map);
   });
 });

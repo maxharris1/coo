@@ -34,3 +34,12 @@ export function readGuest(
   const pin = readPin(storage, placeId);
   return pin ? { name, placeId, pin } : { name, placeId };
 }
+
+export function writePin(
+  storage: Pick<Storage, "setItem" | "removeItem">,
+  placeId: string,
+  pin: Point | null,
+) {
+  if (pin) storage.setItem(pinKey(placeId), JSON.stringify(pin));
+  else storage.removeItem(pinKey(placeId));
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pinKey, readGuest } from "./guest";
+import { pinKey, readGuest, writePin } from "./guest";
 
 const params = (query: string) => new URLSearchParams(query);
 
@@ -79,5 +79,35 @@ describe("readGuest", () => {
     ["nothing", ""],
   ])("is no guest with %s", (_, query) => {
     expect(readGuest(params(query), EMPTY)).toBeNull();
+  });
+});
+
+describe("writePin", () => {
+  const memory = () => {
+    const entries: Record<string, string> = {};
+    return {
+      entries,
+      getItem: (key: string) => entries[key] ?? null,
+      setItem: (key: string, value: string) => void (entries[key] = value),
+      removeItem: (key: string) => void delete entries[key],
+    };
+  };
+
+  it("stores the exact pin where compose reads it", () => {
+    const storage = memory();
+    const pin = { lat: 40.712345678, lon: -74.006012345 };
+    writePin(storage, "p1", pin);
+    expect(readGuest(params("guest=Maya&place=p1"), storage)).toStrictEqual({
+      name: "Maya",
+      placeId: "p1",
+      pin,
+    });
+  });
+
+  it("forgets the pin when there is none", () => {
+    const storage = memory();
+    writePin(storage, "p1", { lat: 40.7, lon: -74 });
+    writePin(storage, "p1", null);
+    expect(storage.entries).toStrictEqual({});
   });
 });

@@ -21,7 +21,10 @@ From the Voice sheet (`reference/sheets/png/Voice.png`, `assets/copy/voice.md`):
 - Errors are calm and say what to do next. "Not enough seeds. Deliveries pay 10 and up."
 - Never blame the user. Never say "oops", "uh oh" or "whoops".
 - The joke is always on the bird's dignity, never on the user and never on the recipient.
-- Privacy lines are plain, not cute. "Your address is never stored or shown."
+- Privacy lines are plain, not cute, and true. "We keep the roost, not your address." Roosts
+  are always rounded to the roost grid, and so are searched places. The only exact point is a
+  destination pin the sender places by hand on a send to someone new. Copy about it says so
+  plainly. "Rounded to the nearest roost. Drag the pin to their door."
 
 ## Where the words are
 

@@ -39,8 +39,17 @@ ready." Next is disabled when more are picked than birds are ready. Friends I ca
 (no loft yet) are greyed with a reason.
 
 ### NewRecipient (`/send/new`)
-Name field. Place search (`/api/geo/search`) with result rows by kind. Helper text as drawn.
-"Next: write the note" carries `{ name, placeId }` into Compose.
+Name field. Place search (`/api/geo/search`) with result rows by kind. Helper text as drawn,
+except the address row, which says "Rounded to the nearest roost. Drag the pin to their door."
+After a pick, a draggable map pin (`PinMap`) starts at the place's rounded starting point from
+`GET /api/geo/place?placeId=`. Dragging the pin or tapping the map moves it and stores the exact
+point for Compose. The label under the pin comes from `/api/geo/here` with the snapped pin, so
+the geocoder only sees grid points. A pick whose pin was never moved stores no pin, and the
+destination stays the snapped place. Roosts stay rounded. The hand-placed pin is the only exact
+point (`docs/12-security-privacy.md` rule 1), shown only to the sender and the recipient.
+"Next: write the note" carries the name and the `placeId` in the URL. A placed pin waits in
+`sessionStorage` under the `placeId`, where Compose reads it, so the URL never carries
+coordinates.
 
 ### Compose (`/send/write`)
 Shows: recipient card with place and distance and a Change link; the note field with a live

@@ -21,7 +21,7 @@
       {
         "heading": "What we never keep",
         "paragraphs": [
-          "Your exact location. A position from your phone or a search is snapped to the roost grid before it is saved or logged.",
+          "Your exact location. A position from your phone or a search is snapped to the roost grid before it is saved or logged. There is one exception. If you send a bird by guest link and place the pin on the map by hand, we keep that pin exactly. Only you and the person holding the link see it.",
           "Your address. If you search for one, we keep the snapped point and a neighbourhood label. The search text is not saved.",
           "Your contacts. There is no contacts upload. Friends are made by links, not by looking up phone numbers. If you pick a contact to fill in a name, only the name you confirm is sent to us."
         ]

@@ -1,16 +1,24 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Loader } from "@/components/Loader";
 import { useToast } from "@/components/Toasts";
-import { searchPlaces, type PlaceResult } from "../../welcome/loft/roost";
+import { snap, type Point } from "@/lib/game/privacy";
+import {
+  lookHere,
+  placeStart,
+  searchPlaces,
+  type PlaceResult,
+} from "../../welcome/loft/roost";
+import { writePin } from "../write/guest";
+import { PLACE_NOT_FOUND } from "./NewRecipientView";
 import {
   keepResultsFor,
   searchFor,
   takePrefillName,
   type Settled,
 } from "./newRecipient";
-import { NewRecipientView } from "./NewRecipientView";
+import { NewRecipientView, type Destination } from "./NewRecipientView";
 
 const SEARCH_DELAY_MS = 300;
 
@@ -22,6 +30,14 @@ function NewRecipient() {
   const [query, setQuery] = useState("");
   const [settled, setSettled] = useState<Settled | null>(null);
   const [picked, setPicked] = useState<PlaceResult | null>(null);
+  const [destination, setDestination] = useState<Destination | null>(null);
+  const pick = useRef(0);
+
+  const choose = (place: PlaceResult | null) => {
+    pick.current += 1;
+    setPicked(place);
+    setDestination(null);
+  };
 
   const q = query.trim();
   const settledQuery = settled?.query;
@@ -48,13 +64,34 @@ function NewRecipient() {
 
   const onQuery = (next: string) => {
     setQuery(next);
-    if (picked && next !== picked.label) setPicked(null);
+    if (picked && next !== picked.label) choose(null);
   };
 
   const onPick = (place: PlaceResult) => {
-    setPicked(place);
+    choose(place);
     setQuery(place.label);
     setSettled((s) => keepResultsFor(s, place.label));
+    writePin(sessionStorage, place.placeId, null);
+    const mine = pick.current;
+    void placeStart(place.placeId).then((r) => {
+      if (pick.current !== mine) return;
+      if (!r.ok) return toast(r.message);
+      setDestination({ at: r.data.start, label: place.label });
+    });
+  };
+
+  const onMove = (point: Point) => {
+    if (!picked) return;
+    const { placeId } = picked;
+    const mine = pick.current;
+    void lookHere(snap(point.lat, point.lon)).then((r) => {
+      if (pick.current !== mine) return;
+      if (!r.ok) return toast(r.message);
+      const { place, message } = r.data;
+      if (!place) return toast(message ?? PLACE_NOT_FOUND);
+      writePin(sessionStorage, placeId, point);
+      setDestination({ at: point, label: place.label });
+    });
   };
 
   return (
@@ -66,6 +103,8 @@ function NewRecipient() {
       onName={setName}
       onQuery={onQuery}
       onPick={onPick}
+      destination={destination}
+      onMove={onMove}
     />
   );
 }

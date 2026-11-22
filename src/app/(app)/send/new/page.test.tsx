@@ -3,8 +3,10 @@ import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastContext } from "@/components/Toasts";
+import { snap } from "@/lib/game/privacy";
 import type { PlaceResult } from "../../welcome/loft/roost";
 import { PREFILL_NAME_KEY } from "../recipients";
+import { pinKey } from "../write/guest";
 import type { NewRecipientView } from "./NewRecipientView";
 import NewRecipientPage from "./page";
 
@@ -34,6 +36,8 @@ const PHILLY: PlaceResult = {
 
 let stored: Map<string, string>;
 let answer: (q: string) => Promise<Response>;
+let placeAnswer: (placeId: string) => Promise<Response>;
+let hereAnswer: (lat: string, lon: string) => Promise<Response>;
 let fetchMock: ReturnType<
   typeof vi.fn<(url: RequestInfo | URL) => Promise<Response>>
 >;
@@ -72,10 +76,17 @@ const tick = (ms: number) =>
 
 const type = (q: string) => act(async () => view().onQuery(q));
 
+const calledAt = (path: string) =>
+  fetchMock.mock.calls
+    .map(([url]) => new URL(String(url), "http://x"))
+    .filter((u) => u.pathname === path)
+    .map((u) => u.searchParams);
+
 const searched = () =>
-  fetchMock.mock.calls.map(([url]) =>
-    new URL(String(url), "http://x").searchParams.get("q"),
-  );
+  calledAt("/api/geo/search").map((params) => params.get("q"));
+
+const START = { lat: 39.9705, lon: -75.1345 };
+const DOOR = { lat: 39.971234567, lon: -75.133987654 };
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -85,9 +96,21 @@ beforeEach(() => {
   toast = vi.fn<(message: string) => void>();
   answer = () =>
     Promise.resolve(Response.json({ results: [FISHTOWN, PHILLY] }));
-  fetchMock = vi.fn((url: RequestInfo | URL) =>
-    answer(new URL(String(url), "http://x").searchParams.get("q") ?? ""),
-  );
+  placeAnswer = () => Promise.resolve(Response.json({ start: START }));
+  hereAnswer = () =>
+    Promise.resolve(
+      Response.json({
+        place: { label: "Kensington", city: "Philadelphia, PA" },
+      }),
+    );
+  fetchMock = vi.fn((url: RequestInfo | URL) => {
+    const u = new URL(String(url), "http://x");
+    const param = (k: string) => u.searchParams.get(k) ?? "";
+    if (u.pathname === "/api/geo/place") return placeAnswer(param("placeId"));
+    if (u.pathname === "/api/geo/here")
+      return hereAnswer(param("lat"), param("lon"));
+    return answer(param("q"));
+  });
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal(
     "window",
@@ -225,5 +248,104 @@ describe("NewRecipient page search", () => {
     await tick(1000);
     expect(view().search).toEqual({ kind: "idle" });
     expect(searched()).toEqual([]);
+  });
+});
+
+describe("NewRecipient page destination pin", () => {
+  async function picked(place: PlaceResult = FISHTOWN) {
+    await show();
+    await type("Fish");
+    await tick(300);
+    await act(async () => view().onPick(place));
+  }
+
+  it("shows no pin before a pick", async () => {
+    await show();
+    expect(view().destination).toBeNull();
+  });
+
+  it("starts the pin at the held place's starting point and stores nothing until it moves (ac-1, ac-2)", async () => {
+    await picked();
+    expect(calledAt("/api/geo/place").map((p) => p.get("placeId"))).toEqual([
+      "p1",
+    ]);
+    expect(view().destination).toEqual({
+      at: START,
+      label: "Fishtown, Philadelphia",
+    });
+    expect(stored.has(pinKey("p1"))).toBe(false);
+  });
+
+  it("moves the pin to the exact point, labels it from the snapped pin, and stores it for compose (ac-2)", async () => {
+    await picked();
+    await act(async () => view().onMove(DOOR));
+    const asked = calledAt("/api/geo/here");
+    expect(asked).toHaveLength(1);
+    const grid = snap(DOOR.lat, DOOR.lon);
+    expect(Number(asked[0].get("lat"))).toBe(grid.lat);
+    expect(Number(asked[0].get("lon"))).toBe(grid.lon);
+    expect(view().destination).toEqual({ at: DOOR, label: "Kensington" });
+    expect(JSON.parse(stored.get(pinKey("p1"))!)).toEqual(DOOR);
+  });
+
+  it("keeps the pin where it was and stores nothing when the spot has no name", async () => {
+    hereAnswer = () =>
+      Promise.resolve(
+        Response.json({ place: null, message: "Could not find that place." }),
+      );
+    await picked();
+    await act(async () => view().onMove(DOOR));
+    expect(toast).toHaveBeenCalledExactlyOnceWith("Could not find that place.");
+    expect(view().destination).toEqual({
+      at: START,
+      label: "Fishtown, Philadelphia",
+    });
+    expect(stored.has(pinKey("p1"))).toBe(false);
+  });
+
+  it("forgets a moved pin when the same place is picked again", async () => {
+    await picked();
+    await act(async () => view().onMove(DOOR));
+    await act(async () => view().onPick(FISHTOWN));
+    expect(view().destination).toEqual({
+      at: START,
+      label: "Fishtown, Philadelphia",
+    });
+    expect(stored.has(pinKey("p1"))).toBe(false);
+  });
+
+  it("toasts and shows no pin when the starting point cannot be read", async () => {
+    placeAnswer = () =>
+      Promise.resolve(
+        Response.json(
+          { error: { message: "placeId: unknown place" } },
+          { status: 400 },
+        ),
+      );
+    await picked();
+    expect(toast).toHaveBeenCalledExactlyOnceWith("placeId: unknown place");
+    expect(view().destination).toBeNull();
+  });
+
+  it("ignores a starting point that arrives after another pick", async () => {
+    const late: Record<string, (r: Response) => void> = {};
+    placeAnswer = (placeId) =>
+      new Promise((resolve) => (late[placeId] = resolve));
+    await picked(FISHTOWN);
+    await act(async () => view().onPick(PHILLY));
+    await act(async () => late.p2(Response.json({ start: START })));
+    await act(async () =>
+      late.p1(Response.json({ start: { lat: 1, lon: 1 } })),
+    );
+    expect(view().destination).toEqual({
+      at: START,
+      label: "Philadelphia, PA",
+    });
+  });
+
+  it("drops the pin once the sender edits the place", async () => {
+    await picked();
+    await type("Fishtown, Phila");
+    expect(view().destination).toBeNull();
   });
 });

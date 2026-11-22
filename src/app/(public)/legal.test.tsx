@@ -52,6 +52,18 @@ describe("/privacy", () => {
     }
   });
 
+  it("keeps roosts snapped and only a hand-placed guest pin exact", () => {
+    expect(privacy).toContain(
+      "We snap the spot where birds find you to a coarse grid",
+    );
+    expect(privacy).toContain(
+      "A position from your phone or a search is snapped to the roost grid before it is saved or logged.",
+    );
+    expect(privacy).toContain(
+      "If you send a bird by guest link and place the pin on the map by hand, we keep that pin exactly. Only you and the person holding the link see it.",
+    );
+  });
+
   it("names every processor from docs/12", () => {
     for (const processor of [
       "Supabase",

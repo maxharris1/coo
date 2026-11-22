@@ -49,7 +49,7 @@ describe("HELPER", () => {
     expect(HELPER).toEqual({
       neighbourhood: "A neighborhood is plenty",
       city: "Anywhere in the city",
-      address: "Shown to nobody. Rounded to the nearest roost.",
+      address: "Rounded to the nearest roost. Drag the pin to their door.",
     });
   });
 });

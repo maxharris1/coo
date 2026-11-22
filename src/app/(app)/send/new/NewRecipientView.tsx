@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { PinMap } from "@/components/PinMap";
+import type { Point } from "@/lib/game/privacy";
 import emptyStates from "../../../../../assets/copy/empty-states.json";
 import type { PlaceResult } from "../../welcome/loft/roost";
 import {
@@ -11,6 +13,8 @@ import {
 } from "./newRecipient";
 import styles from "./NewRecipient.module.css";
 
+export type Destination = { at: Point; label: string };
+
 export type NewRecipientViewProps = {
   name: string;
   query: string;
@@ -19,9 +23,11 @@ export type NewRecipientViewProps = {
   onName: (name: string) => void;
   onQuery: (query: string) => void;
   onPick: (place: PlaceResult) => void;
+  destination: Destination | null;
+  onMove: (point: Point) => void;
 };
 
-const PLACE_NOT_FOUND =
+export const PLACE_NOT_FOUND =
   emptyStates.find((s) => s.state === "Place not found")?.text ?? "";
 
 function Places({
@@ -90,6 +96,8 @@ export function NewRecipientView({
   onName,
   onQuery,
   onPick,
+  destination,
+  onMove,
 }: NewRecipientViewProps) {
   const { heading, lines } = steps(name);
   return (
@@ -135,6 +143,16 @@ export function NewRecipientView({
           onChange={(e) => onQuery(e.target.value)}
         />
         <Places search={search} pickedId={pickedId} onPick={onPick} />
+        {destination && (
+          <>
+            <PinMap
+              start={destination.at}
+              label={destination.label}
+              onMove={onMove}
+            />
+            <p className={styles.pinLabel}>{destination.label}</p>
+          </>
+        )}
       </div>
 
       <section className={styles.field}>

@@ -56,8 +56,10 @@ For a flight between users X and Y, each endpoint depends on what that person le
 Both ends follow this rule independently. If both are in the same city and both show only the
 city, the distance is zero and the note arrives at once. That is acceptable.
 
-For a guest link, the destination is the snapped point the sender chose and the origin is the
-sender's roost.
+For a guest link, the origin is the sender's roost and the destination is the place the sender
+chose, snapped to the roost grid. If the sender places the destination pin by hand (drags it or
+taps the map), the destination is that pin exactly. Roosts always stay snapped. A hand-placed
+destination pin is the only exact point (`docs/12-security-privacy.md` rule 1).
 
 Endpoints are fixed at release. Turning the travel switch on or off later does not move birds
 already in the air. A return flight is aimed at the owner's active loft at the moment it starts.
