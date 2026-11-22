@@ -88,7 +88,9 @@ describe("signing up from a guest link", () => {
     const calls: string[] = [];
     const fetchImpl = (async (url: string) => {
       calls.push(url);
-      return new Response(JSON.stringify({ visitId: "v1" }), { status: 200 });
+      return new Response(JSON.stringify({ friendId: "u1", visitId: "v1" }), {
+        status: 200,
+      });
     }) as unknown as typeof fetch;
     expect(await finishLinkSignUp(fetchImpl)).toEqual({
       kind: "go",
@@ -121,10 +123,37 @@ describe("signing up from a guest link", () => {
       message: "We could not reach the loft. Try again.",
     });
     expect(pendingLink()).toEqual(LINK);
-    expect(await finishLinkSignUp(json(200, { visitId: "v1" }))).toEqual({
+    expect(
+      await finishLinkSignUp(json(200, { friendId: "u1", visitId: "v1" })),
+    ).toEqual({
       kind: "go",
       to: "/sill/v1/reply",
     });
+    expect(pendingLink()).toBeNull();
+  });
+
+  it("keeps the link when the claim's response is cut off, then lands on Reply on retry", async () => {
+    rememberLink(LINK);
+    const dropped = (async () =>
+      new Response(
+        new ReadableStream({
+          start(c) {
+            c.enqueue(new TextEncoder().encode('{"visitId":'));
+            c.error(
+              new TypeError("connection lost while reading response body"),
+            );
+          },
+        }),
+        { status: 200 },
+      )) as unknown as typeof fetch;
+    expect(await finishLinkSignUp(dropped)).toEqual({
+      kind: "retry",
+      message: "We could not reach the loft. Try again.",
+    });
+    expect(pendingLink()).toEqual(LINK);
+    expect(
+      await finishLinkSignUp(json(200, { friendId: "u1", visitId: "v1" })),
+    ).toEqual({ kind: "go", to: "/sill/v1/reply" });
     expect(pendingLink()).toBeNull();
   });
 

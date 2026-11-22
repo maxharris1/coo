@@ -164,6 +164,45 @@ describe("short onboarding from a guest link (ac-3)", () => {
     expect(pendingLink()).toBeNull();
   });
 
+  it("keeps the claim when the claim's response is cut off and lands on Reply on retry", async () => {
+    const { token, flightId, arriveAt } = await sendGuestFlight(deps, world);
+    deps.clock.set(arriveAt + MINUTE);
+    await tick(deps);
+
+    const run = await signUpFromLink(token, async (fetchImpl) => {
+      let healthy: unknown;
+      const dropped = (async (url: string, init?: RequestInit) => {
+        healthy = await (await fetchImpl(url, init)).json();
+        return new Response(
+          new ReadableStream({
+            start(c) {
+              c.enqueue(new TextEncoder().encode('{"visitId":'));
+              c.error(
+                new TypeError("connection lost while reading response body"),
+              );
+            },
+          }),
+          { status: 200 },
+        );
+      }) as unknown as typeof fetch;
+      const first = await finishLinkSignUp(dropped);
+      expect(healthy).toMatchObject({ visitId: expect.any(String) });
+      expect(first).toEqual({
+        kind: "retry",
+        message: "We could not reach the loft. Try again.",
+      });
+      expect(pendingLink()).not.toBeNull();
+      return finishLinkSignUp(fetchImpl);
+    });
+
+    const [visit] = await deps.db.query<{ id: string }>(
+      "select id from visits where flight_id = $1",
+      [flightId],
+    );
+    expect(run.next).toEqual({ kind: "go", to: `/sill/${visit.id}/reply` });
+    expect(pendingLink()).toBeNull();
+  });
+
   it("lands a new user on the shoebox once the bird has gone home", async () => {
     const { token, flightId, arriveAt } = await sendGuestFlight(deps, world);
     deps.clock.set(arriveAt + (config.game.visits.waitMinutes + 1) * MINUTE);

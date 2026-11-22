@@ -56,7 +56,8 @@ describe("finishing onboarding", () => {
     vi.stubGlobal("document", { cookie: `coo_return=${CODE}` });
     vi.stubGlobal(
       "fetch",
-      async () => new Response(JSON.stringify({ visitId: "v1" })),
+      async () =>
+        new Response(JSON.stringify({ friendId: "u1", visitId: "v1" })),
     );
     await home();
     expect(push).toHaveBeenCalledWith("/sill/v1/reply");
