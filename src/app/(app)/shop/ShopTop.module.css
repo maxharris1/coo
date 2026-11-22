@@ -1,6 +1,7 @@
 .awning {
   flex-shrink: 0;
-  height: 30px;
+  height: calc(30px + var(--coo-safe-top));
+  margin-top: calc(-1 * var(--coo-safe-top));
   background: repeating-linear-gradient(
     90deg,
     var(--coo-tomato) 0,

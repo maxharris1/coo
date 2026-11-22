@@ -1,6 +1,8 @@
 .top {
   display: flex;
   flex-direction: column;
+  margin-top: calc(-1 * var(--coo-safe-top));
+  padding-top: var(--coo-safe-top);
   background: var(--coo-sky);
   color: var(--coo-ink);
 }
