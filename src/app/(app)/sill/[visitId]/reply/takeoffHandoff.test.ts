@@ -20,6 +20,22 @@ describe("takeoff hand-off (ac-1)", () => {
     expect(readHandoff("v2")).toBeNull();
   });
 
+  it("carries the bird's breed", () => {
+    saveHandoff("v1", { flightId: "f1", pronoun: "she", breed: "pouter" });
+    expect(readHandoff("v1")).toEqual({
+      flightId: "f1",
+      pronoun: "she",
+      breed: "pouter",
+    });
+  });
+
+  it("drops an unknown breed and keeps the rest", () => {
+    saveHandoff("v1", { flightId: "f1", pronoun: "she" });
+    for (const k of store.keys())
+      store.set(k, '{"flightId":"f1","pronoun":"she","breed":"dodo"}');
+    expect(readHandoff("v1")).toEqual({ flightId: "f1", pronoun: "she" });
+  });
+
   it("ignores a garbled entry", () => {
     saveHandoff("v1", { flightId: "f1", pronoun: "she" });
     for (const k of store.keys()) store.set(k, "{nope");
