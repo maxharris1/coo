@@ -75,9 +75,11 @@ describe("(app) shell", () => {
   });
 
   it.each([
+    ["/send/new", "NewRecipient"],
     ["/send/write", "Compose"],
     ["/send/forecast", "Forecast"],
     ["/send/takeoff/f1", "Takeoff"],
+    ["/send/share/f1", "ShareLink"],
     ["/sill/v1", "Landed"],
     ["/sill/v1/reply", "Reply"],
     ["/sill/v1/takeoff", "TakeoffHome"],
@@ -94,7 +96,6 @@ describe("(app) shell", () => {
       "/flights",
       "/flights/f1",
       "/send",
-      "/send/new",
       "/sill",
       "/shop",
       "/more",

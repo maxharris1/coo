@@ -30,9 +30,11 @@ function PunchCard({ top }: { top: EarnTop }) {
 export function EarnView({
   state,
   onRetry,
+  onChanged,
 }: {
   state: EarnState;
   onRetry: () => void;
+  onChanged: () => Promise<void>;
 }) {
   return (
     <main className={styles.screen}>
@@ -90,7 +92,11 @@ export function EarnView({
               ))}
             </dl>
           </section>
-          <JobsPanel jobs={state.jobs} found={state.found} />
+          <JobsPanel
+            jobs={state.jobs}
+            found={state.found}
+            onChanged={onChanged}
+          />
         </>
       )}
     </main>

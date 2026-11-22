@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { LocalDate } from "@/lib/game/time";
 import type { Earn } from "@/server/services/earn";
-import { earnTop, loadEarn } from "./earn";
+import { earnTop, loadEarn, startJob } from "./earn";
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), {
@@ -189,5 +189,33 @@ describe("loadEarn", () => {
     const result = await loadEarn(fetchImpl);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.message).toMatch(/try again/i);
+  });
+});
+
+describe("startJob", () => {
+  it("POSTs the job and bird to /api/jobs", async () => {
+    const fetchImpl = vi.fn(async () => json(200, { ok: true }));
+    await expect(startJob("job-1", "bird-1", fetchImpl)).resolves.toEqual({
+      ok: true,
+      data: { ok: true },
+    });
+    expect(fetchImpl).toHaveBeenCalledWith("/api/jobs", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ jobId: "job-1", birdId: "bird-1" }),
+    });
+  });
+
+  it("passes the server's refusal through", async () => {
+    const fetchImpl = vi.fn(async () =>
+      json(409, {
+        error: { code: "conflict", message: "Gerald is not home right now." },
+      }),
+    );
+    await expect(startJob("job-1", "bird-1", fetchImpl)).resolves.toEqual({
+      ok: false,
+      message: "Gerald is not home right now.",
+      code: "conflict",
+    });
   });
 });

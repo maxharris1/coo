@@ -142,6 +142,11 @@
   color: var(--coo-ink);
 }
 
+.waiting {
+  min-height: 60px;
+  padding: 6px 10px 6px 8px;
+}
+
 .opener {
   flex: 1;
   min-width: 0;
@@ -186,6 +191,10 @@
 
 .lilac {
   background: var(--coo-lilac);
+}
+
+.peach {
+  background: var(--coo-peach);
 }
 
 .who {
@@ -241,4 +250,14 @@
 
 .on {
   background: var(--coo-sun);
+}
+
+.pending {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  background: var(--coo-card);
+  border: var(--coo-line-thin);
+  border-radius: var(--coo-radius-pill);
+  font-size: 12px;
+  font-weight: 900;
 }

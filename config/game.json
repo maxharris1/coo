@@ -146,7 +146,9 @@
     "expireDays": 7,
     "perDay": 5,
     "tokenChars": 16,
-    "notifyAttemptsPerLink": 3
+    "notifyAttemptsPerLink": 3,
+    "reportsToStop": 3,
+    "reportWindowDays": 30
   },
   "eggs": {
     "firstAtDeliveries": 5,

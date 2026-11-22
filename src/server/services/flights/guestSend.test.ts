@@ -164,6 +164,85 @@ describe("guestSend", () => {
     expect(await counts()).toEqual(before);
   });
 
+  async function reportedLinks(
+    sender: UserId,
+    n: number,
+    daysAgo: number,
+  ): Promise<void> {
+    const at = deps.clock.now() - daysAgo * 24 * 60 * 60 * 1000;
+    for (let i = 0; i < n; i++)
+      await deps.db.tx(async (tx) => {
+        const link = await createGuestLink(deps, tx, "test-pepper", {
+          senderId: sender,
+          recipientName: "Earlier",
+          dest: { point: WILLIAMSBURG_ROOST, label: "Williamsburg" },
+          birdName: "Brenda",
+          timezone: "America/New_York",
+          now: at - i * 60_000,
+        });
+        await tx.query(
+          "update guest_links set status = 'reported' where id = $1",
+          [link.id],
+        );
+        await tx.query(
+          `insert into reports (reporter_id, guest_link_id, reason, created_at)
+           values (null, $1, 'spam', $2)`,
+          [link.id, new Date(at).toISOString()],
+        );
+      });
+  }
+
+  it("refuses a sender with three reported links in 30 days as forbidden and writes nothing (ac-5)", async () => {
+    const placeId = await heldPlace(max);
+    await reportedLinks(max, 3, 29);
+    const before = await counts();
+
+    expect(await refusal(send(deps, max, guestInput(placeId)))).toBe(
+      "forbidden",
+    );
+    expect(await counts()).toEqual(before);
+  });
+
+  it("still lets a sender with two reported links in 30 days send", async () => {
+    const placeId = await heldPlace(max);
+    await reportedLinks(max, 2, 1);
+
+    expect(await refusal(send(deps, max, guestInput(placeId)))).toBe(
+      "resolved",
+    );
+  });
+
+  it("ignores reports older than 30 days", async () => {
+    const placeId = await heldPlace(max);
+    await reportedLinks(max, 3, 31);
+
+    expect(await refusal(send(deps, max, guestInput(placeId)))).toBe(
+      "resolved",
+    );
+  });
+
+  it("does not hold another sender's reported links against me", async () => {
+    const placeId = await heldPlace(max);
+    await reportedLinks(priya, 3, 1);
+
+    expect(await refusal(send(deps, max, guestInput(placeId)))).toBe(
+      "resolved",
+    );
+  });
+
+  it("still lets a sender with three reported links send to a friend", async () => {
+    await reportedLinks(max, 3, 1);
+
+    expect(
+      await refusal(
+        send(deps, max, {
+          body: BODY,
+          sends: [{ friendId: priya, birdId: gerald }],
+        }),
+      ),
+    ).toBe("resolved");
+  });
+
   it("refuses someone else's place as invalid", async () => {
     const placeId = await heldPlace(priya);
     const before = await counts();

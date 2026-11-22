@@ -40,6 +40,7 @@ type Me = LoftColumns &
   Pick<Row<"profiles">, "has_birdbath" | "timezone" | "name">;
 
 const GUEST_NAME = displayName(30);
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 export const guestSend: SendHook = async (
   deps,
@@ -97,6 +98,18 @@ export const guestSend: SendHook = async (
       "select timezone from profiles where id = $1 for update",
       [me],
     );
+    const { reportsToStop, reportWindowDays } = deps.config.game.guestLinks;
+    const [{ count: reported }] = await tx.query<{ count: number }>(
+      `select count(distinct g.id)::int from reports r
+       join guest_links g on g.id = r.guest_link_id
+       where g.sender_id = $1 and r.created_at >= $2`,
+      [me, new Date(now - reportWindowDays * DAY_MS).toISOString()],
+    );
+    if (reported >= reportsToStop)
+      throw new AppError(
+        "forbidden",
+        "You can't send to someone new right now",
+      );
     const [locked] = await tx.query<Row<"birds">>(
       "select * from birds where id = $1 and owner_id = $2 for update",
       [item.birdId, me],
