@@ -7,6 +7,7 @@ import { config } from "@/lib/config";
 import { positionAt } from "@/lib/flight/engine";
 import { clockTime, duration, pronounTokens } from "@/lib/format";
 import type { GuestView as Guest } from "@/server/services/guestLinks/get";
+import { GuestClaim } from "./GuestClaim";
 import { GuestExpired } from "./GuestExpired";
 import styles from "./Guest.module.css";
 import { GuestNotify } from "./GuestNotify";
@@ -85,6 +86,18 @@ export function GuestView({
 }) {
   const { shown, clock, reported } = useGuestPage(guest, token, serverNow);
   if (shown.kind !== "live") return <GuestExpired kind={shown.kind} />;
+  const { note } = shown.guest;
+  if (note) {
+    return (
+      <GuestClaim
+        guest={{ ...shown.guest, note }}
+        token={token}
+        nowMs={clock.nowMs}
+        timeZone={timeZone}
+        onReported={reported}
+      />
+    );
+  }
   return (
     <GuestLive
       guest={shown.guest}
@@ -157,27 +170,21 @@ function GuestLive({
           <span>{now.when}</span>
         </p>
       </div>
-      {guest.note ? (
-        <section className={styles.note} aria-label="Your note">
-          <p className={styles.noteBody}>{guest.note.body}</p>
-        </section>
-      ) : (
-        <section className={styles.sealed}>
-          <svg
-            className={styles.envelope}
-            viewBox="0 0 120 84"
-            aria-hidden="true"
-          >
-            <rect x="6" y="10" width="108" height="66" rx="5" />
-            <path d="M6 14 L60 50 L114 14" fill="none" />
-            <circle className={styles.seal} cx="60" cy="50" r="13" />
-          </svg>
-          <div className={styles.sealedWords}>
-            <h2 className={styles.sealedTitle}>Your note is sealed</h2>
-            <p className={styles.sealedBody}>{copy.sealed}</p>
-          </div>
-        </section>
-      )}
+      <section className={styles.sealed}>
+        <svg
+          className={styles.envelope}
+          viewBox="0 0 120 84"
+          aria-hidden="true"
+        >
+          <rect x="6" y="10" width="108" height="66" rx="5" />
+          <path d="M6 14 L60 50 L114 14" fill="none" />
+          <circle className={styles.seal} cx="60" cy="50" r="13" />
+        </svg>
+        <div className={styles.sealedWords}>
+          <h2 className={styles.sealedTitle}>Your note is sealed</h2>
+          <p className={styles.sealedBody}>{copy.sealed}</p>
+        </div>
+      </section>
       <div className={styles.actions}>
         {flight.status !== "landed" && (
           <GuestNotify
