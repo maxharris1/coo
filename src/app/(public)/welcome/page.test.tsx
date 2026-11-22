@@ -31,6 +31,11 @@ describe("/welcome (Hello)", () => {
     );
   });
 
+  it("links to privacy and terms", () => {
+    expect(html).toMatch(/<a[^>]*href="\/privacy"[^>]*>Privacy<\/a>/);
+    expect(html).toMatch(/<a[^>]*href="\/terms"[^>]*>Terms<\/a>/);
+  });
+
   it("styles with tokens only", () => {
     expect(css).not.toMatch(/#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i);
     expect(read("./page.tsx")).not.toMatch(/#[0-9a-f]{3,8}\b/i);
