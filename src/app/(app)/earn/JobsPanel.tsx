@@ -1,40 +1,52 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useSync } from "@/components/SyncProvider";
 import type { SyncPayload } from "@/components/sync";
 import { useToast } from "@/components/Toasts";
 import { clockTime } from "@/lib/format";
 import type { Earn } from "@/server/services/earn";
-import { startJob, tradeFound, type Result } from "./earn";
+import { startJob, tradeFound, type Result, type Started } from "./earn";
 import styles from "./Earn.module.css";
 
 type Bird = Pick<
   SyncPayload["birds"][number],
-  "id" | "name" | "status" | "busyKind" | "busyUntil"
+  "id" | "name" | "status" | "busyKind" | "busyUntil" | "jobId"
 >;
 
-export type RunningJob = { birdId: string; name: string; until: number | null };
+export type RunningJob = {
+  birdId: string;
+  name: string;
+  until: number | null;
+  jobId: string | null;
+};
 
 export const onJob = (b: Pick<Bird, "status" | "busyKind">) =>
   b.status === "busy" && b.busyKind === "job";
 
 export const runningJobs = (birds: Bird[]): RunningJob[] =>
-  birds
-    .filter(onJob)
-    .map((b) => ({ birdId: b.id, name: b.name, until: b.busyUntil }));
+  birds.filter(onJob).map((b) => ({
+    birdId: b.id,
+    name: b.name,
+    until: b.busyUntil,
+    jobId: b.jobId,
+  }));
 
 export async function sendJob(
   jobId: string,
   birdId: string,
-  start: (jobId: string, birdId: string) => Promise<Result<unknown>>,
+  start: (jobId: string, birdId: string) => Promise<Result<Started>>,
   refresh: () => void,
   onChanged: () => Promise<void>,
   toast: (message: string) => void,
+  open: (path: string) => void,
 ): Promise<void> {
   const result = await start(jobId, birdId);
-  if (!result.ok) toast(result.message);
   refresh();
+  if (result.ok) return open(`/jobs/${result.data.job.id}`);
+  toast(result.message);
   await onChanged();
 }
 
@@ -132,13 +144,25 @@ export function JobsList({
         </h2>
         <div className={styles.jobsSub}>For birds with nothing to do</div>
       </div>
-      {runningJobs(birds).map((job) => (
-        <div key={job.birdId} className={styles.running}>
-          {job.until === null
+      {runningJobs(birds).map((job) => {
+        const text =
+          job.until === null
             ? `${job.name} is out on an odd job.`
-            : `${job.name} is out on an odd job. Home at ${clockTime(new Date(job.until), timeZone)}.`}
-        </div>
-      ))}
+            : `${job.name} is out on an odd job. Home at ${clockTime(new Date(job.until), timeZone)}.`;
+        return job.jobId === null ? (
+          <div key={job.birdId} className={styles.running}>
+            {text}
+          </div>
+        ) : (
+          <Link
+            key={job.birdId}
+            href={`/jobs/${job.jobId}`}
+            className={styles.running}
+          >
+            {text}
+          </Link>
+        );
+      })}
       {jobs.offers.map((offer) => (
         <div key={offer.id} className={styles.offer}>
           <div className={styles.offerText}>
@@ -173,12 +197,13 @@ export function JobsPanel({
 }) {
   const { data, refresh } = useSync();
   const toast = useToast();
+  const router = useRouter();
   const [sending, setSending] = useState(false);
   const onSend = (jobId: string, birdId: string) => {
     setSending(true);
-    void sendJob(jobId, birdId, startJob, refresh, onChanged, toast).finally(
-      () => setSending(false),
-    );
+    void sendJob(jobId, birdId, startJob, refresh, onChanged, toast, (path) =>
+      router.push(path),
+    ).finally(() => setSending(false));
   };
   const [trading, setTrading] = useState(false);
   const onTrade = () => {

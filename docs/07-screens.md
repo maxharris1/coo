@@ -101,7 +101,8 @@ The report number is the owner's count of delayed flights.
 ### Flights (`/flights`)
 Sections: Your birds (scheduled, flying and delayed), Coming to you, Landed today, then a
 "Earlier" list that pages. Each row taps to the tracker. Odd jobs in progress appear under
-Your birds with their end time.
+Your birds with their end time. The "On odd jobs" cards tap to the job tracker
+(`/jobs/[id]`). A card whose job id is not known stays as text with no link.
 
 ### Job (`/jobs/[id]`) — the odd-job tracker
 Owner only. Another user's job id shows "We could not find this job." with a link back to Earn.
@@ -147,7 +148,9 @@ and the next perch with "n to go" when short. Buying asks once: "Buy the rain ha
 ### Earn (`/earn`)
 As drawn: the punch card with 10 stamp slots, the pay table, two odd jobs with a "Send {bird}"
 button that picks the first ready bird and lets you change it, and found objects with
-"Trade for n".
+"Trade for n". After a send succeeds the app opens the job tracker (`/jobs/[id]`). A refused
+send stays on Earn and shows the reason as a toast. Each "{bird} is out on an odd job" row links
+to that job's tracker, and stays as text when the job id is not known.
 
 ### More (`/more`)
 As drawn. Six rows with live sub lines.

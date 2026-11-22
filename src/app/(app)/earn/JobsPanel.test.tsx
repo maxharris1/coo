@@ -7,6 +7,8 @@ import {
 } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: () => {} }) }));
 import { SyncContext, type SyncState } from "@/components/SyncProvider";
 import type { SyncPayload } from "@/components/sync";
 import { ToastProvider } from "@/components/Toasts";
@@ -30,6 +32,7 @@ const bird = (over: Partial<Bird>): Bird =>
     status: "home",
     busyKind: null,
     busyUntil: null,
+    jobId: null,
     ...over,
   }) as Bird;
 
@@ -172,12 +175,27 @@ describe("JobsPanel running jobs (ac-1)", () => {
         }),
         bird({ id: "b-home" }),
       ]),
-    ).toEqual([{ birdId: "b-gerald", name: "Gerald", until: UNTIL }]);
+    ).toEqual([
+      { birdId: "b-gerald", name: "Gerald", until: UNTIL, jobId: null },
+    ]);
   });
 
   it("shows a running job with its return time in the profile timezone", () => {
     const markup = html({ birds: [working], timeZone: "America/New_York" });
     expect(markup).toContain("Gerald is out on an odd job. Home at 2:40 pm.");
+  });
+
+  it("links a running job to its tracker when the job id is known", () => {
+    const markup = html({ birds: [{ ...working, jobId: "j-77" }] });
+    expect(markup).toMatch(
+      /<a[^>]*href="\/jobs\/j-77"[^>]*>Gerald is out on an odd job\. Home at 7:40 pm\.<\/a>/,
+    );
+  });
+
+  it("keeps a running job as text when the job id is null", () => {
+    const markup = html({ birds: [{ ...working, jobId: null }] });
+    expect(markup).toContain("Gerald is out on an odd job. Home at 7:40 pm.");
+    expect(markup).not.toContain("<a");
   });
 
   it("does not show a napping bird as a job", () => {
@@ -189,52 +207,61 @@ describe("JobsPanel running jobs (ac-1)", () => {
 });
 
 describe("sendJob (ac-1)", () => {
-  it("starts the job, then refreshes sync and Earn", async () => {
+  const STARTED = { ok: true as const, data: { job: { id: "j-77" } } };
+
+  it("starts the job, refreshes sync and opens the job tracker", async () => {
     const calls: string[] = [];
     const start = vi.fn(async () => {
       calls.push("start");
-      return { ok: true as const, data: null };
+      return STARTED;
     });
     const toast = vi.fn();
+    const changed = vi.fn(async () => {});
     await sendJob(
       "job-deli",
       "b-gerald",
       start,
       () => calls.push("refresh"),
-      async () => {
-        calls.push("changed");
-      },
+      changed,
       toast,
+      (path) => calls.push(`open ${path}`),
     );
     expect(start).toHaveBeenCalledWith("job-deli", "b-gerald");
-    expect(calls).toEqual(["start", "refresh", "changed"]);
+    expect(calls).toEqual(["start", "refresh", "open /jobs/j-77"]);
+    expect(changed).not.toHaveBeenCalled();
     expect(toast).not.toHaveBeenCalled();
   });
 
-  it("shows the server's refusal as a toast", async () => {
+  it("stays on Earn with the server's refusal as a toast", async () => {
     const toast = vi.fn();
     const refresh = vi.fn();
+    const changed = vi.fn(async () => {});
+    const open = vi.fn();
     await sendJob(
       "job-deli",
       "b-gerald",
       async () => ({ ok: false, message: "Gerald is not home right now." }),
       refresh,
-      async () => {},
+      changed,
       toast,
+      open,
     );
     expect(toast).toHaveBeenCalledWith("Gerald is not home right now.");
     expect(refresh).toHaveBeenCalled();
+    expect(changed).toHaveBeenCalled();
+    expect(open).not.toHaveBeenCalled();
   });
 
-  it("stays pending until the Earn reload finishes", async () => {
+  it("stays pending after a refusal until the Earn reload finishes", async () => {
     let finishReload = () => {};
     let done = false;
     const sent = sendJob(
       "job-deli",
       "b-gerald",
-      async () => ({ ok: true as const, data: null }),
+      async () => ({ ok: false, message: "No." }),
       () => {},
       () => new Promise<void>((resolve) => (finishReload = resolve)),
+      vi.fn(),
       vi.fn(),
     ).then(() => (done = true));
     await new Promise((resolve) => setTimeout(resolve, 0));

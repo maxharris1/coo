@@ -105,12 +105,14 @@ export const loadEarn = (fetchImpl: Fetch = fetch, flightId?: string) =>
     ),
   );
 
+export type Started = { job: { id: string } };
+
 export const startJob = (
   jobId: string,
   birdId: string,
   fetchImpl: Fetch = fetch,
 ) =>
-  call<unknown>(() =>
+  call<Started>(() =>
     fetchImpl("/api/jobs", {
       method: "POST",
       headers: { "content-type": "application/json" },

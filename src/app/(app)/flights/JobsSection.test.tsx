@@ -16,6 +16,7 @@ const bird = (over: Partial<Bird>): Bird =>
     status: "home",
     busyKind: null,
     busyUntil: null,
+    jobId: null,
     ...over,
   }) as Bird;
 
@@ -33,6 +34,28 @@ describe("Flights odd jobs", () => {
     expect(out).toContain("Gerald, on an odd job");
     expect(out).toContain("Home at 2:40 pm");
     expect(out).toContain(">Working<");
+  });
+
+  it("links a card to the job tracker when the job id is known", () => {
+    const out = html([
+      bird({
+        status: "busy",
+        busyKind: "job",
+        busyUntil: UNTIL,
+        jobId: "j-77",
+      }),
+    ]);
+    expect(out).toMatch(
+      /<a[^>]*href="\/jobs\/j-77"[^>]*>.*Gerald, on an odd job/s,
+    );
+  });
+
+  it("keeps a card as text when the job id is null", () => {
+    const out = html([
+      bird({ status: "busy", busyKind: "job", busyUntil: UNTIL, jobId: null }),
+    ]);
+    expect(out).toContain("Gerald, on an odd job");
+    expect(out).not.toContain("<a");
   });
 
   it("lists one row per working bird", () => {
