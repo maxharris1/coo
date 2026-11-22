@@ -1,18 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { routePlaces } from "@/components/FlightLog";
 import { MapView } from "@/components/MapView";
 import { config } from "@/lib/config";
 import { positionAt } from "@/lib/flight/engine";
 import { clockTime, duration, pronounTokens } from "@/lib/format";
 import type { GuestView as Guest } from "@/server/services/guestLinks/get";
+import { GuestExpired } from "./GuestExpired";
 import styles from "./Guest.module.css";
 import { GuestNotify } from "./GuestNotify";
 import { GuestReport } from "./GuestReport";
+import { useGuestPage } from "./useGuestPage";
 
-const TICK_MS = 10_000;
 const MAP_BOTTOM_PX = 24;
 
 type Progress = { frac: number; where: string; when: string };
@@ -32,7 +32,7 @@ export function guestCopy(guest: Guest, timeZone: string) {
     title: `${guest.senderName} sent you a pigeon`,
     lede: `${capital(p.his)} name is ${bird}. ${p.He} ${verb} ${guest.flight.from.label} at ${at} with a note for you, ${guest.recipientName}.`,
     sealed: `It opens the moment ${bird} lands. ${p.He} ${plural ? "take" : "takes"} this seriously.`,
-    notify: `Text me when ${p.he} lands`,
+    notify: `Text me when ${p.he} ${plural ? "land" : "lands"}`,
     consent: `Send me one text when ${bird} lands.`,
     map: `Live map. ${bird} is flying from ${guest.flight.from.label} to ${guest.flight.to.label}.`,
   };
@@ -83,16 +83,32 @@ export function GuestView({
   serverNow: number;
   timeZone: string;
 }) {
-  const [clock, setClock] = useState({ nowMs: serverNow, offsetMs: 0 });
+  const { shown, clock, reported } = useGuestPage(guest, token, serverNow);
+  if (shown.kind !== "live") return <GuestExpired kind={shown.kind} />;
+  return (
+    <GuestLive
+      guest={shown.guest}
+      token={token}
+      clock={clock}
+      timeZone={timeZone}
+      onReported={reported}
+    />
+  );
+}
 
-  useEffect(() => {
-    const offsetMs = serverNow - Date.now();
-    const tick = () => setClock({ nowMs: Date.now() + offsetMs, offsetMs });
-    tick();
-    const timer = setInterval(tick, TICK_MS);
-    return () => clearInterval(timer);
-  }, [serverNow]);
-
+function GuestLive({
+  guest,
+  token,
+  clock,
+  timeZone,
+  onReported,
+}: {
+  guest: Guest;
+  token: string;
+  clock: { nowMs: number; offsetMs: number };
+  timeZone: string;
+  onReported: () => void;
+}) {
   const copy = guestCopy(guest, timeZone);
   const now = progress(guest, clock.nowMs);
   const percent = Math.round(now.frac * 100);
@@ -174,7 +190,7 @@ export function GuestView({
         <Link href="/welcome" className={styles.link}>
           What is this?
         </Link>
-        <GuestReport token={token} />
+        <GuestReport token={token} onReported={onReported} />
       </div>
     </main>
   );

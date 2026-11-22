@@ -8,6 +8,10 @@ const COPY = {
     title: "This link has expired",
     body: "Guest links last seven days after the bird lands. The note is safe with whoever sent it. Ask them to send another pigeon.",
   },
+  reported: {
+    title: "Thanks for telling us",
+    body: "This link is closed and we will look at it.",
+  },
   missing: {
     title: "No bird is flying on that link",
     body: "Check the link in the text you were sent. If it is right, this pigeon is not flying any more.",

@@ -117,6 +117,18 @@ describe("guestCopy", () => {
     expect(c.notify).toBe("Text me when he lands");
     expect(c.consent).toBe("Send me one text when Gerald lands.");
   });
+
+  it("uses plural verbs for a bird who goes by they", () => {
+    const g = guestFlying();
+    const c = guestCopy(
+      { ...g, bird: { ...g.bird, pronoun: "they" } },
+      "America/New_York",
+    );
+    expect(c.notify).toBe("Text me when they land");
+    expect(c.sealed).toBe(
+      "It opens the moment Gerald lands. They take this seriously.",
+    );
+  });
 });
 
 describe("Guest page, expired and missing", () => {

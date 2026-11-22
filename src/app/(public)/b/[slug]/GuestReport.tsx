@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import styles from "./Guest.module.css";
+import { sendReport } from "./useGuestPage";
 
 const REASONS = [
   "I don't know who sent this",
@@ -11,12 +12,15 @@ const REASONS = [
 ] as const;
 
 type State =
-  | { step: "closed" }
-  | { step: "open"; error?: string }
-  | { step: "sending" }
-  | { step: "done" };
+  { step: "closed" } | { step: "open"; error?: string } | { step: "sending" };
 
-export function GuestReport({ token }: { token: string }) {
+export function GuestReport({
+  token,
+  onReported,
+}: {
+  token: string;
+  onReported: () => void;
+}) {
   const [state, setState] = useState<State>({ step: "closed" });
   const [reason, setReason] = useState<string>(REASONS[0]);
 
@@ -32,23 +36,10 @@ export function GuestReport({ token }: { token: string }) {
     );
   }
 
-  if (state.step === "done") {
-    return (
-      <p className={styles.done} role="status">
-        Thanks. This link is closed and we will look at it.
-      </p>
-    );
-  }
-
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setState({ step: "sending" });
-    const res = await fetch(`/api/guest/${encodeURIComponent(token)}/report`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ reason }),
-    }).catch(() => null);
-    if (res?.ok) return setState({ step: "done" });
+    if (await sendReport(token, reason)) return onReported();
     setState({ step: "open", error: "That did not go through. Try again." });
   }
 
