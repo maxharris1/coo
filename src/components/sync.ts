@@ -2,6 +2,7 @@ import type { sync } from "@/server/services/sync";
 
 export type SyncPayload = Awaited<ReturnType<typeof sync>> & {
   serverNow: number;
+  serverNowMono: number;
 };
 
 export type SyncResult =
@@ -17,15 +18,20 @@ async function load(
 ): Promise<SyncResult> {
   try {
     const start = Date.now();
+    const monoStart = performance.now();
     const res = await fetchImpl("/api/sync", {
       headers: { "x-timezone": timezone },
       cache: "no-store",
       signal,
     });
     const end = Date.now();
+    const monoEnd = performance.now();
     const json: unknown = await res.json().catch(() => null);
     if (res.ok && json) {
-      const payload = json as SyncPayload;
+      const payload: SyncPayload = {
+        ...(json as Omit<SyncPayload, "serverNowMono">),
+        serverNowMono: (monoStart + monoEnd) / 2,
+      };
       return {
         ok: true,
         payload,

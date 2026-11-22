@@ -79,18 +79,18 @@ const PRIYA = {
 
 let replyRes: { status: number; body: unknown };
 let serverStart: number;
+let syncGate: Promise<void> | null;
 let root: Root | null;
 const session = new Map<string, string>();
 
 function fakeFetch(url: RequestInfo | URL) {
   if (String(url) === "/api/sync") {
-    return Promise.resolve(
-      Response.json({
-        serverNow: NOW + performance.now() - serverStart,
-        visits: [VISIT],
-        me: { timezone: "America/New_York", units: "mi" },
-      }),
-    );
+    const body = {
+      serverNow: NOW + performance.now() - serverStart,
+      visits: [VISIT],
+      me: { timezone: "America/New_York", units: "mi" },
+    };
+    return (syncGate ?? Promise.resolve()).then(() => Response.json(body));
   }
   if (String(url) === "/api/friends") {
     return Promise.resolve(Response.json({ friends: [PRIYA], guestLinks: [] }));
@@ -107,17 +107,20 @@ const replyCalls = () =>
       ([url]) => String(url) !== "/api/friends" && String(url) !== "/api/sync",
     );
 
-const sync = (visits: SyncVisit[] | null, offsetMs = 0): SyncState => ({
+const refresh = vi.fn();
+
+const sync = (visits: SyncVisit[] | null, serverNow = NOW): SyncState => ({
   data:
     visits &&
     ({
-      serverNow: NOW,
+      serverNow,
+      serverNowMono: performance.now(),
       visits,
       me: { timezone: "America/New_York", units: "mi" },
     } as unknown as SyncPayload),
   error: null,
-  offsetMs,
-  refresh: () => {},
+  offsetMs: 0,
+  refresh,
 });
 
 const docStub = Object.assign(new EventTarget(), {
@@ -145,7 +148,7 @@ async function mountSynced() {
 const syncNow = () =>
   act(async () => void docStub.dispatchEvent(new Event("visibilitychange")));
 
-async function show(visits: SyncVisit[] | null, offsetMs = 0) {
+async function show(visits: SyncVisit[] | null, serverNow = NOW) {
   if (!root) {
     const container = Object.assign(new EventTarget(), {
       nodeType: 1,
@@ -157,7 +160,7 @@ async function show(visits: SyncVisit[] | null, offsetMs = 0) {
   const r = root;
   await act(async () =>
     r.render(
-      <SyncContext.Provider value={sync(visits, offsetMs)}>
+      <SyncContext.Provider value={sync(visits, serverNow)}>
         <ReplyPage />
       </SyncContext.Provider>,
     ),
@@ -184,6 +187,8 @@ beforeEach(() => {
   session.clear();
   replyRes = { status: 200, body: { flight: { id: "f1", kind: "return" } } };
   serverStart = performance.now();
+  syncGate = null;
+  refresh.mockClear();
   root = null;
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal(
@@ -220,22 +225,25 @@ describe("/sill/[visitId]/reply (ac-1)", () => {
     expect(seen.view).toBeNull();
   });
 
-  it("sends the user back once the bird's wait is over", async () => {
+  it("sends the user back once a sync confirms the bird's wait is over", async () => {
     await show([VISIT]);
     expect(seen.replace).not.toHaveBeenCalled();
     await tick(28 * MIN);
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(seen.replace).not.toHaveBeenCalled();
+    await show([VISIT], NOW + 28 * MIN);
     expect(seen.replace).toHaveBeenCalledWith("/sill/v1");
   });
 
   it("goes by the server clock, not the device clock", async () => {
-    await show([VISIT], 28 * MIN);
+    await show([VISIT], NOW + 28 * MIN);
     expect(seen.replace).toHaveBeenCalledWith("/sill/v1");
   });
 
   it("applies the first sync's clock before checking the wait", async () => {
     vi.setSystemTime(NOW + 60 * MIN);
     await show(null);
-    await show([VISIT], -60 * MIN);
+    await show([VISIT]);
     expect(seen.replace).not.toHaveBeenCalled();
     expect(view().model.wait).toMatch(/^She waits 28 more minutes/);
   });
@@ -349,6 +357,55 @@ describe("/sill/[visitId]/reply clock jumps (#592)", () => {
     vi.setSystemTime(NOW - 60 * MIN);
     await syncNow();
     await elapse(28 * MIN);
+    expect(seen.replace).toHaveBeenCalledWith("/sill/v1");
+  });
+
+  it("stays on Reply with the draft when the device clock jumps back 60 minutes while a sync is in flight", async () => {
+    await mountSynced();
+    await type(REPLY);
+    let release = () => {};
+    syncGate = new Promise((resolve) => (release = resolve));
+    await syncNow();
+    vi.setSystemTime(NOW - 60 * MIN);
+    await act(async () => release());
+    await elapse(0);
+    expect(seen.replace).not.toHaveBeenCalled();
+    expect(view().note).toBe(REPLY);
+    expect(view().model.wait).toMatch(/^She waits 28 more minutes/);
+  });
+
+  it("stays on Reply with the draft when the device clock jumps forward 60 minutes while a sync is in flight, then corrects", async () => {
+    await mountSynced();
+    await type(REPLY);
+    let release = () => {};
+    syncGate = new Promise((resolve) => (release = resolve));
+    await syncNow();
+    vi.setSystemTime(NOW + 60 * MIN);
+    await act(async () => release());
+    await elapse(0);
+    expect(seen.replace).not.toHaveBeenCalled();
+    expect(view().note).toBe(REPLY);
+    expect(view().model.wait).toMatch(/^She waits 28 more minutes/);
+    syncGate = null;
+    vi.setSystemTime(NOW);
+    await syncNow();
+    expect(seen.replace).not.toHaveBeenCalled();
+    expect(view().note).toBe(REPLY);
+  });
+});
+
+describe("/sill/[visitId]/reply transient expiry (#592 ac-2)", () => {
+  it("keeps Reply and the draft when the visit only looks over locally, and leaves once a sync confirms", async () => {
+    await show([VISIT]);
+    await type(REPLY);
+    await tick(28 * MIN);
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(seen.replace).not.toHaveBeenCalled();
+    expect(view().note).toBe(REPLY);
+    await show([{ ...VISIT, leavesAt: NOW + 40 * MIN }], NOW + 28 * MIN);
+    expect(seen.replace).not.toHaveBeenCalled();
+    expect(view().note).toBe(REPLY);
+    await show([VISIT], NOW + 28 * MIN);
     expect(seen.replace).toHaveBeenCalledWith("/sill/v1");
   });
 });

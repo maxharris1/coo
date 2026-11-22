@@ -1,31 +1,17 @@
 import { useEffect, useState } from "react";
+import type { SyncPayload } from "@/components/sync";
 
 const TICK_MS = 1000;
 
-type Anchor = { offsetMs: number; serverMs: number; monoMs: number };
+type ServerSample = Pick<SyncPayload, "serverNow" | "serverNowMono">;
 
-function anchorAt(offsetMs: number): Anchor {
-  return {
-    offsetMs,
-    serverMs: Date.now() + offsetMs,
-    monoMs: performance.now(),
-  };
-}
-
-export function useServerNow(offsetMs: number): number {
-  const [anchor, setAnchor] = useState(() => anchorAt(offsetMs));
-  const [monoNow, setMonoNow] = useState(anchor.monoMs);
-
-  if (anchor.offsetMs !== offsetMs) {
-    const next = anchorAt(offsetMs);
-    setAnchor(next);
-    setMonoNow(next.monoMs);
-  }
+export function useServerNow(sample: ServerSample | null): number | null {
+  const [monoNow, setMonoNow] = useState(() => performance.now());
 
   useEffect(() => {
     const timer = setInterval(() => setMonoNow(performance.now()), TICK_MS);
     return () => clearInterval(timer);
   }, []);
 
-  return anchor.serverMs + (monoNow - anchor.monoMs);
+  return sample && sample.serverNow + (monoNow - sample.serverNowMono);
 }

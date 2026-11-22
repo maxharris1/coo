@@ -115,6 +115,7 @@ async function readSync(): Promise<SyncPayload> {
   return wire({
     ...(await sync(deps, caller, TZ)),
     serverNow: deps.clock.now(),
+    serverNowMono: performance.now(),
   });
 }
 

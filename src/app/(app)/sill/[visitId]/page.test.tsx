@@ -134,20 +134,21 @@ const snackCalls = () =>
       body: init?.body,
     }));
 
-const sync = (visits: SyncVisit[] | null, offsetMs = 0): SyncState => ({
+const sync = (visits: SyncVisit[] | null, serverNow = NOW): SyncState => ({
   data:
     visits &&
     ({
-      serverNow: NOW,
+      serverNow,
+      serverNowMono: performance.now(),
       visits,
       me: { timezone: "America/New_York", units: "mi" },
     } as unknown as SyncPayload),
   error: null,
-  offsetMs,
+  offsetMs: 0,
   refresh,
 });
 
-async function show(visits: SyncVisit[] | null, offsetMs = 0) {
+async function show(visits: SyncVisit[] | null, serverNow = NOW) {
   if (!root) {
     const container = Object.assign(new EventTarget(), {
       nodeType: 1,
@@ -159,7 +160,7 @@ async function show(visits: SyncVisit[] | null, offsetMs = 0) {
   const r = root;
   await act(async () =>
     r.render(
-      <SyncContext.Provider value={sync(visits, offsetMs)}>
+      <SyncContext.Provider value={sync(visits, serverNow)}>
         <VisitPage />
       </SyncContext.Provider>,
     ),
@@ -241,10 +242,10 @@ describe("/sill/[visitId] gone-home flip (ac-1)", () => {
     expect(seen.landed!.nowMs).toBe(NOW + 60_000);
   });
 
-  it("uses a corrected server clock on the sync that brings it", async () => {
+  it("uses the server clock on the sync that brings it, whatever the device clock says", async () => {
     vi.setSystemTime(NOW + 60 * MIN);
+    await show([visit()], NOW + 60 * MIN);
     await show([visit()]);
-    await show([visit()], -60 * MIN);
     expect(seen.landed?.state).toBe("waiting");
     expect(seen.landed?.nowMs).toBe(NOW);
   });
