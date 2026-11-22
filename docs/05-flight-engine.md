@@ -9,7 +9,8 @@ can use it correctly and change it safely.
 ```ts
 computeFlightPlan(input: FlightInput): FlightPlan
 positionAt(plan, from, to, ms): { lat, lon, frac, state }
-onTimeOdds(input, distanceMi): number
+onTimeOdds(input, distanceMi, inDark): number
+fliesInDark(input): boolean
 groundSpeedMph(input, third, routeBearing): number
 hazardsFor(departAtMs, from, to, localWeekend): { hawk, fair }
 searchParty(flightId, nowMs): number | null
@@ -25,7 +26,8 @@ sunTimes(ms, place): { sunriseMs, sunsetMs }        // for labels only
 `FlightInput` holds: `flightId`, `from`, `to`, `departAtMs`, the bird's state at release
 (`speedMph`, `focus`, `navigation`, `level`, `belly`, `feathers`, `energy`, `sulking`, `breed`),
 the `gear` ids it wears, three `weather` samples (first, middle and last third of the route),
-optional `hazards`, and optional `delayEndOverrideMs` (set after a successful search party).
+optional `hazards`, optional `delayEndOverrideMs` (set after a successful search party), and
+optional `nightFlightUntilMs` (the bird may fly in the dark until this moment).
 
 The server builds this once, at release, and stores it in `flights.input`.
 
@@ -61,7 +63,13 @@ Start at `0.85 + 0.03 × focus`. Then:
 | Hawk advisory | −0.04, or −0.02 with the bandana |
 | Street fair, no earmuffs, not a Jacobin | −0.03 |
 | Lucky leg band | +0.03 |
+| Flies in the dark (night goggles, or before `nightFlightUntilMs`), judged on the walk without a delay | −0.03 |
 | Distance | −0.01 per full 100 miles beyond the first 100, at most −0.10 |
+
+`fliesInDark(input)` decides the dark row. It walks the route as in step 5 with no delay and is
+true at the first dark minute the bird flies. The odds must be known before the delay is rolled,
+so this is an approximation: if a delay pushes a daylight flight past sunset, a bird with night
+goggles flies on and takes no −0.03.
 
 Clamp to 0.40–0.99 and round to two places. This is the "arrival odds" shown before release:
 the chance of arriving without a delay. It is never the chance of arriving at all, which is 1.
@@ -84,7 +92,8 @@ Starting at departure with fraction 0, repeat until fraction 1:
 1. If a delay is due (fraction has reached the delay point): add a `delay` segment of the delay
    length, or ending at `delayEndOverrideMs` if that is earlier. Continue.
 2. If the sun is not up at the bird's current position (altitude at or below −0.833°, or −6°
-   for a King): add one minute of `roost`. Continue.
+   for a King): add one minute of `roost`, unless the bird wears `nightgoggles` or the time is
+   before `nightFlightUntilMs`. Continue.
 3. Otherwise fly for one minute at the speed of the current third. If that would pass the delay
    point or the destination, fly only the exact part needed.
 
