@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Bird, type GearId, type Look } from "@/components/Bird";
 import { MapView, type MapViewProps } from "@/components/MapView";
 import { isDaylight, positionAt } from "@/lib/flight/engine";
 import { clockTime } from "@/lib/format";
-import { jobLegs, legAt } from "@/lib/game/jobDest";
+import { type JobLegs, jobLegs, legAt } from "@/lib/game/jobDest";
 import type { JobView } from "@/server/services/jobs/get";
 import styles from "./JobTracker.module.css";
 
@@ -37,6 +37,7 @@ const CARD_PX = 200;
 
 export function jobView(
   job: JobView,
+  legs: JobLegs | null,
   nowMs: number,
   timeZone: string,
 ): JobTrackerView {
@@ -46,12 +47,12 @@ export function jobView(
     return { state: "home", headline: `${job.bird.name} is home.` };
   }
   const sub = `Home at ${clockTime(new Date(endMs), timeZone)}`;
-  if (!job.map) {
+  if (!job.map || !legs) {
     const state = nowMs < startMs + (endMs - startMs) / 2 ? "out" : "back";
     return { state, headline: HEADLINES[state], sub, map: null };
   }
   const { loft, dest } = job.map;
-  const leg = legAt(jobLegs(loft, dest, startMs, endMs), nowMs);
+  const leg = legAt(legs, nowMs);
   const ends =
     leg.dir === "out"
       ? { from: loft, to: dest, loftLabel: YOUR_LOFT, sillLabel: dest.label }
@@ -96,7 +97,18 @@ export function JobTracker({
   timeZone: string;
 }) {
   const [nowMs, setNowMs] = useState(() => Date.now() + offsetMs);
-  const view = jobView(job, nowMs, timeZone);
+  const legs = useMemo(
+    () =>
+      job.map &&
+      jobLegs(
+        job.map.loft,
+        job.map.dest,
+        Date.parse(job.startedAt),
+        Date.parse(job.endsAt),
+      ),
+    [job],
+  );
+  const view = jobView(job, legs, nowMs, timeZone);
 
   useEffect(() => {
     const timer = setInterval(() => setNowMs(Date.now() + offsetMs), 1000);
