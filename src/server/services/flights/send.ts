@@ -9,6 +9,7 @@ import {
 import { clockTime, type Pronoun } from "@/lib/format";
 import { careAt, projectCare, type CareOwner } from "@/lib/game/care";
 import { levelFor } from "@/lib/game/levels";
+import type { Point } from "@/lib/game/privacy";
 import { noteLimit, validateBody } from "@/lib/game/notes";
 import {
   isWeekend,
@@ -38,7 +39,7 @@ import type { Flight } from "./shape";
 
 export type SendItem =
   | { friendId: UserId; birdId: string }
-  | { guest: { name: string; placeId: string }; birdId: string };
+  | { guest: { name: string; placeId: string; pin?: Point }; birdId: string };
 
 export type SendInput = { body: string; sends: SendItem[]; releaseAt?: number };
 

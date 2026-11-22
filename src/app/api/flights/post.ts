@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { config } from "@/lib/config";
 import type { createJsonRoute } from "@/server/http";
+import { COORDINATES } from "../loft/post";
 import type { UserId } from "@/server/ports/auth";
 import { send } from "@/server/services/flights/send";
 
@@ -10,7 +11,11 @@ const SEND = z.union([
     birdId: z.uuid(),
   }),
   z.object({
-    guest: z.object({ name: z.string(), placeId: z.string() }),
+    guest: z.object({
+      name: z.string(),
+      placeId: z.string(),
+      pin: z.object(COORDINATES).optional(),
+    }),
     birdId: z.uuid(),
   }),
 ]);

@@ -107,7 +107,12 @@ Also updates `profiles.timezone` if the request header `X-Timezone` differs.
 ## Sending
 
 ### POST /api/flights/quote
-Body: `{ recipients: [{ friendId } | { place: { placeId } }], birdIds?: string[], at?: number[] }`.
+Body: `{ recipients: [{ friendId } | { place: { placeId, pin?: { lat, lon } } }], birdIds?: string[], at?: number[] }`.
+
+`pin` is an exact destination the sender placed by hand on the map for a held place. With it,
+the leg ends at the pin and `to.label` is the neighbourhood (or city) of the snapped pin.
+Without it, the leg ends at the held place's snapped point, as before. See rule 1 of
+`docs/12-security-privacy.md`.
 
 For each recipient returns distance, the endpoints' labels, and for each requested time
 (default: now) a quote for the given bird, or for each ready bird if none is given:
@@ -120,7 +125,9 @@ text, effect }] , sunsetAt }`.
 future hours comes from the hourly forecast. Quotes never touch the database except caches.
 
 ### POST /api/flights
-Body: `{ body, doodle?, sends: [{ friendId | guest: { name, placeId }, birdId }], releaseAt? }`.
+Body: `{ body, doodle?, sends: [{ friendId | guest: { name, placeId, pin?: { lat, lon } }, birdId }], releaseAt? }`.
+A guest `pin` works as in the quote: the flight's `to` is stored exactly at the pin, labelled
+by the snapped pin's neighbourhood. Only the sender and the guest-link holder can read it.
 The note is checked with `validateNote`: text, a doodle, or both.
 
 In one transaction: checks limits, checks each bird is home, owned, able to fly and that the body
