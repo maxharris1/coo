@@ -285,8 +285,12 @@ export function photon(opts: {
       );
       return hits;
     },
-    async reverse(lat, lon) {
-      const key = `reverse:${reverseCell(lat)},${reverseCell(lon)}`;
+    async reverse(lat, lon, precision = "area") {
+      const at = precision === "point" ? snap(lat, lon) : { lat, lon };
+      const key =
+        precision === "point"
+          ? `reverse:point:${at.lat},${at.lon}`
+          : `reverse:${reverseCell(lat)},${reverseCell(lon)}`;
       const { name } = await cached(
         db,
         clock,
@@ -294,8 +298,8 @@ export function photon(opts: {
         REVERSE_TTL_MS,
         async () => {
           const [first] = await features("/reverse", {
-            lat: String(lat),
-            lon: String(lon),
+            lat: String(at.lat),
+            lon: String(at.lon),
             limit: "1",
           });
           return { name: first ? toName(first) : null };

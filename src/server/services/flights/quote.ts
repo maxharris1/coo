@@ -10,10 +10,18 @@ import {
 } from "@/lib/flight/engine";
 import { careAt, type CareOwner } from "@/lib/game/care";
 import { levelFor } from "@/lib/game/levels";
-import { activeLoft, endpointFor, type Shows } from "@/lib/game/privacy";
+import {
+  activeLoft,
+  endpointFor,
+  snap,
+  type Point,
+  type Shows,
+} from "@/lib/game/privacy";
+import { roostLabel } from "@/lib/places";
 import { isWeekend } from "@/lib/game/time";
 import type { Deps } from "@/server/deps";
 import { AppError } from "@/server/errors";
+import { log } from "@/server/log";
 import type { UserId } from "@/server/ports/auth";
 import { toBirdRecord, type BirdRecord, type Row } from "@/server/rows";
 import {
@@ -23,11 +31,15 @@ import {
   type LoftColumns,
 } from "@/server/services/friends";
 import { factorsFor, type Factor } from "./factors";
-import { resolvePlace } from "@/server/services/places";
+import {
+  GEOCODER_UNAVAILABLE,
+  PLACE_NOT_FOUND,
+  resolvePlace,
+} from "@/server/services/places";
 import { sampleWeather } from "@/server/services/weather";
 
 export type QuoteRecipient =
-  { friendId: UserId } | { place: { placeId: string } };
+  { friendId: UserId } | { place: { placeId: string; pin?: Point } };
 
 export type QuoteInput = {
   recipients: QuoteRecipient[];
@@ -140,8 +152,14 @@ export async function legFor(
   recipient: QuoteRecipient,
 ): Promise<Leg> {
   if ("place" in recipient) {
-    const place = await resolvePlace(deps, me, recipient.place.placeId);
-    return { from: roost, to: { point: place.roost, label: place.label } };
+    const { placeId, pin } = recipient.place;
+    const place = await resolvePlace(deps, me, placeId);
+    if (!pin)
+      return { from: roost, to: { point: place.roost, label: place.label } };
+    return {
+      from: roost,
+      to: { point: pin, label: await pinLabel(deps, pin) },
+    };
   }
   const them = recipient.friendId;
   const friendship = await friendshipBetween(deps.db, me, them);
@@ -156,6 +174,21 @@ export async function legFor(
   const to = endpointOf(friendship.theirShows, loftsOf(theirs));
   if (!to) throw new AppError("conflict", "That friend has no loft yet");
   return { from, to };
+}
+
+async function pinLabel(deps: Deps, pin: Point): Promise<string> {
+  const { lat, lon } = snap(pin.lat, pin.lon);
+  const name = await deps.geocoder
+    .reverse(lat, lon, "point")
+    .catch((error: unknown) => {
+      log.warn("geo.reverse_failed", {
+        error: error instanceof Error ? error.name : typeof error,
+      });
+      throw new AppError("unavailable", GEOCODER_UNAVAILABLE);
+    });
+  const label = name && roostLabel(name);
+  if (!label) throw new AppError("invalid", PLACE_NOT_FOUND);
+  return label;
 }
 
 export function endpointOf(shows: Shows, lofts: Lofts): Endpoint | null {

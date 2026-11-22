@@ -7,7 +7,14 @@ notes. The rules below are requirements, each with a test in some ticket.
 
 1. **Exact positions are never stored.** A position from the browser or the geocoder is snapped
    to the roost grid (round latitude to 0.002°, longitude to 0.0025°) in the request handler,
-   before any database write and before any log line. Only snapped values go further.
+   before any database write and before any log line. Only snapped values go further. Roosts,
+   home and travel, are always snapped.
+
+   One carve-out: a destination pin the sender places by hand on a send to someone new (`pin`
+   on `POST /api/flights/quote` and `POST /api/flights`) is kept exactly in `flights.to_lat/
+   to_lon`. It travels only in request bodies, never in a URL, a log line or `geo_cache`. Its
+   label comes from reverse-geocoding the snapped pin, so the geocoder only ever sees grid
+   points. Rule 5 limits who can read it.
 2. **Addresses are never stored.** If someone searches an address, we keep the snapped point
    and a neighbourhood label. The search text is not saved against the user.
 3. **Friends see a roost or a city.** Per friend, `block` (the roost and its neighbourhood

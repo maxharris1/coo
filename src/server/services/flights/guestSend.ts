@@ -8,6 +8,7 @@ import {
 } from "@/lib/flight/engine";
 import { careAt, projectCare, type CareOwner } from "@/lib/game/care";
 import { levelFor } from "@/lib/game/levels";
+import { snap } from "@/lib/game/privacy";
 import { noteLimit, validateBody } from "@/lib/game/notes";
 import {
   isWeekend,
@@ -63,7 +64,7 @@ export const guestSend: SendHook = async (
   const roost = myLofts && endpointOf("block", myLofts);
   if (!roost) throw new AppError("conflict", "Set up your loft first");
   const { from, to } = await legFor(deps, me, myLofts, roost, {
-    place: { placeId: item.guest.placeId },
+    place: { placeId: item.guest.placeId, pin: item.guest.pin },
   });
   const owner: CareOwner = { hasBirdbath: mine.has_birdbath };
   const [unlocked] = await deps.db.query<Row<"birds">>(
@@ -81,7 +82,7 @@ export const guestSend: SendHook = async (
         atMs: now,
       })),
     ),
-    placeNames(deps, from.point, to.point),
+    placeNames(deps, from.point, snap(to.point.lat, to.point.lon)),
   ]);
   const weather = samples.slice(0, 3) as FlightInput["weather"];
   const hazards = hazardsFor(
