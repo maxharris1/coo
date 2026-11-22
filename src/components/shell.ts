@@ -21,6 +21,6 @@ export function chromeFor(path: string): Chrome {
 
 export function isCurrentTab(href: string, path: string): boolean {
   return href === "/"
-    ? path === "/"
+    ? path === "/" || path === "/more"
     : path === href || path.startsWith(`${href}/`);
 }

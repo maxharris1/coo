@@ -45,3 +45,16 @@ export async function testDb(): Promise<Db> {
     tx: (fn) => pg.transaction((t) => fn(txDb(t))),
   };
 }
+
+export function asRole(db: Db, role: "coo_app"): Db {
+  const tx: Db["tx"] = (fn) =>
+    db.tx(async (t) => {
+      await t.query(`set local role ${role}`);
+      return fn(t);
+    });
+  return {
+    query: <T>(sql: string, params?: unknown[]) =>
+      tx((t) => t.query<T>(sql, params)),
+    tx,
+  };
+}
