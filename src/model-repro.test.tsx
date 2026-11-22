@@ -48,7 +48,10 @@ const record = (over: Partial<BirdRecord> = {}): BirdRecord => ({
 });
 
 it("a bird blocked by low energy must not claim it can still fly", () => {
-  const bird = toBirdView(record(), now, { hasBirdbath: false });
+  const bird = {
+    ...toBirdView(record(), now, { hasBirdbath: false }),
+    jobId: null,
+  };
   const actual = {
     energy: bird.energy,
     canFly: bird.canFly,

@@ -35,6 +35,7 @@ type Bird = { id, name, breed, look, pronoun, speedMph, focus, navigation, quirk
   level, miles, deliveries, detours,
   belly, feathers, energy, hungry, scruffy, tired, sulking,          // computed now
   status: 'home'|'scheduled'|'flying'|'visiting'|'busy', busyKind?, busyUntil?,
+  jobId: string | null,                                              // running job with a map, else null
   gear: string[], noteLimit: number, canFly: boolean, cannotFlyReason?: string };
 type Flight = { id, kind: 'delivery'|'return', status, bird: BirdLite, owner: PersonLite,
   counterpart?: PersonLite, guestName?: string, from: Place, to: Place,
@@ -162,6 +163,7 @@ Weather and place names are fetched before the transaction opens, never inside i
 | `POST /api/shop/buy` | `{ itemId, price }` | Gear id, `birdbath` or `perch`. `price` is the price the buyer confirmed. If the current price differs, the answer is `conflict` and nothing is charged. One transaction |
 | `GET /api/earn` | | Punch card, pay table, two job offers with jobs left today and current pay, found objects |
 | `POST /api/jobs` | `{ jobId, birdId }` | Starts an offered job |
+| `GET /api/jobs/[id]` | | Owner only. `{ job: { id, jobId, text, short, startedAt, endsAt, status, bird: BirdLite, map: { loft: Place, dest: Place } \| null } }`. Both map points are snapped to the roost grid, including a town-centre loft. `map.dest` is the stored snapped point and its label is the job's config short text, never an address. `map` is null for a job with no stored destination (started before 0007) or when the owner has no loft. Another user's id, a missing id and a malformed id are all `not_found` |
 | `POST /api/found/trade` | | Trades all found objects |
 | `GET /api/aviary` | | Perches, egg, breeds with `owned` |
 | `POST /api/eggs/hatch` | `{ name, pronoun }` | Needs a ready egg and a free perch. Returns the new bird |

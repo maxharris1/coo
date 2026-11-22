@@ -1,12 +1,15 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { config } from "@/lib/config";
+import { offersFor } from "@/lib/game/jobs";
 import { snap } from "@/lib/game/privacy";
+import { localDate } from "@/lib/game/time";
 import { toE164, type E164 } from "@/lib/phone";
-import type { Profile } from "@/server/auth";
+import type { OnboardedCaller, Profile } from "@/server/auth";
 import type { Db } from "@/server/db";
 import { createJsonRoute } from "@/server/http";
 import type { UserId } from "@/server/ports/auth";
+import { startJob } from "@/server/services/jobs/start";
 import { setLoft } from "@/server/services/loft";
 import { onboard } from "@/server/services/onboarding";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
@@ -107,7 +110,69 @@ async function onboardWithLoft(id: UserId) {
   );
 }
 
+async function startJobFor(userId: string, birdId: string) {
+  const [profile] = await base.db.query<Profile & { onboarded_at: Date }>(
+    "select * from profiles where id = $1",
+    [userId],
+  );
+  const caller: OnboardedCaller = { userId: userId as UserId, profile };
+  const [offer] = offersFor(
+    userId,
+    localDate(deps.clock.now(), profile.timezone),
+  );
+  const { job } = await startJob(base, caller, { jobId: offer.id, birdId });
+  return job.id;
+}
+
+const jobIds = (json: { birds: { id: string; jobId: string | null }[] }) =>
+  json.birds.map((b) => [b.id, b.jobId]);
+
 describe("GET /api/sync", () => {
+  describe("birds[].jobId", () => {
+    it("is null for every bird at home", async () => {
+      const { json } = await sync((await signIn(MAX_PHONE)).jar);
+      expect(jobIds(json)).toEqual(world.max.birds.map((b) => [b.id, null]));
+    });
+
+    it("is the running job with a destination, and null for a bird whose job is done", async () => {
+      const [gerald, brenda] = world.max.birds.map((b) => b.id);
+      const running = await startJobFor(world.max.id, gerald);
+      const done = await startJobFor(world.max.id, brenda);
+      await base.db.query("update jobs set status = 'done' where id = $1", [
+        done,
+      ]);
+      await base.db.query(
+        "update birds set status = 'home', busy_kind = null, busy_until = null where id = $1",
+        [brenda],
+      );
+
+      const { status, json } = await sync((await signIn(MAX_PHONE)).jar);
+
+      expect(status).toBe(200);
+      expect(jobIds(json)).toEqual([
+        [gerald, running],
+        [brenda, null],
+      ]);
+    });
+
+    it("is null for a running job with no destination", async () => {
+      const [gerald, brenda] = world.max.birds.map((b) => b.id);
+      const running = await startJobFor(world.max.id, gerald);
+      await base.db.query(
+        "update jobs set dest_lat = null, dest_lon = null, dest_label = null where id = $1",
+        [running],
+      );
+
+      const { json } = await sync((await signIn(MAX_PHONE)).jar);
+
+      expect(json.birds[0]).toMatchObject({ status: "busy", busyKind: "job" });
+      expect(jobIds(json)).toEqual([
+        [gerald, null],
+        [brenda, null],
+      ]);
+    });
+  });
+
   it("returns Max's two birds with computed care and nothing of Priya's", async () => {
     const { jar } = await signIn(MAX_PHONE);
     const { status, json } = await sync(jar);
