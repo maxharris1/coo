@@ -8,8 +8,12 @@ $$;
 do $$ begin
   if not exists (select from pg_roles where rolname = 'authenticated') then create role authenticated nologin; end if;
   if not exists (select from pg_roles where rolname = 'anon') then create role anon nologin; end if;
-  if not exists (select from pg_roles where rolname = 'coo_app') then create role coo_app nologin nobypassrls; end if;
+  if not exists (select from pg_roles where rolname = 'coo_app') then create role coo_app nologin bypassrls; end if;
   if not exists (select from pg_publication where pubname = 'supabase_realtime') then create publication supabase_realtime; end if;
 end $$;
 grant usage on schema auth to authenticated, anon;
 grant usage on schema public to authenticated, anon, coo_app;
+alter default privileges in schema public grant select, insert, update, delete on tables to coo_app;
+alter default privileges in schema public grant usage, select on sequences to coo_app;
+-- Supabase grants anon and authenticated execute on new public functions.
+alter default privileges in schema public grant execute on functions to anon, authenticated;

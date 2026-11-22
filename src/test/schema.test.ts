@@ -103,6 +103,39 @@ describe("schema", () => {
     ]);
   });
 
+  it("coo_app reaches auth.users only through sync_phone_last4, which no browser role may run (ac-2)", async () => {
+    const privileges = await one(
+      `select has_schema_privilege('coo_app', 'auth', 'usage') as auth_usage,
+              has_table_privilege('coo_app', 'auth.users', 'select') as users_select,
+              has_function_privilege('coo_app', 'public.sync_phone_last4(uuid)', 'execute') as app,
+              has_function_privilege('anon', 'public.sync_phone_last4(uuid)', 'execute') as anon,
+              has_function_privilege('authenticated', 'public.sync_phone_last4(uuid)', 'execute') as authenticated,
+              exists (
+                select from pg_proc p, aclexplode(p.proacl) a
+                 where p.oid = 'public.sync_phone_last4(uuid)'::regprocedure and a.grantee = 0
+              ) as public`,
+    );
+    expect(privileges).toEqual({
+      auth_usage: false,
+      users_select: false,
+      app: true,
+      anon: false,
+      authenticated: false,
+      public: false,
+    });
+    const fn = await one(
+      "select prosecdef, proconfig from pg_proc where oid = 'public.sync_phone_last4(uuid)'::regprocedure",
+    );
+    expect(fn).toEqual({ prosecdef: true, proconfig: ['search_path=""'] });
+    for (const role of ["anon", "authenticated"])
+      await expect(
+        db.tx(async (t) => {
+          await t.query(`set local role ${role}`);
+          await t.query("select public.sync_phone_last4($1)", [max]);
+        }),
+      ).rejects.toThrow(/permission denied/);
+  });
+
   it("seeds: earn, spend, never below zero, never twice", async () => {
     const ref = await uuid();
     expect(await seeds(max, 60, "welcome")).toBe(60);

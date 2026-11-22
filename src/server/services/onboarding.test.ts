@@ -3,7 +3,8 @@ import { BLOCKED_NAMES } from "@/lib/blocklist";
 import { config } from "@/lib/config";
 import type { UserId } from "@/server/ports/auth";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
-import { onboard } from "./onboarding";
+import { asRole } from "@/test/testDb";
+import { onboard, syncPhoneLast4 } from "./onboarding";
 
 const BODY = {
   name: "Max",
@@ -22,6 +23,22 @@ async function newUser(): Promise<UserId> {
     "insert into auth.users default values returning id",
   );
   return id;
+}
+
+async function userWithPhone(phone: string): Promise<UserId> {
+  const [{ id }] = await deps.db.query<{ id: UserId }>(
+    "insert into auth.users (phone) values ($1) returning id",
+    [phone],
+  );
+  return id;
+}
+
+async function phoneLast4(user: UserId) {
+  const [row] = await deps.db.query<{ phone_last4: string | null }>(
+    "select phone_last4 from profiles where id = $1",
+    [user],
+  );
+  return row.phone_last4;
 }
 
 async function rows(user: string) {
@@ -249,5 +266,104 @@ describe("onboard: one person's onboarding never touches another's rows", () => 
     });
 
     expect(await rows(a)).toEqual(before);
+  });
+});
+
+describe("onboard: the profile carries the last four digits of the Auth phone", () => {
+  it("returns phoneLast4 and never the full number", async () => {
+    const user = await userWithPhone("15551234567");
+    const result = await onboard(deps, user, BODY);
+
+    expect(result.me.phoneLast4).toBe("4567");
+    const body = JSON.stringify(result);
+    expect(body).not.toContain("5551234567");
+    expect(body).not.toContain("15551234567");
+  });
+
+  it("fills a profile whose phone_last4 is null on a repeat onboard", async () => {
+    const user = await userWithPhone("15551234567");
+    await onboard(deps, user, BODY);
+    await deps.db.query(
+      "update profiles set phone_last4 = null where id = $1",
+      [user],
+    );
+
+    const again = await onboard(deps, user, BODY);
+
+    expect(again.me.phoneLast4).toBe("4567");
+    expect(await phoneLast4(user)).toBe("4567");
+  });
+
+  it("onboards a user with no phone and leaves phoneLast4 null", async () => {
+    const user = await newUser();
+    const result = await onboard(deps, user, BODY);
+    expect(result.me.phoneLast4).toBeNull();
+    expect(await phoneLast4(user)).toBeNull();
+  });
+});
+
+describe("onboard as the coo_app server role", () => {
+  it("onboards a new user as coo_app and writes phone_last4 (ac-4)", async () => {
+    const user = await userWithPhone("15551234567");
+
+    const result = await onboard(
+      { ...deps, db: asRole(deps.db, "coo_app") },
+      user,
+      BODY,
+    );
+
+    expect(result.me.phoneLast4).toBe("4567");
+    expect(result.birds).toHaveLength(2);
+    expect(await phoneLast4(user)).toBe("4567");
+  });
+});
+
+describe("syncPhoneLast4 as coo_app", () => {
+  it("returns the updated profile, then null when the phone has not changed", async () => {
+    const user = await userWithPhone("15551234567");
+    await onboard(deps, user, BODY);
+    await deps.db.query(
+      "update profiles set phone_last4 = null where id = $1",
+      [user],
+    );
+
+    const first = await syncPhoneLast4(asRole(deps.db, "coo_app"), user);
+    expect(first).toMatchObject({ id: user, phone_last4: "4567" });
+    expect(await syncPhoneLast4(asRole(deps.db, "coo_app"), user)).toBeNull();
+  });
+
+  it("follows a phone change in Auth", async () => {
+    const user = await userWithPhone("15551234567");
+    await onboard(deps, user, BODY);
+    await deps.db.query("update auth.users set phone = $2 where id = $1", [
+      user,
+      "15559876543",
+    ]);
+
+    expect(
+      await syncPhoneLast4(asRole(deps.db, "coo_app"), user),
+    ).toMatchObject({
+      phone_last4: "6543",
+    });
+  });
+
+  it("never changes another user's phone_last4", async () => {
+    const a = await userWithPhone("15551234567");
+    const b = await userWithPhone("15559990000");
+    await onboard(deps, a, BODY);
+    await onboard(deps, b, { ...BODY, name: "Priya" });
+    await deps.db.query("update auth.users set phone = $2 where id = $1", [
+      b,
+      "15558887777",
+    ]);
+    await deps.db.query(
+      "update profiles set phone_last4 = null where id = $1",
+      [a],
+    );
+
+    await syncPhoneLast4(asRole(deps.db, "coo_app"), a);
+
+    expect(await phoneLast4(a)).toBe("4567");
+    expect(await phoneLast4(b)).toBe("0000");
   });
 });
