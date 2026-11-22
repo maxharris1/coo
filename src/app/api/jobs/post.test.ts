@@ -1,6 +1,10 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { config } from "@/lib/config";
+import { haversineMi } from "@/lib/flight/engine";
+import { jobDestination, oneWayMiles } from "@/lib/game/jobDest";
 import { offersFor, type Job } from "@/lib/game/jobs";
+import { levelFor } from "@/lib/game/levels";
+import { snap, type Point } from "@/lib/game/privacy";
 import { localDate } from "@/lib/game/time";
 import type { UserId } from "@/server/ports/auth";
 import type { Row } from "@/server/rows";
@@ -16,6 +20,9 @@ type JobRow = {
   pay: number;
   status: string;
   ends_at: Date;
+  dest_lat: number | null;
+  dest_lon: number | null;
+  dest_label: string | null;
 };
 
 const MINUTE = 60_000;
@@ -52,6 +59,30 @@ async function onboarded(number: string, name: string) {
     [session.id],
   );
   return { ...session, birdId: bird.id };
+}
+
+const HOME = snap(40.7128, -74.006);
+const TRAVEL = snap(64.1466, -21.9426);
+
+afterEach(() => vi.restoreAllMocks());
+
+async function setLofts(userId: string, travelOn: boolean) {
+  await deps.db.query(
+    `update profiles set
+       home_lat = $2, home_lon = $3, home_label = 'Bleecker St', home_city = 'New York',
+       home_city_lat = 40.71, home_city_lon = -74.01,
+       travel_lat = $4, travel_lon = $5, travel_label = 'Laugavegur', travel_city = 'Reykjavik',
+       travel_city_lat = 64.15, travel_city_lon = -21.94, travel_on = $6
+     where id = $1`,
+    [userId, HOME.lat, HOME.lon, TRAVEL.lat, TRAVEL.lon, travelOn],
+  );
+}
+
+async function expectedDest(row: JobRow, roost: Point) {
+  const bird = await birdRow(row.bird_id);
+  const job = config.jobs.jobs.find((j) => j.id === row.job_id)!;
+  const miles = oneWayMiles(bird.speed_mph, levelFor(bird.miles), job.minutes);
+  return { miles, dest: jobDestination(row.id, roost, miles, job.short) };
 }
 
 function todaysOffers(userId: string): Job[] {
@@ -289,5 +320,135 @@ describe("POST /api/jobs", () => {
     expect(await jobsOf(max.id)).toEqual([]);
     expect(await jobsOf(priya.id)).toEqual([]);
     expect(await birdRow(priya.birdId)).toEqual(before);
+  });
+  describe("job destination", () => {
+    it("ac-1: stores a snapped destination at the one-way distance from the home roost, keeping pay and timing", async () => {
+      const { id, jar, birdId } = await onboarded("(555) 123-4567", "Max");
+      await setLofts(id, false);
+      const [offer] = todaysOffers(id);
+      const now = deps.clock.now();
+
+      const { status, json } = await client.post(
+        { jobId: offer.id, birdId },
+        jar,
+      );
+
+      expect(status).toBe(200);
+      expect(json.job.pay).toBe(offer.pay);
+      expect(json.job).not.toHaveProperty("dest");
+      const [row] = await jobsOf(id);
+      const { miles, dest } = await expectedDest(row, HOME);
+      expect(row).toMatchObject({
+        pay: offer.pay,
+        dest_lat: dest.lat,
+        dest_lon: dest.lon,
+        dest_label: offer.short,
+      });
+      expect(new Date(row.ends_at).getTime()).toBe(
+        now + offer.minutes * MINUTE,
+      );
+      expect(snap(row.dest_lat!, row.dest_lon!)).toEqual({
+        lat: row.dest_lat,
+        lon: row.dest_lon,
+      });
+      expect(
+        Math.abs(
+          haversineMi(HOME, { lat: row.dest_lat!, lon: row.dest_lon! }) - miles,
+        ),
+      ).toBeLessThanOrEqual(0.15);
+    });
+
+    it("ac-1: measures from the travel roost when travel is on", async () => {
+      const { id, jar, birdId } = await onboarded("(555) 123-4567", "Max");
+      await setLofts(id, true);
+      const [offer] = todaysOffers(id);
+
+      expect((await client.post({ jobId: offer.id, birdId }, jar)).status).toBe(
+        200,
+      );
+
+      const [row] = await jobsOf(id);
+      const { miles, dest } = await expectedDest(row, TRAVEL);
+      expect([row.dest_lat, row.dest_lon]).toEqual([dest.lat, dest.lon]);
+      expect(
+        Math.abs(
+          haversineMi(TRAVEL, { lat: row.dest_lat!, lon: row.dest_lon! }) -
+            miles,
+        ),
+      ).toBeLessThanOrEqual(0.15);
+    });
+
+    it("ac-1: starts the job with no destination when the user has no loft", async () => {
+      const { id, jar, birdId } = await onboarded("(555) 123-4567", "Max");
+      const [offer] = todaysOffers(id);
+
+      expect((await client.post({ jobId: offer.id, birdId }, jar)).status).toBe(
+        200,
+      );
+
+      expect(await jobsOf(id)).toEqual([
+        expect.objectContaining({
+          dest_lat: null,
+          dest_lon: null,
+          dest_label: null,
+        }),
+      ]);
+    });
+
+    it("ac-1: the database refuses a job row with only some destination columns set", async () => {
+      const { id, birdId } = await onboarded("(555) 123-4567", "Max");
+      await expect(
+        deps.db.query(
+          `insert into jobs (user_id, bird_id, job_id, pay, ends_at, dest_lat)
+           values ($1, $2, 'deli-slip', 8, now(), 1)`,
+          [id, birdId],
+        ),
+      ).rejects.toThrow(/jobs_dest_check/);
+      await expect(
+        deps.db.query(
+          `insert into jobs (user_id, bird_id, job_id, pay, ends_at, dest_lat, dest_lon)
+           values ($1, $2, 'deli-slip', 8, now(), 1, 2)`,
+          [id, birdId],
+        ),
+      ).rejects.toThrow(/jobs_dest_check/);
+    });
+
+    it("ac-2: labels the destination with the job's short text, adds no address column, logs nothing and calls no geocoder", async () => {
+      const { id, jar, birdId } = await onboarded("(555) 123-4567", "Max");
+      await setLofts(id, false);
+      const [offer] = todaysOffers(id);
+      const logs = (["log", "info", "warn", "error", "debug"] as const).map(
+        (level) => vi.spyOn(console, level),
+      );
+      const geo = (["search", "reverse"] as const).map((method) =>
+        vi.spyOn(deps.geocoder, method),
+      );
+
+      expect((await client.post({ jobId: offer.id, birdId }, jar)).status).toBe(
+        200,
+      );
+
+      for (const spy of [...logs, ...geo]) expect(spy).not.toHaveBeenCalled();
+      const [row] = await deps.db.query<Record<string, unknown>>(
+        "select * from jobs where user_id = $1",
+        [id],
+      );
+      expect(Object.keys(row).sort()).toEqual([
+        "bird_id",
+        "dest_label",
+        "dest_lat",
+        "dest_lon",
+        "ends_at",
+        "id",
+        "job_id",
+        "pay",
+        "started_at",
+        "status",
+        "user_id",
+      ]);
+      expect(row.dest_label).toBe(
+        config.jobs.jobs.find((j) => j.id === row.job_id)!.short,
+      );
+    });
   });
 });
