@@ -60,7 +60,12 @@ const visit = (over: Partial<SyncVisit> = {}): SyncVisit => ({
     gear: [],
   },
   owner: { id: "u1", name: "Priya", handle: "priya" },
-  note: { id: "n1", body: "Bring the bread.", createdAt: NOW - 120 * MIN },
+  note: {
+    id: "n1",
+    body: "Bring the bread.",
+    doodle: null,
+    createdAt: NOW - 120 * MIN,
+  },
   arrivedAt: NOW - 5 * MIN,
   leavesAt: LEAVES,
   status: "waiting",

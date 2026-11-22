@@ -25,7 +25,7 @@ const visit = (id: string, bird: string, leavesInMin: number): SyncVisit => ({
     gear: [],
   },
   owner: { id: `o-${id}`, name: "Priya", handle: "priya" },
-  note: { id: `n-${id}`, body: "hi", createdAt: NOW - 90 * MIN },
+  note: { id: `n-${id}`, body: "hi", doodle: null, createdAt: NOW - 90 * MIN },
   arrivedAt: NOW - 10 * MIN,
   leavesAt: NOW + leavesInMin * MIN,
   status: "waiting",

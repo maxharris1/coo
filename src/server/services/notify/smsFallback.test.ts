@@ -1,6 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { config } from "@/lib/config";
 import { toE164 } from "@/lib/phone";
+import { log } from "@/server/log";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
 import {
   insertPlannedDelivery,
@@ -110,15 +111,59 @@ describe("SMS fallback", () => {
     expect(row.sms_sent_at).toEqual(new Date(deps.clock.now()));
   });
 
-  it("no text carries the note body", async () => {
+  it("no notification, text, push or log line carries the note body or doodle", async () => {
+    const marker = [
+      [123, 45],
+      [67, 89],
+    ];
+    const doodle = {
+      v: 1,
+      w: config.game.notes.doodle.width,
+      h: config.game.notes.doodle.height,
+      strokes: [{ color: "ink", width: "marker", points: marker }],
+    };
+    const [{ body }] = await deps.db.query<{ body: string }>(
+      "update notes set doodle = $2::jsonb where id = $1 returning body",
+      [flight.noteId, JSON.stringify(doodle)],
+    );
+    await deps.db.query(
+      `insert into push_subscriptions (user_id, endpoint, p256dh, auth)
+       select $1, 'https://push.example/' || n, 'p', 'a' from generate_series(1, 2) n`,
+      [world.max.id],
+    );
+    deps.push.failNext(500);
+    onTestFinished(() => {
+      vi.restoreAllMocks();
+    });
+    const logged = [
+      vi.spyOn(log, "info"),
+      vi.spyOn(log, "warn"),
+      vi.spyOn(log, "error"),
+      vi.spyOn(console, "log").mockImplementation(() => {}),
+      vi.spyOn(console, "warn").mockImplementation(() => {}),
+      vi.spyOn(console, "error").mockImplementation(() => {}),
+    ];
+
     await land();
 
-    const [{ body }] = await deps.db.query<{ body: string }>(
-      "select body from notes where id = $1",
-      [flight.noteId],
+    const notifications = await deps.db.query(
+      "select * from notifications where user_id in ($1, $2)",
+      [world.max.id, world.priya.id],
     );
+    const logCalls = logged.flatMap((spy) => spy.mock.calls);
+    expect(notifications).not.toHaveLength(0);
     expect(deps.sms.sent).not.toHaveLength(0);
-    for (const text of deps.sms.sent) expect(text.body).not.toContain(body);
+    expect(deps.push.sent).not.toHaveLength(0);
+    expect(logCalls).not.toHaveLength(0);
+    const seen = JSON.stringify([
+      notifications,
+      deps.sms.sent,
+      deps.push.sent,
+      logCalls,
+    ]);
+    expect(seen).not.toContain(body);
+    expect(seen).not.toContain(JSON.stringify(marker));
+    expect(seen).not.toContain("doodle");
   });
 
   it("a recipient with a working push gets no text", async () => {

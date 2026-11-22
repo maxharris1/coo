@@ -29,7 +29,7 @@ const visit = (over: Partial<SyncVisit> = {}): SyncVisit => ({
     gear: [],
   },
   owner: { id: "u1", name: "Priya", handle: "priya" },
-  note: { id: "n1", body: BODY, createdAt: created },
+  note: { id: "n1", body: BODY, doodle: null, createdAt: created },
   arrivedAt: arrived,
   leavesAt: leaves,
   status: "waiting",

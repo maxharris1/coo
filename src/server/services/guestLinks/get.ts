@@ -1,4 +1,5 @@
 import type { Pronoun } from "@/lib/format";
+import type { Doodle } from "@/lib/game/notes";
 import type { Db } from "@/server/db";
 import type { Deps } from "@/server/deps";
 import { AppError } from "@/server/errors";
@@ -30,7 +31,7 @@ export type GuestView = {
     | "to"
     | "placeNames"
   >;
-  note?: { body: string; createdAt: number };
+  note?: { body: string; doodle: Doodle | null; createdAt: number };
 };
 
 export type LiveLink = {
@@ -162,8 +163,12 @@ async function readGuestView(
   };
   if (flight.status !== "landed") return { linkId: link.id, guest: view };
 
-  const [note] = await db.query<{ body: string; created_at: Date }>(
-    `select n.body, n.created_at from flights f join notes n on n.id = f.note_id
+  const [note] = await db.query<{
+    body: string;
+    doodle: Doodle | null;
+    created_at: Date;
+  }>(
+    `select n.body, n.doodle, n.created_at from flights f join notes n on n.id = f.note_id
      where f.id = $1`,
     [flight.id],
   );
@@ -172,7 +177,11 @@ async function readGuestView(
     guest: note
       ? {
           ...view,
-          note: { body: note.body, createdAt: note.created_at.getTime() },
+          note: {
+            body: note.body,
+            doodle: note.doodle,
+            createdAt: note.created_at.getTime(),
+          },
         }
       : view,
   };

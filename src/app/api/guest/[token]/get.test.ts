@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { config } from "@/lib/config";
 import type { UserId } from "@/server/ports/auth";
 import type { GuestSendResult } from "@/server/services/flights/guestSend";
 import { send } from "@/server/services/flights/send";
 import { searchPlaces } from "@/server/services/places";
+import { tick } from "@/server/services/tick";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
 import { geoClient } from "@/test/geoRoute";
 import { seedWorld, type World } from "@/test/seedWorld";
@@ -14,6 +16,16 @@ vi.mock("@/env", () => ({
 
 const PEPPER = "test-pepper";
 const BODY = "Come see the new loft";
+const MARKER = [
+  [123, 45],
+  [67, 89],
+];
+const DOODLE = {
+  v: 1,
+  w: config.game.notes.doodle.width,
+  h: config.game.notes.doodle.height,
+  strokes: [{ color: "ink", width: "marker", points: MARKER }],
+};
 
 let deps: TestDeps;
 let world: World;
@@ -27,11 +39,12 @@ function client(path: string) {
   return geoClient(deps, (r) => guestGet(r, () => PEPPER), path);
 }
 
-async function guestToken() {
+async function guestToken(doodle?: typeof DOODLE) {
   const max = world.max.id as UserId;
   const { results } = await searchPlaces(deps, max, "Williamsburg");
   const result = (await send(deps, max, {
     body: BODY,
+    doodle,
     sends: [
       {
         guest: { name: "Sam", placeId: results[0].placeId },
@@ -40,6 +53,10 @@ async function guestToken() {
     ],
   })) as GuestSendResult;
   const url = result.guestLinks[0].url;
+  if (doodle) {
+    deps.clock.set((result.flights[0].arriveAt as number) + 1000);
+    await tick(deps);
+  }
   return url.slice(url.lastIndexOf("-") + 1);
 }
 
@@ -77,6 +94,39 @@ describe("GET /api/guest/[token]", () => {
     );
     expect(withoutServerNow(malformed.json)).toEqual(
       withoutServerNow(wrong.json),
+    );
+  });
+
+  describe("a landed note with a doodle", () => {
+    it("shows the doodle with the note while the link is live", async () => {
+      const token = await guestToken(DOODLE);
+
+      const { status, json } = await client(`/api/guest/${token}`).get({});
+
+      expect(status).toBe(200);
+      expect(json.note).toMatchObject({ body: BODY, doodle: DOODLE });
+    });
+
+    const past = () => new Date(deps.clock.now() - 1000).toISOString();
+
+    it.each<[string, string, () => unknown[], number]>([
+      ["reported", "status = 'reported'", () => [], 404],
+      ["marked expired", "status = 'expired'", () => [], 410],
+      ["past its expiry time", "expires_at = $1", () => [past()], 410],
+    ])(
+      "hides the note and doodle once the link is %s",
+      async (_, set, params, code) => {
+        const token = await guestToken(DOODLE);
+        await deps.db.query(`update guest_links set ${set}`, params());
+
+        const res = await client(`/api/guest/${token}`).get({});
+
+        expect(res.status).toBe(code);
+        const text = JSON.stringify(res.json);
+        for (const secret of [BODY, "doodle", JSON.stringify(MARKER)]) {
+          expect(text).not.toContain(secret);
+        }
+      },
     );
   });
 });

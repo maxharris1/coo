@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { Doodle } from "@/lib/game/notes";
 import type { Deps } from "@/server/deps";
 import { AppError } from "@/server/errors";
 import type { UserId } from "@/server/ports/auth";
@@ -11,6 +12,7 @@ export type ShoeboxNote = {
   direction: "sent" | "received";
   state: "in_the_air" | "delivered" | "returned";
   body: string;
+  doodle: Doodle | null;
   with: { id: string | null; name: string; handle: string | null };
   bird: { id: string; name: string; look: string } | null;
   trip: { distanceMi: number | null; durationMs: number | null } | null;
@@ -28,6 +30,7 @@ type NoteRow = {
   id: string;
   sender_id: string;
   body: string;
+  doodle: Doodle | null;
   created_at: Date;
   delivered_at: Date | null;
   returned_at: Date | null;
@@ -89,6 +92,7 @@ function toNote(r: NoteRow, me: UserId): ShoeboxNote {
         ? "delivered"
         : "in_the_air",
     body: r.body,
+    doodle: r.doodle,
     with: r.with_name
       ? { id: r.with_id, name: r.with_name, handle: r.with_handle }
       : { id: null, name: r.guest_name ?? FORMER_FRIEND, handle: null },
@@ -116,7 +120,7 @@ export async function listNotes(
 ): Promise<NotesPage> {
   const after = cursor ? decodeCursor(cursor) : null;
   const rows = await deps.db.query<NoteRow>(
-    `select n.id, n.sender_id, n.body, n.created_at, n.delivered_at, n.returned_at,
+    `select n.id, n.sender_id, n.body, n.doodle, n.created_at, n.delivered_at, n.returned_at,
        ${SORT_KEY}::text as sort_key,
        p.id as with_id, p.name as with_name, p.handle as with_handle,
        case when g.status = 'claimed' then null else g.recipient_name end as guest_name,

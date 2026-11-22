@@ -39,6 +39,16 @@ const brenda = () => world.max.birds[1];
 
 describe("syncVisits", () => {
   it("gives the host the waiting visit with its note, bird, owner and trip", async () => {
+    const doodle = {
+      v: 1,
+      w: config.game.notes.doodle.width,
+      h: config.game.notes.doodle.height,
+      strokes: [{ color: "ink", width: "fine", points: [[1, 2]] }],
+    };
+    await deps.db.query("update notes set doodle = $2::jsonb where id = $1", [
+      visit.noteId,
+      JSON.stringify(doodle),
+    ]);
     const { visits, myVisiting } = await syncVisits(deps, world.priya.id);
 
     expect(myVisiting).toEqual([]);
@@ -59,7 +69,12 @@ describe("syncVisits", () => {
           name: world.max.name,
           handle: world.max.handle,
         },
-        note: { id: visit.noteId, body: "Test note from Max", createdAt: now },
+        note: {
+          id: visit.noteId,
+          body: "Test note from Max",
+          doodle,
+          createdAt: now,
+        },
         arrivedAt: now,
         leavesAt: now + WAIT_MS,
         status: "waiting",

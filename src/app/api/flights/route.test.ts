@@ -4,9 +4,11 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { config } from "@/lib/config";
 import type { UserId } from "@/server/ports/auth";
 import { onboard } from "@/server/services/onboarding";
+import { tick } from "@/server/services/tick";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
 import { geoClient } from "@/test/geoRoute";
 import { seedWorld, type World } from "@/test/seedWorld";
+import { notesGet } from "../notes/get";
 import { syncGet } from "../sync/get";
 import { flightGet } from "./[id]/get";
 import { flightsGet } from "./get";
@@ -332,6 +334,90 @@ describe("POST /api/flights", () => {
         expect(status).toBe(409);
         expect(json.error.code).toBe("conflict");
         expect(await counts()).toEqual(before);
+      },
+    );
+
+    const keysOf = (value: unknown): string[] =>
+      Array.isArray(value)
+        ? value.flatMap(keysOf)
+        : value && typeof value === "object"
+          ? Object.entries(value).flatMap(([k, v]) => [k, ...keysOf(v)])
+          : [];
+
+    const readAs = async (who: keyof typeof PHONE, flightId: string) => {
+      const jar = await jarOf(who);
+      return {
+        sync: await geoClient(deps, syncGet, "/api/sync").get({}, jar),
+        flight: await geoClient(
+          deps,
+          flightGet,
+          `/api/flights/${flightId}`,
+        ).get({}, jar),
+        notes: await geoClient(deps, notesGet, "/api/notes").get({}, jar),
+      };
+    };
+
+    const NOTES = [
+      ["text and a doodle", { body: BODY, doodle: DOODLE }],
+      ["a doodle only", { body: "", doodle: DOODLE }],
+    ] as const;
+
+    it.each(NOTES)(
+      "keeps %s from the recipient while the bird flies, and shows the sender",
+      async (_, note) => {
+        const { json: sent } = await post({ ...note, sends: toPriya() });
+        const flightId = sent.flights[0].id;
+
+        const priya = await readAs("priya", flightId);
+        const incoming = priya.sync.json.flights.find(
+          (f: { id: string }) => f.id === flightId,
+        );
+        expect(incoming).toMatchObject({ role: "incoming", hasNote: true });
+        expect(priya.flight.json.flight).toMatchObject({
+          role: "incoming",
+          hasNote: true,
+        });
+        expect(priya.notes.json.notes).toEqual([]);
+        for (const res of [priya.sync, priya.flight, priya.notes]) {
+          expect(res.status).toBe(200);
+          expect(keysOf(res.json)).not.toContain("body");
+          expect(keysOf(res.json)).not.toContain("doodle");
+        }
+
+        const max = await readAs("max", flightId);
+        expect(max.notes.json.notes).toEqual([
+          expect.objectContaining({
+            direction: "sent",
+            state: "in_the_air",
+            body: note.body,
+            doodle: DOODLE,
+          }),
+        ]);
+      },
+    );
+
+    it.each(NOTES)(
+      "gives the recipient %s once the bird lands",
+      async (_, note) => {
+        const { json: sent } = await post({ ...note, sends: toPriya() });
+        const [flight] = sent.flights;
+        deps.clock.set(flight.arriveAt + 1000);
+        await tick(deps);
+
+        const priya = await readAs("priya", flight.id);
+        expect(priya.notes.json.notes).toEqual([
+          expect.objectContaining({
+            direction: "received",
+            state: "delivered",
+            body: note.body,
+            doodle: DOODLE,
+          }),
+        ]);
+        expect(priya.sync.json.visits).toEqual([
+          expect.objectContaining({
+            note: expect.objectContaining({ body: note.body, doodle: DOODLE }),
+          }),
+        ]);
       },
     );
   });
