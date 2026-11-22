@@ -285,7 +285,7 @@ describe("/settings travel (ac-1)", () => {
     stubGeolocation(true);
     await mount();
     await act(async () => view.props!.onTravel(true));
-    expect(view.toasts).toHaveLength(1);
+    expect(view.toasts).toEqual(["We could not get your location. Try again."]);
     expect(events).toEqual([]);
   });
 });

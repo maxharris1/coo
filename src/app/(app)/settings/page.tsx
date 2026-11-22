@@ -8,8 +8,10 @@ import type { SyncPayload } from "@/components/sync";
 import { useToast } from "@/components/Toasts";
 import type { Me } from "@/server/rows";
 import { call } from "../friends/friendsApi";
-import { NO_LOCATION, position } from "../welcome/loft/roost";
+import { position } from "../welcome/loft/roost";
 import { SettingsView, type Change, type Sheet } from "./SettingsView";
+
+const NO_LOCATION = "We could not get your location. Try again.";
 
 type Held = { base: SyncPayload | null; change: Change };
 
