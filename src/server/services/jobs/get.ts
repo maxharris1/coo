@@ -1,5 +1,5 @@
 import { config } from "@/lib/config";
-import { activeLoft } from "@/lib/game/privacy";
+import { activeLoft, snap } from "@/lib/game/privacy";
 import type { Deps } from "@/server/deps";
 import { AppError } from "@/server/errors";
 import type { UserId } from "@/server/ports/auth";
@@ -47,8 +47,8 @@ function mapOf(r: JobRow): JobView["map"] {
   )
     return null;
   return {
-    loft: { ...loft.roost, label: loft.label },
-    dest: { lat: r.dest_lat, lon: r.dest_lon, label: r.dest_label },
+    loft: { ...snap(loft.roost.lat, loft.roost.lon), label: loft.label },
+    dest: { ...snap(r.dest_lat, r.dest_lon), label: r.dest_label },
   };
 }
 
