@@ -78,11 +78,13 @@ export function GuestView({
   token,
   serverNow,
   timeZone,
+  member,
 }: {
   guest: Guest;
   token: string;
   serverNow: number;
   timeZone: string;
+  member: boolean;
 }) {
   const { shown, clock, reported } = useGuestPage(guest, token, serverNow);
   if (shown.kind !== "live") return <GuestExpired kind={shown.kind} />;
@@ -94,6 +96,7 @@ export function GuestView({
         token={token}
         nowMs={clock.nowMs}
         timeZone={timeZone}
+        member={member}
         onReported={reported}
       />
     );

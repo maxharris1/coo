@@ -14,6 +14,7 @@ import { config } from "@/lib/config";
 import { distance, duration, pronounTokens } from "@/lib/format";
 import { NOT_A_PHONE, toE164, type E164 } from "@/lib/phone";
 import type { GuestView as Guest } from "@/server/services/guestLinks/get";
+import { AddToSill } from "./AddToSill";
 import styles from "./GuestClaim.module.css";
 import { GuestReport } from "./GuestReport";
 
@@ -83,12 +84,14 @@ export function GuestClaim({
   token,
   nowMs,
   timeZone,
+  member,
   onReported,
 }: {
   guest: LandedGuest;
   token: string;
   nowMs: number;
   timeZone: string;
+  member: boolean;
   onReported: () => void;
 }) {
   const copy = claimCopy(guest, nowMs);
@@ -125,11 +128,15 @@ export function GuestClaim({
           </div>
           <p className={styles.noteBody}>{guest.note.body}</p>
         </article>
-        <ClaimForm
-          birdName={guest.bird.name}
-          offer={copy.offer}
-          pitch={copy.pitch}
-        />
+        {member ? (
+          <AddToSill token={token} offer={copy.offer} />
+        ) : (
+          <ClaimForm
+            birdName={guest.bird.name}
+            offer={copy.offer}
+            pitch={copy.pitch}
+          />
+        )}
         <p className={styles.footer}>{copy.footer}</p>
         <div className={styles.report}>
           <GuestReport token={token} onReported={onReported} />

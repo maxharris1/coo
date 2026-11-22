@@ -5,8 +5,9 @@ import { clientIp } from "@/server/clientIp";
 import { makeDeps } from "@/server/deps";
 import { loftTimeZone } from "@/server/loftTimeZone";
 import { getGuestLink } from "@/server/services/guestLinks/get";
+import { headersJar } from "@/server/supabase/cookies";
 import { GuestExpired } from "./GuestExpired";
-import { loadGuestPage } from "./guestPage";
+import { isMember, loadGuestPage } from "./guestPage";
 import { GuestView } from "./GuestView";
 
 export const metadata: Metadata = {
@@ -32,12 +33,17 @@ export default async function GuestPage({
     slug,
   );
   if (page.kind !== "live") return <GuestExpired kind={page.kind} />;
+  const member = await isMember({
+    auth: deps.auth(await headersJar()),
+    db: deps.db,
+  });
   return (
     <GuestView
       guest={page.guest}
       token={page.token}
       serverNow={deps.clock.now()}
       timeZone={loftTimeZone(page.guest.flight.to)}
+      member={member}
     />
   );
 }
