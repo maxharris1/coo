@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
+import { config } from "@/lib/config";
 import type { UserId } from "@/server/ports/auth";
 import { onboard } from "@/server/services/onboarding";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
@@ -183,6 +184,156 @@ describe("POST /api/flights", () => {
     await dress([]);
     const { status } = await sendGerald("🐦".repeat(140));
     expect(status).toBe(200);
+  });
+
+  describe("with a doodle", () => {
+    const HOUR_MS = 60 * 60 * 1000;
+    const limits = config.game.notes.doodle;
+    const DOODLE = {
+      v: 1,
+      w: limits.width,
+      h: limits.height,
+      strokes: [
+        {
+          color: "ink",
+          width: "fine",
+          points: [
+            [1, 2],
+            [3, 4],
+          ],
+        },
+      ],
+    };
+    const brenda = () => world.max.birds[1].id;
+
+    const notesOf = () =>
+      deps.db.query<{ recipient_id: string; body: string; doodle: unknown }>(
+        "select recipient_id, body, doodle from notes order by recipient_id",
+      );
+
+    const toPriya = () => [{ friendId: world.priya.id, birdId: gerald() }];
+    const toBoth = () => [
+      { friendId: world.priya.id, birdId: gerald() },
+      { friendId: world.rosa.id, birdId: brenda() },
+    ];
+    const later = () => deps.clock.now() + 3 * HOUR_MS;
+
+    async function post(fields: Record<string, unknown>) {
+      return postClient().post(fields, await jarOf("max"));
+    }
+
+    it.each<[string, { body: string; doodle?: unknown }]>([
+      ["text only", { body: BODY }],
+      ["a doodle only", { body: "", doodle: DOODLE }],
+      ["text and a doodle", { body: BODY, doodle: DOODLE }],
+    ])("sends %s to one friend", async (_, note) => {
+      const { status } = await post({ ...note, sends: toPriya() });
+      expect(status).toBe(200);
+      expect(await notesOf()).toEqual([
+        {
+          recipient_id: world.priya.id,
+          body: note.body,
+          doodle: note.doodle ?? null,
+        },
+      ]);
+    });
+
+    it("gives every recipient the same doodle", async () => {
+      const { status } = await post({
+        body: BODY,
+        doodle: DOODLE,
+        sends: toBoth(),
+      });
+      expect(status).toBe(200);
+      const notes = await notesOf();
+      expect(notes).toHaveLength(2);
+      for (const note of notes) {
+        expect(note).toMatchObject({ body: BODY, doodle: DOODLE });
+      }
+    });
+
+    it.each<[string, { body: string; doodle?: unknown }]>([
+      ["a doodle only", { body: "", doodle: DOODLE }],
+      ["text and a doodle", { body: BODY, doodle: DOODLE }],
+    ])("schedules %s", async (_, note) => {
+      const { status, json } = await post({
+        ...note,
+        sends: toPriya(),
+        releaseAt: later(),
+      });
+      expect(status).toBe(200);
+      expect(json.flights[0]).toMatchObject({ status: "scheduled" });
+      expect(await notesOf()).toEqual([
+        { recipient_id: world.priya.id, body: note.body, doodle: DOODLE },
+      ]);
+    });
+
+    it.each<[string, () => Record<string, unknown>]>([
+      ["one friend", () => ({ sends: toPriya() })],
+      ["several friends", () => ({ sends: toBoth() })],
+      ["a scheduled send", () => ({ sends: toPriya(), releaseAt: later() })],
+    ])("refuses blank text with no doodle to %s", async (_, fields) => {
+      const before = await counts();
+      const { status, json } = await post({ body: "  ", ...fields() });
+      expect(status).toBe(400);
+      expect(json.error).toMatchObject({
+        code: "invalid",
+        message: "body: write a note or add a doodle",
+      });
+      expect(await counts()).toEqual(before);
+    });
+
+    it.each<[string, () => Record<string, unknown>, unknown]>([
+      ["an extra key", () => ({ sends: toPriya() }), { ...DOODLE, extra: 1 }],
+      [
+        "a point off the canvas",
+        () => ({ sends: toBoth() }),
+        {
+          ...DOODLE,
+          strokes: [{ ...DOODLE.strokes[0], points: [[limits.width + 1, 0]] }],
+        },
+      ],
+      [
+        "too many bytes",
+        () => ({ sends: toPriya(), releaseAt: later() }),
+        { ...DOODLE, pad: "x".repeat(limits.maxBytes) },
+      ],
+    ])("refuses a doodle with %s", async (_, fields, doodle) => {
+      const before = await counts();
+      const { status, json } = await post({ body: BODY, doodle, ...fields() });
+      expect(status).toBe(400);
+      expect(json.error.code).toBe("invalid");
+      expect(json.error.message).toMatch(/^doodle:/);
+      expect(json.error.message).not.toContain(BODY);
+      expect(await counts()).toEqual(before);
+    });
+
+    it.each<[string, () => string, () => Record<string, unknown>]>([
+      ["one friend", gerald, () => ({ sends: toPriya() })],
+      ["several friends", brenda, () => ({ sends: toBoth() })],
+      [
+        "a scheduled send",
+        gerald,
+        () => ({ sends: toPriya(), releaseAt: later() }),
+      ],
+    ])(
+      "leaves no note when a bird sent to %s is not home",
+      async (_, bird, fields) => {
+        await deps.db.query(
+          "update birds set status = 'flying' where id = $1",
+          [bird()],
+        );
+        const before = await counts();
+        const { status, json } = await post({
+          body: "",
+          doodle: DOODLE,
+          ...fields(),
+        });
+        expect(status).toBe(409);
+        expect(json.error.code).toBe("conflict");
+        expect(await counts()).toEqual(before);
+      },
+    );
   });
 
   describe("with releaseAt", () => {

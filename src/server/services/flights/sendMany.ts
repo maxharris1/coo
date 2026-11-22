@@ -9,7 +9,7 @@ import {
 import { clockTime, type Pronoun } from "@/lib/format";
 import { careAt, projectCare, type CareOwner } from "@/lib/game/care";
 import { levelFor } from "@/lib/game/levels";
-import { noteLimit, validateBody } from "@/lib/game/notes";
+import type { Note } from "@/lib/game/notes";
 import {
   isWeekend,
   startOfLocalDayMs,
@@ -26,6 +26,11 @@ import {
   loftsOf,
   type LoftColumns,
 } from "@/server/services/friends";
+import {
+  doodleParam,
+  readyNote,
+  type NoteInput,
+} from "@/server/services/noteInput";
 import { notificationText, recordNotification } from "@/server/services/notify";
 import { deliver } from "@/server/services/notify/deliver";
 import { sampleWeather } from "@/server/services/weather";
@@ -55,7 +60,7 @@ export const sendMany: SendHook = async (deps, me, input) => {
   readyBirds(
     await birdsOf(deps.db, me, birdIds, false),
     birdIds,
-    input.body,
+    input,
     now,
     owner,
   );
@@ -109,7 +114,7 @@ export const sendMany: SendHook = async (deps, me, input) => {
     const ready = readyBirds(
       await birdsOf(tx, me, birdIds, true),
       birdIds,
-      input.body,
+      input,
       now,
       owner,
     );
@@ -130,7 +135,7 @@ export const sendMany: SendHook = async (deps, me, input) => {
       throw new AppError("rate_limited", "Too many requests. Try again later.");
 
     const created = [];
-    for (const [i, { bird, body }] of ready.entries()) {
+    for (const [i, { bird, note }] of ready.entries()) {
       const friend = friends[i];
       const { from, to } = routes[i];
       const { flightId, weather, hazards, names, timezone } = legs[i];
@@ -156,10 +161,10 @@ export const sendMany: SendHook = async (deps, me, input) => {
       if (claimed.length === 0)
         throw new AppError("conflict", `${bird.name} is not home`);
 
-      const [note] = await tx.query<{ id: string }>(
-        `insert into notes (sender_id, recipient_id, body, created_at)
-         values ($1, $2, $3, $4) returning id`,
-        [me, friend, body, nowIso],
+      const [noteRow] = await tx.query<{ id: string }>(
+        `insert into notes (sender_id, recipient_id, body, doodle, created_at)
+         values ($1, $2, $3, $4::jsonb, $5) returning id`,
+        [me, friend, note.body, doodleParam(note), nowIso],
       );
       await tx.query(
         `insert into flights (id, kind, bird_id, owner_id, counterpart_id, note_id,
@@ -173,7 +178,7 @@ export const sendMany: SendHook = async (deps, me, input) => {
           bird.id,
           me,
           friend,
-          note.id,
+          noteRow.id,
           from.point.lat,
           from.point.lon,
           from.label,
@@ -277,34 +282,26 @@ async function birdsOf(
 function readyBirds(
   rows: Map<string, Row<"birds">>,
   ids: string[],
-  text: string,
+  input: NoteInput,
   now: number,
   owner: CareOwner,
-): { bird: BirdRecord; body: string }[] {
-  return ids.map((id) => readyToFly(rows.get(id), text, now, owner));
+): { bird: BirdRecord; note: Note }[] {
+  return ids.map((id) => readyToFly(rows.get(id), input, now, owner));
 }
 
 function readyToFly(
   row: Row<"birds"> | undefined,
-  text: string,
+  input: NoteInput,
   now: number,
   owner: CareOwner,
-): { bird: BirdRecord; body: string } {
+): { bird: BirdRecord; note: Note } {
   if (!row) throw new AppError("not_found", "No such bird");
   const bird = toBirdRecord(row);
   if (bird.status !== "home")
     throw new AppError("conflict", `${bird.name} is not home`);
   if (!careAt(snapshotOf(bird), now, owner).canFly)
     throw new AppError("conflict", `${bird.name} is too tired to fly`);
-  const checked = validateBody(text, noteLimit(bird));
-  if (!checked.ok)
-    throw new AppError(
-      "invalid",
-      checked.reason === "empty"
-        ? "body: write a note first"
-        : `body: ${bird.name} can carry ${checked.limit} characters, this note has ${checked.length}`,
-    );
-  return { bird, body: checked.body };
+  return { bird, note: readyNote(input, bird, bird.name) };
 }
 
 function toFlightInput(
