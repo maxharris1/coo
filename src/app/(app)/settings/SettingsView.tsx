@@ -1,9 +1,10 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
+import type { FormEvent, ReactNode } from "react";
 import { config } from "@/lib/config";
 import type { Units } from "@/lib/format";
 import type { Me } from "@/server/rows";
 import type { SettingsInput } from "@/server/services/settings";
+import type { PlaceResult } from "../welcome/loft/roost";
 import styles from "./Settings.module.css";
 
 type SwitchKey =
@@ -15,10 +16,19 @@ type SwitchKey =
 
 export type Change = Partial<Pick<SettingsInput, SwitchKey | "units">>;
 
+export type Sheet = "travel" | "delete" | null;
+
 export type SettingsViewProps = {
   me: Me;
+  sheet: Sheet;
+  places: PlaceResult[];
   onSave: (change: Change) => void;
   onSignOut: () => void;
+  onSheet: (sheet: Sheet) => void;
+  onTravel: (on: boolean) => void;
+  onSearch: (query: string) => void;
+  onPlace: (placeId: string) => void;
+  onDelete: (handle: string) => void;
 };
 
 const SWITCHES: readonly { key: SwitchKey; label: string }[] = [
@@ -117,7 +127,149 @@ function Switch({
   );
 }
 
-export function SettingsView({ me, onSave, onSignOut }: SettingsViewProps) {
+function Dialog({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <>
+      <div aria-hidden="true" className={styles.scrim} />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={label}
+        className={styles.sheet}
+      >
+        <h2 className={styles.sheetTitle}>{label}</h2>
+        {children}
+      </div>
+    </>
+  );
+}
+
+function TravelSheet({
+  places,
+  onTravel,
+  onSearch,
+  onPlace,
+  onSheet,
+}: Pick<
+  SettingsViewProps,
+  "places" | "onTravel" | "onSearch" | "onPlace" | "onSheet"
+>) {
+  const search = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    onSearch(String(new FormData(e.currentTarget).get("q") ?? ""));
+  };
+  return (
+    <Dialog label="I'm away from home">
+      <p className={styles.sheetNote}>
+        You can switch this once every 12 hours.
+      </p>
+      <p className={styles.sheetNote}>
+        Your flock comes with you. Birds already flying land where they were
+        sent.
+      </p>
+      <form role="search" className={styles.sheetForm} onSubmit={search}>
+        <label htmlFor="travel-search" className={styles.sheetNote}>
+          Pick a place
+        </label>
+        <input
+          type="search"
+          id="travel-search"
+          name="q"
+          enterKeyHint="search"
+          autoComplete="off"
+          placeholder="Back Bay, Boston"
+          className={styles.input}
+        />
+      </form>
+      {places.length > 0 && (
+        <ul className={styles.results}>
+          {places.map((p) => (
+            <li key={p.placeId}>
+              <button
+                type="button"
+                className={styles.result}
+                onClick={() => onPlace(p.placeId)}
+              >
+                <span className={styles.resultLabel}>{p.label}</span>
+                <span className={styles.resultSub}>{p.sublabel}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className={styles.answers}>
+        <button
+          type="button"
+          className={styles.go}
+          onClick={() => onTravel(true)}
+        >
+          Use my location
+        </button>
+        <button
+          type="button"
+          className={styles.cancel}
+          onClick={() => onSheet(null)}
+        >
+          Cancel
+        </button>
+      </div>
+    </Dialog>
+  );
+}
+
+function DeleteSheet({
+  handle,
+  onDelete,
+  onSheet,
+}: { handle: string } & Pick<SettingsViewProps, "onDelete" | "onSheet">) {
+  const submit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    onDelete(String(new FormData(e.currentTarget).get("handle") ?? ""));
+  };
+  return (
+    <Dialog label="Delete my account">
+      <form className={styles.sheetForm} onSubmit={submit}>
+        <label htmlFor="delete-handle" className={styles.sheetNote}>
+          Type your handle to delete
+        </label>
+        <input
+          type="text"
+          id="delete-handle"
+          name="handle"
+          placeholder={handle}
+          autoComplete="off"
+          className={styles.input}
+        />
+        <div className={styles.answers}>
+          <button type="submit" className={styles.destroy}>
+            Delete my account
+          </button>
+          <button
+            type="button"
+            className={styles.cancel}
+            onClick={() => onSheet(null)}
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
+    </Dialog>
+  );
+}
+
+export function SettingsView({
+  me,
+  sheet,
+  places,
+  onSave,
+  onSignOut,
+  onSheet,
+  onTravel,
+  onSearch,
+  onPlace,
+  onDelete,
+}: SettingsViewProps) {
+  const travelling = me.loft?.travelling ?? false;
   return (
     <div className={styles.screen}>
       <header className={styles.header}>
@@ -169,6 +321,11 @@ export function SettingsView({ me, onSave, onSignOut }: SettingsViewProps) {
           sub="Your address is never stored or shown"
           value={me.loft?.label ?? "Not set"}
         />
+        <Switch
+          label="I'm away from home"
+          on={travelling}
+          onToggle={() => (travelling ? onTravel(false) : onSheet("travel"))}
+        />
       </Section>
 
       <Section title="App">
@@ -201,6 +358,13 @@ export function SettingsView({ me, onSave, onSignOut }: SettingsViewProps) {
         {me.phoneLast4 && (
           <Row title="Phone" value={`Ends in ${me.phoneLast4}`} />
         )}
+        <button
+          type="button"
+          className={`${styles.row} ${styles.delete}`}
+          onClick={() => onSheet("delete")}
+        >
+          <Label title="Delete my account" />
+        </button>
       </Section>
 
       <button type="button" className={styles.signOut} onClick={onSignOut}>
@@ -215,6 +379,19 @@ export function SettingsView({ me, onSave, onSignOut }: SettingsViewProps) {
           <Link href="/terms">Terms</Link>
         </p>
       </footer>
+
+      {sheet === "travel" && (
+        <TravelSheet
+          places={places}
+          onTravel={onTravel}
+          onSearch={onSearch}
+          onPlace={onPlace}
+          onSheet={onSheet}
+        />
+      )}
+      {sheet === "delete" && (
+        <DeleteSheet handle={me.handle} onDelete={onDelete} onSheet={onSheet} />
+      )}
     </div>
   );
 }

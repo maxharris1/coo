@@ -2,7 +2,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { config } from "@/lib/config";
 import type { Me } from "@/server/rows";
-import { SettingsView } from "./SettingsView";
+import type { PlaceResult } from "../welcome/loft/roost";
+import { SettingsView, type Sheet } from "./SettingsView";
 
 vi.mock("next/link", () => ({
   default: (props: object) => <a {...props} />,
@@ -34,9 +35,35 @@ const ME = {
   },
 } as Me;
 
-const render = (me: Me = ME) =>
+const PLACES: PlaceResult[] = [
+  {
+    placeId: "p-1",
+    label: "Back Bay",
+    sublabel: "Boston, MA",
+    kind: "neighbourhood",
+  },
+  {
+    placeId: "p-2",
+    label: "Fishtown",
+    sublabel: "Philadelphia, PA",
+    kind: "neighbourhood",
+  },
+];
+
+const render = (me: Me = ME, sheet: Sheet = null, places: PlaceResult[] = []) =>
   renderToStaticMarkup(
-    <SettingsView me={me} onSave={() => {}} onSignOut={() => {}} />,
+    <SettingsView
+      me={me}
+      sheet={sheet}
+      places={places}
+      onSearch={() => {}}
+      onPlace={() => {}}
+      onSave={() => {}}
+      onSignOut={() => {}}
+      onSheet={() => {}}
+      onTravel={() => {}}
+      onDelete={() => {}}
+    />,
   );
 
 const text = (html: string) =>
@@ -138,5 +165,112 @@ describe("SettingsView (ac-1)", () => {
     for (const button of html.match(/<button[^>]*role="switch"[^>]*>/g) ?? []) {
       expect(button).toMatch(/aria-checked="(true|false)"/);
     }
+  });
+});
+
+describe("SettingsView travel and delete (ac-1, ac-2)", () => {
+  const travelling = (on: boolean) => ({
+    ...ME,
+    loft: { ...ME.loft!, travelling: on },
+  });
+
+  it("shows the travel switch under where birds find me, from me.loft.travelling", () => {
+    const words = text(render());
+    const where = words.indexOf("Where birds find me");
+    const away = words.indexOf("I'm away from home");
+    expect(where).toBeGreaterThanOrEqual(0);
+    expect(away).toBeGreaterThan(where);
+    expect(away).toBeLessThan(words.indexOf("App "));
+    expect(switchState(render(travelling(false)), "I'm away from home")).toBe(
+      "false",
+    );
+    expect(switchState(render(travelling(true)), "I'm away from home")).toBe(
+      "true",
+    );
+    expect(
+      switchState(render({ ...ME, loft: null }), "I'm away from home"),
+    ).toBe("false");
+  });
+
+  it("shows the travel sheet copy only when the travel sheet is open", () => {
+    const closed = render();
+    expect(closed).not.toContain('role="dialog"');
+    expect(text(closed)).not.toContain(
+      "You can switch this once every 12 hours.",
+    );
+    const html = render(ME, "travel");
+    expect(html).toMatch(
+      /<div[^>]*role="dialog"[^>]*aria-label="I&#x27;m away from home"/,
+    );
+    const words = text(html);
+    expect(words).toContain("You can switch this once every 12 hours.");
+    expect(words).toContain(
+      "Your flock comes with you. Birds already flying land where they were sent.",
+    );
+    expect(html).toMatch(/<button[^>]*>Use my location<\/button>/);
+    expect(html).toMatch(/<button[^>]*>Cancel<\/button>/);
+    expect(html).not.toContain("Type your handle to delete");
+  });
+
+  it("travel offers the docs/07 place search", () => {
+    const dialog = render(ME, "travel").split('role="dialog"')[1];
+    expect(dialog).toMatch(
+      /<input|role="search"|Search|Pick a place|Choose a place/,
+    );
+  });
+
+  it("travel sheet has a labelled place search beside Use my location", () => {
+    const dialog = render(ME, "travel").split('role="dialog"')[1];
+    const form = /<form[^>]*role="search"[^>]*>(.*?)<\/form>/.exec(dialog);
+    expect(form).not.toBeNull();
+    const label = /<label[^>]*for="([^"]+)"[^>]*>Pick a place<\/label>/.exec(
+      form![1],
+    );
+    expect(label).not.toBeNull();
+    const input = new RegExp(`<input[^>]*id="${label![1]}"[^>]*>`).exec(
+      form![1],
+    )?.[0];
+    expect(input).toContain('type="search"');
+    expect(input).toContain('name="q"');
+    expect(dialog).toMatch(/<button[^>]*>Use my location<\/button>/);
+  });
+
+  it("travel sheet lists searched places as buttons, and no list without results", () => {
+    expect(render(ME, "travel")).not.toContain("<ul");
+    const words = text(render(ME, "travel", PLACES));
+    expect(words).toContain("Back Bay Boston, MA");
+    expect(words).toContain("Fishtown Philadelphia, PA");
+    expect(render(ME, null, PLACES)).not.toContain("Back Bay");
+  });
+
+  it("offers Delete my account in Account, before Sign out", () => {
+    const words = text(render());
+    const del = words.indexOf("Delete my account");
+    expect(del).toBeGreaterThan(words.indexOf("Account"));
+    expect(del).toBeLessThan(words.indexOf("Sign out"));
+  });
+
+  it("asks for the handle in a labelled field when the delete sheet is open", () => {
+    expect(render()).not.toContain("Type your handle to delete");
+    const html = render(ME, "delete");
+    expect(html).toMatch(
+      /<div[^>]*role="dialog"[^>]*aria-label="Delete my account"/,
+    );
+    const label =
+      /<label[^>]*for="([^"]+)"[^>]*>Type your handle to delete<\/label>/.exec(
+        html,
+      );
+    expect(label).not.toBeNull();
+    const input = new RegExp(`<input[^>]*id="${label![1]}"[^>]*>`).exec(
+      html,
+    )?.[0];
+    expect(input).toContain('name="handle"');
+    expect(input).toContain('placeholder="max"');
+    expect(input).toMatch(/autocomplete="off"/i);
+    expect(input).not.toContain("value=");
+    expect(html).toMatch(
+      /<form[^>]*>.*<button type="submit"[^>]*>Delete my account<\/button>/,
+    );
+    expect(html).not.toContain("You can switch this once every 12 hours.");
   });
 });
