@@ -20,7 +20,7 @@ import {
   type PlannedDelivery,
 } from "@/test/fixtures/plannedFlight";
 import { seedWorld, type Person, type World } from "@/test/seedWorld";
-import { flightsView, type FlightsView } from "./flightsView";
+import { flightsView, type FlightsView } from "./flightsViewModel";
 
 const NY = "America/New_York";
 const ONE_PM_NY = Date.UTC(2026, 10, 20, 18, 0);

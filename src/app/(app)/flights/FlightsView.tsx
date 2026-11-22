@@ -9,7 +9,7 @@ import {
   flightsView,
   type ChipTone,
   type FlightsRow,
-} from "./flightsView";
+} from "./flightsViewModel";
 import styles from "./Flights.module.css";
 
 export type List =
