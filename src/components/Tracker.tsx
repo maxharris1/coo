@@ -11,7 +11,7 @@ import { clockTime, duration, inUnits, type Units } from "@/lib/format";
 import Link from "next/link";
 import type { Flight } from "@/server/services/flights/shape";
 import { Bird, type GearId, type Look } from "./Bird";
-import { placeNear } from "./FlightLog";
+import { FlightLog, placeNear } from "./FlightLog";
 import { MapView } from "./MapView";
 import styles from "./Tracker.module.css";
 import { TrackerDelay } from "./TrackerDelay";
@@ -383,6 +383,7 @@ export function Tracker({
         </div>
         <TrackerDelay flight={flight} nowMs={nowMs} />
         <TrackerEarn flight={flight} nowMs={nowMs} />
+        <FlightLog flight={flight} nowMs={nowMs} timeZone={timeZone} />
       </div>
     </section>
   );

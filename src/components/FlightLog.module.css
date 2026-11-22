@@ -1,0 +1,34 @@
+.log {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.heading {
+  margin: 0;
+  font-weight: 900;
+  font-size: 13px;
+}
+
+.lines {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.line {
+  display: flex;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.time {
+  width: 66px;
+  flex-shrink: 0;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
