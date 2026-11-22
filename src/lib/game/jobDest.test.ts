@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { config } from "@/lib/config";
 import { haversineMi } from "@/lib/flight/engine";
@@ -24,6 +25,33 @@ describe("oneWayMiles", () => {
   it("adds the level speed bonus per level above 1", () => {
     const bonus = config.game.engine.levelSpeedBonus;
     expect(oneWayMiles(45, 11, 10)).toBeCloseTo(3.75 * (1 + bonus * 10), 10);
+  });
+
+  it("matches the formula docs/03-data-model.md gives for the job destination", () => {
+    const doc = readFileSync(
+      new URL("../../../docs/03-data-model.md", import.meta.url),
+      "utf8",
+    ).replace(/\s+/g, " ");
+    const formula = doc.match(/one-way distance in miles \(`([^`]+)`\)/)?.[1];
+    expect(formula, "documented one-way distance formula").toBeDefined();
+    const documented = new Function(
+      "speedMph",
+      "levelSpeedBonus",
+      "level",
+      "minutes",
+      `return ${formula!.replaceAll("×", "*").replaceAll("−", "-")};`,
+    );
+    const bonus = config.game.engine.levelSpeedBonus;
+    for (const [speed, level, minutes] of [
+      [45, 1, 10],
+      [30, 7, 45],
+      [62, 20, 120],
+    ]) {
+      expect(documented(speed, bonus, level, minutes)).toBeCloseTo(
+        oneWayMiles(speed, level, minutes),
+        10,
+      );
+    }
   });
 });
 

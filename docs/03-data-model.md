@@ -116,8 +116,8 @@ job or flight that produced it and is unique, so a retry cannot find a second ob
 
 `jobs.dest_lat`, `dest_lon` and `dest_label` (0007) are where the bird goes on the job. They are
 set once, in the transaction that starts the job. The point is snapped, and it lies the bird's
-calm-air one-way distance (`speedMph × (1 + levelSpeedBonus × (level − 1)) × minutes / 2`) from
-the active loft roost, on a bearing hashed from `jobs.id`. The label is the job's `short` text
+calm-air one-way distance in miles (`speedMph × (1 + levelSpeedBonus × (level − 1)) × (minutes / 2) / 60`)
+from the active loft roost, on a bearing hashed from `jobs.id`. The label is the job's `short` text
 from `config/jobs.json`, never an address. `jobs_dest_check` keeps the three all set or all null.
 They are null for jobs started before 0007 and for users with no loft.
 
