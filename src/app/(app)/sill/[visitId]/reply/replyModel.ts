@@ -76,3 +76,11 @@ export function counter(text: string, limit: number): Counter {
   const length = [...text.trim()].length;
   return { label: `${length} of ${limit} characters`, over: length > limit };
 }
+
+export function canSend(
+  note: string,
+  doodle: Doodle | null,
+  count: Counter,
+): boolean {
+  return (note.trim() !== "" || doodle !== null) && !count.over;
+}

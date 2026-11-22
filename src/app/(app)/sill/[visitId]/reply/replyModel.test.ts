@@ -53,11 +53,11 @@ describe("replyModel (ac-1)", () => {
       speed: "43 mph",
       wroteLabel: "Priya wrote",
       note: "Saturday works. Bring the bread.",
-      doodle: null,
       limit: 140,
       wait: "She waits 28 more minutes, then heads home with or without a reply.",
       release: "Send Dumpling home",
       composeHref: "/send/write?to=u1",
+      doodle: null,
     });
   });
 
