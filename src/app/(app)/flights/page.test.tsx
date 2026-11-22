@@ -154,8 +154,14 @@ function fakeFetch(input: RequestInfo | URL) {
 const requests = () =>
   calls.filter((c) => c.url.pathname === "/api/flights").map((c) => c.url);
 
-async function answer(body: unknown, status = 200) {
-  const call = calls.find((c) => c.url.pathname === "/api/flights" && !c.done);
+async function answer(
+  body: unknown,
+  status = 200,
+  match: (url: URL) => boolean = () => true,
+) {
+  const call = calls.find(
+    (c) => c.url.pathname === "/api/flights" && !c.done && match(c.url),
+  );
   if (!call) throw new Error("no open request to /api/flights");
   call.done = true;
   await act(async () => call.resolve(Response.json(body, { status })));
@@ -440,6 +446,31 @@ describe("/flights live", () => {
     for (const id of ["e1", "e2"]) expect(linkTo(html, id)).toHaveLength(1);
     await act(async () => props().onMore());
     expect(requests().at(-1)!.searchParams.get("cursor")).toBe("c2");
+  });
+
+  it("keeps a newer sync refetch when an older Show earlier page resolves after it", async () => {
+    const firstPage = (url: URL) => !url.searchParams.has("cursor");
+    const earlierPage = (url: URL) => url.searchParams.get("cursor") === "c1";
+    await mount();
+    await answer({ ...EMPTY, earlier: [yesterday("e1")], nextCursor: "c1" });
+    await act(async () => props().onMore());
+    await publish([dumpling]);
+    await answer(
+      {
+        ...EMPTY,
+        incoming: [dumpling],
+        earlier: [yesterday("e1")],
+        nextCursor: "c1",
+      },
+      200,
+      firstPage,
+    );
+    expect(linkTo(shown(), "d1")).toHaveLength(1);
+    await answer({ ...EMPTY, earlier: [yesterday("e2")] }, 200, earlierPage);
+    const html = shown();
+    expect(linkTo(html, "d1")).toHaveLength(1);
+    for (const id of ["e1", "e2"]) expect(linkTo(html, id)).toHaveLength(1);
+    expect(html).not.toContain("Suspiciously quiet");
   });
 
   it("does not refetch when a sync leaves the flights unchanged", async () => {
