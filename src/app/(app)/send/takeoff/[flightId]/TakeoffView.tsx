@@ -111,6 +111,8 @@ type TakeoffViewProps = {
   bird: { name: string; look: string; gear: string[]; breed?: Breed };
   copy: TakeoffCopy;
   animate: boolean;
+  href?: string;
+  onGo?: () => void;
   watchLabel?: string;
   birdTitle?: string;
 };
@@ -120,6 +122,8 @@ export function TakeoffView({
   bird,
   copy,
   animate,
+  href = `/flights/${flightId}`,
+  onGo,
   watchLabel = "Watch the flight",
   birdTitle = `${bird.name} launching off the ledge`,
 }: TakeoffViewProps) {
@@ -180,7 +184,7 @@ export function TakeoffView({
         <p className={styles.note}>{copy.note}</p>
       </div>
       <div className={styles.actions}>
-        <Link href={`/flights/${flightId}`} replace className={styles.watch}>
+        <Link href={href} replace onClick={onGo} className={styles.watch}>
           {watchLabel}
         </Link>
         {animate && (

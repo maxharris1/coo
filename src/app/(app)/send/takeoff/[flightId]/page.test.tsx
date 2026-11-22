@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SyncContext, type SyncState } from "@/components/SyncProvider";
 import type { SyncPayload } from "@/components/sync";
 import type { Flight } from "@/server/services/flights/shape";
+import { holdLink, takeLink } from "../../share/[flightId]/linkHandoff";
 import type { TakeoffView } from "./TakeoffView";
 import TakeoffPage from "./page";
 
@@ -50,6 +51,14 @@ const FLIGHT = {
   arriveAt: NOW + 108 * 60_000,
 } as Flight;
 
+const GUEST_FLIGHT = {
+  ...FLIGHT,
+  counterpart: undefined,
+  guestName: "Maya",
+} as Flight;
+
+const LINK = "https://coo.example/b/gerald-k3Hq9ZtB2mXw7PaL";
+
 let reply: { status: number; body: unknown };
 let reducedMotion: boolean;
 let root: Root | null;
@@ -94,6 +103,7 @@ beforeEach(() => {
   reply = { status: 200, body: { flight: FLIGHT, serverNow: NOW } };
   reducedMotion = false;
   root = null;
+  takeLink("f1");
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal(
     "window",
@@ -185,5 +195,31 @@ describe("Takeoff page", () => {
     await show();
     expect(seen.loading).toBe(true);
     expect(seen.view).toBeNull();
+  });
+
+  it("after a send to a guest, moves on to ShareLink with the link", async () => {
+    reply = { status: 200, body: { flight: GUEST_FLIGHT, serverNow: NOW } };
+    holdLink("f1", LINK);
+    await show();
+    expect(seen.view).toMatchObject({ href: "/send/share/f1" });
+    await tick(2500);
+    expect(seen.replace).toHaveBeenCalledExactlyOnceWith("/send/share/f1");
+    expect(takeLink("f1")).toBe(LINK);
+  });
+
+  it("after a send to a guest, hands the link on when the button is tapped", async () => {
+    reply = { status: 200, body: { flight: GUEST_FLIGHT, serverNow: NOW } };
+    reducedMotion = true;
+    holdLink("f1", LINK);
+    await show();
+    expect(seen.view).toMatchObject({ href: "/send/share/f1" });
+    expect(takeLink("f1")).toBeUndefined();
+    act(() => seen.view?.onGo?.());
+    expect(takeLink("f1")).toBe(LINK);
+  });
+
+  it("after a send to a friend, stays on the tracker path", async () => {
+    await show();
+    expect(seen.view).toMatchObject({ href: "/flights/f1" });
   });
 });
