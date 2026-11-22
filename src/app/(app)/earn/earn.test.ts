@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { LocalDate } from "@/lib/game/time";
 import type { Earn } from "@/server/services/earn";
-import { earnTop, loadEarn, startJob } from "./earn";
+import { earnTop, loadEarn, startJob, tradeFound } from "./earn";
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), {
@@ -216,6 +216,19 @@ describe("startJob", () => {
       ok: false,
       message: "Gerald is not home right now.",
       code: "conflict",
+    });
+  });
+});
+
+describe("tradeFound", () => {
+  it("POSTs to /api/found/trade and returns the new seed count", async () => {
+    const fetchImpl = vi.fn(async () => json(200, { seeds: 254, traded: 14 }));
+    await expect(tradeFound(fetchImpl)).resolves.toEqual({
+      ok: true,
+      data: { seeds: 254, traded: 14 },
+    });
+    expect(fetchImpl).toHaveBeenCalledWith("/api/found/trade", {
+      method: "POST",
     });
   });
 });

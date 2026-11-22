@@ -6,7 +6,7 @@ import type { SyncPayload } from "@/components/sync";
 import { useToast } from "@/components/Toasts";
 import { clockTime } from "@/lib/format";
 import type { Earn } from "@/server/services/earn";
-import { startJob, type Result } from "./earn";
+import { startJob, tradeFound, type Result } from "./earn";
 import styles from "./Earn.module.css";
 
 type Bird = Pick<
@@ -36,6 +36,72 @@ export async function sendJob(
   if (!result.ok) toast(result.message);
   refresh();
   await onChanged();
+}
+
+export async function tradeAndReload(
+  trade: () => Promise<Result<unknown>>,
+  refresh: () => void,
+  onChanged: () => Promise<void>,
+  toast: (message: string) => void,
+): Promise<void> {
+  const result = await trade();
+  if (!result.ok) toast(result.message);
+  refresh();
+  await onChanged();
+}
+
+export function foundRows(
+  found: Earn["found"],
+  birds: Pick<Bird, "id" | "name">[],
+): { lines: string[]; sum: number } {
+  const counts = new Map<string | null, number>();
+  for (const item of found)
+    counts.set(item.birdId, (counts.get(item.birdId) ?? 0) + 1);
+  const names = new Map(birds.map((b) => [b.id, b.name]));
+  return {
+    lines: [...counts].map(
+      ([birdId, n]) =>
+        `${(birdId && names.get(birdId)) ?? "A bird"} brought back ${n} ${n === 1 ? "thing" : "things"}.`,
+    ),
+    sum: found.reduce((total, item) => total + item.value, 0),
+  };
+}
+
+export function FoundList({
+  found,
+  birds,
+  trading,
+  onTrade,
+}: {
+  found: Earn["found"];
+  birds: Pick<Bird, "id" | "name">[];
+  trading: boolean;
+  onTrade: () => void;
+}) {
+  if (found.length === 0) return null;
+  const { lines, sum } = foundRows(found, birds);
+  return (
+    <section aria-labelledby="earn-found" className={styles.jobs}>
+      <h2 id="earn-found" className={styles.payTitle}>
+        Found on the way home
+      </h2>
+      <div className={styles.found}>
+        <div className={styles.foundText}>
+          {lines.map((line) => (
+            <div key={line}>{line}</div>
+          ))}
+        </div>
+        <button
+          type="button"
+          className={styles.trade}
+          disabled={trading}
+          onClick={onTrade}
+        >
+          {`Trade for ${sum}`}
+        </button>
+      </div>
+    </section>
+  );
 }
 
 export function JobsList({
@@ -98,6 +164,7 @@ export function JobsList({
 
 export function JobsPanel({
   jobs,
+  found,
   onChanged,
 }: {
   jobs: Earn["jobs"];
@@ -113,13 +180,29 @@ export function JobsPanel({
       () => setSending(false),
     );
   };
+  const [trading, setTrading] = useState(false);
+  const onTrade = () => {
+    setTrading(true);
+    void tradeAndReload(tradeFound, refresh, onChanged, toast).finally(() =>
+      setTrading(false),
+    );
+  };
+  const birds = data?.birds ?? [];
   return (
-    <JobsList
-      jobs={jobs}
-      birds={data?.birds ?? []}
-      timeZone={data?.me.timezone ?? "UTC"}
-      sending={sending}
-      onSend={onSend}
-    />
+    <>
+      <JobsList
+        jobs={jobs}
+        birds={birds}
+        timeZone={data?.me.timezone ?? "UTC"}
+        sending={sending}
+        onSend={onSend}
+      />
+      <FoundList
+        found={found}
+        birds={birds}
+        trading={trading}
+        onTrade={onTrade}
+      />
+    </>
   );
 }

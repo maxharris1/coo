@@ -117,3 +117,8 @@ export const startJob = (
       body: JSON.stringify({ jobId, birdId }),
     }),
   );
+
+export const tradeFound = (fetchImpl: Fetch = fetch) =>
+  call<{ seeds: number; traded: number }>(() =>
+    fetchImpl("/api/found/trade", { method: "POST" }),
+  );

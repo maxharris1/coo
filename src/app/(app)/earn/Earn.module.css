@@ -277,3 +277,42 @@
   font-size: 13px;
   color: var(--coo-muted);
 }
+
+.found {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 64px;
+  box-sizing: border-box;
+  padding: 6px 8px 6px 12px;
+  background: var(--coo-sky);
+  border: var(--coo-line);
+  border-radius: var(--coo-radius-row);
+}
+
+.foundText {
+  flex: 1;
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.trade {
+  flex-shrink: 0;
+  min-height: var(--coo-touch);
+  padding: 0 12px;
+  background: var(--coo-card);
+  border: var(--coo-line);
+  border-radius: var(--coo-radius-tile);
+  box-shadow: var(--coo-shadow-1);
+  font-family: inherit;
+  font-weight: 900;
+  font-size: 13.5px;
+  color: var(--coo-ink);
+  cursor: pointer;
+}
+
+.trade:disabled {
+  background: var(--coo-sand);
+  cursor: default;
+}

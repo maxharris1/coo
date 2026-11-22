@@ -11,7 +11,15 @@ import { SyncContext, type SyncState } from "@/components/SyncProvider";
 import type { SyncPayload } from "@/components/sync";
 import { ToastProvider } from "@/components/Toasts";
 import type { Earn } from "@/server/services/earn";
-import { JobsList, JobsPanel, runningJobs, sendJob } from "./JobsPanel";
+import {
+  FoundList,
+  JobsList,
+  JobsPanel,
+  foundRows,
+  runningJobs,
+  sendJob,
+  tradeAndReload,
+} from "./JobsPanel";
 
 type Bird = SyncPayload["birds"][number];
 
@@ -278,6 +286,139 @@ describe("JobsPanel mounted (ac-1)", () => {
     const markup = render(null);
     expect(markup).toContain("Rush an order slip to the deli on 4th");
     for (const b of buttons(markup)) expect(b).toContain("disabled");
+  });
+});
+
+const found = (id: string, birdId: string | null, value: number) => ({
+  id,
+  objectId: "bottle-cap",
+  name: "Bottle cap",
+  value,
+  birdId,
+});
+
+const FOUND: Earn["found"] = [
+  found("f1", "b-gerald", 4),
+  found("f2", "b-gerald", 6),
+  found("f3", "b-gerald", 4),
+];
+
+const foundHtml = (props: Partial<Parameters<typeof FoundList>[0]> = {}) =>
+  renderToStaticMarkup(
+    <FoundList
+      found={FOUND}
+      birds={[bird({})]}
+      trading={false}
+      onTrade={() => {}}
+      {...props}
+    />,
+  );
+
+describe("JobsPanel found objects (ac-1)", () => {
+  it("says who brought back how many things, with the trade sum", () => {
+    const markup = foundHtml();
+    expect(markup).toContain("Found on the way home");
+    expect(markup).toContain("Gerald brought back 3 things.");
+    const [trade] = buttons(markup);
+    expect(trade).toContain("Trade for 14");
+    expect(trade).not.toContain("disabled");
+  });
+
+  it("groups finds by bird and sums every find into one trade", () => {
+    expect(
+      foundRows(
+        [...FOUND, found("f4", "b-pip", 5), found("f5", null, 1)],
+        [bird({}), bird({ id: "b-pip", name: "Pip" })],
+      ),
+    ).toEqual({
+      lines: [
+        "Gerald brought back 3 things.",
+        "Pip brought back 1 thing.",
+        "A bird brought back 1 thing.",
+      ],
+      sum: 20,
+    });
+  });
+
+  it("draws nothing when nothing was found", () => {
+    expect(foundHtml({ found: [] })).toBe("");
+  });
+
+  it("calls onTrade when Trade is pressed", () => {
+    const onTrade = vi.fn();
+    const [trade] = clickables(
+      FoundList({ found: FOUND, birds: [], trading: false, onTrade }),
+    );
+    trade.props.onClick?.();
+    expect(onTrade).toHaveBeenCalledTimes(1);
+  });
+
+  it("disables Trade while a trade is in flight", () => {
+    const [trade] = buttons(foundHtml({ trading: true }));
+    expect(trade).toContain("disabled");
+  });
+});
+
+describe("tradeAndReload (ac-1)", () => {
+  it("trades once, then refreshes sync and reloads Earn's seed count", async () => {
+    const calls: string[] = [];
+    const trade = vi.fn(async () => {
+      calls.push("trade");
+      return { ok: true as const, data: { seeds: 254, traded: 14 } };
+    });
+    const toast = vi.fn();
+    await tradeAndReload(
+      trade,
+      () => calls.push("refresh"),
+      async () => {
+        calls.push("changed");
+      },
+      toast,
+    );
+    expect(trade).toHaveBeenCalledTimes(1);
+    expect(calls).toEqual(["trade", "refresh", "changed"]);
+    expect(toast).not.toHaveBeenCalled();
+  });
+
+  it("shows a failed trade as a toast", async () => {
+    const toast = vi.fn();
+    await tradeAndReload(
+      async () => ({ ok: false, message: "We could not reach the loft." }),
+      () => {},
+      async () => {},
+      toast,
+    );
+    expect(toast).toHaveBeenCalledWith("We could not reach the loft.");
+  });
+});
+
+describe("JobsPanel found mounted (ac-1)", () => {
+  it("names the finder from sync", () => {
+    const markup = renderToStaticMarkup(
+      <SyncContext.Provider
+        value={
+          {
+            data: {
+              me: { timezone: "UTC" },
+              birds: [bird({ id: "b-ada", name: "Ada" })],
+            } as unknown as SyncPayload,
+            error: null,
+            offsetMs: 0,
+            refresh: () => {},
+          } satisfies SyncState
+        }
+      >
+        <ToastProvider>
+          <JobsPanel
+            jobs={JOBS}
+            found={[found("f1", "b-ada", 3), found("f2", "b-ada", 2)]}
+            onChanged={async () => {}}
+          />
+        </ToastProvider>
+      </SyncContext.Provider>,
+    );
+    expect(markup).toContain("Ada brought back 2 things.");
+    expect(markup).toContain("Trade for 5");
   });
 });
 
