@@ -25,6 +25,7 @@ const GERALD: PickerOption = {
   gear: [],
   chip: "Ready",
   state: { kind: "ready" },
+  wakes: false,
 };
 
 const CRUMBS: PickerOption = {
@@ -36,6 +37,7 @@ const CRUMBS: PickerOption = {
   gear: [],
   chip: "Hungry",
   state: { kind: "hungry", warning: "Hungry. Can fly, but the odds drop." },
+  wakes: false,
 };
 
 const KEVIN: PickerOption = {
@@ -47,6 +49,7 @@ const KEVIN: PickerOption = {
   gear: [],
   chip: "Napping",
   state: { kind: "blocked", reason: "Napping. Can't fly yet." },
+  wakes: true,
 };
 
 const STATS = {
@@ -77,6 +80,7 @@ const props = (over: Partial<Props> = {}): Props => ({
   onNote: () => {},
   onPick: () => {},
   onRelease: () => {},
+  onWake: () => {},
   ...over,
 });
 
@@ -160,6 +164,10 @@ describe("ComposeView (ac-1)", () => {
     expect(html).toContain(noRested);
     expect(html).not.toContain("Release Gerald");
   });
+
+  it("hints that a napper can be woken when no bird is ready", () => {
+    expect(one({ pickedId: null })).toContain("wake a napper");
+  });
 });
 
 describe("ComposeView picker (ac-1)", () => {
@@ -195,6 +203,13 @@ describe("ComposeView picker (ac-1)", () => {
     const kevin = buttonWith(render(), "Kevin");
     expect(kevin.tag).toContain("disabled");
     expect(kevin.body).toContain("Napping. Can't fly yet.");
+  });
+
+  it("offers Wake beside the napping bird only, and keeps it unpickable", () => {
+    const html = render();
+    expect(count(html, ">Wake</button>")).toBe(1);
+    expect(buttonWith(html, ">Wake").tag).toContain('aria-label="Wake Kevin"');
+    expect(buttonWith(html, "Kevin").tag).toContain("disabled");
   });
 
   it("keeps ready and hungry birds pickable", () => {
@@ -259,6 +274,7 @@ type Handlers = {
   className?: string;
   disabled?: boolean;
   "aria-pressed"?: boolean;
+  "aria-label"?: string;
   children?: ReactNode;
   onChange?: (e: { target: { value: string } }) => void;
   onClick?: () => void;
@@ -288,6 +304,15 @@ describe("ComposeView events (ac-2)", () => {
     );
     crumbs?.props.onClick?.();
     expect(onPick).toHaveBeenCalledExactlyOnceWith("u2", "b2");
+  });
+
+  it("passes a Wake tap to onWake with the napping bird", () => {
+    const onWake = vi.fn();
+    const wake = elements(ComposeView(props({ onWake }))).find(
+      (e) => e.props["aria-label"] === "Wake Kevin",
+    );
+    wake?.props.onClick?.();
+    expect(onWake).toHaveBeenCalledExactlyOnceWith("b3");
   });
 
   it("passes the Release tap to onRelease", () => {

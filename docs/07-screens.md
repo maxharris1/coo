@@ -50,6 +50,8 @@ are not); three stats (distance, flight time, arrival odds) and one line of plai
 forecast from `/api/flights/quote`; a Forecast link; the release button "Release {bird}".
 With several recipients the picker assigns one bird per recipient, fastest bird to the farthest
 friend by default, and each can be swapped.
+A napping bird stays unpickable but shows a Wake button. Wake wakes it in place
+(`POST /api/birds/[id]/wake`) and the picker refreshes: Ready if it can fly, Too tired if not.
 Release → `POST /api/flights` → Takeoff. Errors appear as a toast and nothing is lost.
 
 ### Forecast (`/send/forecast`)
@@ -118,6 +120,8 @@ As drawn: portrait in the current outfit and mood pose (see the pose table in `d
 line, mood sentence, "Open closet", three care meters with Feed, Bath and Nap, the sulk
 explanation, abilities (speed, range, navigation dots, focus dots), two quirk chips, the record
 line. Renaming is a tap on the name. A bird that is away shows where it is and disables care.
+A napping bird shows "Napping until {time}" and its Energy row offers Wake instead of Nap.
+Feed and Bath stay disabled. After waking, the mood and meters follow its energy.
 
 ### Wardrobe (`/birds/[id]/closet`)
 As drawn: the bird on a stand wearing the selection, a "what it does" list for worn items, a

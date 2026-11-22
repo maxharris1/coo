@@ -1,3 +1,4 @@
+import { requireOnboarded, type Session } from "@/server/auth";
 import { AppError } from "@/server/errors";
 import type { GuestView } from "@/server/services/guestLinks/get";
 
@@ -20,6 +21,16 @@ export async function loadGuestPage(
     if (!(err instanceof AppError)) throw err;
     if (err.code === "gone") return { kind: "expired" };
     if (err.code === "not_found") return { kind: "missing" };
+    throw err;
+  }
+}
+
+export async function isMember(session: Session): Promise<boolean> {
+  try {
+    await requireOnboarded(session);
+    return true;
+  } catch (err) {
+    if (err instanceof AppError) return false;
     throw err;
   }
 }

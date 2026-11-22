@@ -61,6 +61,7 @@ const render = (g: Guest, nowMs = midway(g)) =>
       token="k3Hq9ZtB2mXw7PaL"
       serverNow={nowMs}
       timeZone="America/New_York"
+      member={false}
     />,
   );
 

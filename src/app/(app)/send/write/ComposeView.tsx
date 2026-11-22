@@ -29,6 +29,7 @@ export type ComposeViewProps = {
   onNote: (note: string) => void;
   onPick: (friendId: string, birdId: string) => void;
   onRelease: () => void;
+  onWake: (birdId: string) => void;
 };
 
 const NO_RESTED_BIRDS =
@@ -88,12 +89,14 @@ function Picker({
   pickedId,
   tooLong,
   onPick,
+  onWake,
 }: {
   heading: string;
   birds: PickerOption[];
   pickedId: string | null;
   tooLong: boolean;
   onPick: (birdId: string) => void;
+  onWake: (birdId: string) => void;
 }) {
   const picked = birds.find((b) => b.id === pickedId) ?? null;
   return (
@@ -101,32 +104,43 @@ function Picker({
       <h2 className={styles.label}>{heading}</h2>
       <div className={styles.birds}>
         {birds.map((b) => (
-          <button
-            key={b.id}
-            type="button"
-            className={b.id === pickedId ? styles.picked : styles.bird}
-            aria-pressed={b.id === pickedId}
-            disabled={b.state.kind === "blocked"}
-            onClick={() => onPick(b.id)}
-          >
-            <span className={styles.face}>
-              <span className={styles.faceBird}>
-                <Bird
-                  look={b.look}
-                  breed={b.breed}
-                  gear={b.gear}
-                  animated={false}
-                  size={94}
-                />
+          <div key={b.id} className={styles.slot}>
+            <button
+              type="button"
+              className={b.id === pickedId ? styles.picked : styles.bird}
+              aria-pressed={b.id === pickedId}
+              disabled={b.state.kind === "blocked"}
+              onClick={() => onPick(b.id)}
+            >
+              <span className={styles.face}>
+                <span className={styles.faceBird}>
+                  <Bird
+                    look={b.look}
+                    breed={b.breed}
+                    gear={b.gear}
+                    animated={false}
+                    size={94}
+                  />
+                </span>
               </span>
-            </span>
-            <span className={styles.birdName}>{b.name}</span>
-            <span className={styles.speed}>{b.speed}</span>
-            <span className={styles.chip}>{b.chip}</span>
-            {b.state.kind === "blocked" && (
-              <span className="srOnly">{b.state.reason}</span>
+              <span className={styles.birdName}>{b.name}</span>
+              <span className={styles.speed}>{b.speed}</span>
+              <span className={styles.chip}>{b.chip}</span>
+              {b.state.kind === "blocked" && (
+                <span className="srOnly">{b.state.reason}</span>
+              )}
+            </button>
+            {b.wakes && (
+              <button
+                type="button"
+                className={styles.wake}
+                aria-label={`Wake ${b.name}`}
+                onClick={() => onWake(b.id)}
+              >
+                Wake
+              </button>
             )}
-          </button>
+          </div>
         ))}
       </div>
       {tooLong && picked && (
@@ -186,6 +200,7 @@ export function ComposeView({
   onNote,
   onPick,
   onRelease,
+  onWake,
 }: ComposeViewProps) {
   const single = rows.length === 1 ? rows[0] : null;
   const pickedName = (row: ComposeRow) =>
@@ -207,6 +222,7 @@ export function ComposeView({
         pickedId={row.pickedId}
         tooLong={row.tooLong && !single}
         onPick={(birdId) => onPick(row.friendId, birdId)}
+        onWake={onWake}
       />
       <Stats stats={row.stats} forecastHref={row.forecastHref} />
     </>

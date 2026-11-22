@@ -9,7 +9,7 @@
   },
   {
     "state": "No rested birds",
-    "text": "Everyone is asleep or eating. Feed someone, or wait for a nap to end."
+    "text": "Everyone is asleep or eating. Feed someone, or wake a napper."
   },
   {
     "state": "Offline",
@@ -22,6 +22,10 @@
   {
     "state": "Place not found",
     "text": "Could not find that place. Try a neighborhood or a city."
+  },
+  {
+    "state": "Place search unavailable",
+    "text": "The map is slow to answer right now. Try again in a moment."
   },
   {
     "state": "No notifications",

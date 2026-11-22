@@ -90,4 +90,14 @@ describe("TakeoffView", () => {
     expect(html).not.toContain("coo-takeoff");
     expect(html).not.toMatch(/coo-(puff|feather)/);
   });
+
+  it("goes wherever it is sent, replacing itself", () => {
+    const html = renderToStaticMarkup(
+      <TakeoffView {...props(true)} href="/send/share/f1" />,
+    );
+    expect(html).toMatch(
+      /<a href="\/send\/share\/f1" data-replace=""[^>]*>Watch the flight<\/a>/,
+    );
+    expect(html).not.toContain('href="/flights/f1"');
+  });
 });

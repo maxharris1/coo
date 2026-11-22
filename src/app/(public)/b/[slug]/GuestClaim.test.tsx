@@ -74,13 +74,14 @@ function text(html: string): string {
     .trim();
 }
 
-const render = (g: LandedGuest, nowMs = justLanded(g)) =>
+const render = (g: LandedGuest, nowMs = justLanded(g), member = false) =>
   renderToStaticMarkup(
     <GuestClaim
       guest={g}
       token="k3Hq9ZtB2mXw7PaL"
       nowMs={nowMs}
       timeZone="America/New_York"
+      member={member}
       onReported={() => {}}
     />,
   );
@@ -172,6 +173,30 @@ describe("Guest page, landed (GuestClaim.png)", () => {
   });
 });
 
+describe("Guest page, landed, for someone with a loft", () => {
+  it("offers Add to my sill in one tap instead of the form", () => {
+    const html = render(guestLanded(), undefined, true);
+    expect(html).toMatch(
+      /<button[^>]*type="button"[^>]*>Add to my sill<\/button>/,
+    );
+    const words = text(html);
+    expect(words).toContain("Send Gerald home with a reply");
+    expect(words).not.toContain("Make a free loft");
+    expect(words).not.toContain("Make my loft");
+    expect(html).not.toContain("<form");
+    expect(html).not.toContain('type="tel"');
+  });
+
+  it("still offers it once the bird has gone home", () => {
+    const g = guestLanded();
+    const words = text(
+      render(g, g.flight.arriveAt! + waitMinutes * MINUTE, true),
+    );
+    expect(words).toContain("Add to my sill");
+    expect(words).toContain("Gerald has gone home.");
+  });
+});
+
 describe("GuestView", () => {
   it("opens the claim state once the note has landed", () => {
     const g = guestLanded();
@@ -181,6 +206,7 @@ describe("GuestView", () => {
         token="k3Hq9ZtB2mXw7PaL"
         serverNow={justLanded(g)}
         timeZone="America/New_York"
+        member={false}
       />,
     );
     const words = text(html);
@@ -191,6 +217,21 @@ describe("GuestView", () => {
     expect(html).not.toContain('data-map="true"');
   });
 
+  it("hands someone with a loft the one-tap claim", () => {
+    const g = guestLanded();
+    const html = renderToStaticMarkup(
+      <GuestView
+        guest={g}
+        token="k3Hq9ZtB2mXw7PaL"
+        serverNow={justLanded(g)}
+        timeZone="America/New_York"
+        member
+      />,
+    );
+    expect(text(html)).toContain("Add to my sill");
+    expect(text(html)).not.toContain("Make my loft");
+  });
+
   it("keeps the Report link once the note is readable", () => {
     const g = guestLanded();
     const html = renderToStaticMarkup(
@@ -199,6 +240,7 @@ describe("GuestView", () => {
         token="k3Hq9ZtB2mXw7PaL"
         serverNow={justLanded(g)}
         timeZone="America/New_York"
+        member={false}
       />,
     );
     expect(html).toMatch(
@@ -235,7 +277,11 @@ describe("checkClaim", () => {
 
 describe("GuestClaim styling", () => {
   it("uses tokens only, with 44 px tap targets", () => {
-    for (const file of ["./GuestClaim.tsx", "./GuestClaim.module.css"]) {
+    for (const file of [
+      "./GuestClaim.tsx",
+      "./AddToSill.tsx",
+      "./GuestClaim.module.css",
+    ]) {
       expect(readFileSync(new URL(file, import.meta.url), "utf8")).not.toMatch(
         /#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i,
       );

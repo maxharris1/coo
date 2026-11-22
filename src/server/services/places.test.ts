@@ -1,10 +1,12 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Db } from "@/server/db";
 import { AppError } from "@/server/errors";
+import { photon } from "@/server/adapters/photon";
+import { log } from "@/server/log";
 import type { UserId } from "@/server/ports/auth";
 import type { GeoHit } from "@/server/ports/geocoder";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
-import { resolvePlace, searchPlaces } from "./places";
+import { GEOCODER_UNAVAILABLE, resolvePlace, searchPlaces } from "./places";
 
 const uuid = vi.hoisted(() => ({ pinned: null as string | null }));
 
@@ -25,6 +27,8 @@ beforeEach(async () => {
   uuid.pinned = null;
   deps = await makeTestDeps();
 });
+
+afterEach(() => vi.restoreAllMocks());
 
 async function expectInvalid(promise: Promise<unknown>) {
   await expect(promise).rejects.toBeInstanceOf(AppError);
@@ -87,6 +91,15 @@ const BEDFORD: GeoHit = {
   region: "NY",
   country: "United States",
   countryCode: "US",
+  area: {
+    neighbourhood: "Williamsburg",
+    suburb: "Brooklyn",
+    city: "New York",
+    state: "New York",
+    stateCode: "NY",
+    country: "United States",
+    countryCode: "US",
+  },
 };
 
 const ADDRESS_TEXT = /Bedford|123|Apartment|4B|11211/;
@@ -126,9 +139,28 @@ describe("searchPlaces keeps no address (f-1)", () => {
     },
   );
 
+  it("names an address hit from its own area when the reverse lookup fails", async () => {
+    vi.spyOn(deps.geocoder, "search").mockResolvedValue([BEDFORD]);
+    vi.spyOn(deps.geocoder, "reverse").mockRejectedValue(new Error("slow"));
+
+    const response = await searchPlaces(deps, ME, "123 Bedford Avenue");
+    const stored = await deps.db.query("select * from geo_cache");
+
+    expect(response.results).toEqual([
+      {
+        placeId: expect.any(String),
+        label: "Williamsburg",
+        sublabel: "New York, NY",
+        kind: "neighbourhood",
+      },
+    ]);
+    expect(stored).toHaveLength(1);
+    expect(withoutIds({ response, stored })).not.toMatch(ADDRESS_TEXT);
+  });
+
   it("drops an address hit that has no neighbourhood or city", async () => {
     vi.spyOn(deps.geocoder, "search").mockResolvedValue([
-      { ...BEDFORD, lat: 0, lon: 0 },
+      { ...BEDFORD, lat: 0, lon: 0, area: {} },
     ]);
 
     const response = await searchPlaces(deps, ME, "123 Bedford Avenue");
@@ -136,6 +168,47 @@ describe("searchPlaces keeps no address (f-1)", () => {
     expect(response.results).toEqual([]);
     expect(await deps.db.query("select * from geo_cache")).toEqual([]);
     expect(withoutIds(response)).not.toMatch(ADDRESS_TEXT);
+  });
+});
+
+describe("searchPlaces when the geocoder fails", () => {
+  it("rejects as unavailable instead of saying nothing was found", async () => {
+    vi.spyOn(deps.geocoder, "search").mockRejectedValue(
+      new Error("photon down"),
+    );
+    const warn = vi.spyOn(log, "warn").mockImplementation(() => {});
+
+    const search = searchPlaces(deps, ME, "Boston");
+
+    await expect(search).rejects.toBeInstanceOf(AppError);
+    await expect(search).rejects.toMatchObject({
+      code: "unavailable",
+      message: GEOCODER_UNAVAILABLE,
+    });
+    expect(warn).toHaveBeenCalledWith("geo.search_failed", {
+      error: "Error",
+    });
+  });
+
+  it("never logs the query when the provider echoes it back", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const geocoder = photon({
+      baseUrl: "https://photon.invalid",
+      fetch: async () => new Response("Error: 1 A St"),
+    })(deps.db, deps.clock);
+
+    await expect(
+      searchPlaces({ ...deps, geocoder }, ME, "1 A St"),
+    ).rejects.toMatchObject({ code: "unavailable" });
+
+    expect(warn).toHaveBeenCalledOnce();
+    const line = String(warn.mock.calls[0][0]);
+    expect(JSON.parse(line)).toEqual({
+      level: "warn",
+      event: "geo.search_failed",
+      error: "SyntaxError",
+    });
+    expect(line).not.toContain("1 A St");
   });
 });
 
