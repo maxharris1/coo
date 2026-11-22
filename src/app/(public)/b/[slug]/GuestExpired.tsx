@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Bird } from "@/components/Bird";
 import { config } from "@/lib/config";
+import { LegalLinks } from "../../LegalLinks";
 import styles from "./Guest.module.css";
 
 const COPY = {
@@ -41,6 +42,7 @@ export function GuestExpired({ kind }: { kind: keyof typeof COPY }) {
           What is this?
         </Link>
       </div>
+      <LegalLinks />
     </main>
   );
 }

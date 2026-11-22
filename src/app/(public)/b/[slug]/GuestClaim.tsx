@@ -17,6 +17,7 @@ import type { GuestView as Guest } from "@/server/services/guestLinks/get";
 import { AddToSill } from "./AddToSill";
 import styles from "./GuestClaim.module.css";
 import { GuestReport } from "./GuestReport";
+import { LegalLinks } from "../../LegalLinks";
 import { postAuth } from "../../sign-in/postAuth";
 import { rememberLink } from "./linkSignUp";
 
@@ -145,6 +146,7 @@ export function GuestClaim({
           <GuestReport token={token} onReported={onReported} />
         </div>
       </div>
+      <LegalLinks />
     </main>
   );
 }
