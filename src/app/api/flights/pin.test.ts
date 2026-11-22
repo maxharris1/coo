@@ -1,3 +1,4 @@
+import { snap } from "@/lib/game/privacy";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { photon } from "@/server/adapters/photon";
 import type { UserId } from "@/server/ports/auth";
@@ -17,6 +18,7 @@ const CONSOLE_METHODS = ["log", "info", "warn", "error", "debug"] as const;
 const TYPED = "200 Bedford Avenue";
 const PIN = { lat: 40.714321987, lon: -73.961234567 };
 const PIN_DIGITS = ["714321", "961234"];
+const SNAPPED = snap(PIN.lat, PIN.lon);
 
 function feature(properties: Record<string, string>, coordinates: number[]) {
   return {
@@ -101,7 +103,7 @@ async function everyStoredRow(): Promise<string> {
 }
 
 describe("a pinned guest send over HTTP", () => {
-  it("flies to the exact pin under a neighbourhood label, with no address anywhere (ac-1, ac-2, ac-3)", async () => {
+  it("flies to the snapped pin under a neighbourhood label, with no address or drop point anywhere (ac-2)", async () => {
     const consoles = CONSOLE_METHODS.map((method) =>
       vi.spyOn(console, method).mockImplementation(() => {}),
     );
@@ -131,13 +133,28 @@ describe("a pinned guest send over HTTP", () => {
       jar,
     );
     expect(sent.status).toBe(200);
-    expect(sent.json.flights[0].to).toEqual({ ...PIN, label: "Williamsburg" });
+    expect(sent.json.flights[0].to).toEqual({
+      ...SNAPPED,
+      label: "Williamsburg",
+    });
 
-    const [stored] = await deps.db.query<{ to_lat: number; to_lon: number }>(
-      "select to_lat, to_lon from flights where id = $1",
+    const [stored] = await deps.db.query<{
+      to_lat: number;
+      to_lon: number;
+      dest_lat: number;
+      dest_lon: number;
+    }>(
+      `select f.to_lat, f.to_lon, g.dest_lat, g.dest_lon
+       from flights f join guest_links g on g.id = f.guest_link_id
+       where f.id = $1`,
       [sent.json.flights[0].id],
     );
-    expect(stored).toEqual({ to_lat: PIN.lat, to_lon: PIN.lon });
+    expect(stored).toEqual({
+      to_lat: SNAPPED.lat,
+      to_lon: SNAPPED.lon,
+      dest_lat: SNAPPED.lat,
+      dest_lon: SNAPPED.lon,
+    });
 
     const responses = JSON.stringify([found.json, quoted.json, sent.json]);
     const rows = await everyStoredRow();
@@ -146,6 +163,8 @@ describe("a pinned guest send over HTTP", () => {
       expect(text).not.toContain("Bedford");
       expect(text).not.toContain("11249");
     }
+    for (const text of [JSON.stringify(sent.json), rows, logged])
+      for (const digits of PIN_DIGITS) expect(text).not.toContain(digits);
     const cache = await deps.db.query<{ key: string; payload: unknown }>(
       "select key, payload from geo_cache",
     );

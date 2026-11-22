@@ -117,6 +117,15 @@ export async function resolvePlace(
   return row.payload.place;
 }
 
+export async function placeStart(
+  deps: Deps,
+  userId: UserId,
+  placeId: string,
+): Promise<{ start: Point }> {
+  const { roost } = await resolvePlace(deps, userId, placeId);
+  return { start: roost };
+}
+
 export const keepPlace = (db: Db, placeId: string) =>
   db.query(
     `update geo_cache set payload = payload || '{"saved": true}' where key = $1`,

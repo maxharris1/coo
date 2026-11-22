@@ -10,11 +10,13 @@ notes. The rules below are requirements, each with a test in some ticket.
    before any database write and before any log line. Only snapped values go further. Roosts,
    home and travel, are always snapped.
 
-   One carve-out: a destination pin the sender places by hand on a send to someone new (`pin`
-   on `POST /api/flights/quote` and `POST /api/flights`) is kept exactly in `flights.to_lat/
-   to_lon`. It travels only in request bodies, never in a URL, a log line or `geo_cache`. Its
-   label comes from reverse-geocoding the snapped pin, so the geocoder only ever sees grid
-   points. Rule 5 limits who can read it.
+   A destination pin the sender places by hand on a send to someone new (`pin` on
+   `POST /api/flights/quote` and `POST /api/flights`) is that person's provisional sill, so it
+   is snapped like any roost before it is stored in `flights.to_lat/to_lon` and
+   `guest_links.dest_lat/dest_lon`. The drop point travels only in request bodies, never in a
+   URL, a log line, a database row or a `geo_cache` key. Its label comes from reverse-geocoding
+   the snapped pin, so the geocoder only ever sees grid points. `GET /api/geo/place` returns a
+   held place's snapped starting point to the user who holds its `placeId`, and nothing else.
 2. **Addresses are never stored.** If someone searches an address, we keep the snapped point
    and a neighbourhood label. The search text is not saved against the user.
 3. **Friends see a roost or a city.** Per friend, `block` (the roost and its neighbourhood

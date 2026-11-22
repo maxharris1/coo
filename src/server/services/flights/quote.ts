@@ -156,10 +156,8 @@ export async function legFor(
     const place = await resolvePlace(deps, me, placeId);
     if (!pin)
       return { from: roost, to: { point: place.roost, label: place.label } };
-    return {
-      from: roost,
-      to: { point: pin, label: await pinLabel(deps, pin) },
-    };
+    const point = snap(pin.lat, pin.lon);
+    return { from: roost, to: { point, label: await pinLabel(deps, point) } };
   }
   const them = recipient.friendId;
   const friendship = await friendshipBetween(deps.db, me, them);
@@ -176,8 +174,7 @@ export async function legFor(
   return { from, to };
 }
 
-async function pinLabel(deps: Deps, pin: Point): Promise<string> {
-  const { lat, lon } = snap(pin.lat, pin.lon);
+async function pinLabel(deps: Deps, { lat, lon }: Point): Promise<string> {
   const name = await deps.geocoder
     .reverse(lat, lon, "point")
     .catch((error: unknown) => {
