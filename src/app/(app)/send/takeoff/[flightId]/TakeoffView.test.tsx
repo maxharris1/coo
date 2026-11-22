@@ -61,6 +61,23 @@ describe("TakeoffView", () => {
     );
   });
 
+  it("takes another button label and bird title for a bird going home", () => {
+    const html = renderToStaticMarkup(
+      <TakeoffView
+        {...props(true)}
+        watchLabel="Watch her go"
+        birdTitle="Dumpling launching off your sill with the reply"
+      />,
+    );
+    expect(html).toMatch(
+      /<a href="\/flights\/f1" data-replace=""[^>]*>Watch her go<\/a>/,
+    );
+    expect(html).toContain(
+      'aria-label="Dumpling launching off your sill with the reply"',
+    );
+    expect(html).not.toContain("Watch the flight");
+  });
+
   it("with reduced motion keeps the button and drops the promise to move on", () => {
     const html = renderToStaticMarkup(<TakeoffView {...props(false)} />);
     expect(text(html)).toBe(

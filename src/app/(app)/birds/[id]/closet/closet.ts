@@ -107,6 +107,17 @@ export function applyOutfit(w: Wardrobe, outfit: Outfit): GearId[] {
   return items;
 }
 
+export function skippedNote(
+  birdName: string,
+  skipped: readonly string[],
+): string | null {
+  const names = skipped.map((id) => catalog.get(id)?.name ?? id);
+  const last = names.pop();
+  if (!last) return null;
+  const list = names.length > 0 ? `${names.join(", ")} and ${last}` : last;
+  return `${birdName} has the outfit on without the ${list}.`;
+}
+
 export const effectsFor = (worn: readonly GearId[]): string[] =>
   worn
     .flatMap((id) => catalog.get(id) ?? [])

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Profile } from "@/server/auth";
 import type { UserId } from "@/server/ports/auth";
 import { onboard } from "@/server/services/onboarding";
+import { searchPlaces } from "@/server/services/places";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
 import type { FakeJar } from "@/test/fakes/jar";
 import { geoClient } from "@/test/geoRoute";
@@ -102,6 +103,7 @@ describe("POST /api/loft/travel", () => {
     [{ on: true }],
     [{ on: "yes" }],
     [{ on: true, lat: 91, lon: 0 }],
+    [{ on: true, placeId: 7 }],
   ])("answers %j with 400 invalid", async (body) => {
     const { jar } = await onboarded("(555) 123-4567", "Max");
     const { status, json } = await travel.post(body, jar);
@@ -124,6 +126,53 @@ describe("POST /api/loft/travel", () => {
       cityLon: -71.0589,
       changedAt: deps.clock.now(),
     });
+  });
+
+  it("turns travel on at a place picked from search, through the same cooldown", async () => {
+    const { id, jar } = await onboarded("(555) 123-4567", "Max");
+    const { results } = await searchPlaces(deps, id as UserId, "Back Bay");
+    const picked = { on: true, placeId: results[0].placeId };
+    const { status, json } = await travel.post(picked, jar);
+    expect(status).toBe(200);
+    expect(json.loft).toEqual(BACK_BAY_LOFT);
+    expect(await travelOf(id)).toEqual({
+      on: true,
+      lat: 42.35,
+      lon: -71.08,
+      label: "Back Bay",
+      city: "Boston, MA",
+      cityLat: 42.3601,
+      cityLon: -71.0589,
+      changedAt: deps.clock.now(),
+    });
+
+    deps.clock.advance(HOUR);
+    const fishtown = await searchPlaces(deps, id as UserId, "Fishtown");
+    const moved = await travel.post(
+      { on: true, placeId: fishtown.results[0].placeId },
+      jar,
+    );
+    expect(moved.status).toBe(409);
+    expect(moved.json.error.code).toBe("conflict");
+    expect((await travelOf(id)).label).toBe("Back Bay");
+  });
+
+  it("refuses someone else's searched place and changes nothing", async () => {
+    const other = await onboarded("(555) 765-4321", "Ana");
+    const me = await onboarded("(555) 123-4567", "Max");
+    const { results } = await searchPlaces(
+      deps,
+      other.id as UserId,
+      "Fishtown",
+    );
+    const before = await travelOf(me.id);
+    const { status, json } = await travel.post(
+      { on: true, placeId: results[0].placeId },
+      me.jar,
+    );
+    expect(status).toBe(400);
+    expect(json.error.code).toBe("invalid");
+    expect(await travelOf(me.id)).toEqual(before);
   });
 
   it("refuses a second change inside 12 hours and accepts one at 12 hours (ac-2)", async () => {

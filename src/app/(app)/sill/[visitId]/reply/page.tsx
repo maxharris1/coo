@@ -54,6 +54,7 @@ function ReplyScreen({
     saveHandoff(visit.id, {
       flightId: result.flight.id,
       pronoun: visit.bird.pronoun,
+      breed: visit.bird.breed,
     });
     onSent();
   }

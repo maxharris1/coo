@@ -72,6 +72,19 @@ export const snappedPosition = ({
 }: Pick<GeolocationCoordinates, "latitude" | "longitude">): Point =>
   snap(latitude, longitude);
 
+export const NO_LOCATION =
+  "We could not get your location. Try a search instead.";
+
+export const position = () =>
+  new Promise<Point>((resolve, reject) => {
+    if (!("geolocation" in navigator)) return reject(new Error(NO_LOCATION));
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => resolve(snappedPosition(coords)),
+      reject,
+      { enableHighAccuracy: false, timeout: 15_000, maximumAge: 60_000 },
+    );
+  });
+
 const UNREACHABLE = "We could not reach the loft. Try again.";
 
 type Result<T> = { ok: true; data: T } | { ok: false; message: string };

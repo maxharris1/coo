@@ -71,7 +71,13 @@ const brenda = bird({
   gear: ["bell"],
 });
 
-const payload = (birds: ClosetBird[], closet: string[]): SyncPayload =>
+type Outfit = SyncPayload["outfits"][number];
+
+const payload = (
+  birds: ClosetBird[],
+  closet: string[],
+  outfits: Outfit[] = [],
+): SyncPayload =>
   ({
     me: { seeds: 12, perches: 3, timezone: "UTC", loft: null },
     serverNow: NOW,
@@ -80,6 +86,7 @@ const payload = (birds: ClosetBird[], closet: string[]): SyncPayload =>
     flights: [],
     myVisiting: [],
     egg: null,
+    outfits,
   }) as unknown as SyncPayload;
 
 const CLOSET = ["goggles", "band", "beanie", "scarf", "bell"];
@@ -132,6 +139,20 @@ const tile = (name: string) => {
     (el) => el.type === "button" && text(el).includes(name),
   );
   if (!found) throw new Error(`no tile for ${name}`);
+  return found;
+};
+
+const outfit = (name: string, items: string[]): Outfit => ({
+  id: name,
+  name,
+  items,
+});
+
+const chip = (name: string) => {
+  const found = elements(page()).find(
+    (el) => el.type === "button" && el.props.children === name,
+  );
+  if (!found) throw new Error(`no outfit chip for ${name}`);
   return found;
 };
 
@@ -345,6 +366,43 @@ describe("/birds/[id]/closet (ac-1)", () => {
       expect(bodies).toEqual([{ items: ["goggles"] }, { items: ["scarf"] }]);
     });
 
+    it("waits for a pending tile save before wearing an outfit", async () => {
+      const { bodies, answerAll } = deferredFetch();
+      syncWith(
+        payload(
+          [bare],
+          ["goggles", "scarf", "beanie"],
+          [outfit("Cold snap", ["beanie", "scarf"])],
+        ),
+      );
+      tile("goggles").props.onClick?.();
+      chip("Cold snap").props.onClick?.();
+      await flush();
+      expect(bodies).toEqual([{ items: ["goggles"] }]);
+      await answerAll();
+      expect(bodies).toEqual([
+        { items: ["goggles"] },
+        { outfitId: "Cold snap" },
+      ]);
+      expect(refresh).toHaveBeenCalledOnce();
+    });
+
+    it("dresses on top of an outfit still saving", async () => {
+      const { bodies, answerAll } = deferredFetch();
+      syncWith(
+        payload([bare], ["goggles", "scarf"], [outfit("Cosy", ["scarf"])]),
+      );
+      chip("Cosy").props.onClick?.();
+      expect(chip("Cosy").props["aria-pressed"]).toBe(true);
+      tile("goggles").props.onClick?.();
+      await flush();
+      await answerAll();
+      expect(bodies).toEqual([
+        { outfitId: "Cosy" },
+        { items: ["scarf", "goggles"] },
+      ]);
+    });
+
     it("drops the pending selection once fresh sync data arrives", async () => {
       const { answerAll } = deferredFetch();
       syncWith(payload([bare], ["goggles", "scarf"]));
@@ -353,6 +411,109 @@ describe("/birds/[id]/closet (ac-1)", () => {
       syncWith(payload([bird({ gear: ["scarf"] })], ["goggles", "scarf"]));
       expect(tile("goggles").props["aria-pressed"]).toBe(false);
       expect(tile("scarf").props["aria-pressed"]).toBe(true);
+    });
+  });
+
+  describe("saved outfits", () => {
+    const withOutfits = (...outfits: Outfit[]) =>
+      syncWith(payload([gerald, kevin, brenda], CLOSET, outfits));
+    const okFetch = (skipped: string[] = []) => {
+      const fetchMock = vi.fn(async () => Response.json({ bird: {}, skipped }));
+      vi.stubGlobal("fetch", fetchMock);
+      return fetchMock;
+    };
+    const stand = () =>
+      elements(page()).find((el) => el.type === Bird)?.props as {
+        gear: string[];
+      };
+
+    it("shows each outfit by name between the stand and the closet", () => {
+      const out = render(
+        payload([gerald, kevin, brenda], CLOSET, [
+          outfit("Everyday", ["goggles", "band"]),
+          outfit("Cold snap", ["beanie", "scarf"]),
+        ]),
+      );
+      const heading = out.search(/<h2[^>]*>Saved outfits<\/h2>/);
+      expect(heading).toBeGreaterThan(out.indexOf("What it does"));
+      expect(heading).toBeLessThan(out.search(/<h2[^>]*>Closet<\/h2>/));
+      expect(out).toMatch(/<button[^>]*type="button"[^>]*>Everyday<\/button>/);
+      expect(out).toMatch(/<button[^>]*>Cold snap<\/button>/);
+    });
+
+    it("leaves the section out when there are no saved outfits", () => {
+      expect(render(payload([gerald, kevin, brenda], CLOSET))).not.toContain(
+        "Saved outfits",
+      );
+    });
+
+    it("tapping an outfit PUTs its id and refetches", async () => {
+      const fetchMock = okFetch();
+      withOutfits(outfit("Cold snap", ["beanie", "band"]));
+      chip("Cold snap").props.onClick?.();
+      await flush();
+      expect(fetchMock).toHaveBeenCalledOnce();
+      expect(fetchMock).toHaveBeenCalledWith("/api/birds/g/gear", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ outfitId: "Cold snap" }),
+      });
+      expect(refresh).toHaveBeenCalledOnce();
+    });
+
+    it("previews the outfit without an unowned item or an item on a bird that is away", () => {
+      okFetch();
+      withOutfits(outfit("Cold snap", ["rainhat", "beanie", "bell"]));
+      chip("Cold snap").props.onClick?.();
+      expect(stand().gear).toEqual(["beanie"]);
+    });
+
+    it("previews an item taken off a bird that is home", () => {
+      okFetch();
+      withOutfits(outfit("Cosy", ["scarf"]));
+      chip("Cosy").props.onClick?.();
+      expect(stand().gear).toEqual(["scarf"]);
+    });
+
+    it("names the items the server skipped", async () => {
+      okFetch(["scarf", "rainhat"]);
+      withOutfits(outfit("Cold snap", ["rainhat", "beanie", "scarf"]));
+      chip("Cold snap").props.onClick?.();
+      await flush();
+      expect(toasts).toEqual([
+        "Gerald has the outfit on without the Thermal scarf and Rain hat.",
+      ]);
+    });
+
+    it("says nothing when the server skipped nothing", async () => {
+      okFetch();
+      withOutfits(outfit("Cosy", ["beanie"]));
+      chip("Cosy").props.onClick?.();
+      await flush();
+      expect(toasts).toEqual([]);
+    });
+
+    it("presses the outfit the bird is wearing, in any order", () => {
+      withOutfits(
+        outfit("Everyday", ["band", "goggles"]),
+        outfit("Cold snap", ["beanie", "scarf"]),
+        outfit("Just goggles", ["goggles"]),
+      );
+      expect(chip("Everyday").props["aria-pressed"]).toBe(true);
+      expect(chip("Cold snap").props["aria-pressed"]).toBe(false);
+      expect(chip("Just goggles").props["aria-pressed"]).toBe(false);
+    });
+
+    it("cannot wear an outfit with nothing free to put on", () => {
+      const fetchMock = okFetch();
+      syncWith(
+        payload([bird({ gear: [] }), brenda], CLOSET, [
+          outfit("Away", ["rainhat", "bell"]),
+        ]),
+      );
+      expect(chip("Away").props["aria-pressed"]).toBe(false);
+      expect(chip("Away").props.disabled).toBe(true);
+      expect(fetchMock).not.toHaveBeenCalled();
     });
   });
 
@@ -400,7 +561,7 @@ describe("/birds/[id]/closet states", () => {
 describe("putGear", () => {
   it("says the loft is unreachable when fetch throws", async () => {
     await expect(
-      putGear("g", [], async () => {
+      putGear("g", { items: [] }, async () => {
         throw new Error("offline");
       }),
     ).rejects.toThrow("We could not reach the loft. Try again.");
@@ -427,6 +588,15 @@ describe("/birds/[id]/closet looks (ac-2)", () => {
     expect(css).toMatch(/\.tipButton\s*{[^}]*background:\s*var\(--coo-card\)/);
     expect(css).toMatch(
       /\.tipButton\s*{[^}]*box-shadow:\s*var\(--coo-shadow-1\)/,
+    );
+  });
+
+  it("lays saved outfits three across as touch-sized pills, sun when worn", () => {
+    expect(css).toMatch(/\.chips\s*{[^}]*repeat\(3, minmax\(0, 1fr\)\)/);
+    expect(css).toMatch(/\.chip\s*{[^}]*min-height:\s*var\(--coo-touch\)/);
+    expect(css).toMatch(/\.chip\s*{[^}]*var\(--coo-radius-pill\)/);
+    expect(css).toMatch(
+      /\.chip\[aria-pressed="true"\]\s*{[^}]*background:\s*var\(--coo-sun\)[^}]*var\(--coo-shadow-2\)/,
     );
   });
 });

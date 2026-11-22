@@ -4,6 +4,7 @@ import {
   positionAt,
   type EventKind,
   type FlightEvent,
+  type FlightInput,
   type FlightPlan,
   type WeatherSample,
 } from "@/lib/flight/engine";
@@ -59,6 +60,13 @@ const headwind = (sample: WeatherSample, plan: FlightPlan) =>
   Math.cos(((sample.windFromDeg - plan.bearingDeg) * Math.PI) / 180) > 0;
 const windy = (sample: WeatherSample) =>
   sample.windMph >= config.game.weather.windyMph;
+
+export function metHeadwind(
+  input: Pick<FlightInput, "weather">,
+  plan: FlightPlan,
+): boolean {
+  return input.weather.some((s) => windy(s) && headwind(s, plan));
+}
 
 const WEATHER: WeatherRow[] = [
   {
