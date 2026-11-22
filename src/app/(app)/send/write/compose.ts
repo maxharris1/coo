@@ -13,7 +13,7 @@ import type { Factor } from "@/server/services/flights/factors";
 import type { RecipientQuote } from "@/server/services/flights/quote";
 import type { FriendRow } from "@/server/services/friends";
 import { friendLine } from "../../friends/friendsApi";
-import { fastestReady } from "../recipients";
+import { fastestReady, readyBySpeed } from "../recipients";
 
 export type SyncBird = SyncPayload["birds"][number];
 
@@ -34,6 +34,10 @@ export type PickerOption = {
 };
 
 export type Counter = { text: string; over: boolean };
+
+export type Assignment = readonly { friendId: string; birdId: string | null }[];
+
+export type Overflow = { birdName: string; limit: number };
 
 export type ComposeStats = {
   distance: string;
@@ -157,4 +161,54 @@ export function canRelease(
   sending: boolean,
 ): boolean {
   return note.trim() !== "" && !count.over && birdName !== null && !sending;
+}
+
+const farthestFirst = (a: FriendRow, b: FriendRow) =>
+  (b.distanceMi ?? -Infinity) - (a.distanceMi ?? -Infinity);
+
+export function assignBirds(
+  friends: readonly FriendRow[],
+  birds: readonly SyncBird[],
+): Assignment {
+  const fliers = readyBySpeed(birds);
+  const birdOf = new Map(
+    [...friends]
+      .sort(farthestFirst)
+      .map((f, i) => [f.id, fliers[i]?.id ?? null]),
+  );
+  return friends.map((f) => ({
+    friendId: f.id,
+    birdId: birdOf.get(f.id) ?? null,
+  }));
+}
+
+export function swapBird(
+  rows: Assignment,
+  friendId: string,
+  birdId: string,
+): Assignment {
+  const row = rows.find((r) => r.friendId === friendId);
+  if (!row) return rows;
+  return rows.map((r) => {
+    if (r === row) return { ...r, birdId };
+    if (r.birdId === birdId) return { ...r, birdId: row.birdId };
+    return r;
+  });
+}
+
+export function overLimit(
+  note: string,
+  rows: Assignment,
+  birds: readonly SyncBird[],
+): Overflow | null {
+  let tightest: Overflow | null = null;
+  for (const { birdId } of rows) {
+    const bird = birds.find((b) => b.id === birdId);
+    if (!bird) continue;
+    const { over } = counter(note, bird);
+    const limit = noteLimit(bird);
+    if (over && (!tightest || limit < tightest.limit))
+      tightest = { birdName: bird.name, limit };
+  }
+  return tightest;
 }
