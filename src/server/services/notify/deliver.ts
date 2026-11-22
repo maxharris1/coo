@@ -1,4 +1,5 @@
-import { inQuietHours, quietHoursEnd } from "@/lib/game/time";
+import { inQuietHours, quietHoursEnd, type QuietHours } from "@/lib/game/time";
+import type { Db } from "@/server/db";
 import type { Deps } from "@/server/deps";
 import { log } from "@/server/log";
 import {
@@ -44,6 +45,33 @@ export function settings(deps: Deps): ReadonlyMap<string, Setting> {
   );
 }
 
+function quietHours(profile: Row<"profiles">): QuietHours {
+  return {
+    on: profile.quiet_on,
+    startHour: profile.quiet_start,
+    endHour: profile.quiet_end,
+  };
+}
+
+export async function rescheduleHeld(
+  db: Db,
+  now: number,
+  profile: Row<"profiles">,
+): Promise<void> {
+  await db.query(
+    `update notifications set push_held_until = $3
+     where user_id = $1 and push_sent_at is null and read_at is null
+       and push_held_until > $2`,
+    [
+      profile.id,
+      new Date(now).toISOString(),
+      new Date(
+        quietHoursEnd(now, profile.timezone, quietHours(profile)),
+      ).toISOString(),
+    ],
+  );
+}
+
 export async function deliver(
   deps: Deps,
   notificationId: string,
@@ -58,11 +86,7 @@ export async function deliver(
   const setting = settings(deps).get(row.kind);
   if (setting && !row[setting]) return { pushed: false, reason: "setting-off" };
   const now = deps.clock.now();
-  const quiet = {
-    on: row.quiet_on,
-    startHour: row.quiet_start,
-    endHour: row.quiet_end,
-  };
+  const quiet = quietHours(row);
   if (inQuietHours(now, row.timezone, quiet)) {
     await deps.db.query(
       `update notifications set push_held_until = $2

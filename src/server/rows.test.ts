@@ -92,6 +92,7 @@ describe("mappers", () => {
       name: "Max",
       handle: "max",
       inviteCode: "seed-max",
+      phoneLast4: null,
       seeds: start.seeds,
       perches: start.perches,
       hasBirdbath: false,
@@ -116,6 +117,14 @@ describe("mappers", () => {
         smsFallback: true,
       },
     });
+  });
+
+  it("toMe exposes the last four digits of the phone once known", async () => {
+    const { max } = world;
+    await db.query("update profiles set phone_last4 = '0142' where id = $1", [
+      max.id,
+    ]);
+    expect(toMe(await one(db, "profiles", max.id)).phoneLast4).toBe("0142");
   });
 
   it("toMe reads the travel loft while travelling", async () => {
