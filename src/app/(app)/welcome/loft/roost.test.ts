@@ -125,6 +125,18 @@ describe("loft api calls", () => {
     });
   });
 
+  it("passes on the try-again message when place search is unavailable", async () => {
+    const message =
+      "The map is slow to answer right now. Try again in a moment.";
+    const fetchImpl = vi.fn(async () =>
+      json(503, { error: { code: "unavailable", message } }),
+    );
+    expect(await searchPlaces("123 Bedford Avenue", fetchImpl)).toEqual({
+      ok: false,
+      message,
+    });
+  });
+
   it("posts the loft and returns the saved roost", async () => {
     const fetchImpl = vi.fn(async () =>
       json(200, { loft: { ...BROOKLYN, travelling: false } }),

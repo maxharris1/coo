@@ -95,6 +95,7 @@ describe("ac-1 error shape and serverNow", () => {
     ["insufficient_seeds", 402],
     ["rate_limited", 429],
     ["gone", 410],
+    ["unavailable", 503],
     ["internal", 500],
   ])("AppError %s responds %i", async (code, status) => {
     const route = jsonRoute("public", {}, async () => {

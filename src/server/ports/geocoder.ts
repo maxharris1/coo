@@ -1,7 +1,6 @@
-export interface GeoHit {
+interface GeoHitBase {
   label: string;
   sublabel: string;
-  kind: "neighbourhood" | "city" | "address";
   lat: number;
   lon: number;
   city?: string;
@@ -9,6 +8,10 @@ export interface GeoHit {
   country?: string;
   countryCode?: string;
 }
+
+export type GeoHit =
+  | (GeoHitBase & { kind: "neighbourhood" | "city" })
+  | (GeoHitBase & { kind: "address"; area: GeoName });
 
 export interface GeoName {
   neighbourhood?: string;

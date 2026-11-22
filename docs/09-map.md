@@ -96,8 +96,9 @@ OpenStreetMap, no key; fair use only):
 Confirm these paths and the response fields against Photon's current documentation when writing
 the adapter. Cache every answer in `geo_cache`: searches for a day, reverse lookups for 30 days,
 keyed by coordinates rounded to 0.05° (0.002° for flights under 3 miles). Limit ourselves to 3
-requests at a time and 1 second timeouts. If Photon is slow or down: searches say "Could not
-find that place. Try a neighborhood or a city."; names along a route are simply left out.
+requests at a time and 3 second timeouts. If Photon is slow or down: searches say "The map is
+slow to answer right now. Try again in a moment.", an address hit whose name lookup fails is named
+from the search's own area, and names along a route are simply left out.
 
 Used for:
 

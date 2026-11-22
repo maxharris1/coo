@@ -6,6 +6,7 @@ import { cityLabel, roostLabel } from "@/lib/places";
 import type { Db } from "@/server/db";
 import type { Deps } from "@/server/deps";
 import { AppError } from "@/server/errors";
+import { log } from "@/server/log";
 import type { UserId } from "@/server/ports/auth";
 import type { GeoHit } from "@/server/ports/geocoder";
 import { rateLimit } from "@/server/rateLimit";
@@ -17,38 +18,33 @@ export const PLACE_NOT_FOUND = emptyStates.find(
   (s) => s.state === "Place not found",
 )!.text;
 
+export const GEOCODER_UNAVAILABLE = emptyStates.find(
+  (s) => s.state === "Place search unavailable",
+)!.text;
+
 export type PlaceResult = Pick<GeoHit, "label" | "sublabel" | "kind"> & {
   placeId: string;
 };
 
-export type HeldPlace = Omit<GeoHit, "lat" | "lon"> & { roost: Point };
+export type HeldPlace = Omit<GeoHit, "lat" | "lon" | "area"> & {
+  roost: Point;
+};
 
 type Held = { userId: UserId; place: HeldPlace };
 
 const heldKey = (placeId: string) => `place:${placeId}`;
 
-async function heldPlace(
-  deps: Deps,
-  {
-    lat,
-    lon,
-    label,
-    sublabel,
-    kind,
-    city,
-    region,
-    country,
-    countryCode,
-  }: GeoHit,
-): Promise<HeldPlace | null> {
+async function heldPlace(deps: Deps, hit: GeoHit): Promise<HeldPlace | null> {
+  const { lat, lon, label, sublabel, city, region, country, countryCode } = hit;
   const roost = snap(lat, lon);
   const area = { city, region, country, countryCode, roost };
-  if (kind !== "address") return { label, sublabel, kind, ...area };
-  const name = await deps.geocoder
-    .reverse(roost.lat, roost.lon)
-    .catch(() => null);
-  const neighbourhood = name && roostLabel(name);
-  if (!name || !neighbourhood) return null;
+  if (hit.kind !== "address")
+    return { label, sublabel, kind: hit.kind, ...area };
+  const name =
+    (await deps.geocoder.reverse(roost.lat, roost.lon).catch(() => null)) ??
+    hit.area;
+  const neighbourhood = roostLabel(name);
+  if (!neighbourhood) return null;
   return {
     label: neighbourhood,
     sublabel: cityLabel(name) ?? "",
@@ -69,7 +65,12 @@ export async function searchPlaces(
     deps.config.game.limits.geoSearchPerMinute,
     60,
   );
-  const hits = await deps.geocoder.search(q).catch(() => []);
+  const hits = await deps.geocoder.search(q).catch((error: unknown) => {
+    log.warn("geo.search_failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw new AppError("unavailable", GEOCODER_UNAVAILABLE);
+  });
   const places = await Promise.all(
     hits.slice(0, MAX_RESULTS).map((hit) => heldPlace(deps, hit)),
   );

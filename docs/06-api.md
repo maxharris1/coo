@@ -24,6 +24,7 @@ A replayed action (same `actionId`) applies no second charge or effect and retur
 | `insufficient_seeds` | 402 | Cannot afford it |
 | `rate_limited` | 429 | Over a limit |
 | `gone` | 410 | Guest link expired |
+| `unavailable` | 503 | An outside service is slow or down. Try again |
 | `internal` | 500 | Anything unexpected |
 
 ## Shared shapes

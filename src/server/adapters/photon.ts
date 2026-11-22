@@ -6,7 +6,8 @@ import type { Db } from "../db";
 import type { GeoHit, GeoName, Geocoder } from "../ports/geocoder";
 
 const MAX_IN_FLIGHT = 3;
-const TIMEOUT_MS = 1000;
+const TIMEOUT_MS = 3000;
+const USER_AGENT = "Coo (https://github.com/maxharris1/coo)";
 const DAY_MS = 24 * 60 * 60 * 1000;
 const SEARCH_TTL_MS = DAY_MS;
 const REVERSE_TTL_MS = 30 * DAY_MS;
@@ -53,7 +54,7 @@ const PLACE_BY_OSM_VALUE = new Map<string, Place>([
   ["quarter", "locality"],
 ]);
 
-const KIND_BY_PLACE: Record<Place, GeoHit["kind"]> = {
+const KIND_BY_PLACE: Record<Place, "neighbourhood" | "city"> = {
   city: "city",
   district: "neighbourhood",
   locality: "neighbourhood",
@@ -131,9 +132,9 @@ function placeOf(p: Feature["properties"]): Place | undefined {
   );
 }
 
-function toHit({ geometry, properties: p }: Feature): GeoHit | null {
+function toHit(feature: Feature): GeoHit | null {
+  const { geometry, properties: p } = feature;
   const place = placeOf(p);
-  const kind = place ? KIND_BY_PLACE[place] : "address";
   const label = place ? p.name : (p.locality ?? p.district ?? p.city);
   if (!label) return null;
   const city = p.city ?? (place === "city" ? p.name : undefined);
@@ -145,8 +146,11 @@ function toHit({ geometry, properties: p }: Feature): GeoHit | null {
     )
     .join(", ");
   const [lon, lat] = geometry.coordinates;
+  const kind = place
+    ? { kind: KIND_BY_PLACE[place] }
+    : { kind: "address" as const, area: toName(feature) };
   return defined({
-    kind,
+    ...kind,
     label,
     sublabel,
     ...snap(lat, lon),
@@ -200,7 +204,7 @@ function normalizeQuery(q: string): string {
 }
 
 function searchKey(query: string): string {
-  return `search:${createHash("sha256").update(query).digest("hex")}`;
+  return `search:v2:${createHash("sha256").update(query).digest("hex")}`;
 }
 
 function reverseCell(deg: number): string {
@@ -252,6 +256,7 @@ export function photon(opts: {
         const query = new URLSearchParams({ ...params, lang: "en" });
         const res = await doFetch(`${base}${path}?${query}`, {
           signal: controller.signal,
+          headers: { "User-Agent": USER_AGENT },
         });
         if (!res.ok) {
           await res.body?.cancel();
