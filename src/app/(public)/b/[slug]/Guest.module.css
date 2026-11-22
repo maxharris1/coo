@@ -103,7 +103,18 @@
   font-size: 13px;
 }
 
-.sealed,
+.sealed {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 84px;
+  box-sizing: border-box;
+  padding: 8px 12px;
+  background: var(--coo-card);
+  border: var(--coo-line);
+  border-radius: var(--coo-radius-row);
+}
+
 .envelope {
   display: block;
   flex-shrink: 0;

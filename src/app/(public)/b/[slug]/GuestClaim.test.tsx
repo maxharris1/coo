@@ -76,7 +76,13 @@ function text(html: string): string {
 
 const render = (g: LandedGuest, nowMs = justLanded(g)) =>
   renderToStaticMarkup(
-    <GuestClaim guest={g} nowMs={nowMs} timeZone="America/New_York" />,
+    <GuestClaim
+      guest={g}
+      token="k3Hq9ZtB2mXw7PaL"
+      nowMs={nowMs}
+      timeZone="America/New_York"
+      onReported={() => {}}
+    />,
   );
 
 describe("Guest page, landed (GuestClaim.png)", () => {
@@ -183,6 +189,21 @@ describe("GuestView", () => {
     expect(words).toContain("Make my loft");
     expect(words).not.toContain("Your note is sealed");
     expect(html).not.toContain('data-map="true"');
+  });
+
+  it("keeps the Report link once the note is readable", () => {
+    const g = guestLanded();
+    const html = renderToStaticMarkup(
+      <GuestView
+        guest={g}
+        token="k3Hq9ZtB2mXw7PaL"
+        serverNow={justLanded(g)}
+        timeZone="America/New_York"
+      />,
+    );
+    expect(html).toMatch(
+      /<button[^>]*type="button"[^>]*>Report this link<\/button>/,
+    );
   });
 });
 

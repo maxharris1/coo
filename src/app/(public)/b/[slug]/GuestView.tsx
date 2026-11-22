@@ -91,8 +91,10 @@ export function GuestView({
     return (
       <GuestClaim
         guest={{ ...shown.guest, note }}
+        token={token}
         nowMs={clock.nowMs}
         timeZone={timeZone}
+        onReported={reported}
       />
     );
   }

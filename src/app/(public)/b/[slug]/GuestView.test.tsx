@@ -163,3 +163,31 @@ describe("Guest page styling", () => {
     ).toMatch(/min-height: var\(--coo-touch\)/);
   });
 });
+
+describe("Guest page, sealed card layout", () => {
+  const css = readFileSync(
+    new URL("./Guest.module.css", import.meta.url),
+    "utf8",
+  );
+  const declsOf = (name: string) => {
+    const decls: Record<string, string> = {};
+    for (const [, selectors, body] of css.matchAll(/([^{}]+)\{([^}]*)\}/g)) {
+      if (!selectors.split(",").some((s) => s.trim() === `.${name}`)) continue;
+      for (const [, prop, value] of body.matchAll(/([\w-]+):\s*([^;]+);/g)) {
+        decls[prop] = value.trim();
+      }
+    }
+    return decls;
+  };
+
+  it("lays the sealed note out as a bordered card, envelope beside the words", () => {
+    const sealed = declsOf("sealed");
+    expect(sealed.display).toBe("flex");
+    expect(sealed["align-items"]).toBe("center");
+    expect(sealed.background).toBe("var(--coo-card)");
+    expect(sealed.border).toBe("var(--coo-line)");
+    expect(sealed["border-radius"]).toBe("var(--coo-radius-row)");
+    expect(sealed.width).toBeUndefined();
+    expect(declsOf("envelope").width).toBe("92px");
+  });
+});

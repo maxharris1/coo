@@ -15,6 +15,7 @@ import { distance, duration, pronounTokens } from "@/lib/format";
 import { NOT_A_PHONE, toE164, type E164 } from "@/lib/phone";
 import type { GuestView as Guest } from "@/server/services/guestLinks/get";
 import styles from "./GuestClaim.module.css";
+import { GuestReport } from "./GuestReport";
 
 const MINUTE = 60_000;
 const BIRD_SIZE = 132;
@@ -79,12 +80,16 @@ export function claimCopy(guest: Guest, nowMs: number) {
 
 export function GuestClaim({
   guest,
+  token,
   nowMs,
   timeZone,
+  onReported,
 }: {
   guest: LandedGuest;
+  token: string;
   nowMs: number;
   timeZone: string;
+  onReported: () => void;
 }) {
   const copy = claimCopy(guest, nowMs);
   const city = senderCity(guest.flight.from.label);
@@ -126,6 +131,9 @@ export function GuestClaim({
           pitch={copy.pitch}
         />
         <p className={styles.footer}>{copy.footer}</p>
+        <div className={styles.report}>
+          <GuestReport token={token} onReported={onReported} />
+        </div>
       </div>
     </main>
   );
