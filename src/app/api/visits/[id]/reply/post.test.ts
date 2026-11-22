@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it } from "vitest";
+import { config } from "@/lib/config";
 import { toE164, type E164 } from "@/lib/phone";
 import { createJsonRoute } from "@/server/http";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
@@ -42,6 +43,28 @@ async function post(id: string, body: unknown, jar?: FakeJar) {
   );
   return { status: res.status, json: await res.json() };
 }
+
+const limits = config.game.notes.doodle;
+const DOODLE = {
+  v: 1,
+  w: limits.width,
+  h: limits.height,
+  strokes: [
+    {
+      color: "ink",
+      width: "fine",
+      points: [
+        [1, 2],
+        [3, 4],
+      ],
+    },
+  ],
+};
+
+const replyNotes = () =>
+  deps.db.query<{ body: string; doodle: unknown }>(
+    "select body, doodle from notes where reply_to is not null",
+  );
 
 const returnCount = async () =>
   (
@@ -100,4 +123,72 @@ describe("POST /api/visits/[id]/reply", () => {
       expect(await returnCount()).toBe(0);
     },
   );
+
+  it.each<[string, { body: string; doodle?: unknown }]>([
+    ["text only", { body: "Thanks!" }],
+    ["a doodle only", { body: "", doodle: DOODLE }],
+    ["text and a doodle", { body: "Thanks!", doodle: DOODLE }],
+  ])("replies with %s", async (_, note) => {
+    const { status, json } = await post(
+      visitId,
+      note,
+      await signIn(PRIYA_PHONE),
+    );
+    expect(status).toBe(200);
+    expect(json.flight).toMatchObject({ kind: "return" });
+    expect(await replyNotes()).toEqual([
+      { body: note.body, doodle: note.doodle ?? null },
+    ]);
+  });
+
+  it("refuses blank text with no doodle with the send message", async () => {
+    const { status, json } = await post(
+      visitId,
+      { body: "  " },
+      await signIn(PRIYA_PHONE),
+    );
+    expect(status).toBe(400);
+    expect(json.error).toMatchObject({
+      code: "invalid",
+      message: "body: write a note or add a doodle",
+    });
+    expect(await returnCount()).toBe(0);
+    expect(await replyNotes()).toEqual([]);
+  });
+
+  it.each<[string, unknown]>([
+    ["an extra key", { ...DOODLE, extra: 1 }],
+    [
+      "a point off the canvas",
+      {
+        ...DOODLE,
+        strokes: [{ ...DOODLE.strokes[0], points: [[limits.width + 1, 0]] }],
+      },
+    ],
+    ["too many bytes", { ...DOODLE, pad: "x".repeat(limits.maxBytes) }],
+    ["no strokes field", "a doodle"],
+  ])("refuses a doodle with %s with the send message", async (_, doodle) => {
+    const { status, json } = await post(
+      visitId,
+      { body: "Thanks!", doodle },
+      await signIn(PRIYA_PHONE),
+    );
+    expect(status).toBe(400);
+    expect(json.error).toMatchObject({
+      code: "invalid",
+      message: "doodle: that doodle can't be sent",
+    });
+    expect(await returnCount()).toBe(0);
+    expect(await replyNotes()).toEqual([]);
+  });
+
+  it("refuses a doodle on someone else's visit as 404", async () => {
+    const { status } = await post(
+      visitId,
+      { body: "", doodle: DOODLE },
+      await signIn(ROSA_PHONE),
+    );
+    expect(status).toBe(404);
+    expect(await returnCount()).toBe(0);
+  });
 });

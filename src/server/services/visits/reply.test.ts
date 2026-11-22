@@ -43,7 +43,7 @@ function duringWeather(action: () => Promise<unknown> | void) {
 }
 
 const reply = async (who: string, body: string, id = visit.visitId) =>
-  replyToVisit(deps, await callerFor(who), id, body);
+  replyToVisit(deps, await callerFor(who), id, { body });
 
 async function snapshot() {
   const [row] = await deps.db.query<{

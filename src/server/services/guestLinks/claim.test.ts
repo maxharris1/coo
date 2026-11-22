@@ -244,7 +244,7 @@ describe("claimGuestLink", () => {
       deps,
       await callerFor(rosa),
       visit.id,
-      "Saturday works",
+      { body: "Saturday works" },
     );
     expect(flight).toMatchObject({ kind: "return" });
     const [reply] = await deps.db.query<{
