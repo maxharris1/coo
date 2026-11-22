@@ -13,7 +13,6 @@ import {
   type Row,
 } from "@/server/rows";
 import { syncFlights } from "./flights/syncRead";
-import { syncPhoneLast4 } from "./onboarding";
 import { tick } from "./tick";
 import { syncVisits } from "./visits/syncRead";
 
@@ -76,20 +75,21 @@ export type BirdView = ReturnType<typeof toBirdView>;
 
 async function syncTimezone(
   deps: Deps,
-  profile: Profile,
+  caller: OnboardedCaller,
   timezone: string | null,
 ): Promise<Profile> {
+  const { profile } = caller;
   if (!timezone || timezone === profile.timezone || !isTimeZone(timezone)) {
     return profile;
   }
   const [updated] = await deps.db.query<Profile>(
     "update profiles set timezone = $2 where id = $1 and timezone <> $2 returning *",
-    [profile.id, timezone],
+    [caller.userId, timezone],
   );
   if (updated) return updated;
   const [current] = await deps.db.query<Profile>(
     "select * from profiles where id = $1",
-    [profile.id],
+    [caller.userId],
   );
   return current;
 }
@@ -101,14 +101,8 @@ export async function sync(
 ) {
   await tick(deps, { userId: caller.userId });
   const now = deps.clock.now();
+  const profile = await syncTimezone(deps, caller, timezone);
   const id = caller.userId;
-  const filled = await syncPhoneLast4(deps.db, id);
-  const [current] = filled
-    ? [filled]
-    : await deps.db.query<Profile>("select * from profiles where id = $1", [
-        id,
-      ]);
-  const profile = await syncTimezone(deps, current, timezone);
   const week = weekStart(now, profile.timezone);
   const [
     birds,
