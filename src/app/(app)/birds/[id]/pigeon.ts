@@ -2,7 +2,7 @@ import type { Pose } from "@/components/Bird";
 import type { SyncPayload } from "@/components/sync";
 import { config } from "@/lib/config";
 import { positionAt, type BirdPosition } from "@/lib/flight/engine";
-import { fill, type Pronoun } from "@/lib/format";
+import { distance, fill, type Pronoun, type Units } from "@/lib/format";
 import { rangeFor } from "@/lib/game/levels";
 import type { BreedId } from "@/lib/game/types";
 import type { CareAction } from "@/server/services/care";
@@ -193,9 +193,12 @@ export const metersFor = (bird: PigeonBird) =>
     };
   });
 
-export const abilitiesFor = (bird: PigeonBird) => [
+export const abilitiesFor = (bird: PigeonBird, units: Units) => [
   { label: "Speed", value: `${bird.speedMph} mph` },
-  { label: "Range before a rest", value: `${rangeFor(bird.speedMph)} miles` },
+  {
+    label: "Range before a rest",
+    value: distance(rangeFor(bird.speedMph), units),
+  },
 ];
 
 const ABILITY_MAX = 5;
