@@ -36,7 +36,7 @@ const friendRows = (html: string) =>
 const render = (over: Partial<FriendsViewProps> = {}) =>
   renderToStaticMarkup(
     <FriendsView
-      inviteLink="https://coo.example/join/max"
+      inviteLink={`https://${config.app.domain}${config.app.paths.invite}max`}
       units="mi"
       list={{
         kind: "ready",
@@ -65,11 +65,13 @@ describe("Friends screen (ac-1)", () => {
   it("shows the invite card with Copy and Text it", () => {
     const html = render();
     expect(html).toContain("Your invite link");
-    expect(html).toContain(">coo.example/join/max</p>");
+    expect(html).toContain(
+      `>${config.app.domain}${config.app.paths.invite}max</p>`,
+    );
     expect(html).toContain("<span>Copy</span>");
     expect(html).toContain("<span>Text it</span>");
     expect(html).toContain(
-      `href="sms:?&amp;body=${encodeURIComponent(`Trade pigeons with me on ${config.app.name}: https://coo.example/join/max`)}"`,
+      `href="sms:?&amp;body=${encodeURIComponent(`Trade pigeons with me on ${config.app.name}: https://${config.app.domain}${config.app.paths.invite}max`)}"`,
     );
   });
 

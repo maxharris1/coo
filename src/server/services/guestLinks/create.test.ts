@@ -81,7 +81,7 @@ describe("createGuestLink", () => {
     const link = await create("2026-11-19T15:00:00Z");
 
     expect(link.url).toMatch(
-      /^https:\/\/coo\.example\/b\/gerald-[A-Za-z0-9]{16}$/,
+      /^https:\/\/coo-pigeon\.vercel\.app\/b\/gerald-[A-Za-z0-9]{16}$/,
     );
     const token = tokenOf(link.url);
     expect(hashToken(PEPPER, token)).toBe(
