@@ -17,6 +17,8 @@ import type { GuestView as Guest } from "@/server/services/guestLinks/get";
 import { AddToSill } from "./AddToSill";
 import styles from "./GuestClaim.module.css";
 import { GuestReport } from "./GuestReport";
+import { postAuth } from "../../sign-in/postAuth";
+import { rememberLink } from "./linkSignUp";
 
 const MINUTE = 60_000;
 const BIRD_SIZE = 132;
@@ -132,6 +134,7 @@ export function GuestClaim({
           <AddToSill token={token} offer={copy.offer} />
         ) : (
           <ClaimForm
+            token={token}
             birdName={guest.bird.name}
             offer={copy.offer}
             pitch={copy.pitch}
@@ -147,10 +150,12 @@ export function GuestClaim({
 }
 
 function ClaimForm({
+  token,
   birdName,
   offer,
   pitch,
 }: {
+  token: string;
   birdName: string;
   offer: string;
   pitch: string;
@@ -161,16 +166,22 @@ function ClaimForm({
   const [wrong, setWrong] = useState<Extract<ClaimCheck, { ok: false }> | null>(
     null,
   );
+  const [sending, setSending] = useState(false);
   const nameId = useId();
   const phoneId = useId();
   const errorId = useId();
 
-  function submit(e: FormEvent) {
+  async function submit(e: FormEvent) {
     e.preventDefault();
     const check = checkClaim(name, phone, birdName);
     if (!check.ok) return setWrong(check);
     setWrong(null);
-    router.push("/sign-in");
+    setSending(true);
+    rememberLink({ token, name: check.name, phone: check.phone });
+    const sent = await postAuth("/api/auth/code", { phone: check.phone });
+    if (sent.ok) return router.push(sent.next);
+    setSending(false);
+    setWrong({ ok: false, field: "phone", error: sent.message });
   }
 
   const describe = (field: "name" | "phone") =>
@@ -179,7 +190,7 @@ function ClaimForm({
       : {};
 
   return (
-    <form className={styles.claim} onSubmit={submit} noValidate>
+    <form className={styles.claim} onSubmit={(e) => void submit(e)} noValidate>
       <div className={styles.claimHead}>
         <h2 className={styles.offer}>{offer}</h2>
         <p className={styles.pitch}>{pitch}</p>
@@ -219,7 +230,7 @@ function ClaimForm({
           {wrong.error}
         </p>
       )}
-      <button type="submit" className={styles.cta}>
+      <button type="submit" className={styles.cta} disabled={sending}>
         Make my loft
       </button>
     </form>

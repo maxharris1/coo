@@ -24,6 +24,7 @@ export type LoftState = {
   pending: LoftBody | null;
   busy: boolean;
   error: string | null;
+  linked: Roost | null;
 };
 
 export type LoftAction =
@@ -31,6 +32,7 @@ export type LoftAction =
   | { type: "results"; results: PlaceResult[] }
   | { type: "busy" }
   | { type: "located"; roost: Roost; pending: LoftBody | null }
+  | { type: "linked"; roost: Roost }
   | { type: "failed"; message: string }
   | { type: "dismiss" };
 
@@ -41,6 +43,7 @@ export const initialLoft = (): LoftState => ({
   pending: null,
   busy: false,
   error: null,
+  linked: null,
 });
 
 export function loft(state: LoftState, action: LoftAction): LoftState {
@@ -59,6 +62,12 @@ export function loft(state: LoftState, action: LoftAction): LoftState {
         results: [],
         busy: false,
       };
+    case "linked": {
+      const { roost } = action;
+      if (state.roost) return state;
+      const pending = { lat: roost.lat, lon: roost.lon };
+      return { ...state, roost, pending, linked: roost };
+    }
     case "failed":
       return { ...state, busy: false, error: action.message };
     case "dismiss":

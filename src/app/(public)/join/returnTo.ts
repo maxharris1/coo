@@ -1,3 +1,5 @@
+import { forgetLink, pendingLink } from "../b/[slug]/linkSignUp";
+
 export const INVITE_CODE = /^[a-z0-9_]{2,20}-[\w-]{12}$/;
 
 const COOKIE = "coo_return";
@@ -19,5 +21,11 @@ export function takeReturn(): string | null {
 }
 
 export function afterSignIn(next: string): string {
+  const link = pendingLink();
+  if (link && next !== "/") return "/welcome/bird";
+  if (link) {
+    forgetLink();
+    return `/b/${link.token}`;
+  }
   return next === "/" ? (takeReturn() ?? "/") : next;
 }
