@@ -90,6 +90,7 @@ export default function FlightsPage() {
   return (
     <FlightsView
       list={list}
+      birds={data?.birds ?? []}
       nowMs={clock + offsetMs}
       timeZone={
         data?.me.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone

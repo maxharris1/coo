@@ -167,11 +167,12 @@ async function answer(
   await act(async () => call.resolve(Response.json(body, { status })));
 }
 
-async function publish(flights?: Flight[]) {
+async function publish(flights?: Flight[], birds: unknown[] = []) {
   const sync = {
     data: {
       me: { timezone: "America/New_York", units: "mi" },
       flights,
+      birds,
       serverNow: NOW,
     } as unknown as SyncPayload,
     error: null,
@@ -401,6 +402,27 @@ describe("/flights errors", () => {
 });
 
 describe("/flights live", () => {
+  it("shows a bird on an odd job instead of the empty line", async () => {
+    await mount();
+    await publish(undefined, [
+      {
+        id: "b-gerald",
+        name: "Gerald",
+        look: "gerald",
+        gear: [],
+        status: "busy",
+        busyKind: "job",
+        busyUntil: NOW + HOUR,
+      },
+    ]);
+    await answer(EMPTY);
+    const html = shown();
+    expect(html).toMatch(/<h2[^>]*>On odd jobs<\/h2>/);
+    expect(html).toContain("Gerald, on an odd job");
+    expect(html).toContain("Home at 2:00 pm");
+    expect(html).not.toContain("Suspiciously quiet");
+  });
+
   it("shows a newly incoming flight after a successful sync", async () => {
     await mount();
     await answer(EMPTY);
