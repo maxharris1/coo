@@ -121,6 +121,12 @@ function landingDay(q: BirdQuote, tz: string): string {
   }).format(q.arriveAt)}`;
 }
 
+function howLong(q: BirdQuote): string {
+  return q.leavesAt > q.releaseAt
+    ? `Waits for sunrise, then about ${duration(q.airTimeMs)} in the air`
+    : `About ${duration(q.durationMs)}`;
+}
+
 export function forecastModel(
   leg: RecipientQuote,
   bird: { id: string; name: string },
@@ -155,7 +161,7 @@ export function forecastModel(
       heading: selectedNow
         ? "Arrival odds leaving now"
         : `Arrival odds leaving at ${clockTime(new Date(selected.releaseAt), tz)}`,
-      detail: `About ${duration(selected.durationMs)}. Lands near ${clockTime(new Date(selected.arriveAt), tz)}${landingDay(selected, tz)}.`,
+      detail: `${howLong(selected)}. Lands near ${clockTime(new Date(selected.arriveAt), tz)}${landingDay(selected, tz)}.`,
     },
     factors: selected.factors.map((f) => ({
       kind: f.kind,

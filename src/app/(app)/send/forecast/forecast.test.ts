@@ -214,6 +214,41 @@ describe("forecastModel on roosting hours (ac-1)", () => {
   });
 });
 
+describe("forecastModel for a bird that waits at the loft for sunrise", () => {
+  const now = friday(18);
+  const leavesAt = friday(6, 50) + DAY_MS;
+  const airTimeMs = 2 * HOUR_MS + 6 * MINUTE_MS;
+  const model = forecastModel(
+    leg([
+      hourQuote(18, 0.9, {
+        releaseAt: now,
+        leavesAt,
+        airTimeMs,
+        durationMs: leavesAt + airTimeMs - now,
+        arriveAt: leavesAt + airTimeMs,
+        roostsOvernight: true,
+      }),
+    ]),
+    GERALD,
+    now,
+    now,
+    TZ,
+    "mi",
+  );
+
+  it("says it waits for sunrise and quotes the time in the air", () => {
+    expect(model.selected.detail).toBe(
+      "Waits for sunrise, then about 2h 06m in the air. Lands near 8:56 am tomorrow.",
+    );
+  });
+
+  it("keeps the sunset line", () => {
+    expect(model.sunset).toBe(
+      "Sunset is 4:34 pm. Birds still out at dusk roost for the night and finish the trip at sunrise.",
+    );
+  });
+});
+
 describe("forecastModel for the hour under way", () => {
   const now = friday(13, 20);
   const model = forecastModel(
