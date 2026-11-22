@@ -1,7 +1,12 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { config } from "@/lib/config";
+import type { FlightInput, FlightPlan } from "@/lib/flight/engine";
 import type { UserId } from "@/server/ports/auth";
 import { listFlights, type FlightsPage } from "@/server/services/flights/list";
+import type { Flight } from "@/server/services/flights/shape";
+import { FakeClock } from "@/test/fakes/clock";
 import { tick } from "@/server/services/tick";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
 import {
@@ -122,6 +127,7 @@ describe("flightsView", () => {
       await flightsPage(world.max),
       deps.clock.now(),
       NY,
+      "mi",
     );
 
     expect(view.sections.map((x) => x.title)).toEqual([
@@ -141,7 +147,7 @@ describe("flightsView", () => {
     const s = await threeOutOneIncomingTwoLanded();
     const page = await flightsPage(world.max);
 
-    const view = flightsView(page, s.toRosa.arriveAtMs, NY);
+    const view = flightsView(page, s.toRosa.arriveAtMs, NY, "mi");
 
     expect(rowIds(view)).toEqual({
       "Your birds": [s.toPriya.flightId, s.scheduled],
@@ -160,7 +166,7 @@ describe("flightsView", () => {
         ? [s.toPriya, s.incoming]
         : [s.incoming, s.toPriya];
 
-    const view = flightsView(page, later, NY);
+    const view = flightsView(page, later, NY, "mi");
 
     expect(rowIds(view)).toEqual({
       "Your birds": [s.scheduled],
@@ -197,7 +203,7 @@ describe("flightsView", () => {
     expect(page.yours.map((f) => f.id)).toEqual([older.flightId]);
     expect(page.landedToday.map((f) => f.id)).toEqual([newer.flightId]);
 
-    const view = flightsView(page, deps.clock.now(), NY);
+    const view = flightsView(page, deps.clock.now(), NY, "mi");
 
     expect(rowIds(view)).toEqual({
       "Your birds": [],
@@ -222,7 +228,7 @@ describe("flightsView", () => {
     expect(page.yours.map((f) => f.id)).toEqual([flight.flightId]);
     expect(page.landedToday).toEqual([]);
 
-    const view = flightsView(page, deps.clock.now(), NY);
+    const view = flightsView(page, deps.clock.now(), NY, "mi");
 
     expect(rowIds(view)).toEqual({
       "Your birds": [],
@@ -237,7 +243,7 @@ describe("flightsView", () => {
     const page = await flightsPage(world.max);
     const nextMidnightNy = Date.UTC(2026, 10, 21, 5);
 
-    const view = flightsView(page, nextMidnightNy, NY);
+    const view = flightsView(page, nextMidnightNy, NY, "mi");
 
     expect(rowIds(view)).toEqual({
       "Your birds": [s.scheduled],
@@ -245,4 +251,229 @@ describe("flightsView", () => {
       "Landed today": [],
     });
   });
+});
+
+type Vector = { name: string; input: FlightInput; plan: FlightPlan };
+
+const vectors: Vector[] = JSON.parse(
+  readFileSync(
+    join(process.cwd(), "reference/flight-engine/vectors.json"),
+    "utf8",
+  ),
+).vectors;
+
+const DECILES = [
+  "Brooklyn, NY",
+  "Bayonne, NJ",
+  "Elizabeth, NJ",
+  "Rahway, NJ",
+  "Edison, NJ",
+  "New Brunswick, NJ",
+  "Princeton, NJ",
+  "Trenton, NJ",
+  "Bristol, PA",
+  "Bensalem, PA",
+  "Philadelphia, PA",
+];
+
+function vectorFlight(name: string, over: Partial<Flight> = {}): Flight {
+  const v = vectors.find((x) => x.name === name);
+  if (!v) throw new Error(`vectors.json has no ${name} vector`);
+  return {
+    id: v.input.flightId,
+    kind: "delivery",
+    status: "flying",
+    bird: { id: "b1", name: "Gerald", look: "gerald", gear: [] },
+    owner: { id: "u1", name: "Max", handle: "max" },
+    counterpart: { id: "u2", name: "Priya", handle: "priya" },
+    from: { ...v.input.from, label: "Brooklyn, NY" },
+    to: { ...v.input.to, label: "Philadelphia, PA" },
+    releaseAt: v.input.departAtMs,
+    arriveAt: v.plan.arriveAtMs,
+    distanceMi: v.plan.distanceMi,
+    plan: v.plan,
+    placeNames: { deciles: DECILES },
+    role: "mine",
+    hasNote: true,
+    ...over,
+  };
+}
+
+const pageOf = (flight: Flight): FlightsPage => ({
+  yours: flight.role === "mine" ? [flight] : [],
+  incoming: flight.role === "incoming" ? [flight] : [],
+  landedToday: [],
+  earlier: [],
+  nextCursor: null,
+});
+
+const rowsAt = (page: FlightsPage, clock: FakeClock) =>
+  Object.fromEntries(
+    flightsView(page, clock.now(), NY, "mi").sections.map((s) => [
+      s.title,
+      s.rows.map(({ title, line, chip }) => ({ title, line, chip })),
+    ]),
+  );
+
+describe("flightsView status lines", () => {
+  it("a delayed flight's row reads Flying, then Delayed, then sits in Landed today as the clock moves", () => {
+    const flight = vectorFlight("delay-major");
+    const [fly, delay] = flight.plan!.segments;
+    const page = pageOf(flight);
+    const clock = new FakeClock(fly.startMs + (fly.endMs - fly.startMs) / 2);
+
+    expect(rowsAt(page, clock)).toEqual({
+      "Your birds": [
+        {
+          title: "Gerald to Priya",
+          line: "Over Bayonne, NJ. Lands 3:10 pm.",
+          chip: { text: "Flying", tone: "sun" },
+        },
+      ],
+      "Coming to you": [],
+      "Landed today": [],
+    });
+
+    clock.set(delay.startMs + 60_000);
+    expect(rowsAt(page, clock)).toEqual({
+      "Your birds": [
+        {
+          title: "Gerald to Priya",
+          line: "Last seen near Elizabeth, NJ.",
+          chip: { text: "Delayed", tone: "tomato" },
+        },
+      ],
+      "Coming to you": [],
+      "Landed today": [],
+    });
+
+    clock.set(flight.plan!.arriveAtMs + 60_000);
+    expect(rowsAt(page, clock)).toEqual({
+      "Your birds": [],
+      "Coming to you": [],
+      "Landed today": [
+        { title: "Gerald to Priya, 82 miles", line: "5h 10m", chip: undefined },
+      ],
+    });
+  });
+
+  it("an incoming bird counts down to your sill and reads Almost here in the last tenth", () => {
+    const flight = vectorFlight("calm-short", {
+      role: "incoming",
+      owner: { id: "u2", name: "Priya", handle: "priya" },
+      counterpart: { id: "u1", name: "Max", handle: "max" },
+      bird: { id: "b2", name: "Dumpling", look: "dumpling", gear: [] },
+    });
+    const page = pageOf(flight);
+    const arrive = flight.plan!.arriveAtMs;
+    const clock = new FakeClock(arrive - 60 * 60_000);
+
+    expect(rowsAt(page, clock)["Coming to you"]).toEqual([
+      {
+        title: "Dumpling from Priya",
+        line: "Lands on your sill in 1h 00m.",
+        chip: { text: "Flying", tone: "sun" },
+      },
+    ]);
+
+    clock.set(arrive - 5 * 60_000);
+    expect(rowsAt(page, clock)["Coming to you"]).toEqual([
+      {
+        title: "Dumpling from Priya",
+        line: "Lands on your sill in 5 min.",
+        chip: { text: "Almost here", tone: "mint" },
+      },
+    ]);
+  });
+
+  it("a bird flying home reads as coming from the host and never promises a sill, in the owner's view", () => {
+    const out = vectorFlight("calm-short");
+    const flight = vectorFlight("calm-short", {
+      kind: "return",
+      from: out.to,
+      to: out.from,
+      placeNames: { deciles: [...DECILES].reverse() },
+    });
+    const page = pageOf(flight);
+    const arrive = flight.plan!.arriveAtMs;
+    const clock = new FakeClock((flight.releaseAt + arrive) / 2);
+
+    expect(rowsAt(page, clock)).toEqual({
+      "Your birds": [
+        {
+          title: "Gerald from Priya",
+          line: "Over New Brunswick, NJ. Lands 11:49 am.",
+          chip: { text: "Flying", tone: "sun" },
+        },
+      ],
+      "Coming to you": [],
+      "Landed today": [],
+    });
+
+    clock.set(arrive - 5 * 60_000);
+    expect(rowsAt(page, clock)["Your birds"]).toEqual([
+      {
+        title: "Gerald from Priya",
+        line: "Over Brooklyn, NY. Lands 11:49 am.",
+        chip: { text: "Flying", tone: "sun" },
+      },
+    ]);
+  });
+
+  it("a bird flying home reads as going to its owner and never lands on the host's sill, in the host's view", () => {
+    const out = vectorFlight("calm-short");
+    const flight = vectorFlight("calm-short", {
+      kind: "return",
+      role: "incoming",
+      from: out.to,
+      to: out.from,
+      placeNames: { deciles: [...DECILES].reverse() },
+    });
+    const page = pageOf(flight);
+    const arrive = flight.plan!.arriveAtMs;
+    const clock = new FakeClock((flight.releaseAt + arrive) / 2);
+
+    expect(rowsAt(page, clock)["Coming to you"]).toEqual([
+      {
+        title: "Gerald to Max",
+        line: "Over New Brunswick, NJ. Lands 11:49 am.",
+        chip: { text: "Flying", tone: "sun" },
+      },
+    ]);
+
+    clock.set(arrive - 5 * 60_000);
+    expect(rowsAt(page, clock)["Coming to you"]).toEqual([
+      {
+        title: "Gerald to Max",
+        line: "Over Brooklyn, NY. Lands 11:49 am.",
+        chip: { text: "Flying", tone: "sun" },
+      },
+    ]);
+  });
+
+  it.each([
+    ["no deciles", {}],
+    ["a deciles list missing the current tenth", { deciles: [] }],
+    ["only unnamed tenths", { deciles: DECILES.map(() => null) }],
+  ])(
+    "drops the place sentence rather than naming the start when there are %s",
+    (_, placeNames: Flight["placeNames"]) => {
+      const lineAt = (flight: Flight, at: number) =>
+        flightsView(pageOf(flight), at, NY, "mi").sections[0].rows[0].line;
+
+      const flying = vectorFlight("calm-short", { placeNames });
+      expect(
+        lineAt(flying, (flying.releaseAt + flying.plan!.arriveAtMs) / 2),
+      ).toBe("Lands 11:49 am.");
+
+      const overnight = vectorFlight("chicago-overnight", { placeNames });
+      const roost = overnight.plan!.segments[1];
+      expect(roost.kind).toBe("roost");
+      expect(lineAt(overnight, roost.startMs + HOUR_MS)).toBe("Lands 4:06 pm.");
+
+      const delayed = vectorFlight("delay-major", { placeNames });
+      const delay = delayed.plan!.segments[1];
+      expect(lineAt(delayed, delay.startMs + 60_000)).toBe("");
+    },
+  );
 });
