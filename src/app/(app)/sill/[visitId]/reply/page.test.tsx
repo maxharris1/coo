@@ -7,6 +7,8 @@ import {
   type SyncState,
 } from "@/components/SyncProvider";
 import type { SyncPayload } from "@/components/sync";
+import { config } from "@/lib/config";
+import type { Doodle } from "@/lib/game/notes";
 import type { FriendRow } from "@/server/services/friends";
 import type { SyncVisit } from "@/server/services/visits/syncRead";
 import type { ReplyView } from "./ReplyView";
@@ -45,6 +47,21 @@ vi.mock("next/navigation", () => ({
 const MIN = 60_000;
 const NOW = Date.parse("2026-11-20T19:00:00Z");
 const REPLY = "Bread is secured. Tell Dumpling the tuna was not for her.";
+const DOODLE: Doodle = {
+  v: 1,
+  w: config.game.notes.doodle.width,
+  h: config.game.notes.doodle.height,
+  strokes: [
+    {
+      color: "tomato",
+      width: "marker",
+      points: [
+        [12, 8],
+        [60, 44],
+      ],
+    },
+  ],
+};
 
 const VISIT: SyncVisit = {
   id: "v1",
@@ -178,7 +195,10 @@ const view = () => {
 };
 
 const type = (text: string) => act(async () => view().onNote(text));
+const draw = (doodle: Doodle | null) =>
+  act(async () => view().onDoodle(doodle));
 const send = () => act(async () => view().onSend());
+const posted = () => JSON.parse(String(replyCalls()[0][1]?.body));
 const tick = (ms: number) => act(async () => void vi.advanceTimersByTime(ms));
 const elapse = (ms: number) =>
   act(async () => void (await vi.advanceTimersByTimeAsync(ms)));
@@ -322,6 +342,87 @@ describe("/sill/[visitId]/reply (ac-1)", () => {
     await type("a".repeat(141));
     await send();
     expect(replyCalls()).toHaveLength(0);
+  });
+});
+
+describe("/sill/[visitId]/reply doodle (#786)", () => {
+  it("passes the incoming note's doodle to the view", async () => {
+    await show([{ ...VISIT, note: { ...VISIT.note, doodle: DOODLE } }]);
+    expect(view().model.doodle).toEqual(DOODLE);
+  });
+
+  it("posts the doodle with the words when both are there (ac-2)", async () => {
+    await show([VISIT]);
+    await type(REPLY);
+    await draw(DOODLE);
+    expect(view().doodle).toEqual(DOODLE);
+    await send();
+    expect(posted()).toEqual({ body: REPLY, doodle: DOODLE });
+    expect(seen.replace).toHaveBeenCalledWith("/sill/v1/takeoff");
+  });
+
+  it("sends a doodle-only reply (ac-1)", async () => {
+    await show([VISIT]);
+    await draw(DOODLE);
+    await send();
+    expect(posted()).toEqual({ body: "", doodle: DOODLE });
+  });
+
+  it("leaves the doodle out once the pad is cleared (ac-2)", async () => {
+    await show([VISIT]);
+    await type(REPLY);
+    await draw(DOODLE);
+    await draw(null);
+    await send();
+    expect(posted()).toEqual({ body: REPLY });
+  });
+
+  it("does not post a cleared pad with no words (ac-1)", async () => {
+    await show([VISIT]);
+    await draw(DOODLE);
+    await draw(null);
+    await send();
+    expect(replyCalls()).toHaveLength(0);
+  });
+
+  it("does not post an over-limit reply even with a doodle (ac-1)", async () => {
+    await show([VISIT]);
+    await draw(DOODLE);
+    await type("a".repeat(141));
+    await send();
+    expect(replyCalls()).toHaveLength(0);
+  });
+
+  it("keeps the words and the doodle when the reply fails (ac-3)", async () => {
+    replyRes = {
+      status: 409,
+      body: { error: { code: "conflict", message: "The visit is over." } },
+    };
+    await show([VISIT]);
+    await type(REPLY);
+    await draw(DOODLE);
+    await send();
+    expect(seen.toasts).toEqual(["The visit is over."]);
+    expect(view().note).toBe(REPLY);
+    expect(view().doodle).toEqual(DOODLE);
+    expect(view().sending).toBe(false);
+    expect(seen.replace).not.toHaveBeenCalled();
+  });
+
+  it("keeps the words and the doodle when the loft is unreachable (ac-3)", async () => {
+    await show([VISIT]);
+    vi.mocked(fetch).mockImplementation((url) =>
+      String(url).endsWith("/reply")
+        ? Promise.reject(new TypeError("Failed to fetch"))
+        : fakeFetch(url),
+    );
+    await type(REPLY);
+    await draw(DOODLE);
+    await send();
+    expect(seen.toasts).toEqual(["We could not reach the loft. Try again."]);
+    expect(view().note).toBe(REPLY);
+    expect(view().doodle).toEqual(DOODLE);
+    expect(seen.replace).not.toHaveBeenCalled();
   });
 });
 

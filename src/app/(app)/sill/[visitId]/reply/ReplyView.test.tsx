@@ -1,6 +1,7 @@
 import type { ComponentProps } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { config } from "@/lib/config";
 import type { Doodle } from "@/lib/game/notes";
 import type { ReplyModel } from "./replyModel";
 import { ReplyView } from "./ReplyView";
@@ -9,6 +10,22 @@ type Props = ComponentProps<typeof ReplyView>;
 
 const REPLY = "Bread is secured. Tell Dumpling the tuna was not for her.";
 
+const DOODLE: Doodle = {
+  v: 1,
+  w: config.game.notes.doodle.width,
+  h: config.game.notes.doodle.height,
+  strokes: [
+    {
+      color: "ink",
+      width: "marker",
+      points: [
+        [10, 10],
+        [40, 30],
+      ],
+    },
+  ],
+};
+
 const MODEL: ReplyModel = {
   title: "Reply to Priya",
   heading: "Dumpling flies home to Priya",
@@ -16,11 +33,11 @@ const MODEL: ReplyModel = {
   speed: "43 mph",
   wroteLabel: "Priya wrote",
   note: "Saturday works. Bring the bread.",
-  doodle: null,
   limit: 140,
   wait: "She waits 28 more minutes, then heads home with or without a reply.",
   release: "Send Dumpling home",
   composeHref: "/send/write?to=u1",
+  doodle: null,
 };
 
 const props = (over: Partial<Props> = {}): Props => ({
@@ -28,9 +45,11 @@ const props = (over: Partial<Props> = {}): Props => ({
   model: MODEL,
   bird: { look: "dumpling", breed: "city", gear: [] },
   note: REPLY,
+  doodle: null,
   counter: { label: "57 of 140 characters", over: false },
   sending: false,
   onNote: () => {},
+  onDoodle: () => {},
   onSend: () => {},
   ...over,
 });
@@ -85,8 +104,12 @@ describe("ReplyView (ac-1)", () => {
     );
   });
 
-  it("enables release for a reply that fits", () => {
-    expect(releaseTag(render())).not.toContain("disabled");
+  it.each([
+    ["words only", {}],
+    ["a doodle only", { note: "", doodle: DOODLE }],
+    ["words and a doodle", { doodle: DOODLE }],
+  ] as const)("enables release for %s", (_, over) => {
+    expect(releaseTag(render(over))).not.toContain("disabled");
   });
 
   it.each([
@@ -96,13 +119,54 @@ describe("ReplyView (ac-1)", () => {
       "the reply is over the limit",
       { counter: { label: "141 of 140 characters", over: true } },
     ],
+    [
+      "the reply is over the limit, even with a doodle",
+      {
+        doodle: DOODLE,
+        counter: { label: "141 of 140 characters", over: true },
+      },
+    ],
     ["a reply is sending", { sending: true }],
   ] as const)("disables release when %s", (_, over) => {
     expect(releaseTag(render(over))).toContain("disabled");
   });
+
+  it("puts a doodle pad on the reply paper, under the words", () => {
+    const html = render();
+    const paper = html.indexOf('id="reply-note"');
+    const pad = html.indexOf('aria-label="Doodle pad"');
+    expect(pad).toBeGreaterThan(paper);
+    expect(pad).toBeLessThan(html.indexOf("Same leg, same rules"));
+  });
 });
 
-const DOODLE: Doodle = {
+describe("ReplyView incoming doodle (ac-2)", () => {
+  const incoming = (html: string) =>
+    html.match(/<svg role="img" aria-label="A doodle"/g) ?? [];
+
+  it("shows the incoming doodle under the incoming text", () => {
+    const html = render({ model: { ...MODEL, doodle: DOODLE } });
+    expect(incoming(html)).toHaveLength(1);
+    expect(html.indexOf('aria-label="A doodle"')).toBeGreaterThan(
+      html.indexOf("Saturday works. Bring the bread."),
+    );
+    expect(html.indexOf('aria-label="A doodle"')).toBeLessThan(
+      html.indexOf("Your reply"),
+    );
+  });
+
+  it("shows no incoming doodle when the note has none", () => {
+    expect(incoming(render())).toHaveLength(0);
+  });
+
+  it("shows a doodle-only incoming note without an empty text line", () => {
+    const html = render({ model: { ...MODEL, note: "", doodle: DOODLE } });
+    expect(incoming(html)).toHaveLength(1);
+    expect(html).not.toMatch(/<p[^>]*><\/p>/);
+  });
+});
+
+const THEIR_DOODLE: Doodle = {
   v: 1,
   w: 300,
   h: 200,
@@ -120,18 +184,10 @@ const DOODLE: Doodle = {
 };
 
 describe("ReplyView, their note with a doodle (#678 ac-1, ac-3)", () => {
-  it("draws their doodle above their words", () => {
-    const html = render({ model: { ...MODEL, doodle: DOODLE } });
-    expect(html).toMatch(
-      /<svg role="img" aria-label="A doodle in ink and tomato"[^>]*viewBox="0 0 300 200"/,
-    );
-    expect(html.indexOf("A doodle in ink and tomato")).toBeLessThan(
-      html.indexOf("Saturday works. Bring the bread."),
-    );
-  });
-
   it("shows a doodle-only note without an empty paragraph", () => {
-    const html = render({ model: { ...MODEL, note: "", doodle: DOODLE } });
+    const html = render({
+      model: { ...MODEL, note: "", doodle: THEIR_DOODLE },
+    });
     expect(html).toContain('aria-label="A doodle in ink and tomato"');
     expect(html).not.toContain("theirNote");
   });

@@ -1,7 +1,7 @@
 import { config } from "@/lib/config";
+import type { Pronoun } from "@/lib/format";
 import type { BreedId } from "@/lib/game/types";
 import type { BirdView } from "@/server/services/sync";
-import type { Pronoun } from "../../welcome/bird/choices";
 
 export type HatchedBird = Pick<
   BirdView,
