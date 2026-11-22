@@ -1,5 +1,12 @@
 import { config } from "@/lib/config";
-import { hash32, rng, type LatLon } from "@/lib/flight/engine";
+import {
+  bearingDeg,
+  hash32,
+  haversineMi,
+  rng,
+  type FlightPlan,
+  type LatLon,
+} from "@/lib/flight/engine";
 import { snap, type Point } from "@/lib/game/privacy";
 
 export type JobDest = Point & { label: string };
@@ -59,4 +66,53 @@ export function jobDestination(
     ? snapped(destinationAlong(roost, bearing, miles + CELL_MI))
     : dest;
   return { ...point, label };
+}
+
+export type JobLeg = {
+  dir: "out" | "back";
+  from: LatLon;
+  to: LatLon;
+  plan: FlightPlan;
+  distanceMi: number;
+};
+
+export type JobLegs = { out: JobLeg; back: JobLeg; midMs: number };
+
+function jobLeg(
+  dir: JobLeg["dir"],
+  from: LatLon,
+  to: LatLon,
+  startMs: number,
+  endMs: number,
+): JobLeg {
+  const distanceMi = haversineMi(from, to);
+  const plan: FlightPlan = {
+    distanceMi,
+    bearingDeg: bearingDeg(from, to),
+    onTimeOdds: 1,
+    delayed: false,
+    delayKind: "none",
+    arriveAtMs: endMs,
+    segments: [{ kind: "fly", startMs, endMs, fromFrac: 0, toFrac: 1 }],
+    events: [],
+  };
+  return { dir, from, to, plan, distanceMi };
+}
+
+export function jobLegs(
+  loft: LatLon,
+  dest: LatLon,
+  startedAtMs: number,
+  endsAtMs: number,
+): JobLegs {
+  const midMs = startedAtMs + Math.floor((endsAtMs - startedAtMs) / 2);
+  return {
+    out: jobLeg("out", loft, dest, startedAtMs, midMs),
+    back: jobLeg("back", dest, loft, midMs, endsAtMs),
+    midMs,
+  };
+}
+
+export function legAt(legs: JobLegs, nowMs: number): JobLeg {
+  return nowMs < legs.midMs ? legs.out : legs.back;
 }
