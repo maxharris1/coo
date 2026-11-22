@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { config } from "@/lib/config";
 import type { Db } from "@/server/db";
 import { testDb } from "@/test/testDb";
 
@@ -200,6 +201,53 @@ describe("schema", () => {
       db.query(insert, [max, priya, "x".repeat(561)]),
     ).rejects.toThrow(/check/);
     await db.query(insert, [max, priya, "x".repeat(560)]);
+  });
+
+  it("notes: an empty body needs a doodle, and the doodle has a size cap", async () => {
+    const insert =
+      "insert into notes (sender_id, recipient_id, body, doodle) values ($1, $2, $3, $4)";
+    const { width, height, maxPoints, maxStrokes, maxBytes } =
+      config.game.notes.doodle;
+    const dot = {
+      v: 1,
+      w: width,
+      h: height,
+      strokes: [{ color: "ink", width: "fine", points: [[1, 1]] }],
+    };
+    await expect(db.query(insert, [max, priya, "", null])).rejects.toThrow(
+      /check/,
+    );
+    await expect(
+      db.query(insert, [max, priya, "x".repeat(561), dot]),
+    ).rejects.toThrow(/check/);
+    await db.query(insert, [max, priya, "", dot]);
+    await db.query(insert, [max, priya, "coo", dot]);
+
+    const perStroke = Math.floor(maxPoints / maxStrokes);
+    const largest = {
+      ...dot,
+      strokes: Array.from({ length: maxStrokes }, () => ({
+        color: "tomato",
+        width: "marker",
+        points: Array.from({ length: perStroke }, () => [width, height]),
+      })),
+    };
+    expect(JSON.stringify(largest).length).toBeLessThanOrEqual(maxBytes);
+    await db.query(insert, [max, priya, "", largest]);
+
+    const oversized = {
+      ...dot,
+      strokes: [
+        {
+          color: "ink",
+          width: "fine",
+          points: Array.from({ length: 20000 }, (_, i) => [i, i * 7919]),
+        },
+      ],
+    };
+    await expect(db.query(insert, [max, priya, "", oversized])).rejects.toThrow(
+      /check/,
+    );
   });
 
   it("one open egg per person; notifications and found objects cannot double up", async () => {

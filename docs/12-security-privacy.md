@@ -23,13 +23,16 @@ notes. The rules below are requirements, each with a test in some ticket.
 
 ## Notes
 
-1. A note's body is returned only to its sender, and to its recipient after `delivered_at` is
-   set. Before landing the recipient's API responses carry `hasNote: true` and nothing more.
-2. Note bodies are never written to logs, analytics, push payloads or text messages.
-   Notifications say that a note arrived, not what it says.
-3. Notes are stored as plain text in Postgres. They are not end-to-end encrypted. Say so in the
-   privacy page. (Supabase encrypts disks at rest.)
-4. Render note text as text. Never as HTML.
+1. A note's body and doodle are returned only to its sender, and to its recipient after
+   `delivered_at` is set. Before landing the recipient's API responses carry `hasNote: true` and
+   nothing more.
+2. Note bodies and doodles are never written to logs, analytics, push payloads or text messages.
+   Notifications say that a note arrived, not what it says or shows.
+3. Notes are stored as plain text and plain JSON strokes in Postgres. They are not end-to-end
+   encrypted. Say so in the privacy page. (Supabase encrypts disks at rest.)
+4. Render note text as text and a doodle from its strokes. Never as HTML, and never from SVG
+   markup or a picture a client sent. A doodle is checked in one place, `validateDoodle`, which
+   accepts palette names only and rejects unknown keys.
 
 ## Phone numbers
 

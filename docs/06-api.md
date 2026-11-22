@@ -17,7 +17,7 @@ A replayed action (same `actionId`) applies no second charge or effect and retur
 |---|---|---|
 | `unauthenticated` | 401 | No session |
 | `not_onboarded` | 409 | Session but no finished profile |
-| `invalid` | 400 | Body failed validation. `message` names the field |
+| `invalid` | 400 | Body failed validation. `message` names the field (`body` or `doodle` for a note) |
 | `not_found` | 404 | No such thing, or it is not yours. Never reveal which |
 | `forbidden` | 403 | Blocked, or not a friend |
 | `conflict` | 409 | State does not allow it: bird not home, visit over, already claimed, perch full |
@@ -39,14 +39,19 @@ type Flight = { id, kind: 'delivery'|'return', status, bird: BirdLite, owner: Pe
   counterpart?: PersonLite, guestName?: string, from: Place, to: Place,
   releaseAt, arriveAt?, distanceMi?, odds?, plan?: FlightPlan, input?: FlightInputPublic,
   placeNames, searchParty?: 'found'|'not_found', role: 'mine'|'incoming', hasNote: boolean };
-type Visit = { id, bird: BirdLite, owner: PersonLite, note: { id, body, createdAt }, arrivedAt,
+type Visit = { id, bird: BirdLite, owner: PersonLite, note: { id, body, doodle: Doodle | null, createdAt }, arrivedAt,
   leavesAt, status, snackGiven, returnMi, flight: { distanceMi, durationMs, delayKind } };  // returnMi: the return leg if sent home now
 type PersonLite = { id, name, handle };
+type Doodle = { v: 1; w: 300; h: 200; strokes: { color: 'ink'|'stamp'|'tomato'|'sun'|'sky'|'mint',
+  width: 'fine'|'marker', points: [x: number, y: number][] }[] };  // checked by validateDoodle
 ```
 
+A note is text, a doodle, or both. Wherever a note is returned, `body` may be `""` when it has a
+doodle, and `doodle` is null when it has none.
+
 `FlightInputPublic` is the stored input without the bird's care numbers. A recipient gets the
-plan and input of an incoming flight (they need them to animate it) but **never the note** until
-it has landed.
+plan and input of an incoming flight (they need them to animate it) but **never the note**, body
+or doodle, until it has landed.
 
 ## Sync
 
@@ -112,10 +117,11 @@ text, effect }] , sunsetAt }`.
 future hours comes from the hourly forecast. Quotes never touch the database except caches.
 
 ### POST /api/flights
-Body: `{ body, sends: [{ friendId | guest: { name, placeId }, birdId }], releaseAt? }`.
+Body: `{ body, doodle?, sends: [{ friendId | guest: { name, placeId }, birdId }], releaseAt? }`.
+The note is checked with `validateNote`: text, a doodle, or both.
 
 In one transaction: checks limits, checks each bird is home, owned, able to fly and that the body
-fits each bird's limit; creates one note per send; then for each send either releases now
+text fits each bird's limit; creates one note per send; then for each send either releases now
 (section 5 of `docs/04-game-rules.md`) or stores a `scheduled` flight. For a guest it creates the
 guest link and returns the token **once**. Returns `{ flights: Flight[], guestLinks?: [{ flightId, url }] }`.
 
