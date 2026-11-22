@@ -135,7 +135,6 @@ describe("flockRow (ac-2)", () => {
   it.each([
     ["nap", "Napping until 2:40 pm"],
     ["bath", "Bathing until 2:40 pm"],
-    ["job", "On an odd job until 2:40 pm"],
   ])("rests a bird busy with a %s", (busyKind, line) => {
     const row = flockRow(
       bird({ status: "busy", busyKind, busyUntil: at("2026-11-20T19:40:00Z") }),
@@ -147,6 +146,22 @@ describe("flockRow (ac-2)", () => {
       tone: "lilac",
     });
   });
+
+  it.each([
+    ["with", at("2026-11-20T19:40:00Z"), "On an odd job until 2:40 pm"],
+    ["without", null, "On an odd job"],
+  ])(
+    "chips a bird on an odd job %s an end time On a job",
+    (_, busyUntil, line) => {
+      expect(
+        flockRow(bird({ status: "busy", busyKind: "job", busyUntil }), ctx()),
+      ).toEqual({
+        action: { kind: "chip", chip: "On a job" },
+        line,
+        tone: "sun",
+      });
+    },
+  );
 
   it("keeps a tired bird that can still fly Ready", () => {
     expect(flockRow(bird({ tired: true, canFly: true }), ctx())).toMatchObject({

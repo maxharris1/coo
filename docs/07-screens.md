@@ -25,8 +25,8 @@ General rules for every screen are in `AGENTS.md` under "Definition of done for 
 ### Main (`/`) — the loft
 Shows: greeting line by time of day with a count of birds home and away; the seed balance; an
 "Incoming" card for each bird headed to me (tap → tracker); "Your flock" with one row per bird:
-avatar, name, one status line, a status chip (Ready, Flying, Resting, Scheduled, On a sill) or a
-"Feed me" button when hungry; "n of m perches"; a link to the post office (More).
+avatar, name, one status line, a status chip (Ready, Flying, Resting, Scheduled, On a sill, On a
+job) or a "Feed me" button when hungry; "n of m perches"; a link to the post office (More).
 Rows tap to the bird's page. "Feed me" feeds in place. Empty perches show as dashed slots; with a
 ready egg the first empty slot says "An egg is ready".
 
