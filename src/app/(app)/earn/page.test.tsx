@@ -1,13 +1,14 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ToastContext } from "@/components/Toasts";
+import { SyncContext, type SyncState } from "@/components/SyncProvider";
+import { ToastContext, ToastProvider } from "@/components/Toasts";
 import type { LocalDate } from "@/lib/game/time";
 import type { Earn } from "@/server/services/earn";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { SyncPayload } from "@/components/sync";
 import { earnTop, type EarnState } from "./earn";
-import { JobsList } from "./JobsPanel";
+import { JobsList, JobsPanel } from "./JobsPanel";
 import EarnPage from "./page";
 
 const states: EarnState[] = [];
@@ -59,6 +60,29 @@ const EARN: Earn = {
 let respond: () => Response;
 const toast = vi.fn();
 
+const syncWith = (birds: Partial<SyncPayload["birds"][number]>[]) =>
+  ({
+    data: { me: { timezone: "UTC" }, birds } as unknown as SyncPayload,
+    error: null,
+    offsetMs: 0,
+    refresh: () => {},
+  }) satisfies SyncState;
+
+const NO_SYNC: SyncState = {
+  data: null,
+  error: null,
+  offsetMs: 0,
+  refresh: () => {},
+};
+
+const page = (sync: SyncState = NO_SYNC) => (
+  <SyncContext.Provider value={sync}>
+    <ToastContext.Provider value={toast}>
+      <EarnPage />
+    </ToastContext.Provider>
+  </SyncContext.Provider>
+);
+
 const settle = () =>
   act(async () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -102,13 +126,7 @@ describe("/earn page lifecycle", () => {
         ownerDocument: document,
       }) as unknown as Element,
     );
-    await act(async () =>
-      root.render(
-        <ToastContext.Provider value={toast}>
-          <EarnPage />
-        </ToastContext.Provider>,
-      ),
-    );
+    await act(async () => root.render(page()));
     expect(states[0]).toEqual({ kind: "loading" });
 
     await settle();
@@ -143,13 +161,7 @@ describe("/earn page lifecycle", () => {
         ownerDocument: document,
       }) as unknown as Element,
     );
-    await act(async () =>
-      root.render(
-        <ToastContext.Provider value={toast}>
-          <EarnPage />
-        </ToastContext.Provider>,
-      ),
-    );
+    await act(async () => root.render(page()));
     await settle();
 
     const later = { ...EARN, jobs: { offers: [], leftToday: 1 } };
@@ -182,13 +194,7 @@ describe("/earn page lifecycle", () => {
         ownerDocument: document,
       }) as unknown as Element,
     );
-    await act(async () =>
-      root.render(
-        <ToastContext.Provider value={toast}>
-          <EarnPage />
-        </ToastContext.Provider>,
-      ),
-    );
+    await act(async () => root.render(page()));
     await settle();
 
     const pending: ((left: number) => void)[] = [];
@@ -243,6 +249,112 @@ describe("/earn page lifecycle", () => {
       />,
     );
     expect(markup).toMatch(/<button[^>]*disabled[^>]*>Send Pip<\/button>/);
+
+    await act(async () => root.unmount());
+  });
+
+  it("shows a find in place when sync brings a working bird home (f-1)", async () => {
+    const mabel = { id: "b-mabel", name: "Mabel" };
+    const working = syncWith([
+      { ...mabel, status: "busy", busyKind: "job", busyUntil: 1 },
+    ]);
+    const home = syncWith([
+      { ...mabel, status: "home", busyKind: null, busyUntil: null },
+    ]);
+    respond = () => Response.json(EARN);
+    const root = createRoot(
+      Object.assign(new EventTarget(), {
+        nodeType: 1,
+        tagName: "DIV",
+        ownerDocument: document,
+      }) as unknown as Element,
+    );
+    await act(async () => root.render(page(working)));
+    await settle();
+
+    const find = {
+      id: "f-1",
+      objectId: "bottle-cap",
+      name: "Bottle cap",
+      value: 5,
+      birdId: "b-mabel",
+    };
+    respond = () => Response.json({ ...EARN, found: [find] });
+    await act(async () => root.render(page(home)));
+    await settle();
+
+    const last = states.at(-1);
+    const markup = renderToStaticMarkup(
+      <SyncContext.Provider value={home}>
+        <ToastProvider>
+          <JobsPanel
+            jobs={EARN.jobs}
+            found={last?.kind === "ready" ? last.found : []}
+            onChanged={async () => {}}
+          />
+        </ToastProvider>
+      </SyncContext.Provider>,
+    );
+    expect(markup).toContain("Mabel brought back 1 thing.");
+    expect(markup).toContain("Trade for 5");
+
+    await act(async () => root.unmount());
+  });
+
+  it("reloads Earn when the first sync lands after Earn loaded (f-1)", async () => {
+    respond = () => Response.json(EARN);
+    const root = createRoot(
+      Object.assign(new EventTarget(), {
+        nodeType: 1,
+        tagName: "DIV",
+        ownerDocument: document,
+      }) as unknown as Element,
+    );
+    await act(async () => root.render(page()));
+    await settle();
+
+    const find = {
+      id: "f-2",
+      objectId: "bottle-cap",
+      name: "Bottle cap",
+      value: 3,
+      birdId: "b-mabel",
+    };
+    respond = () => Response.json({ ...EARN, found: [find] });
+    await act(async () =>
+      root.render(
+        page(syncWith([{ id: "b-mabel", name: "Mabel", status: "home" }])),
+      ),
+    );
+    await settle();
+
+    expect(states.at(-1)).toMatchObject({ kind: "ready", found: [find] });
+
+    await act(async () => root.unmount());
+  });
+
+  it("does not reload Earn when sync changes but no bird came home", async () => {
+    respond = () => Response.json(EARN);
+    const root = createRoot(
+      Object.assign(new EventTarget(), {
+        nodeType: 1,
+        tagName: "DIV",
+        ownerDocument: document,
+      }) as unknown as Element,
+    );
+    const pip = { id: "b-pip", name: "Pip" };
+    await act(async () =>
+      root.render(page(syncWith([{ ...pip, status: "home" }]))),
+    );
+    await settle();
+    await act(async () =>
+      root.render(
+        page(syncWith([{ ...pip, status: "busy", busyKind: "job" }])),
+      ),
+    );
+    await settle();
+
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
 
     await act(async () => root.unmount());
   });
