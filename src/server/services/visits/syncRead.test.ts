@@ -202,7 +202,7 @@ describe("syncVisits return leg (ac-1)", () => {
       deps,
       { userId: world.priya.id as UserId, profile } as OnboardedCaller,
       visit.visitId,
-      "On my way back to New York.",
+      { body: "On my way back to New York." },
     );
     expect(flight.distanceMi).toBeCloseTo(waiting.returnMi!, 2);
   });

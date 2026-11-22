@@ -153,7 +153,7 @@ Weather and place names are fetched before the transaction opens, never inside i
 
 | Endpoint | Body | Does |
 |---|---|---|
-| `POST /api/visits/[id]/reply` | `{ body }` | Host only, while `waiting` and before `leavesAt`. Creates the reply note and the return flight, sets `replied` |
+| `POST /api/visits/[id]/reply` | `{ body, doodle? }` | Host only, while `waiting` and before `leavesAt`. The note is checked with `validateNote`: text, a doodle, or both. Creates the reply note and the return flight, sets `replied` |
 | `POST /api/visits/[id]/snack` | | Host only, once. Spends 5, feeds the bird, tips the owner |
 | `POST /api/visits/[id]/release` | | Host only. Sends the bird home now, without a note |
 

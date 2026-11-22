@@ -1,9 +1,13 @@
 import { z } from "zod";
-import { noteLimit, validateBody } from "@/lib/game/notes";
 import type { OnboardedCaller } from "@/server/auth";
 import type { Deps } from "@/server/deps";
 import { AppError } from "@/server/errors";
 import { pair, toBirdRecord, type Row } from "@/server/rows";
+import {
+  doodleParam,
+  readyNote,
+  type NoteInput,
+} from "@/server/services/noteInput";
 import { getFlight } from "../flights/get";
 import type { Flight } from "../flights/shape";
 import {
@@ -28,7 +32,7 @@ export async function replyToVisit(
   deps: Deps,
   caller: OnboardedCaller,
   visitId: string,
-  text: string,
+  input: NoteInput,
 ): Promise<{ flight: Flight }> {
   const missing = new AppError("not_found", "Could not find that visit.");
   const noLoft = new AppError("conflict", "Your friend has no loft to fly to.");
@@ -69,20 +73,20 @@ export async function replyToVisit(
       const current = await returnRoute(tx, visitId);
       if (!current) throw noLoft;
       if (!sameRoute(current, route)) return null;
-      const checked = validateBody(text, noteLimit(toBirdRecord(row)));
-      if (!checked.ok)
-        throw new AppError(
-          "invalid",
-          checked.reason === "empty"
-            ? "body: write a note first"
-            : `body: ${checked.length} of ${checked.limit} characters`,
-        );
+      const note = readyNote(input, toBirdRecord(row));
 
       const nowIso = new Date(now).toISOString();
-      const [note] = await tx.query<{ id: string }>(
-        `insert into notes (sender_id, recipient_id, reply_to, body, created_at)
-         values ($1, $2, $3, $4, $5) returning id`,
-        [caller.userId, row.owner_id, row.visit_note_id, checked.body, nowIso],
+      const [noteRow] = await tx.query<{ id: string }>(
+        `insert into notes (sender_id, recipient_id, reply_to, body, doodle, created_at)
+         values ($1, $2, $3, $4, $5::jsonb, $6) returning id`,
+        [
+          caller.userId,
+          row.owner_id,
+          row.visit_note_id,
+          note.body,
+          doodleParam(note),
+          nowIso,
+        ],
       );
       const id = await startReturn(
         tx,
@@ -93,7 +97,7 @@ export async function replyToVisit(
           host_id: row.host_id,
           guest_link_id: row.guest_link_id,
         },
-        note.id,
+        noteRow.id,
       );
       await tx.query(
         "update visits set status = 'replied', return_flight_id = $2 where id = $1",

@@ -143,7 +143,7 @@ describe("scenario 1: there and back", () => {
       deps,
       await callerFor(priya),
       visit.id,
-      REPLY,
+      { body: REPLY },
     );
     expect(back.kind).toBe("return");
     expect(back.id).toBe(RETURN_ID);
