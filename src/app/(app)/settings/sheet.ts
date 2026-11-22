@@ -5,15 +5,21 @@ export type Quiet = Pick<Me["settings"], "quietOn" | "quietStart" | "quietEnd">;
 export type Sheet =
   | { kind: "closed" }
   | { kind: "quiet"; draft: Quiet }
-  | { kind: "name"; text: string; error: string | null; busy: boolean };
+  | {
+      kind: "name";
+      text: string;
+      error: string | null;
+      pending: symbol | null;
+    };
 
 export type SheetAction =
   | { type: "openQuiet"; settings: Me["settings"] }
   | { type: "openName"; name: string }
   | { type: "editQuiet"; change: Partial<Quiet> }
   | { type: "type"; text: string }
-  | { type: "submitting" }
+  | { type: "submitting"; request: symbol }
   | { type: "failed"; error: string }
+  | { type: "answered"; request: symbol; error: string | null }
   | { type: "close" };
 
 export const CLOSED: Sheet = { kind: "closed" };
@@ -27,7 +33,7 @@ export function sheetReducer(state: Sheet, action: SheetAction): Sheet {
       return { kind: "quiet", draft: { quietOn, quietStart, quietEnd } };
     }
     case "openName":
-      return { kind: "name", text: action.name, error: null, busy: false };
+      return { kind: "name", text: action.name, error: null, pending: null };
     case "close":
       return CLOSED;
     case "editQuiet":
@@ -39,11 +45,18 @@ export function sheetReducer(state: Sheet, action: SheetAction): Sheet {
         ? { ...state, text: action.text, error: null }
         : state;
     case "submitting":
-      return state.kind === "name" ? { ...state, busy: true } : state;
-    case "failed":
       return state.kind === "name"
-        ? { ...state, error: action.error, busy: false }
+        ? { ...state, pending: action.request }
         : state;
+    case "failed":
+      return state.kind === "name" ? { ...state, error: action.error } : state;
+    case "answered":
+      if (state.kind !== "name" || state.pending !== action.request) {
+        return state;
+      }
+      return action.error
+        ? { ...state, error: action.error, pending: null }
+        : CLOSED;
   }
 }
 
@@ -64,7 +77,8 @@ export async function submitName(
     dispatch({ type: "failed", error: problem });
     return;
   }
-  dispatch({ type: "submitting" });
-  const message = await onRename(text.trim());
-  dispatch(message ? { type: "failed", error: message } : { type: "close" });
+  const request = Symbol("rename");
+  dispatch({ type: "submitting", request });
+  const error = await onRename(text.trim());
+  dispatch({ type: "answered", request, error });
 }

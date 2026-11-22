@@ -27,7 +27,7 @@ const nameSheet = (text: string): Sheet => ({
   kind: "name",
   text,
   error: null,
-  busy: false,
+  pending: null,
 });
 
 describe("sheetReducer", () => {
@@ -58,27 +58,29 @@ describe("sheetReducer", () => {
   });
 
   it("typing clears the error, a failure keeps the text", () => {
+    const request = Symbol();
     const failed = run(
       nameSheet("Max"),
       { type: "type", text: "Maxine" },
-      { type: "submitting" },
-      { type: "failed", error: "Nope." },
+      { type: "submitting", request },
+      { type: "answered", request, error: "Nope." },
     );
     expect(failed).toEqual({
       kind: "name",
       text: "Maxine",
       error: "Nope.",
-      busy: false,
+      pending: null,
     });
     expect(run(failed, { type: "type", text: "Maxi" })).toEqual(
       nameSheet("Maxi"),
     );
   });
 
-  it("marks the name sheet busy while submitting", () => {
-    expect(run(nameSheet("Max"), { type: "submitting" })).toMatchObject({
-      busy: true,
-    });
+  it("marks the name sheet pending while submitting", () => {
+    const request = Symbol();
+    expect(
+      run(nameSheet("Max"), { type: "submitting", request }),
+    ).toMatchObject({ pending: request });
   });
 
   it("closes from any sheet", () => {
@@ -132,7 +134,7 @@ describe("submitName", () => {
       kind: "name",
       text: "   ",
       error: "Use 1 to 30 characters.",
-      busy: false,
+      pending: null,
     });
   });
 
@@ -147,22 +149,22 @@ describe("submitName", () => {
       kind: "name",
       text: "Bad word",
       error: "name: Invalid input",
-      busy: false,
+      pending: null,
     });
   });
 
-  it("is busy while the server answers", async () => {
+  it("is pending while the server answers", async () => {
     const sheet = start("Maxine");
-    let busy: boolean | undefined;
+    let pending: symbol | null | undefined;
     await submitName(
       "Maxine",
       async () => {
-        busy = (sheet.state() as { busy: boolean }).busy;
+        pending = (sheet.state() as { pending: symbol | null }).pending;
         return null;
       },
       sheet.dispatch,
     );
-    expect(busy).toBe(true);
+    expect(pending).toEqual(expect.any(Symbol));
   });
 
   it("sends the trimmed name and closes on success", async () => {
@@ -171,5 +173,77 @@ describe("submitName", () => {
     await submitName("  Maxine ", onRename, sheet.dispatch);
     expect(onRename).toHaveBeenCalledWith("Maxine");
     expect(sheet.state()).toEqual(CLOSED);
+  });
+
+  describe("after Cancel and reopen while a save is pending", () => {
+    const reopenDuringSave = (first: string) => {
+      let state = CLOSED;
+      const dispatch = (action: SheetAction) => {
+        state = sheetReducer(state, action);
+      };
+      dispatch({ type: "openName", name: "Max" });
+      dispatch({ type: "type", text: first });
+      let answer: (message: string | null) => void = () => {};
+      const earlier = submitName(
+        first,
+        () => new Promise<string | null>((resolve) => (answer = resolve)),
+        dispatch,
+      );
+      dispatch({ type: "close" });
+      dispatch({ type: "openName", name: "Max" });
+      return {
+        dispatch,
+        state: () => state,
+        answer: async (message: string | null) => {
+          answer(message);
+          await earlier;
+        },
+      };
+    };
+
+    it("an earlier success keeps the new invalid draft and its error", async () => {
+      const sheet = reopenDuringSave("Maxine");
+      const tooLong = "a".repeat(31);
+      sheet.dispatch({ type: "type", text: tooLong });
+      await submitName(tooLong, async () => null, sheet.dispatch);
+      expect(sheet.state()).toMatchObject({
+        kind: "name",
+        text: tooLong,
+        error: "Use 1 to 30 characters.",
+      });
+      await sheet.answer(null);
+      expect(sheet.state()).toMatchObject({
+        kind: "name",
+        text: tooLong,
+        error: "Use 1 to 30 characters.",
+      });
+    });
+
+    it("an earlier failure does not attach its error to the new draft", async () => {
+      const sheet = reopenDuringSave("Maxine");
+      sheet.dispatch({ type: "type", text: "Bob" });
+      await sheet.answer("name: Invalid input");
+      expect(sheet.state()).toMatchObject({
+        kind: "name",
+        text: "Bob",
+        error: null,
+      });
+    });
+
+    it("an earlier success does not close the sheet over a newer pending save", async () => {
+      const sheet = reopenDuringSave("Maxine");
+      sheet.dispatch({ type: "type", text: "Bob" });
+      let answerBob: (message: string | null) => void = () => {};
+      const bob = submitName(
+        "Bob",
+        () => new Promise<string | null>((resolve) => (answerBob = resolve)),
+        sheet.dispatch,
+      );
+      await sheet.answer(null);
+      expect(sheet.state()).toMatchObject({ kind: "name", text: "Bob" });
+      answerBob(null);
+      await bob;
+      expect(sheet.state()).toEqual(CLOSED);
+    });
   });
 });

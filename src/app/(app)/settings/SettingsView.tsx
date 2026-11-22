@@ -522,7 +522,7 @@ function OpenSheet({
         <NameSheet
           text={sheet.text}
           error={sheet.error}
-          busy={sheet.busy}
+          busy={sheet.pending !== null}
           onType={(text) => dispatch({ type: "type", text })}
           onSave={() => void submitName(sheet.text, onRename, dispatch)}
           onClose={close}
