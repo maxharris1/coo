@@ -13,6 +13,7 @@ const note = (over: Partial<ShoeboxNote> = {}): ShoeboxNote => ({
   direction: "received",
   state: "delivered",
   body: "Saturday works. Bring the bread.",
+  doodle: null,
   with: { id: "u2", name: "Priya", handle: "priya" },
   bird: { id: "b1", name: "Dumpling", look: "dumpling" },
   trip: { distanceMi: 81, durationMs: 112 * MINUTE },

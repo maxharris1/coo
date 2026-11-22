@@ -50,7 +50,11 @@ function guestLanded(over: Partial<Guest> = {}): LandedGuest {
       to: { ...calm.input.to, label: "Philadelphia" },
       placeNames: { deciles: [] },
     },
-    note: { body: BODY, createdAt: calm.plan.segments[0].startMs },
+    note: {
+      body: BODY,
+      doodle: null,
+      createdAt: calm.plan.segments[0].startMs,
+    },
     ...over,
   };
 }

@@ -19,7 +19,12 @@ const visit = (over: Partial<SyncVisit["bird"]> = {}): SyncVisit => ({
     ...over,
   },
   owner: { id: "u1", name: "Priya", handle: "priya" },
-  note: { id: "n1", body: "Saturday works. Bring the bread.", createdAt: 0 },
+  note: {
+    id: "n1",
+    body: "Saturday works. Bring the bread.",
+    doodle: null,
+    createdAt: 0,
+  },
   arrivedAt: NOW - 2 * MIN,
   leavesAt: NOW + 28 * MIN,
   status: "waiting",

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { config } from "@/lib/config";
 import type { UserId } from "@/server/ports/auth";
 import type { GuestSendResult } from "@/server/services/flights/guestSend";
 import { send } from "@/server/services/flights/send";
@@ -15,6 +16,16 @@ vi.mock("@/env", () => ({
 const PEPPER = "test-pepper";
 const BODY = "Come see the new loft";
 const IP = "203.0.113.7";
+const MARKER = [
+  [123, 45],
+  [67, 89],
+];
+const DOODLE = {
+  v: 1,
+  w: config.game.notes.doodle.width,
+  h: config.game.notes.doodle.height,
+  strokes: [{ color: "ink", width: "marker", points: MARKER }],
+};
 
 let deps: TestDeps;
 let world: World;
@@ -26,10 +37,11 @@ beforeEach(async () => {
   max = world.max.id as UserId;
 });
 
-async function guestFlight() {
+async function guestFlight(doodle?: typeof DOODLE) {
   const { results } = await searchPlaces(deps, max, "Williamsburg");
   const result = (await send(deps, max, {
     body: BODY,
+    doodle,
     sends: [
       {
         guest: { name: "Sam", placeId: results[0].placeId },
@@ -56,11 +68,14 @@ async function refusal(promise: Promise<unknown>) {
 
 describe("getGuestLink", () => {
   it("shows the flight without the note until the bird lands, then the note (ac-2)", async () => {
-    const { token, arriveAt } = await guestFlight();
+    const { token, arriveAt } = await guestFlight(DOODLE);
 
     const flying = await getGuestLink(deps, PEPPER, IP, token);
     expect(flying).not.toHaveProperty("note");
-    expect(JSON.stringify(flying)).not.toContain(BODY);
+    const text = JSON.stringify(flying);
+    for (const secret of [BODY, "doodle", JSON.stringify(MARKER)]) {
+      expect(text).not.toContain(secret);
+    }
     expect(flying).toMatchObject({
       senderName: "Max",
       recipientName: "Sam",
@@ -73,7 +88,11 @@ describe("getGuestLink", () => {
 
     const landed = await getGuestLink(deps, PEPPER, IP, token);
     expect(landed.flight.status).toBe("landed");
-    expect(landed.note?.body).toBe(BODY);
+    expect(landed.note).toEqual({
+      body: BODY,
+      doodle: DOODLE,
+      createdAt: expect.any(Number),
+    });
   });
 
   it("gives the bird's pronoun for the page's copy", async () => {

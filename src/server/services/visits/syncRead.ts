@@ -1,5 +1,6 @@
 import { haversineMi } from "@/lib/flight/engine";
 import type { Pronoun } from "@/lib/format";
+import type { Doodle } from "@/lib/game/notes";
 import type { BreedId, GearId } from "@/lib/game/types";
 import type { Deps } from "@/server/deps";
 import { returnRoute } from "../tick/endVisits";
@@ -20,7 +21,7 @@ export type SyncVisit = {
   id: string;
   bird: BirdLite;
   owner: PersonLite;
-  note: { id: string; body: string; createdAt: number };
+  note: { id: string; body: string; doodle: Doodle | null; createdAt: number };
   arrivedAt: number;
   leavesAt: number;
   status: "waiting";
@@ -52,6 +53,7 @@ type VisitRow = {
   owner_handle: string;
   note_id: string;
   note_body: string;
+  note_doodle: Doodle | null;
   note_created_at: Date;
   distance_mi: number | null;
   delay_kind: DelayKind | null;
@@ -71,7 +73,7 @@ export async function syncVisits(
       `select v.id, v.arrived_at, v.leaves_at, v.snack_given,
               b.id as bird_id, b.name as bird_name, b.breed, b.look, b.pronoun, b.speed_mph, b.gear,
               o.id as owner_id, o.name as owner_name, o.handle as owner_handle,
-              n.id as note_id, n.body as note_body, n.created_at as note_created_at,
+              n.id as note_id, n.body as note_body, n.doodle as note_doodle, n.created_at as note_created_at,
               f.distance_mi, f.delay_kind, f.release_at, f.arrive_at
          from visits v
          join birds b on b.id = v.bird_id
@@ -116,6 +118,7 @@ export async function syncVisits(
       note: {
         id: r.note_id,
         body: r.note_body,
+        doodle: r.note_doodle,
         createdAt: r.note_created_at.getTime(),
       },
       arrivedAt: r.arrived_at.getTime(),

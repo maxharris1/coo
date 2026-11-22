@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it } from "vitest";
+import { config } from "@/lib/config";
 import { toE164, type E164 } from "@/lib/phone";
 import { createJsonRoute } from "@/server/http";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
@@ -35,6 +36,17 @@ type JsonRoute = ReturnType<typeof createJsonRoute>;
 type Handler = (req: NextRequest) => Promise<Response>;
 
 const API = join(process.cwd(), "src/app/api");
+
+const MARKER = [
+  [123, 45],
+  [67, 89],
+];
+const DOODLE = {
+  v: 1,
+  w: config.game.notes.doodle.width,
+  h: config.game.notes.doodle.height,
+  strokes: [{ color: "ink", width: "marker", points: MARKER }],
+};
 
 const GET_ENDPOINTS: Record<
   string,
@@ -125,8 +137,8 @@ beforeEach(async () => {
   world = await seedWorld(deps.db, deps.clock.now());
   flight = await insertPlannedDelivery(deps.db, world, deps.clock.now());
   [{ body: noteBody }] = await deps.db.query<{ body: string }>(
-    "select body from notes where id = $1",
-    [flight.noteId],
+    "update notes set doodle = $2::jsonb where id = $1 returning body",
+    [flight.noteId, JSON.stringify(DOODLE)],
   );
 });
 
@@ -147,31 +159,47 @@ describe("a note before its arrival time", () => {
     expect(getRouteFiles()).toEqual(Object.keys(GET_ENDPOINTS).sort());
   });
 
-  it("is in no response the recipient can get from any endpoint", async () => {
-    deps.clock.set(flight.arriveAtMs - 60_000);
-    const cookie = await priyaCookie();
+  it.each([
+    ["with text and a doodle", false],
+    ["with only a doodle", true],
+  ])(
+    "is in no response the recipient can get from any endpoint, %s",
+    async (_, doodleOnly) => {
+      if (doodleOnly) {
+        await deps.db.query("update notes set body = '' where id = $1", [
+          flight.noteId,
+        ]);
+      }
+      const secrets = [
+        ...(doodleOnly ? [] : [noteBody]),
+        flight.noteId,
+        "doodle",
+        JSON.stringify(MARKER),
+      ];
+      deps.clock.set(flight.arriveAtMs - 60_000);
+      const cookie = await priyaCookie();
 
-    for (const [file, { build, url }] of Object.entries(GET_ENDPOINTS)) {
-      const res = await build(createJsonRoute(async () => deps))(
-        new NextRequest(
-          `https://coo.test${url.replace(":flightId", flight.flightId)}`,
-          { headers: { cookie } },
-        ),
+      for (const [file, { build, url }] of Object.entries(GET_ENDPOINTS)) {
+        const res = await build(createJsonRoute(async () => deps))(
+          new NextRequest(
+            `https://coo.test${url.replace(":flightId", flight.flightId)}`,
+            { headers: { cookie } },
+          ),
+        );
+        const text = await res.text();
+        for (const secret of secrets) expect(text, file).not.toContain(secret);
+      }
+
+      const [note] = await deps.db.query<{ delivered_at: Date | null }>(
+        "select delivered_at from notes where id = $1",
+        [flight.noteId],
       );
-      const text = await res.text();
-      expect(text, file).not.toContain(noteBody);
-      expect(text, file).not.toContain(flight.noteId);
-    }
-
-    const [note] = await deps.db.query<{ delivered_at: Date | null }>(
-      "select delivered_at from notes where id = $1",
-      [flight.noteId],
-    );
-    expect(note.delivered_at).toBeNull();
-    const [f] = await deps.db.query<{ status: string }>(
-      "select status from flights where id = $1",
-      [flight.flightId],
-    );
-    expect(f.status).toBe("flying");
-  });
+      expect(note.delivered_at).toBeNull();
+      const [f] = await deps.db.query<{ status: string }>(
+        "select status from flights where id = $1",
+        [flight.flightId],
+      );
+      expect(f.status).toBe("flying");
+    },
+  );
 });

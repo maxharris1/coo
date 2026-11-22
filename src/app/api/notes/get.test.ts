@@ -76,6 +76,7 @@ describe("GET /api/notes", () => {
         direction: "sent",
         state: "in_the_air",
         body: "Test note from Max",
+        doodle: null,
         with: { id: world.priya.id, name: "Priya", handle: "priya" },
         bird: {
           id: world.max.birds[0].id,

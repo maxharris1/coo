@@ -74,6 +74,7 @@ const note = (id: string, name = "Priya"): ShoeboxNote => ({
   direction: "received",
   state: "delivered",
   body: `Body of ${id}`,
+  doodle: null,
   with: { id: name.toLowerCase(), name, handle: null },
   bird: null,
   trip: null,
