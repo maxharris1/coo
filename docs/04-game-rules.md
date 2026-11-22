@@ -125,6 +125,9 @@ Three values, 0 to 100, stored with a timestamp and computed when read:
 | Feathers | −1 per hour (−0.5 with the rooftop birdbath). −15 after a rainy flight without booties. Bath: back to 100, bird busy 10 minutes, free. |
 | Energy | At home: +10 per hour. Flying: −8 per hour (−4 for a King). Roosting on a trip: +5 per hour. Nap: +50, bird busy 30 minutes, free. |
 
+An owner can wake a napping bird early. It comes home at once with the energy gained so far and
+no +50. A bird still under 15 energy stays unable to fly.
+
 All values clamp to 0–100. While a bird is away its belly and feathers keep draining by the
 hour; energy is settled at landing.
 

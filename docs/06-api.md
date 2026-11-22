@@ -146,6 +146,7 @@ Weather and place names are fetched before the transaction opens, never inside i
 | `POST /api/birds/[id]/feed` | `{ actionId }` | Home birds only. 3 seeds, belly +50. `actionId` is a uuid made once per tap. See Idempotency |
 | `POST /api/birds/[id]/bath` | | Home only. Busy 10 minutes, feathers 100 |
 | `POST /api/birds/[id]/nap` | | Home only. Busy 30 minutes, energy +50 at the end |
+| `POST /api/birds/[id]/wake` | | Owner only, napping birds only. Before `busy_until` it sets the bird home with the energy gained so far and no nap bonus. Once the nap is due it applies the nap (+50) and sets the bird home. Any other bird (home, bath, job, away) is `conflict` and nothing is written |
 | `PUT /api/birds/[id]/gear` | `{ items: string[] }` | Home only. Validates ownership, one per slot, not worn by another bird (taking an item from another home bird is allowed and removes it there) |
 | `PUT /api/outfits` | `{ outfits: [{ id?, name, items }] }` | Replaces the saved outfits (at most 6) |
 | `GET /api/shop` | | Items with `owned`, `affordable`, plus loft items and the next perch |

@@ -148,3 +148,40 @@ export async function renameBird(
     }),
   };
 }
+
+export async function wakeBird(
+  deps: Deps,
+  caller: OnboardedCaller,
+  birdId: string,
+): Promise<{ bird: BirdView }> {
+  const now = deps.clock.now();
+  const owner = { hasBirdbath: caller.profile.has_birdbath };
+  return deps.db.tx(async (db) => {
+    const [row] = await db.query<Row<"birds">>(
+      "select * from birds where id = $1 and owner_id = $2 for update",
+      [birdId, caller.userId],
+    );
+    if (!row) throw new AppError("not_found", "Could not find that bird.");
+    const bird = toBirdRecord(row);
+    const { busyUntil } = bird;
+    if (
+      bird.status !== "busy" ||
+      bird.busyKind !== "nap" ||
+      busyUntil === null
+    ) {
+      throw new AppError("conflict", `${bird.name} is not napping.`);
+    }
+    const care =
+      busyUntil <= now
+        ? wakeEffect.nap(careSnapshot(bird), busyUntil, owner)
+        : projectCare(careSnapshot(bird), now, owner);
+    const [updated] = await db.query<Row<"birds">>(
+      `update birds set belly = $2, feathers = $3, energy = $4,
+         care_at = to_timestamp($5 / 1000.0), status = 'home',
+         busy_kind = null, busy_until = null
+       where id = $1 returning *`,
+      [birdId, care.belly, care.feathers, care.energy, care.careAtMs],
+    );
+    return { bird: toBirdView(toBirdRecord(updated), now, owner) };
+  });
+}
