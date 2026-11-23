@@ -351,7 +351,11 @@ describe("/shop espresso shot", () => {
     );
   });
 
-  it("says nothing about owned shots when none are held", () => {
-    expect(card({ ...shot, held: 0 })).not.toContain("owned");
+  it("shows zero owned to a player who holds none", () => {
+    expect(card({ ...shot, held: 0 })).toContain(">0 owned<");
+  });
+
+  it("shows no owned count on a row that is not held", () => {
+    expect(card({ ...shot, held: undefined })).not.toContain("owned");
   });
 });

@@ -217,9 +217,9 @@ function Rows({
         <div className={styles.name}>{row.name}</div>
         <div className={styles.effect}>
           {row.effect}
-          {row.held ? (
+          {row.held !== undefined && (
             <span className={styles.held}>{row.held} owned</span>
-          ) : null}
+          )}
         </div>
       </div>
       <Action row={row} onBuy={onBuy} />
