@@ -66,7 +66,7 @@ const CANDIDATES = `
          and (select count(*) from (
                 select case when f.a_id = gl.sender_id then f.b_id else f.a_id end as other
                   from friendships f
-                 where f.status = 'accepted' and gl.sender_id in (f.a_id, f.b_id)
+                 where gl.sender_id in (f.a_id, f.b_id)
                 union
                 select d.recipient_id
               ) fr

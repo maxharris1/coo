@@ -251,6 +251,40 @@ describe("joinByCode resolves leftover guest sends", () => {
     expect(await attribution(linkId)).toMatchObject(claimedBy(rosa));
   });
 
+  it("does not hand a blocked friend's landed note to another friend with the same name", async () => {
+    const priya = world.priya.id as UserId;
+    const { linkId, arriveAt } = await guestSendTo(
+      max,
+      world.max.birds[0].id,
+      rosa,
+    );
+    await deps.db.query("update profiles set name = 'Rosa' where id = $1", [
+      priya,
+    ]);
+    await deps.db.query(
+      "update guest_links set recipient_name = 'Rosa' where id = $1",
+      [linkId],
+    );
+    const [a, b] = pair(max, rosa);
+    await deps.db.query(
+      "insert into friendships (a_id, b_id, status, blocked_by) values ($1, $2, 'blocked', $3)",
+      [a, b, max],
+    );
+    deps.clock.set(arriveAt + 60_000);
+    await tick(deps);
+    const shoebox = async () => (await listNotes(deps, priya, {})).notes;
+    expect(await shoebox()).toEqual([]);
+
+    await joinByCode(deps, priya, "seed-max");
+
+    expect(await shoebox()).toEqual([]);
+    expect(await attribution(linkId)).toMatchObject({
+      status: "active",
+      claimed_by: null,
+      recipient_id: null,
+    });
+  });
+
   it("refuses a blocked pair with conflict and writes nothing to the link (ac-3)", async () => {
     const { linkId } = await guestSendTo(max, world.max.birds[0].id, rosa);
     const [a, b] = pair(max, rosa);
