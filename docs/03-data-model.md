@@ -124,6 +124,10 @@ from the active loft roost, on a bearing hashed from `jobs.id`. The label is the
 from `config/jobs.json`, never an address. `jobs_dest_check` keeps the three all set or all null.
 They are null for jobs started before 0007 and for users with no loft.
 
+`jobs_one_running_per_offer` (0010) is a partial unique index on `jobs (user_id, job_id)` where
+`status = 'running'`. A user has at most one running row per catalog job; once it is `done` the
+same job can start again. Different users may run the same `job_id` at once.
+
 ### postmarks, badges, bird_meetings, eggs
 Collections. `badges` rows hold progress and, once earned, a date. `eggs` has at most one row
 per user that is not `hatched`.

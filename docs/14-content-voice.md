@@ -53,6 +53,7 @@ sentence that needs it when there is none. `{speed}` "45 mph". `{eta}` "11:20 am
 | `insufficient_seeds` | Not enough seeds. Deliveries pay 10 and up. |
 | `rate_limited` | That is a lot of pigeons. Try again in a bit. |
 | `conflict` (bird not home) | {bird} is not home right now. |
+| `conflict` (already on that job) | {bird} is already on that job. |
 | `conflict` (too tired) | {bird} is too tired to fly. A nap fixes that. |
 | `conflict` (visit over) | {bird} already went home. Send one of yours instead. |
 | `conflict` (no perch) | No free perch. The egg can wait. |
