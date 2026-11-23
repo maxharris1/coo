@@ -35,7 +35,7 @@ notes. The rules below are requirements, each with a test in some ticket.
    link. That is inherent: a bird drawn landing on a block shows the block.
 6. The roost grid is coarse on purpose. In a dense city one cell holds hundreds of homes; in
    the countryside it may hold one. The Loft step offers "Use my town centre instead" for
-   anyone who prefers it, which stores the city centre as their roost.
+   anyone who prefers it, which stores the snapped city centre as their roost.
 
 ## Notes
 

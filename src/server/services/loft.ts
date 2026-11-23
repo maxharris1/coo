@@ -1,4 +1,4 @@
-import type { Point } from "@/lib/game/privacy";
+import { snap, type Point } from "@/lib/game/privacy";
 import { cityLabel, roostLabel } from "@/lib/places";
 import type { Caller, Profile } from "@/server/auth";
 import type { Deps } from "@/server/deps";
@@ -75,7 +75,12 @@ async function describeRoost(
   }
   if (!centre) return { roost, label: roostName, city, cityCentre: middle };
   if (!middle || !town.city) throw new AppError("invalid", PLACE_NOT_FOUND);
-  return { roost: middle, label: town.city, city, cityCentre: middle };
+  return {
+    roost: snap(middle.lat, middle.lon),
+    label: town.city,
+    city,
+    cityCentre: middle,
+  };
 }
 
 async function locate(

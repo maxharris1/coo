@@ -54,8 +54,8 @@ the pin, the bird flies to the held place's snapped roost under that place's lab
 
 The recipient's own roost replaces the guess. When they sign up from the link, the loft step
 opens at the flight's destination (see Claiming). "This is home" with the pin unmoved saves that
-point as their roost. If they use their location, pick a different place or move the pin first,
-`profiles.home_*` holds their own snapped roost instead of the sender's guess. A later
+point as their roost. If they use their location, pick a different place, move the pin or choose
+their town centre, `profiles.home_*` holds their own snapped roost instead of the sender's guess. A later
 `POST /api/loft` replaces it the same way. Sends between friends after that use their current loft.
 
 A note already in the air keeps its destination. Claiming the link and `setLoft` never retarget

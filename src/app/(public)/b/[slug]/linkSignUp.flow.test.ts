@@ -291,6 +291,33 @@ describe("the recipient's own roost replaces the sender's guess", () => {
     expect(moved.ok).toBe(true);
     expect(await homeOf(run.userId)).toEqual(snap(OWN_SPOT.lat, OWN_SPOT.lon));
   });
+
+  it("replaces the guess with the snapped town centre when they pick their town later", async () => {
+    const { token } = await sendGuestFlight(deps, world);
+    const run = await signUpFromLink(token);
+
+    const moved = await saveLoft(
+      { lat: 39.97137, lon: -75.13387, centre: true },
+      run.fetchImpl,
+    );
+
+    expect(moved.ok).toBe(true);
+    const [row] = await deps.db.query<{
+      home_lat: number;
+      home_lon: number;
+      home_city_lat: number;
+      home_city_lon: number;
+    }>(
+      "select home_lat, home_lon, home_city_lat, home_city_lon from profiles where id = $1",
+      [run.userId],
+    );
+    expect(row).toEqual({
+      home_lat: snap(39.9526, -75.1652).lat,
+      home_lon: snap(39.9526, -75.1652).lon,
+      home_city_lat: 39.9526,
+      home_city_lon: -75.1652,
+    });
+  });
 });
 
 describe("a guest delivery already in the air keeps its destination", () => {

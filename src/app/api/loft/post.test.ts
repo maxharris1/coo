@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Db } from "@/server/db";
 import { log } from "@/server/log";
+import { snap } from "@/lib/game/privacy";
 import type { UserId } from "@/server/ports/auth";
 import type { Profile } from "@/server/auth";
 import { onboard } from "@/server/services/onboarding";
@@ -192,15 +193,13 @@ describe("POST /api/loft", () => {
     );
     expect(status).toBe(200);
     expect(json.loft).toEqual({
-      lat: -20.8823,
-      lon: 55.4504,
+      ...snap(-20.8823, 55.4504),
       label: "Saint-Denis",
       city: "Saint-Denis, France",
       travelling: false,
     });
     expect(await homeOf(id)).toEqual({
-      lat: -20.8823,
-      lon: 55.4504,
+      ...snap(-20.8823, 55.4504),
       label: "Saint-Denis",
       city: "Saint-Denis, France",
       cityLat: -20.8823,
@@ -232,10 +231,9 @@ describe("POST /api/loft", () => {
       jar,
     );
     expect(status).toBe(200);
-    expect(json.loft).toMatchObject({ lat: -20.8823, lon: 55.4504 });
+    expect(json.loft).toMatchObject(snap(-20.8823, 55.4504));
     expect(await homeOf(id)).toEqual({
-      lat: -20.8823,
-      lon: 55.4504,
+      ...snap(-20.8823, 55.4504),
       label: "Saint-Denis",
       city: "Saint-Denis, France",
       cityLat: -20.8823,
@@ -260,10 +258,9 @@ describe("POST /api/loft", () => {
       jar,
     );
     expect(status).toBe(200);
-    expect(json.loft).toMatchObject({ lat: -20.8823, lon: 55.4504 });
+    expect(json.loft).toMatchObject(snap(-20.8823, 55.4504));
     expect(await homeOf(id)).toMatchObject({
-      lat: -20.8823,
-      lon: 55.4504,
+      ...snap(-20.8823, 55.4504),
       cityLat: -20.8823,
       cityLon: 55.4504,
     });
@@ -277,10 +274,9 @@ describe("POST /api/loft", () => {
     deps.clock.advance(10 * 60_000 + 1);
     const { status, json } = await client.post({ placeId, centre: true }, jar);
     expect(status).toBe(200);
-    expect(json.loft).toMatchObject({ lat: 39.9526, lon: -75.1652 });
+    expect(json.loft).toMatchObject(snap(39.9526, -75.1652));
     expect(await homeOf(id)).toMatchObject({
-      lat: 39.9526,
-      lon: -75.1652,
+      ...snap(39.9526, -75.1652),
       label: "Philadelphia",
     });
   });
@@ -312,7 +308,7 @@ describe("POST /api/loft", () => {
     expect(status).toBe(400);
   });
 
-  it("stores the town centre of a place chosen from search", async () => {
+  it("stores the snapped town centre of a place chosen from search, and the raw city centre", async () => {
     const { id, jar } = await withProfile("(555) 123-4567", "Max");
     const { results } = await searchPlaces(deps, id as UserId, "Fishtown");
     const { status } = await client.post(
@@ -321,8 +317,7 @@ describe("POST /api/loft", () => {
     );
     expect(status).toBe(200);
     expect(await homeOf(id)).toEqual({
-      lat: 39.9526,
-      lon: -75.1652,
+      ...snap(39.9526, -75.1652),
       label: "Philadelphia",
       city: "Philadelphia, PA",
       cityLat: 39.9526,
