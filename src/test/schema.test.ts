@@ -65,6 +65,7 @@ const OWNED_BY = {
   seed_ledger: "user_id = $1",
   eggs: "user_id = $1",
   events: "user_id = $1",
+  bug_reports: "user_id = $1",
 };
 
 async function owned(table: string, where: string): Promise<number> {
@@ -587,6 +588,12 @@ describe("schema", () => {
     await db.query("insert into events (user_id, kind) values ($1, 'flight')", [
       max,
     ]);
+    for (const reporter of [max, priya]) {
+      await db.query(
+        "insert into bug_reports (user_id, client_key, body) values ($1, gen_random_uuid(), 'the map froze')",
+        [reporter],
+      );
+    }
     for (const [table, where] of Object.entries(OWNED_BY)) {
       expect(await owned(table, where), table).toBeGreaterThan(0);
     }
@@ -598,5 +605,10 @@ describe("schema", () => {
       "select count(*)::int as n from profiles",
     );
     expect(left.n).toBe(1);
+    const kept = await one<{ n: number }>(
+      "select count(*)::int as n from bug_reports where user_id = $1",
+      [priya],
+    );
+    expect(kept.n).toBe(1);
   });
 });

@@ -58,6 +58,15 @@ notes. The rules below are requirements, each with a test in some ticket.
    to the page for prefill and nothing is sent to the server but the name the sender confirms.
 4. A guest's number for a landing text is stored until that one text is sent, then cleared.
 
+## Bug reports
+
+1. A bug report is stored for a person to read during triage. Only the server reads or writes
+   `bug_reports`. No browser role can.
+2. Reports are deleted with the account.
+3. Report text is never written to logs, analytics or push payloads.
+4. Triage paraphrases a report. Its text is never copied into a public GitHub issue, and neither
+   is the name of the person who sent it.
+
 ## Accounts and sessions
 
 - Sign-in is by text code only. Sessions are Supabase's cookies: HttpOnly, Secure, SameSite=Lax.
@@ -107,9 +116,9 @@ for MapLibre; `X-Content-Type-Options: nosniff`; `Referrer-Policy: strict-origin
 
 A plain-language privacy page (`/privacy`) and terms page (`/terms`), linked from the Hello
 screen, Settings and the Guest page. The privacy page states: what is kept (phone number, roost,
-notes, push subscription), what is not (exact location, address, contacts), who processes it
-(Supabase, Vercel, Twilio, OpenFreeMap, Photon, Open-Meteo), and how to delete. A person, not
-an agent, must approve the final text.
+notes, push subscription, bug reports), what is not (exact location, address, contacts), who
+processes it (Supabase, Vercel, Twilio, OpenFreeMap, Photon, Open-Meteo, GitHub), and how to
+delete. A person, not an agent, must approve the final text.
 
 ## Children
 

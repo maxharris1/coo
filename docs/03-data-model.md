@@ -1,7 +1,8 @@
 # 03. Data model
 
-The schema is `supabase/migrations/0001_init.sql`. It has been applied and tested. This document
-explains it. If the two disagree, the SQL wins; fix this document.
+The schema is the migrations in `supabase/migrations/`, applied in order from `0001_init.sql`.
+They have been applied and tested. This document explains them. If the two disagree, the SQL wins;
+fix this document.
 
 ## Conventions
 
@@ -11,7 +12,7 @@ explains it. If the two disagree, the SQL wins; fix this document.
 - Deleting an `auth.users` row removes the profile and, by cascade, everything the person owns,
   including notes they sent. Notes they received stay with their senders. See "Deleting an account".
 - Row level security is on for every table with no policies, except read-your-own on `events` and
-  the server role `coo_app` on `tick_health`.
+  the server role `coo_app` on `tick_health` and `bug_reports`.
 - `coo_app` has no access to schema `auth`. Its only paths to `auth.users` are security definer
   functions only `coo_app` may execute: `sync_phone_last4(p_user)` copies the last four digits of
   the Auth phone to `profiles.phone_last4`, `guest_links_for_phone(p_user)` lists the active guest
@@ -141,6 +142,23 @@ per user that is not `hatched`.
 `notifications` is the in-app list and the record of what was pushed or texted.
 Its unique index on `(user_id, kind, ref_id)` stops repeats. `events` is the Realtime nudge.
 
+### bug_reports
+A problem someone reported from the app (0011), kept for a person to read during triage.
+
+- `body`: what they wrote, 1 to 2,000 characters after trimming.
+- `context`: a JSON object of at most 2,048 bytes with details that help find the problem, such
+  as the page and the app version. The privacy page lists them.
+- `client_key`: a UUID the app makes for each report. The unique index on `(user_id, client_key)`
+  is the idempotency key, so sending the same report twice stores it once.
+- `status`: `new` → `triaged`, `duplicate` or `wontfix`. `triaged_at` is set exactly when the
+  status leaves `new`. `issue_number` is the GitHub issue a report led to, and may be set only
+  once the status is not `new`. A partial index on `created_at` where `status = 'new'` is the
+  triage queue.
+- Server only. `coo_app` may select and insert, never update or delete. `anon` and
+  `authenticated` have no access.
+- `user_id` references `profiles` with `on delete cascade`, so a person's reports go with their
+  account.
+
 ### reports, rate_limits, geo_cache, weather_cache, dev_clock
 Safety and plumbing. `rate_limits` is a fixed-window counter keyed by a string such as
 `flights:{userId}`.
@@ -153,6 +171,7 @@ profiles n-n profiles          (friendships)
 flights 1-0..1 visits 0..1-1 flights (the return)
 guest_links 1-1 notes, 1-1 flights
 profiles 1-n seed_ledger, jobs, found_objects, postmarks, badges, eggs, notifications, events
+profiles 1-n bug_reports
 ```
 
 ## Deleting an account
@@ -161,4 +180,5 @@ profiles 1-n seed_ledger, jobs, found_objects, postmarks, badges, eggs, notifica
 any bird of theirs that is away is simply removed with them; any bird of someone else's on
 their sill is sent home at once with an empty return flight; notes they received from others
 stay in the senders' shoeboxes with the recipient shown as "a former friend".
+Their bug reports are deleted too; other people's reports stay.
 The schema test covers the cascade.
