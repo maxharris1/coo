@@ -1,8 +1,18 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FlightPlan, LatLon } from "@/lib/flight/engine";
+import {
+  find,
+  maps,
+  markers,
+  nextFrame,
+  renderWithEffects,
+  resetFakes,
+  stubBrowser,
+} from "@/test/fakeMapLibre";
+import { Bird } from "./Bird";
 import {
   FAR_ZOOM,
   MapView,
@@ -11,7 +21,18 @@ import {
   routeFractions,
   zoomForDistance,
   type BirdState,
+  type MapViewProps,
 } from "./MapView";
+
+vi.mock(
+  "maplibre-gl",
+  async () => (await import("@/test/fakeMapLibre")).fakeMaplibre,
+);
+vi.mock("react", async (importOriginal) =>
+  (await import("@/test/fakeMapLibre")).fakeReact(
+    await importOriginal<typeof import("react")>(),
+  ),
+);
 
 describe("zoomForDistance", () => {
   it.each([
@@ -133,5 +154,132 @@ describe("the map bird pose follows the tracker state", () => {
     const svg = mapBird();
     expect(svg).toContain(FLY_VB);
     expect(svg).toContain("coo-fly-core");
+  });
+});
+
+function props(over: Partial<MapViewProps> = {}): MapViewProps {
+  return {
+    flightId: "f1",
+    from: { ...calm.input.from, label: "Brooklyn" },
+    to: { ...calm.input.to, label: "Philly" },
+    plan: calm.plan,
+    distanceMi: calm.plan.distanceMi,
+    bird: { id: "b1", name: "Gerald", look: "gerald", gear: [] },
+    offsetMs: 0,
+    bottomPadding: 260,
+    night: false,
+    loftLabel: "Your loft",
+    sillLabel: "Philly",
+    ...over,
+  };
+}
+
+async function mounted(p: MapViewProps) {
+  const tree = renderWithEffects(MapView, p);
+  await vi.waitFor(() => expect(maps).toHaveLength(1));
+  nextFrame();
+  return { tree, map: maps[0] };
+}
+
+const midFlight = () =>
+  calm.plan.segments[0].startMs +
+  (calm.plan.arriveAtMs - calm.plan.segments[0].startMs) / 2;
+
+describe("the map preview variant (#901 ac-1)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"] });
+    vi.setSystemTime(midFlight());
+    stubBrowser(vi);
+  });
+
+  afterEach(() => {
+    resetFakes();
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  it("mounts a non-interactive map fitted to the whole route with compact attribution", async () => {
+    const { map } = await mounted(props({ preview: true }));
+    expect(map.options.interactive, "no pan or zoom").toBe(false);
+    expect(map.options.attributionControl).toEqual({ compact: true });
+    expect(map.options.bounds, "fitted to the route").toBeDefined();
+    expect(map.options.fitBoundsOptions).toEqual({
+      padding: { top: 16, left: 16, right: 16, bottom: 16 },
+    });
+  });
+
+  it("never moves the camera and listens for no drags or zooms", async () => {
+    const { map } = await mounted(props({ preview: true }));
+    vi.advanceTimersByTime(60_000);
+    expect(map.eased, "no follow").toBe(0);
+    expect(map.handlers.dragstart ?? []).toHaveLength(0);
+    expect(map.handlers.zoomstart ?? []).toHaveLength(0);
+  });
+
+  it("still draws the route on the preview", async () => {
+    const { map } = await mounted(props({ preview: true }));
+    map.fire("style.load");
+    expect(map.layers).toEqual([
+      "route-left",
+      "route-flown-casing",
+      "route-flown",
+    ]);
+  });
+
+  it("is hidden from assistive tech with no pin labels and no Find button", () => {
+    const html = renderToStaticMarkup(
+      <MapView {...props({ preview: true })} />,
+    );
+    expect(html).toMatch(/^(<link[^>]*>)*<div aria-hidden="true"/);
+    expect(html).not.toContain("Your loft");
+    expect(html).not.toContain(">Philly<");
+    expect(html).not.toContain("Find");
+  });
+
+  it("perches the bird at the origin when there is no plan", async () => {
+    const p = props({ preview: true, plan: null, state: "flying" });
+    const { tree } = await mounted(p);
+    expect(find(tree, Bird)?.props).toMatchObject({ pose: "perched" });
+    expect(markers[2].lngLat).toEqual([p.from.lon, p.from.lat]);
+  });
+});
+
+describe("the tracker map without preview stays as it was (#901 ac-1)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"] });
+    vi.setSystemTime(midFlight());
+    stubBrowser(vi);
+  });
+
+  afterEach(() => {
+    resetFakes();
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  it("is interactive, padded for the card and follows the bird", async () => {
+    const { map } = await mounted(props());
+    expect(map.options.interactive).toBeUndefined();
+    expect(map.options.fitBoundsOptions).toEqual({
+      padding: { top: 80, left: 48, right: 48, bottom: 260 },
+    });
+    expect(map.handlers.dragstart).toHaveLength(1);
+    expect(map.handlers.zoomstart).toHaveLength(1);
+    vi.advanceTimersByTime(5000);
+    expect(map.eased, "follows a bird near the edge").toBe(1);
+  });
+
+  it("shows pin labels and keeps the map in the accessibility tree", () => {
+    const html = renderToStaticMarkup(<MapView {...props()} />);
+    expect(html).not.toContain("aria-hidden");
+    expect(html).toContain("Your loft");
+    expect(html).toContain(">Philly<");
+  });
+
+  it("flies the bird along the plan", async () => {
+    const p = props();
+    const { tree } = await mounted(p);
+    expect(find(tree, Bird)?.props).toMatchObject({ pose: "fly" });
+    expect(markers[2].lngLat).not.toEqual([p.from.lon, p.from.lat]);
   });
 });

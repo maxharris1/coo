@@ -43,7 +43,7 @@ export type MapViewProps = {
   flightId: string;
   from: Place;
   to: Place;
-  plan: FlightPlan;
+  plan: FlightPlan | null;
   distanceMi: number;
   bird: BirdLite;
   offsetMs: number;
@@ -53,6 +53,7 @@ export type MapViewProps = {
   sillLabel: string;
   loftAt?: LoftAt;
   state?: BirdState;
+  preview?: boolean;
 };
 
 export const ZOOM_BANDS: readonly { underMi: number; zoom: number }[] = [
@@ -74,6 +75,7 @@ const FOLLOW_EVERY_MS = 5000;
 const EDGE_MARGIN = 0.2;
 const LEAD_PX = 60;
 const BIRD_PX = 56;
+const PREVIEW_PADDING = { top: 16, left: 16, right: 16, bottom: 16 };
 const PIN_LABEL = {
   position: "absolute",
   top: "100%",
@@ -147,6 +149,7 @@ export function MapView({
   sillLabel,
   loftAt = "from",
   state = "flying",
+  preview = false,
 }: MapViewProps) {
   const container = useRef<HTMLDivElement>(null);
   const birdEl = useRef<HTMLDivElement>(null);
@@ -160,6 +163,7 @@ export function MapView({
   const mapRef = useRef<MapLibreMap | null>(null);
   const stateRef = useRef(state);
   const west = headsWest(from, to);
+  const pose = POSE[plan ? state : "scheduled"];
 
   useEffect(() => {
     if (styleRef.current === style) return;
@@ -183,7 +187,9 @@ export function MapView({
     const where = () =>
       stateRef.current === "landed"
         ? { ...to, frac: 1 }
-        : positionAt(plan, from, to, now());
+        : plan
+          ? positionAt(plan, from, to, now())
+          : { ...from, frac: 0 };
 
     void import("maplibre-gl").then((lib) => {
       const { Marker, LngLatBounds } = lib;
@@ -200,8 +206,11 @@ export function MapView({
             [from.lon, from.lat],
           ).extend([to.lon, to.lat]),
           fitBoundsOptions: {
-            padding: { top: 80, left: 48, right: 48, bottom: bottomPadding },
+            padding: preview
+              ? PREVIEW_PADDING
+              : { top: 80, left: 48, right: 48, bottom: bottomPadding },
           },
+          ...(preview && { interactive: false }),
           minZoom: 3,
           maxZoom: 17,
           maxPitch: 0,
@@ -279,7 +288,8 @@ export function MapView({
       const follow = (always: boolean) => {
         const p = where();
         drawRoute(p.frac);
-        if (!followRef.current || (!always && !nearEdge(m, p))) return;
+        if (preview || !followRef.current) return;
+        if (!always && !nearEdge(m, p)) return;
         m.easeTo({
           center: [p.lon, p.lat],
           zoom: zoomForDistance(distanceMi * (1 - p.frac)),
@@ -287,8 +297,9 @@ export function MapView({
           duration: 1500,
         });
       };
-      recentre.current = () => follow(true);
       timer = setInterval(() => follow(false), FOLLOW_EVERY_MS);
+      if (preview) return;
+      recentre.current = () => follow(true);
 
       const stopFollowing = (e: { originalEvent?: unknown }) => {
         if (!e.originalEvent) return;
@@ -308,7 +319,17 @@ export function MapView({
       mounted?.dispose();
       mapRef.current = null;
     };
-  }, [flightId, from, to, plan, distanceMi, offsetMs, bottomPadding, loftAt]);
+  }, [
+    flightId,
+    from,
+    to,
+    plan,
+    distanceMi,
+    offsetMs,
+    bottomPadding,
+    loftAt,
+    preview,
+  ]);
 
   const findBird = () => {
     followRef.current = true;
@@ -317,7 +338,10 @@ export function MapView({
   };
 
   return (
-    <div style={{ position: "relative", width: "100%", height: "100%" }}>
+    <div
+      aria-hidden={preview || undefined}
+      style={{ position: "relative", width: "100%", height: "100%" }}
+    >
       <div ref={container} style={{ position: "absolute", inset: 0 }} />
       <div style={{ display: "none" }}>
         <div ref={loftEl}>
@@ -330,7 +354,7 @@ export function MapView({
               height={40}
               style={{ display: "block" }}
             />
-            <span style={PIN_LABEL}>{loftLabel}</span>
+            {!preview && <span style={PIN_LABEL}>{loftLabel}</span>}
           </div>
         </div>
         <div ref={sillEl}>
@@ -343,14 +367,14 @@ export function MapView({
               height={40}
               style={{ display: "block" }}
             />
-            <span style={PIN_LABEL}>{sillLabel}</span>
+            {!preview && <span style={PIN_LABEL}>{sillLabel}</span>}
           </div>
         </div>
         <div ref={birdEl}>
           <Bird
             look={bird.look as Look}
             gear={bird.gear as GearId[]}
-            pose={POSE[state]}
+            pose={pose}
             animated
             size={BIRD_PX}
             flip={west}
