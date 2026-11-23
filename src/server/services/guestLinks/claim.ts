@@ -9,6 +9,7 @@ import { notificationText, recordNotification } from "../notify";
 import { deliver } from "../notify/deliver";
 import { hashToken } from "./create";
 import { guestIpLimit, NO_SUCH_LINK } from "./get";
+import { attributeLink, linksBetween, resolveLinksBetween } from "./resolve";
 
 export type ClaimResult = { friendId: UserId; visitId?: string };
 
@@ -28,6 +29,9 @@ const REFUSALS = {
   gone: new AppError("gone", "This link is no longer open"),
   conflict: new AppError("conflict", "This is your own link"),
 } as const;
+
+const CLAIM_ATTEMPTS = 3;
+const CANDIDATES_GREW = new Error("crossed links appeared during the claim");
 
 function verdict(link: LockedLink, me: UserId, now: number): Verdict {
   if (link.sender_id === me) return "conflict";
@@ -50,19 +54,11 @@ export async function claimGuestLink(
   );
   if (!shape.test(token)) throw new AppError("not_found", NO_SUCH_LINK);
 
-  const { result, linkId, notificationId } = await deps.db.tx(async (db) => {
-    const { link, people } = await lockClaim(db, hashToken(pepper, token), me);
-    const now = deps.clock.now();
-    const outcome = verdict(link, me, now);
-    if (outcome === "gone" || outcome === "conflict") throw REFUSALS[outcome];
-    const notificationId =
-      outcome === "fresh" ? await claim(db, link, people, me, now) : null;
-    return {
-      result: await resultFor(db, link, me, now),
-      linkId: link.id,
-      notificationId,
-    };
-  });
+  const { result, linkId, notificationId } = await claimTx(
+    deps,
+    me,
+    hashToken(pepper, token),
+  );
 
   if (notificationId) {
     log.info("guest.claimed", { guestLinkId: linkId });
@@ -71,33 +67,82 @@ export async function claimGuestLink(
   return result;
 }
 
-async function lockClaim(db: Db, tokenHash: string, me: UserId) {
+async function claimTx(deps: Deps, me: UserId, tokenHash: string) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await deps.db.tx(async (db) => {
+        const { link, people, owned } = await lockClaim(
+          db,
+          tokenHash,
+          me,
+          deps.clock.now(),
+        );
+        const now = deps.clock.now();
+        const outcome = verdict(link, me, now);
+        if (outcome === "gone" || outcome === "conflict")
+          throw REFUSALS[outcome];
+        const notificationId =
+          outcome === "fresh"
+            ? await claim(db, link, people, owned, me, now)
+            : null;
+        return {
+          result: await resultFor(db, link, me, now),
+          linkId: link.id,
+          notificationId,
+        };
+      });
+    } catch (err) {
+      if (err !== CANDIDATES_GREW) throw err;
+      if (attempt === CLAIM_ATTEMPTS)
+        throw new AppError("unavailable", "Try again in a moment");
+    }
+  }
+}
+
+async function lockClaim(
+  db: Db,
+  tokenHash: string,
+  me: UserId,
+  before: number,
+) {
   const [found] = await db.query<{ id: string; sender_id: UserId }>(
     "select id, sender_id from guest_links where token_hash = $1",
     [tokenHash],
   );
   if (!found) throw new AppError("not_found", NO_SUCH_LINK);
+  const friendship = await friendshipBetween(db, me, found.sender_id);
+  const blocked = friendship?.status === "blocked";
+  const crossed = blocked
+    ? []
+    : await linksBetween(db, me, found.sender_id, before, true);
+  const owned = [found.id, ...crossed];
   await db.query(
-    "select 1 from flights where guest_link_id = $1 and kind = 'delivery' for update",
-    [found.id],
+    `select 1 from flights where guest_link_id = any($1::uuid[]) and kind = 'delivery'
+     order by id for update`,
+    [owned],
   );
   const people = await db.query<Person>(
     "select id, name from profiles where id = any($1::uuid[]) order by id for update",
     [[me, found.sender_id]],
   );
+  if (!blocked) {
+    const after = await linksBetween(db, me, found.sender_id, before, true);
+    if (after.some((id) => !owned.includes(id))) throw CANDIDATES_GREW;
+  }
   const [link] = await db.query<LockedLink>(
     `select id, status, sender_id, claimed_by, expires_at from guest_links
      where id = $1 for update`,
     [found.id],
   );
   if (!link) throw new AppError("not_found", NO_SUCH_LINK);
-  return { link, people };
+  return { link, people, owned };
 }
 
 async function claim(
   db: Db,
   link: LockedLink,
   people: Person[],
+  owned: string[],
   me: UserId,
   now: number,
 ): Promise<string | null> {
@@ -114,30 +159,7 @@ async function claim(
       [...pair(me, sender), nowIso],
     );
 
-  await db.query(
-    "update guest_links set status = 'claimed', claimed_by = $2, claimed_at = $3 where id = $1",
-    [link.id, me, nowIso],
-  );
-  const [flight] = await db.query<{ bird_id: string; note_id: string | null }>(
-    `update flights set counterpart_id = $2
-     where guest_link_id = $1 and kind = 'delivery' returning bird_id, note_id`,
-    [link.id, me],
-  );
-  if (flight.note_id)
-    await db.query("update notes set recipient_id = $2 where id = $1", [
-      flight.note_id,
-      me,
-    ]);
-  await db.query(
-    `update visits set host_id = $2
-     where guest_link_id = $1 and status = 'waiting' and leaves_at > $3`,
-    [link.id, me, nowIso],
-  );
-  await db.query(
-    `insert into bird_meetings (user_id, bird_id, first_at) values ($1, $2, $3)
-     on conflict (user_id, bird_id) do nothing`,
-    [me, flight.bird_id, nowIso],
-  );
+  await attributeLink(db, link.id, me, nowIso);
   await db.query(
     `insert into events (user_id, kind, created_at)
      select u, k, $2 from unnest($1::uuid[]) u, unnest(array['friends', 'flight']) k`,
@@ -152,6 +174,7 @@ async function claim(
     refId: link.id,
     ...notificationText("friend-joined", { friend: claimer.name }),
   });
+  await resolveLinksBetween(db, me, sender, now, owned);
   return created?.id ?? null;
 }
 
