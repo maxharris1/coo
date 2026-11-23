@@ -519,3 +519,68 @@ describe("the map bird matches the tracker chip (#846)", () => {
     expect(mapBird(html)).not.toContain("coo-hop");
   });
 });
+
+describe("long strings on the tracker (#924)", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  const long = () =>
+    flightFrom("calm-short", {
+      bird: { id: "b1", name: "Bartholomew", look: "gerald", gear: [] },
+      counterpart: {
+        id: "u2",
+        name: "Bartholomew Featherstonehaugh",
+        handle: "bf",
+      },
+      from: {
+        ...flightFrom("calm-short").from,
+        label: "Upper East Side, Lenox Hill",
+      },
+      to: {
+        ...flightFrom("calm-short").to,
+        label: "Lower East Side, Two Bridges",
+      },
+    });
+
+  function page(flight: Flight) {
+    vi.setSystemTime(at(flight, 0.5));
+    return renderToStaticMarkup(
+      <Tracker flight={flight} offsetMs={0} timeZone={TZ} units="mi" />,
+    );
+  }
+
+  const tag = (html: string, inner: string) =>
+    html.match(new RegExp(`<(\\w+)[^>]*>${inner}</\\1>`))?.[0] ?? "";
+
+  it("wraps the headline and sub inside the words column (ac-3)", () => {
+    const html = page(long());
+    const h1 = tag(
+      html,
+      "Bartholomew is on the way to Bartholomew Featherstonehaugh",
+    );
+    expect(h1).toMatch(/class="[^"]*\bcoo-wrap\b/);
+    expect(
+      tag(html, "Carrying your note to Bartholomew Featherstonehaugh"),
+    ).toMatch(/class="[^"]*\bcoo-wrap\b/);
+  });
+
+  it("truncates both progress places but never the miles (ac-4)", () => {
+    const html = page(long());
+    expect(tag(html, "Upper East Side, Lenox Hill")).toMatch(
+      /\bcoo-truncate\b/,
+    );
+    expect(tag(html, "Lower East Side, Two Bridges")).toMatch(
+      /\bcoo-truncate\b/,
+    );
+    expect(tag(html, "41 of 82 mi")).not.toMatch(/coo-truncate/);
+  });
+
+  it("wraps every stat value inside its card (ac-2)", () => {
+    const html = page(long());
+    const values = [...html.matchAll(/<strong[^>]*>[^<]*<\/strong>/g)].map(
+      (m) => m[0],
+    );
+    expect(values).toHaveLength(3);
+    for (const v of values) expect(v).toMatch(/class="[^"]*\bcoo-wrap\b/);
+  });
+});
