@@ -138,6 +138,9 @@
   font-weight: 400;
   font-size: 22px;
   line-height: 1.05;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
 }
 
 .sub {
@@ -145,6 +148,8 @@
   color: var(--coo-muted);
   font-weight: 700;
   font-size: 13px;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .job {
@@ -155,6 +160,8 @@
   border-radius: var(--coo-radius-tile);
   font-weight: 800;
   font-size: 15px;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .home {

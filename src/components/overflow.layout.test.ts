@@ -82,3 +82,58 @@ describe("progress places never collide with the miles (ac-4)", () => {
     expect(declaration(at(TRACKER, "to", "text-align"))).toBe("end");
   });
 });
+
+describe("the same rules hold beyond the tracker (#925 ac-5)", () => {
+  const JOB = "app/(app)/jobs/[id]/JobTracker.module.css";
+  const SILL = "app/(app)/sill/Sill.module.css";
+  const NOTIFICATIONS = "app/(app)/notifications/Notifications.module.css";
+  const TOASTS = "components/Toasts.module.css";
+  const LOG = "components/FlightLog.module.css";
+  const SHOEBOX = "app/(app)/shoebox/ShoeboxTop.module.css";
+  const FRIENDS = "app/(app)/friends/Friends.module.css";
+  const FLOCK = "app/(app)/Flock.module.css";
+  const FLIGHTS = "app/(app)/flights/Flights.module.css";
+
+  it.each([
+    [JOB, "headline"],
+    [JOB, "sub"],
+    [JOB, "job"],
+    [SILL, "rowName"],
+    [SILL, "rowLine"],
+    [NOTIFICATIONS, "rowTitle"],
+    [NOTIFICATIONS, "rowBody"],
+    [TOASTS, "toast"],
+    [LOG, "line span"],
+  ])("%s .%s wraps a long word inside its box", (file, rule) => {
+    expect(declaration(at(file, rule, "min-width"))).toBe("0");
+    expect(declaration(at(file, rule, "overflow-wrap"))).toBe("anywhere");
+  });
+
+  it("balances the job tracker headline like the flight tracker's", () => {
+    expect(declaration(at(JOB, "headline", "text-wrap"))).toBe("balance");
+    expect(declaration(at(JOB, "words", "min-width"))).toBe("0");
+  });
+
+  it("still ellipsizes the bird name in the job tracker title pill", () => {
+    expect(declaration(at(JOB, "name", "overflow"))).toBe("hidden");
+    expect(declaration(at(JOB, "name", "text-overflow"))).toBe("ellipsis");
+  });
+
+  it("caps a Shoebox friend chip at the scroller and ellipsizes the name", () => {
+    expect(declaration(at(SHOEBOX, "chips", "overflow-x"))).toBe("auto");
+    expect(declaration(at(SHOEBOX, "chip", "max-width"))).toBe("100%");
+    expect(declaration(at(SHOEBOX, "chip", "overflow"))).toBe("hidden");
+    expect(declaration(at(SHOEBOX, "chip", "text-overflow"))).toBe("ellipsis");
+    expect(declaration(at(SHOEBOX, "chip", "white-space"))).toBe("nowrap");
+  });
+
+  it.each([
+    [FRIENDS, "name"],
+    [FRIENDS, "line"],
+    [FLOCK, "name"],
+    [FLIGHTS, "rowTitle"],
+    [FLIGHTS, "line"],
+  ])("%s .%s already wraps long names, so it is untouched", (file, rule) => {
+    expect(declaration(at(file, rule, "overflow-wrap"))).toBe("anywhere");
+  });
+});

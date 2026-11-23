@@ -51,6 +51,7 @@
   flex-shrink: 0;
   min-height: var(--coo-touch);
   min-width: var(--coo-touch);
+  max-width: 100%;
   padding: 0 16px;
   background: var(--coo-card);
   border: var(--coo-line);
@@ -60,6 +61,8 @@
   font-size: 14px;
   color: var(--coo-ink);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   cursor: pointer;
 }
 

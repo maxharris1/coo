@@ -440,7 +440,13 @@ export function MapView({
         <button
           type="button"
           onClick={findBird}
-          style={{ position: "absolute", top: 16, right: 16 }}
+          className="coo-truncate"
+          style={{
+            position: "absolute",
+            top: 16,
+            right: 16,
+            maxWidth: "calc(100% - 32px)",
+          }}
         >
           Find {bird.name}
         </button>

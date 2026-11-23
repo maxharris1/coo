@@ -26,6 +26,11 @@
   font-weight: 700;
 }
 
+.line span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .time {
   width: 66px;
   flex-shrink: 0;
