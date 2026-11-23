@@ -87,7 +87,7 @@ export function startLoftIdle({
   onGesture,
   onPause,
 }: LoftIdleOptions): () => void {
-  if (reducedMotion || birdIds.length === 0) return () => {};
+  if (reducedMotion) return () => {};
   const timers = new Map<string, ReturnType<typeof setTimeout>>();
   const rest = () => REST_MS.min + random() * (REST_MS.max - REST_MS.min);
   const later = (id: string, ms: number, run: () => void) =>
@@ -126,8 +126,7 @@ export function startLoftIdle({
   };
 
   doc.addEventListener("visibilitychange", onVisibility);
-  if (doc.hidden) onPause(true);
-  else resume();
+  onVisibility();
 
   return () => {
     halt();

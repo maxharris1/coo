@@ -97,14 +97,14 @@ describe("loft idles (ac-7)", () => {
     expect(vi.getTimerCount()).toBe(2);
 
     setHidden(doc, true);
-    expect(pauses).toEqual([true]);
+    expect(pauses).toEqual([false, true]);
     expect(vi.getTimerCount()).toBe(0);
     const before = log.length;
     vi.advanceTimersByTime(60_000);
     expect(log.length).toBe(before);
 
     setHidden(doc, false);
-    expect(pauses).toEqual([true, false]);
+    expect(pauses).toEqual([false, true, false]);
     expect(vi.getTimerCount()).toBe(2);
     vi.advanceTimersByTime(REST_MS.max + REST_MS.min);
     expect(log.length).toBeGreaterThan(before);
@@ -124,6 +124,54 @@ describe("loft idles (ac-7)", () => {
     const { pauses, stop } = run(["gerald"], fakeDoc(true));
     expect(pauses).toEqual([true]);
     expect(vi.getTimerCount()).toBe(0);
+    stop();
+  });
+
+  it("pauses an empty, all-away or all-tired loft while the tab is hidden", () => {
+    const { pauses, doc, stop } = run([]);
+    setHidden(doc, true);
+    expect(pauses.at(-1)).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
+
+    setHidden(doc, false);
+    expect(pauses.at(-1)).toBe(false);
+    stop();
+
+    const seen = pauses.length;
+    setHidden(doc, true);
+    expect(pauses.length).toBe(seen);
+  });
+
+  it("clears a stale pause after hide, reduced motion on, show, reduced motion off", () => {
+    const doc = fakeDoc();
+    const log: Event_[] = [];
+    let paused = false;
+    const session = (reducedMotion: boolean) =>
+      startLoftIdle({
+        birdIds: ["gerald"],
+        reducedMotion,
+        doc,
+        random: seeded(),
+        onGesture: (id, gesture) => log.push({ at: Date.now(), id, gesture }),
+        onPause: (p) => {
+          paused = p;
+        },
+      });
+
+    let stop = session(false);
+    setHidden(doc, true);
+    expect(paused).toBe(true);
+    stop();
+
+    stop = session(true);
+    setHidden(doc, false);
+    stop();
+
+    stop = session(false);
+    expect(paused).toBe(false);
+    expect(vi.getTimerCount()).toBeGreaterThan(0);
+    vi.advanceTimersByTime(REST_MS.max + REST_MS.min);
+    expect(log.some((e) => e.gesture !== null)).toBe(true);
     stop();
   });
 
