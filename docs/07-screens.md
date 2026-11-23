@@ -177,7 +177,9 @@ As drawn: the punch card with 10 stamp slots, the pay table, two odd jobs with a
 button that picks the first ready bird and lets you change it, and found objects with
 "Trade for n". After a send succeeds the app opens the job tracker (`/jobs/[id]`). A refused
 send stays on Earn and shows the reason as a toast. Each "{bird} is out on an odd job" row links
-to that job's tracker, and stays as text when the job id is not known.
+to that job's tracker, and stays as text when the job id is not known. A job with a bird on it
+leaves the offers until it is done, so while both of today's jobs run Earn shows the two running
+rows and no Send button. "That's all the odd jobs for today." shows only when no jobs are left today.
 
 ### More (`/more`)
 As drawn. Six rows with live sub lines.

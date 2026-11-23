@@ -206,6 +206,65 @@ describe("JobsPanel running jobs (ac-1)", () => {
   });
 });
 
+describe("JobsPanel taken offers", () => {
+  const [deli, cat] = JOBS.offers;
+  const onDeli = bird({
+    id: "b-gerald",
+    name: "Gerald",
+    status: "busy",
+    busyKind: "job",
+    busyUntil: UNTIL,
+    jobId: "j-deli",
+  });
+  const onCat = bird({
+    id: "b-ada",
+    name: "Ada",
+    status: "busy",
+    busyKind: "job",
+    busyUntil: UNTIL,
+    jobId: "j-cat",
+  });
+  const home = bird({ id: "b-pip", name: "Pip" });
+
+  it("shows no Send for the taken offer and links its running row (ac-1)", () => {
+    const markup = html({
+      jobs: { offers: [cat], leftToday: 3 },
+      birds: [onDeli, home],
+    });
+    expect(markup).not.toContain(deli.text);
+    expect(markup).toContain(cat.text);
+    const sends = buttons(markup);
+    expect(sends).toHaveLength(1);
+    expect(sends[0]).toContain("Send Pip");
+    expect(sends[0]).not.toContain("disabled");
+    expect(markup).toMatch(
+      /<a[^>]*href="\/jobs\/j-deli"[^>]*>Gerald is out on an odd job\. Home at 7:40 pm\.<\/a>/,
+    );
+  });
+
+  it("shows both running rows and no Send while both offers run (ac-3)", () => {
+    const markup = html({
+      jobs: { offers: [], leftToday: 2 },
+      birds: [onDeli, onCat, home],
+    });
+    expect(buttons(markup)).toEqual([]);
+    expect(markup).toContain('href="/jobs/j-deli"');
+    expect(markup).toContain('href="/jobs/j-cat"');
+    expect(markup).toContain("Gerald is out on an odd job.");
+    expect(markup).toContain("Ada is out on an odd job.");
+    expect(markup).not.toContain("That&#x27;s all the odd jobs for today.");
+  });
+
+  it("says the day's jobs are used up only when none are left (ac-3)", () => {
+    const markup = html({
+      jobs: { offers: [], leftToday: 0 },
+      birds: [onDeli, onCat, home],
+    });
+    expect(buttons(markup)).toEqual([]);
+    expect(markup).toContain("That&#x27;s all the odd jobs for today.");
+  });
+});
+
 describe("sendJob (ac-1)", () => {
   const STARTED = { ok: true as const, data: { job: { id: "j-77" } } };
 
