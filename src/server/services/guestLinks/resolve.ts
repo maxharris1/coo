@@ -56,10 +56,15 @@ const CANDIDATES = `
          and (select count(*) from guest_links o
                where o.sender_id = gl.sender_id and o.status = 'active'
                  and lower(trim(o.recipient_name)) = lower(trim(gl.recipient_name))) = 1
-         and (select count(*) from friendships f
-                join profiles p on p.id = case when f.a_id = gl.sender_id then f.b_id else f.a_id end
-               where f.status = 'accepted' and gl.sender_id in (f.a_id, f.b_id)
-                 and lower(trim(p.name)) = lower(trim(gl.recipient_name))) = 1
+         and (select count(*) from (
+                select case when f.a_id = gl.sender_id then f.b_id else f.a_id end as other
+                  from friendships f
+                 where f.status = 'accepted' and gl.sender_id in (f.a_id, f.b_id)
+                union
+                select d.recipient_id
+              ) fr
+                join profiles p on p.id = fr.other
+               where lower(trim(p.name)) = lower(trim(gl.recipient_name))) = 1
        )
      )`;
 
@@ -98,16 +103,16 @@ export async function resolveLinksBetween(
   );
   if (ids.length === 0) return [];
 
-  const held = await db.query<{ guest_link_id: string }>(
-    `select guest_link_id from flights where guest_link_id = any($1) and kind = 'delivery'
-     order by id for update skip locked`,
+  await db.query(
+    `select 1 from flights where guest_link_id = any($1) and kind = 'delivery'
+     order by id for update`,
     [ids],
   );
   const locked = await db.query<{ id: string; sender_id: UserId }>(
     `select id, sender_id from guest_links
      where id = any($1) and status = 'active' and claimed_by is null
      order by id for update`,
-    [held.map((f) => f.guest_link_id)],
+    [ids],
   );
 
   const resolved: Resolved[] = [];
