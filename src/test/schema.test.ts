@@ -88,9 +88,19 @@ describe("schema", () => {
     );
     expect(off).toEqual([]);
     const pol = await db.query(
-      "select tablename, policyname, roles from pg_policies where schemaname = 'public' order by tablename",
+      "select tablename, policyname, roles from pg_policies where schemaname = 'public' order by tablename, policyname",
     );
     expect(pol).toEqual([
+      {
+        tablename: "bug_reports",
+        policyname: "bug_reports_app_insert",
+        roles: ["coo_app"],
+      },
+      {
+        tablename: "bug_reports",
+        policyname: "bug_reports_app_read",
+        roles: ["coo_app"],
+      },
       {
         tablename: "events",
         policyname: "events_read_own",
@@ -378,6 +388,183 @@ describe("schema", () => {
     );
     await db.query("reset role");
     expect(rows).toEqual([{ user_id: max }]);
+  });
+
+  it("bug_reports: columns", async () => {
+    const cols = await db.query(
+      `select column_name, data_type, is_nullable, column_default
+         from information_schema.columns
+        where table_schema = 'public' and table_name = 'bug_reports'
+        order by ordinal_position`,
+    );
+    expect(cols).toEqual([
+      {
+        column_name: "id",
+        data_type: "uuid",
+        is_nullable: "NO",
+        column_default: "gen_random_uuid()",
+      },
+      {
+        column_name: "user_id",
+        data_type: "uuid",
+        is_nullable: "NO",
+        column_default: null,
+      },
+      {
+        column_name: "client_key",
+        data_type: "uuid",
+        is_nullable: "NO",
+        column_default: null,
+      },
+      {
+        column_name: "body",
+        data_type: "text",
+        is_nullable: "NO",
+        column_default: null,
+      },
+      {
+        column_name: "context",
+        data_type: "jsonb",
+        is_nullable: "NO",
+        column_default: "'{}'::jsonb",
+      },
+      {
+        column_name: "status",
+        data_type: "text",
+        is_nullable: "NO",
+        column_default: "'new'::text",
+      },
+      {
+        column_name: "issue_number",
+        data_type: "integer",
+        is_nullable: "YES",
+        column_default: null,
+      },
+      {
+        column_name: "triaged_at",
+        data_type: "timestamp with time zone",
+        is_nullable: "YES",
+        column_default: null,
+      },
+      {
+        column_name: "created_at",
+        data_type: "timestamp with time zone",
+        is_nullable: "NO",
+        column_default: "now()",
+      },
+    ]);
+  });
+
+  it("bug_reports: no browser role may touch it", async () => {
+    const privileges = await db.query<{
+      role: string;
+      privilege: string;
+      granted: boolean;
+    }>(
+      `select r.role, p.privilege, has_table_privilege(r.role, 'public.bug_reports', p.privilege) as granted
+         from (values ('anon'), ('authenticated')) r(role),
+              (values ('select'), ('insert'), ('update'), ('delete')) p(privilege)`,
+    );
+    expect(privileges).toHaveLength(8);
+    expect(privileges.filter((p) => p.granted)).toEqual([]);
+    await db.query(
+      "insert into bug_reports (user_id, client_key, body) values ($1, gen_random_uuid(), 'map froze')",
+      [max],
+    );
+    await expect(
+      db.tx(async (t) => {
+        await t.query("select set_config('request.jwt.claim.sub', $1, true)", [
+          max,
+        ]);
+        await t.query("set local role authenticated");
+        await t.query("select * from bug_reports");
+      }),
+    ).rejects.toThrow(/permission denied/);
+  });
+
+  it("bug_reports: coo_app inserts and reads, and can never edit or delete", async () => {
+    const app = asRole(db, "coo_app");
+    const [row] = await app.query<{ id: string }>(
+      "insert into bug_reports (user_id, client_key, body) values ($1, gen_random_uuid(), 'map froze') returning id",
+      [max],
+    );
+    expect(
+      await app.query(
+        "select user_id, body, status from bug_reports where id = $1",
+        [row.id],
+      ),
+    ).toEqual([{ user_id: max, body: "map froze", status: "new" }]);
+    await expect(
+      app.query("update bug_reports set body = 'edited' where id = $1", [
+        row.id,
+      ]),
+    ).rejects.toThrow(/permission denied/);
+    await expect(
+      app.query("delete from bug_reports where id = $1", [row.id]),
+    ).rejects.toThrow(/permission denied/);
+    expect(await db.query("select body from bug_reports")).toEqual([
+      { body: "map froze" },
+    ]);
+  });
+
+  it("bug_reports: constraints", async () => {
+    const insert = async (fields: Record<string, unknown>) => {
+      const row = {
+        user_id: max,
+        client_key: await uuid(),
+        body: "map froze",
+        ...fields,
+      };
+      const names = Object.keys(row);
+      return db.query(
+        `insert into bug_reports (${names.join(", ")}) values (${names.map((_, i) => `$${i + 1}`).join(", ")})`,
+        Object.values(row),
+      );
+    };
+    const now = new Date().toISOString();
+    const refused: [string, Record<string, unknown>][] = [
+      ["empty body", { body: "" }],
+      ["whitespace-only body", { body: "   " }],
+      ["2001-character body", { body: "x".repeat(2001) }],
+      ["unknown status", { status: "open" }],
+      ["triaged_at on a new row", { triaged_at: now }],
+      ["triaged with no triaged_at", { status: "triaged" }],
+      [
+        "issue_number 0",
+        { status: "triaged", triaged_at: now, issue_number: 0 },
+      ],
+      ["issue_number on a new row", { issue_number: 7 }],
+      ["context that is not an object", { context: "[]" }],
+      [
+        "context over 2048 bytes",
+        { context: JSON.stringify({ route: "x".repeat(3000) }) },
+      ],
+    ];
+    for (const [name, fields] of refused)
+      await expect(insert(fields), name).rejects.toThrow(/check constraint/);
+
+    const key = await uuid();
+    await insert({ client_key: key });
+    await expect(
+      insert({ client_key: key }),
+      "second (user_id, client_key)",
+    ).rejects.toThrow(/unique constraint/);
+    await insert({ client_key: key, user_id: priya });
+    await insert({ body: "x".repeat(2000) });
+    await insert({ status: "triaged", triaged_at: now, issue_number: 844 });
+    const rows = await db.query<{
+      user_id: string;
+      client_key: string;
+      len: number;
+    }>("select user_id, client_key, char_length(body) as len from bug_reports");
+    expect(rows).toHaveLength(4);
+    expect(
+      rows
+        .filter((r) => r.client_key === key)
+        .map((r) => r.user_id)
+        .sort(),
+    ).toEqual([max, priya].sort());
+    expect(rows.some((r) => r.len === 2000)).toBe(true);
   });
 
   it("deleting an account removes everything that belongs to it", async () => {
