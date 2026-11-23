@@ -226,6 +226,29 @@ describe("night flight", () => {
     expect(E.fliesInDark(input)).toBe(true);
   });
 
+  it("dark flight ends at a cutoff that falls inside a minute", () => {
+    for (const offsetMs of [1, 30_000, 59_999, 90_500, 3 * 60_000 + 17_250]) {
+      const cutoff = nightRelease.departAtMs + offsetMs;
+      const input = { ...nightRelease, nightFlightUntilMs: cutoff };
+      const plan = E.computeFlightPlan(input);
+      const at = (ms: number) =>
+        E.positionAt(plan, input.from, input.to, ms).state;
+
+      expect(plan.segments[0], `offset ${offsetMs}`).toMatchObject({
+        kind: "fly",
+        startMs: nightRelease.departAtMs,
+        endMs: cutoff,
+      });
+      expect(plan.segments[1], `offset ${offsetMs}`).toMatchObject({
+        kind: "roost",
+        startMs: cutoff,
+      });
+      expect(at(cutoff - 1), `offset ${offsetMs}`).toBe("flying");
+      expect(at(cutoff), `offset ${offsetMs}`).toBe("roosting");
+      expect(plan.events.map((e) => e.kind)).toContain("dusk");
+    }
+  });
+
   it("goggles change nothing on a daylight flight", () => {
     const calm = vector("calm-short").input;
 

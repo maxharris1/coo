@@ -95,7 +95,8 @@ Starting at departure with fraction 0, repeat until fraction 1:
    for a King): add one minute of `roost`, unless the bird wears `nightgoggles` or the time is
    before `nightFlightUntilMs`. Continue.
 3. Otherwise fly for one minute at the speed of the current third. If that would pass the delay
-   point or the destination, fly only the exact part needed.
+   point or the destination, fly only the exact part needed. A bird flying in the dark without
+   `nightgoggles` also stops flying at `nightFlightUntilMs`, so it roosts from that moment.
 
 Neighbouring segments of the same kind are merged. The arrival time is where the loop ends.
 A bird released at night waits at the loft until sunrise. There is a 30 day safety limit.

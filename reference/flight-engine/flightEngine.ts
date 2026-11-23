@@ -213,7 +213,7 @@ export function onTimeOdds(input: FlightInput, distanceMi: number, inDark: boole
 }
 
 /**
- * True when the bird will fly at least one minute in the dark. Judged on the route without a
+ * True when the bird will fly in the dark at all. Judged on the route without a
  * delay, because the odds must be known before the delay is rolled.
  */
 export function fliesInDark(input: FlightInput): boolean {
@@ -270,7 +270,8 @@ export function computeFlightPlan(input: FlightInput): FlightPlan {
       continue;
     }
     const here = interpolate(input.from, input.to, frac);
-    if (!isDaylight(t, here, sunDeg) && !mayFlyAtNight(input, t)) {
+    const dark = !isDaylight(t, here, sunDeg);
+    if (dark && !mayFlyAtNight(input, t)) {
       const last = segments[segments.length - 1];
       if (!last || last.kind !== 'roost') events.push({ atMs: t, kind: frac === 0 ? 'nightwait' : 'dusk', pick: Math.floor(frac * 1000) });
       push('roost', t, t + c.stepMs, frac, frac);
@@ -283,6 +284,8 @@ export function computeFlightPlan(input: FlightInput): FlightPlan {
     let nextFrac = frac + stepFrac, dt = c.stepMs;
     const cap = !delayDone && frac < delayAtFrac ? Math.min(1, delayAtFrac) : 1;
     if (nextFrac >= cap) { dt = Math.ceil((c.stepMs * (cap - frac)) / stepFrac); nextFrac = cap; }
+    const until = input.nightFlightUntilMs;
+    if (dark && !has(input.gear, 'nightgoggles') && until !== undefined && t + dt > until) { dt = until - t; nextFrac = frac + (stepFrac * dt) / c.stepMs; }
     push('fly', t, t + dt, frac, nextFrac);
     t += dt; frac = nextFrac;
   }
