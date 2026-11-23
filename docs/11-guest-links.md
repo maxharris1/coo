@@ -15,7 +15,10 @@ A guest link carries a note on a bird already flying. An invite code (`/join/[co
    "Text it to Maya", Copy and Share. **Our server does not text the recipient.** The sender
    sends the link from their own phone. That keeps it personal and keeps us out of spam law.
 4. **Recipient** taps the link. No account, no app. They see the Guest page: who sent it, the
-   bird, the live map, "Lands in 41 min", and "Your note is sealed. It opens the moment Gerald lands."
+   bird, the live map, "Lands this afternoon", and "Your note is sealed. It opens the moment Gerald
+   lands." The lede gives the leave time as a time of day: a scheduled flight "leaves Brooklyn
+   this evening" (live voice), and a flight that has left "left Brooklyn this morning" or "left
+   Brooklyn yesterday evening" (past voice). See `docs/14-content-voice.md`.
    They can leave a phone number for one text when it lands.
 5. When the bird lands the page becomes GuestClaim: the note, the trip summary, and
    "Send Gerald home with a reply": name and phone number, "Make my loft".

@@ -36,13 +36,14 @@ A ready egg takes the next empty slot: "An egg is ready" (tap → `/aviary`).
 
 ### Recipients (`/send`)
 Shows: at the top, any bird of a friend's on my sill ("A reply rides home free" → Reply);
-friends with distance and a quick flight time for my fastest ready bird (computed in the browser
+friends with distance and a quick landing time for my fastest ready bird (computed in the browser
 with calm weather); on browsers with the Contact Picker, a "From your contacts" button; "Someone
 new" → NewRecipient. Multi-select with a running line: "2 picked. That takes 2 birds, and 2 are
 ready." Next is disabled when more are picked than birds are ready. Friends I cannot reach
-(no loft yet) are greyed with a reason. A trip that waits at the loft for sunrise is timed from
-sunrise: "About 4h 13m after sunrise." A bird in night-vision goggles that meets the dark flies
-on, and its line reads "Flies through the night. About {t}."
+(no loft yet) are greyed with a reason. The landing time is a time of day in the quote voice
+(`docs/14-content-voice.md`): "Lands this afternoon." A trip that waits at the loft for sunrise
+reads "Waits for sunrise. Leaves at first light. Lands {phrase}." A bird in night-vision goggles
+that meets the dark flies on, and its line reads "Flies through the night. Lands {phrase}."
 
 ### NewRecipient (`/send/new`)
 Name field. Place search (`/api/geo/search`) with result rows by kind. Helper text as drawn.
@@ -62,13 +63,15 @@ counter against the selected bird's limit; "Who's flying?" bird picker (ready bi
 others shown with why not: Hungry is selectable with a warning, Napping, Flying and Too tired
 are not); three stats (distance, flight time, arrival odds) and one line of plain-language
 forecast from `/api/flights/quote`; a Forecast link; the release button "Release {bird}".
-Flight time is the time in the air (`airTimeMs`). A bird released after dark waits at the loft
-until sunrise, and the forecast says "Waits for sunrise. Leaves at {leavesAt}. Lands around
-{arriveAt}." A bird that leaves now but roosts on the way shows the door-to-door time
+Flight time is the time in the air (`airTimeMs`). The forecast gives the landing as a time of
+day in the quote voice, read from the release (`docs/14-content-voice.md`): "Lands {phrase}.",
+such as "Lands this afternoon." A short hop reads "Lands shortly." A bird released after dark
+waits at the loft until sunrise, and the forecast says "Waits for sunrise. Leaves at first
+light. Lands {phrase}." A bird that leaves now but roosts on the way shows the door-to-door time
 (`durationMs`), and the forecast adds "Roosts for the night and finishes after sunrise." after
-"Lands around {arriveAt}." A bird in night-vision goggles that meets the dark (`fliesInDark`)
+"Lands {phrase}." A bird in night-vision goggles that meets the dark (`fliesInDark`)
 leaves at release and flies on. Its forecast says "Flies through the night (goggles). Lands
-around {arriveAt}." and its flight time is the time in the air. A leading factor, if any, follows the
+{phrase}." and its flight time is the time in the air. A leading factor, if any, follows the
 forecast. The night factor is left out there, since the night line already says it.
 When the picked bird's quote has an `espresso` variant (it would roost and wears no goggles),
 the row shows a checkbox under the stats: "Espresso shot · keep {bird} up tonight". It starts
@@ -78,7 +81,7 @@ clears the tick, whether the player picks another bird, a sync makes the bird un
 a change of recipients reassigns the birds, and getting the first bird back does not bring the
 tick back. While ticked, the
 row's stats come from the variant: the forecast says "Flies through the night (espresso). Lands
-around {arriveAt}.", the flight time is the variant's time in the air and the odds are the
+{phrase}.", the flight time is the variant's time in the air and the odds are the
 variant's odds. Release sends `espresso: true` on that row's send only when it is ticked. The
 Forecast page offers no shot, since it schedules and a scheduled send refuses one.
 With several recipients the picker assigns one bird per recipient, fastest bird to the farthest
@@ -90,25 +93,29 @@ Release → `POST /api/flights` → Takeoff. Errors appear as a toast and nothin
 ### Forecast (`/send/forecast`)
 Shows: route and day; departure chips for the next hours in `config/game.json`
 `schedule.forecastHours` that are still ahead, each with odds or "Roosts" when the bird would
-not arrive before sunset; the selected hour's odds, duration and arrival; "Along the route"
+not arrive before sunset; the selected hour's odds and landing time; "Along the route"
 rows from the quote's `factors`; the sunset line; two buttons: schedule for the best hour, or
 send at the selected hour. If the selected hour is now, the second button releases at once.
-For a bird that waits at the loft for sunrise (`leavesAt` after `releaseAt`), the selected
-hour's detail reads "Waits for sunrise, then about {airTimeMs} in the air. Lands near
-{arriveAt}." For a bird in night-vision goggles that flies through the dark (`fliesInDark`), it
-reads "Flies through the night. About {airTimeMs}. Lands near {arriveAt}." and the sunset line
-reads "Sunset is {sunsetAt}. With goggles on, {bird} flies on through the dark." Other hours
-read "About {durationMs}. Lands near {arriveAt}."
+The landing is a time of day in the quote voice, read from that hour's release
+(`docs/14-content-voice.md`). The selected hour's detail reads "Lands {phrase}.", such as "Lands
+this evening." For a bird that waits at the loft for sunrise (`leavesAt` after `releaseAt`), it
+reads "Waits for sunrise. Leaves at first light. Lands {phrase}." For a bird in night-vision
+goggles that flies through the dark (`fliesInDark`), it reads "Flies through the night. Lands
+{phrase}." and the sunset line reads "Sunset is {sunsetAt}. With goggles on, {bird} flies on
+through the dark." The departure chips and the sunset line keep their clock times.
 
 ### Takeoff (`/send/takeoff/[flightId]`) and TakeoffHome (`/sill/[visitId]/takeoff`)
 The 1.5 second takeoff sequence from `assets/motion.css` (see the Motion sheet), then the copy as
 drawn, then an automatic move to the tracker after one more second. Tapping the button goes at
 once. With reduced motion, show the final frame and do not auto-advance.
+Takeoff reads "{bird} has your note for {recipient}. {He} should land {phrase}." TakeoffHome
+reads "{bird} has your reply for {recipient}. {He} should land {phrase}." The phrase is a time
+of day in the quote voice, read from the release. "Released {time}" keeps its clock.
 After a send to a guest, Takeoff goes to ShareLink instead.
 
 ### ShareLink (`/send/share/[flightId]`)
-Shows the link once, the message preview, "Text it to {name}" (an `sms:` link with the template
-from `config/copy/sms.json`), Copy, and Share (Web Share API where present). The token exists only
+Shows the link once, the status line "Flying to {city}. Lands {phrase}.", the message preview,
+"Text it to {name}" (an `sms:` link with the template from `config/copy/sms.json`), Copy, and Share (Web Share API where present). The token exists only
 in this page's state; if the page is reloaded, show "This link was shown once. Send another bird
 to make a new one." and a button to the tracker.
 
@@ -123,9 +130,11 @@ One screen. `Flight`, `FlightBlock` and `FlightLong` are the same screen at diff
 - Card: avatars of bird and recipient, a state chip (In the air, Roosting, Delayed, Landed,
   Scheduled), the headline "{bird} is over {place}" / "Asleep near {place}" / "Last seen near
   {place}", a sub line, a progress bar with from-label, "{x} of {y} mi", to-label.
-- Three stats. Flying: Lands in, Speed, Altitude. Roosting: Takes off again, Lands roughly,
-  Tonight's roost. Altitude and roost names are for fun, picked by hash from short lists in the
-  copy file's tone (Rooftop, Lowish, Quite high; A barn, A water tower, A ledge).
+- Three stats. Flying: Lands ("this afternoon"), Speed, Altitude. Roosting: Takes off again
+  ("first light"), Lands, roughly ("tomorrow morning"), Tonight's roost. Landed: Lands in
+  ("0 sec"), Speed, Altitude. Landing times are a time of day in the live voice
+  (`docs/14-content-voice.md`). Altitude and roost names are for fun, picked by hash from short
+  lists in the copy file's tone (Rooftop, Lowish, Quite high; A barn, A water tower, A ledge).
 - Flight log, newest first, events whose time has passed. Seconds are shown for flights under ten minutes.
 - For an incoming flight the sub line reads "Carrying a note for you" and there is no log of
   the sender's seeds.
@@ -144,7 +153,7 @@ The report number is the owner's count of delayed flights.
 ### Flights (`/flights`)
 Sections: Your birds (scheduled, flying and delayed), Coming to you, Landed today, then a
 "Earlier" list that pages. Each row taps to the tracker. Odd jobs in progress appear under
-Your birds with their end time. The "On odd jobs" cards tap to the job tracker
+Your birds with "Home {phrase}". The "On odd jobs" cards tap to the job tracker
 (`/jobs/[id]`). A card whose job id is not known stays as text with no link.
 
 ### Job (`/jobs/[id]`) — the odd-job tracker
@@ -152,14 +161,14 @@ Owner only. Another user's job id shows "We could not find this job." with a lin
 The map reuses the tracker's `MapView` with the two legs from `jobLegs`. On the way out the bird
 flies from the "Your loft" pin to the destination pin, and the card says "On an odd job". From
 the midpoint it flies back with no wait and the card says "Heading home". The pin labels swap
-with the leg, so each pin keeps its own name. Both legs show "Home at {ends_at}" and the job's
+with the leg, so each pin keeps its own name. Both legs show "Home {phrase}" and the job's
 text. Once the job is done or `ends_at` has passed, the page says "{bird} is home." and links to
 Earn. A job started before destinations were stored has no map and shows the text card only.
 There are no odds, search party or seeds line.
 
 ### Landed (`/sill/[visitId]`) and the Sill tab (`/sill`)
 `/sill` lists birds waiting on my sill, soonest to leave first, then notes that arrived in the
-last 7 days. With one waiting bird it opens that bird's Landed screen directly.
+last 7 days. A waiting bird's row reads "From {name}. Leaves {phrase}." With one waiting bird it opens that bird's Landed screen directly.
 Landed is as drawn: the postmarked note card (postmark = sender's city and date), the trip
 summary line, "Send {bird} home with a reply", the snack button (hidden after use), and the
 countdown line. After the bird has left the buttons are replaced by "{bird} has gone home.
