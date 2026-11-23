@@ -24,7 +24,15 @@ import {
 type Purchase =
   | { kind: "gear"; id: GearId; price: number }
   | { kind: "birdbath"; price: number }
-  | { kind: "perch"; price: number };
+  | { kind: "perch"; price: number }
+  | { kind: "consumable"; id: ConsumableId; price: number };
+
+type Consumable = Deps["config"]["game"]["consumables"][number];
+
+const HELD_COLUMN = {
+  espresso: "espresso_shots",
+} as const satisfies Record<string, keyof Profile>;
+type ConsumableId = keyof typeof HELD_COLUMN;
 
 type Owner = {
   seeds: number;
@@ -35,10 +43,13 @@ type Owner = {
 
 const GEAR = new Map(config.gear.items.map((item) => [item.id, item]));
 const BIRDBATH = config.game.loftItems.find((item) => item.id === "birdbath");
+const CONSUMABLES = new Map(
+  config.game.consumables.map((item) => [item.id, item]),
+);
 const PERCHES = config.game.perches;
 const PERCH_PRICES: Partial<Record<string, number>> = PERCHES.prices;
 
-type BuyInput = { itemId: string; price: number };
+type BuyInput = { itemId: string; price: number; actionId: string };
 
 function resolvePurchase(input: BuyInput, owner: Owner): Purchase {
   const purchase = choose(input.itemId, owner);
@@ -67,6 +78,14 @@ function choose(itemId: string, owner: Owner): Purchase {
       throw new AppError("conflict", "The loft already has a birdbath.");
     }
     return { kind: "birdbath", price: BIRDBATH.price };
+  }
+  const consumable = CONSUMABLES.get(itemId);
+  if (consumable) {
+    return {
+      kind: "consumable",
+      id: consumable.id as ConsumableId,
+      price: consumable.price,
+    };
   }
   const gear = GEAR.get(itemId);
   if (!gear) throw new AppError("invalid", "itemId: not in the shop");
@@ -172,6 +191,11 @@ export async function buy(
       [caller],
     );
     if (!profile) throw new AppError("not_found", "No such account.");
+    const [done] = await db.query(
+      "select 1 from seed_ledger where user_id = $1 and reason = 'shop' and ref_id = $2",
+      [caller, input.actionId],
+    );
+    if (done) return { me: toMe(profile), closet: await closetOf(db, caller) };
     const purchase = resolvePurchase(input, {
       seeds: profile.seeds,
       hasBirdbath: profile.has_birdbath,
@@ -198,10 +222,19 @@ export async function buy(
           [caller],
         );
         break;
+      case "consumable": {
+        const column = HELD_COLUMN[purchase.id];
+        await db.query(
+          `update profiles set ${column} = ${column} + 1 where id = $1`,
+          [caller],
+        );
+        break;
+      }
     }
-    await db.query("select apply_seeds($1, $2, 'shop', null)", [
+    await db.query("select apply_seeds($1, $2, 'shop', $3)", [
       caller,
       -purchase.price,
+      input.actionId,
     ]);
     const [updated] = await db.query<Profile>(
       "select * from profiles where id = $1",
@@ -224,6 +257,10 @@ type ShopLoftItem = Pick<LoftItem, "id" | "name" | "effect" | "price"> & {
   owned: boolean;
   affordable: boolean;
 };
+type ShopConsumable = Pick<Consumable, "id" | "name" | "effect" | "price"> & {
+  held: number;
+  affordable: boolean;
+};
 type NextPerch = {
   number: number;
   price: number;
@@ -235,6 +272,7 @@ export type Shop = {
   gear: ShopGear[];
   loftItems: ShopLoftItem[];
   nextPerch: NextPerch | null;
+  consumables: ShopConsumable[];
 };
 
 const loftOwned: Partial<Record<string, (profile: Profile) => boolean>> = {
@@ -271,6 +309,20 @@ function shopLoftItem(item: LoftItem, profile: Profile): ShopLoftItem {
   };
 }
 
+function shopConsumable(
+  { id, name, effect, price }: Consumable,
+  profile: Profile,
+): ShopConsumable {
+  return {
+    id,
+    name,
+    effect,
+    price,
+    held: profile[HELD_COLUMN[id as ConsumableId]],
+    affordable: profile.seeds >= price,
+  };
+}
+
 function nextPerch(
   perches: Perches,
   owned: number,
@@ -302,5 +354,8 @@ export async function listShop(
       shopLoftItem(item, profile),
     ),
     nextPerch: nextPerch(deps.config.game.perches, profile.perches, seeds),
+    consumables: deps.config.game.consumables.map((item) =>
+      shopConsumable(item, profile),
+    ),
   };
 }

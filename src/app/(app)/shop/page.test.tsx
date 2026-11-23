@@ -12,7 +12,13 @@ const css = readFileSync(
   new URL("./ShopTop.module.css", import.meta.url),
   "utf8",
 );
-const SHOP: Shop = { seeds: 240, gear: [], loftItems: [], nextPerch: null };
+const SHOP: Shop = {
+  seeds: 240,
+  gear: [],
+  loftItems: [],
+  nextPerch: null,
+  consumables: [],
+};
 
 describe("/shop header (ac-1)", () => {
   const html = renderToStaticMarkup(<ShopTop seeds={240} />);

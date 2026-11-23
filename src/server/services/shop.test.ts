@@ -100,6 +100,7 @@ const LISTED = new Map<string, number>(
 const item = (itemId: string, price = LISTED.get(itemId) ?? 0) => ({
   itemId,
   price,
+  actionId: crypto.randomUUID(),
 });
 
 async function refusal(promise: Promise<unknown>) {
@@ -291,7 +292,7 @@ describe("buy", () => {
   ])("refuses %s as conflict and charges nothing", async (_, itemId, price) => {
     await grant(max, 1000);
     const before = await wallet(max);
-    const err = await buy(deps, max, { itemId, price }).catch(
+    const err = await buy(deps, max, item(itemId, price)).catch(
       (e: { code?: string; message?: string }) => e,
     );
     expect(err).toMatchObject({
@@ -458,5 +459,84 @@ describe("buy", () => {
     expect(settleFlight(after, plan, input, { hasBirdbath: true })).toEqual(
       after,
     );
+  });
+});
+
+describe("buy espresso", () => {
+  async function shots(user: string) {
+    const [{ espresso_shots }] = await deps.db.query<{
+      espresso_shots: number;
+    }>("select espresso_shots from profiles where id = $1", [user]);
+    return espresso_shots;
+  }
+
+  async function setSeeds(user: string, seeds: number) {
+    const { seeds: current } = await wallet(user);
+    if (seeds !== current) await grant(user, seeds - current);
+  }
+
+  const espresso = (price = 25) => ({
+    itemId: "espresso",
+    price,
+    actionId: crypto.randomUUID(),
+  });
+
+  it("sells a shot as often as asked, 25 seeds each, through the ledger", async () => {
+    await setSeeds(max, 60);
+    const shotA = espresso();
+    const shotB = espresso();
+    await buy(deps, max, shotA);
+    const result = await buy(deps, max, shotB);
+    expect(result.me).toMatchObject({ seeds: 10 });
+    expect(await shots(max)).toBe(2);
+    const after = await wallet(max);
+    expect(after.seeds).toBe(10);
+    expect(after.ledgerSum).toBe(after.seeds);
+    const ledger = await deps.db.query<{ delta: number; ref_id: string }>(
+      "select delta, ref_id from seed_ledger where user_id = $1 and reason = 'shop' order by id",
+      [max],
+    );
+    expect(ledger).toEqual([
+      { delta: -25, ref_id: shotA.actionId },
+      { delta: -25, ref_id: shotB.actionId },
+    ]);
+  });
+
+  it("charges and stocks a replayed shot once", async () => {
+    await setSeeds(max, 60);
+    const input = { ...espresso(), actionId: crypto.randomUUID() };
+    const first = await buy(deps, max, input);
+    const committed = await wallet(max);
+    const replay = await buy(deps, max, input);
+    expect(replay).toEqual(first);
+    expect(await wallet(max)).toEqual(committed);
+    expect(committed.seeds).toBe(35);
+    expect(await shots(max)).toBe(1);
+  });
+
+  it("refuses a shot at 24 seeds as insufficient_seeds and changes nothing", async () => {
+    await setSeeds(max, 24);
+    const before = await wallet(max);
+    await expect(buy(deps, max, espresso())).rejects.toMatchObject({
+      code: "insufficient_seeds",
+      message: "Not enough seeds for that.",
+    });
+    expect(await wallet(max)).toEqual(before);
+    expect(await shots(max)).toBe(0);
+  });
+
+  it("refuses a shot at the wrong price as conflict and charges nothing", async () => {
+    await setSeeds(max, 100);
+    const before = await wallet(max);
+    expect(await refusal(buy(deps, max, espresso(20)))).toBe("conflict");
+    expect(await wallet(max)).toEqual(before);
+    expect(await shots(max)).toBe(0);
+  });
+
+  it("stocks only the caller's shots", async () => {
+    await setSeeds(max, 100);
+    const other = world.priya.id;
+    await buy(deps, max, espresso());
+    expect(await shots(other)).toBe(0);
   });
 });

@@ -205,4 +205,38 @@ describe("GET /api/shop", () => {
     expect(json.loftItems[0]).toMatchObject({ owned: false });
     expect(json.nextPerch).toMatchObject({ number: 4, toGo: 240 });
   });
+
+  it("lists the espresso shot with how many the caller holds", async () => {
+    const { id, jar } = await onboarded("(555) 123-4567", "Max");
+    await setSeeds(id, 24);
+    let { json } = await client.get({}, jar);
+    expect(json.consumables).toEqual([
+      {
+        id: "espresso",
+        name: "Espresso shot",
+        effect: "One night of flying",
+        price: 25,
+        held: 0,
+        affordable: false,
+      },
+    ]);
+    await setSeeds(id, 25);
+    await deps.db.query(
+      "update profiles set espresso_shots = 3 where id = $1",
+      [id],
+    );
+    ({ json } = await client.get({}, jar));
+    expect(json.consumables[0]).toMatchObject({ held: 3, affordable: true });
+  });
+
+  it("never shows another player's espresso shots", async () => {
+    const other = await onboarded("(555) 765-4321", "Brenda");
+    await deps.db.query(
+      "update profiles set espresso_shots = 4 where id = $1",
+      [other.id],
+    );
+    const { jar } = await onboarded("(555) 123-4567", "Max");
+    const { json } = await client.get({ userId: other.id }, jar);
+    expect(json.consumables[0]).toMatchObject({ id: "espresso", held: 0 });
+  });
 });

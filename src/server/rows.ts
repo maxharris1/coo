@@ -38,6 +38,7 @@ export const COLUMNS = {
     seeds: "int4",
     perches: "int2",
     has_birdbath: "bool",
+    espresso_shots: "int4",
     deliveries_count: "int4",
     home_lat: "float8?",
     home_lon: "float8?",

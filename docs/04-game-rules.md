@@ -180,6 +180,11 @@ Spent:
 | Gear | 60 to 200, see `config/gear.json` |
 | Rooftop birdbath | 220 |
 | Perch 4, perch 5 | 250, 400 |
+| Espresso shot | 25 each, see `consumables` in `config/game.json` |
+
+The Espresso shot's effect is "One night of flying". It stacks: a player can buy as many as they
+like, and the Shop shows how many they hold. Spending one at send time comes with the flight
+rules for it; until then a shot is only held.
 
 Example: Brooklyn to Philadelphia is 81 miles. 10 + floor(81 / 25) = 13 seeds.
 

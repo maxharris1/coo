@@ -6,6 +6,7 @@ import {
   confirmLine,
   loadShop,
   purchase,
+  settle,
   shopRows,
   type BuyRow,
   type Purchase,
@@ -59,6 +60,7 @@ const MOCK: Shop = {
     },
   ],
   nextPerch: { number: 5, price: 400, toGo: 160, affordable: false },
+  consumables: [],
 };
 
 const buyable = (rows: ShopRow[]) =>
@@ -267,8 +269,13 @@ describe("buyItem", () => {
     action: { kind: "buy", price: 250 },
   };
 
-  it("posts the item id and its confirmed price to /api/shop/buy and returns me and the closet", async () => {
-    const fetchImpl = vi.fn(async () => json(200, bought));
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+  const sentBodies = (fetchImpl: ReturnType<typeof vi.fn<typeof fetch>>) =>
+    fetchImpl.mock.calls.map(([, init]) => JSON.parse(String(init?.body)));
+
+  it("posts the item id, its confirmed price and an actionId to /api/shop/buy and returns me and the closet", async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => json(200, bought));
     await expect(buyItem(fourthPerch, fetchImpl)).resolves.toEqual({
       ok: true,
       data: bought,
@@ -276,8 +283,19 @@ describe("buyItem", () => {
     expect(fetchImpl).toHaveBeenCalledWith("/api/shop/buy", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ itemId: "perch", price: 250 }),
+      body: expect.any(String),
     });
+    expect(sentBodies(fetchImpl)).toEqual([
+      { itemId: "perch", price: 250, actionId: expect.stringMatching(UUID) },
+    ]);
+  });
+
+  it("sends a fresh actionId with each buy", async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => json(200, bought));
+    await buyItem(fourthPerch, fetchImpl);
+    await buyItem(fourthPerch, fetchImpl);
+    const [first, second] = sentBodies(fetchImpl);
+    expect(first.actionId).not.toBe(second.actionId);
   });
 
   it("returns the API's message and code when the purchase is refused", async () => {
@@ -427,5 +445,56 @@ describe("completeBuy (part 4 ac-2)", () => {
       "toast We could not reach the loft. Try again.",
     ]);
     expect(rows).toBe(before);
+  });
+});
+
+describe("espresso shots", () => {
+  const ESPRESSO = {
+    id: "espresso",
+    name: "Espresso shot",
+    effect: "One night of flying",
+    price: 25,
+  };
+  const withShots = (seeds: number, held: number): Shop => ({
+    ...MOCK,
+    seeds,
+    consumables: [{ ...ESPRESSO, held, affordable: seeds >= 25 }],
+  });
+  const shotRow = (rows: { loft: ShopRow[] }) =>
+    rows.loft.find((row) => row.itemId === "espresso");
+
+  it("lists the shot in the loft as a buy row with how many are held", () => {
+    expect(shotRow(shopRows(withShots(240, 2)))).toEqual({
+      itemId: "espresso",
+      name: "Espresso shot",
+      effect: "One night of flying",
+      held: 2,
+      action: { kind: "buy", price: 25 },
+    });
+  });
+
+  it("shows the seeds to go when a shot is out of reach", () => {
+    expect(shotRow(shopRows(withShots(10, 0)))?.action).toEqual({
+      kind: "short",
+      price: 25,
+      toGo: 15,
+    });
+  });
+
+  it("keeps the shot buyable after a buy and holds one more", () => {
+    const rows = shopRows(withShots(60, 1));
+    const bought = buyable(rows.loft).find((r) => r.itemId === "espresso")!;
+    const once = settle(rows, bought);
+    expect(once.seeds).toBe(35);
+    expect(shotRow(once)).toMatchObject({
+      held: 2,
+      action: { kind: "buy", price: 25 },
+    });
+    const twice = settle(once, bought);
+    expect(twice.seeds).toBe(10);
+    expect(shotRow(twice)).toMatchObject({
+      held: 3,
+      action: { kind: "short", price: 25, toGo: 15 },
+    });
   });
 });

@@ -126,7 +126,11 @@ describe("POST /api/eggs/hatch", () => {
     expect(await birdCount(id)).toBe(3);
     expect((await eggsOf(id)).map((e) => e.status)).toEqual(["ready"]);
 
-    await buy(deps, id as UserId, { itemId: "perch", price: 250 });
+    await buy(deps, id as UserId, {
+      itemId: "perch",
+      price: 250,
+      actionId: crypto.randomUUID(),
+    });
 
     const { status, json } = await client.post(PRETZEL, jar);
     expect(status).toBe(200);

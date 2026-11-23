@@ -20,6 +20,7 @@ const TINTS: Partial<Record<string, Tint>> = {
   booties: "peach",
   birdbath: "sky",
   perch: "sun",
+  espresso: "peach",
 };
 
 function BirdbathIcon() {
@@ -88,9 +89,50 @@ function PerchIcon() {
   );
 }
 
+function CupIcon() {
+  return (
+    <svg width="38" height="38" viewBox="0 0 32 32">
+      <path
+        d="M7 13 H22 V20 Q22 26 14.5 26 Q7 26 7 20 Z"
+        fill={CARD}
+        stroke={INK}
+        strokeWidth="2.2"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M22 15 H24.5 Q27 15 27 17.5 Q27 20 24.5 20 H22"
+        fill="none"
+        stroke={INK}
+        strokeWidth="2.2"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M9.4 15.6 H19.6"
+        stroke="#D99A6C"
+        strokeWidth="2.4"
+        strokeLinecap="round"
+      />
+      <path
+        d="M5 29 H24"
+        stroke={INK}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+      />
+      <path
+        d="M11 10 q2 -2.5 0 -5 M16 10 q2 -2.5 0 -5"
+        fill="none"
+        stroke={INK}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 const LOFT_ICONS: Partial<Record<string, () => ReactElement>> = {
   birdbath: BirdbathIcon,
   perch: PerchIcon,
+  espresso: CupIcon,
 };
 
 function ItemIcon({ itemId }: { itemId: string }) {
@@ -173,7 +215,12 @@ function Rows({
       </div>
       <div className={styles.text}>
         <div className={styles.name}>{row.name}</div>
-        <div className={styles.effect}>{row.effect}</div>
+        <div className={styles.effect}>
+          {row.effect}
+          {row.held !== undefined && (
+            <span className={styles.held}>{row.held} owned</span>
+          )}
+        </div>
       </div>
       <Action row={row} onBuy={onBuy} />
       {burst?.itemId === row.itemId && <Burst key={burst.seq} />}

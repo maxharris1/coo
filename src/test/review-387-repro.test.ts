@@ -66,7 +66,11 @@ describe("f-1: a confirmation always names the price the server charges (ac-1)",
     const next = await completeBuy(fourth!, rows, {
       buy: async ({ itemId, action }) => ({
         ok: true,
-        data: await buy(deps, max, { itemId, price: action.price }),
+        data: await buy(deps, max, {
+          itemId,
+          price: action.price,
+          actionId: crypto.randomUUID(),
+        }),
       }),
       load: async () => ({
         ok: false,
@@ -85,6 +89,7 @@ describe("f-1: a confirmation always names the price the server charges (ac-1)",
       await buy(deps, max, {
         itemId: offer.itemId,
         price: offer.action.price,
+        actionId: crypto.randomUUID(),
       });
       expect(
         (await charged()) - before,
@@ -106,6 +111,7 @@ describe("f-1: a confirmation always names the price the server charges (ac-1)",
     await buy(deps, max, {
       itemId: fourthB.itemId,
       price: fourthB.action.price,
+      actionId: crypto.randomUUID(),
     });
 
     const toasts: string[] = [];
@@ -114,7 +120,11 @@ describe("f-1: a confirmation always names the price the server charges (ac-1)",
         try {
           return {
             ok: true,
-            data: await buy(deps, max, { itemId, price: action.price }),
+            data: await buy(deps, max, {
+              itemId,
+              price: action.price,
+              actionId: crypto.randomUUID(),
+            }),
           };
         } catch (err) {
           if (!(err instanceof AppError)) throw err;
@@ -152,6 +162,7 @@ const SHOP: Shop = {
   gear: [],
   loftItems: [],
   nextPerch: { number: 5, price: 400, toGo: 0, affordable: true },
+  consumables: [],
 };
 
 describe("f-2: the bought item's burst outlives its offer row (ac-2)", () => {

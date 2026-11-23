@@ -28,6 +28,7 @@ One per user. `id` equals the Supabase Auth user id.
   suffix, the secret in the invite link.
 - `seeds`: the balance. Changed only by `apply_seeds`.
 - `perches` (3 to 5), `has_birdbath`.
+- `espresso_shots`: Espresso shots held, bought in the Shop. Integer, default 0, never negative.
 - `deliveries_count`: lifetime deliveries landed. Drives eggs.
 - `home_*`: the loft. `home_lat`/`home_lon` are already snapped to the roost grid; the exact
   position is never stored. `home_label` is a neighbourhood ("Williamsburg"). `home_city` and
