@@ -322,3 +322,80 @@ describe("Tracker chrome and pins (ac-4)", () => {
     expect(page).toContain("Rosa, Philly");
   });
 });
+
+const FLY_VB = 'viewBox="-24 -12 164 120"';
+const PERCH_VB = 'viewBox="-10 -22 140 132"';
+
+function mapBird(html: string): string {
+  const svg = html.match(/<svg[^>]*aria-label="Gerald"[^>]*>.*?<\/svg>/s);
+  if (!svg) throw new Error("Tracker rendered no map bird");
+  return svg[0];
+}
+
+function renderAt(flight: Flight, nowMs: number): string {
+  vi.setSystemTime(nowMs);
+  return renderToStaticMarkup(
+    <Tracker flight={flight} offsetMs={0} timeZone={TZ} units="mi" />,
+  );
+}
+
+function expectPerched(bird: string) {
+  expect(bird).toContain(PERCH_VB);
+  expect(bird).not.toContain("coo-fly-core");
+  expect(bird).not.toContain("coo-fly-tail");
+}
+
+describe("the map bird matches the tracker chip (#846)", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it("lands the map bird once the flight is landed", () => {
+    const flight = flightFrom("calm-short", { status: "landed" });
+    const html = renderAt(flight, at(flight, 0.5));
+    expect(text(html)).toContain("Landed");
+    expect(text(html)).toContain("Gerald landed at Philly");
+    expectPerched(mapBird(html));
+    expect(mapBird(html)).toContain("coo-hop");
+  });
+
+  it("lands the map bird once the clock passes the arrival", () => {
+    const flight = flightFrom("calm-short");
+    const html = renderAt(flight, flight.arriveAt! + 1000);
+    expect(text(html)).toContain("Gerald landed at Philly");
+    expectPerched(mapBird(html));
+    expect(mapBird(html)).toContain("coo-hop");
+  });
+
+  it("keeps the map bird flapping in the air at 50%", () => {
+    const flight = flightFrom("calm-short");
+    const html = renderAt(flight, at(flight, 0.5));
+    expect(text(html)).toContain("In the air");
+    expect(mapBird(html)).toContain(FLY_VB);
+    expect(mapBird(html)).toContain("coo-fly-core");
+  });
+
+  it("puts the map bird to sleep while it roosts", () => {
+    const flight = flightFrom("chicago-overnight");
+    const html = renderAt(flight, nyTime("20", "02:00"));
+    expect(text(html)).toContain("Roosting");
+    expectPerched(mapBird(html));
+    expect(mapBird(html)).toContain("coo-snooze");
+  });
+
+  it("startles the map bird while it is delayed", () => {
+    const flight = flightFrom("delay-minor");
+    const delay = flight.plan!.segments.find((s) => s.kind === "delay")!;
+    const html = renderAt(flight, (delay.startMs + delay.endMs) / 2);
+    expect(text(html)).toContain("Delayed");
+    expectPerched(mapBird(html));
+    expect(mapBird(html)).toContain("M112 14 L120 4");
+  });
+
+  it("perches the map bird before release", () => {
+    const flight = flightFrom("calm-short", { status: "scheduled" });
+    const html = renderAt(flight, flight.releaseAt - 60_000);
+    expect(text(html)).toContain("Scheduled");
+    expectPerched(mapBird(html));
+    expect(mapBird(html)).not.toContain("coo-hop");
+  });
+});

@@ -7,8 +7,11 @@ import type { GuestView as Guest } from "@/server/services/guestLinks/get";
 import { GuestExpired } from "./GuestExpired";
 import { GuestView, guestCopy } from "./GuestView";
 
-vi.mock("@/components/MapView", () => ({
-  MapView: () => <div data-map="true" />,
+vi.mock("@/components/MapView", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/components/MapView")>()),
+  MapView: ({ state }: { state?: string }) => (
+    <div data-map="true" data-state={state} />
+  ),
 }));
 
 type Vector = { name: string; input: FlightInput; plan: FlightPlan };
@@ -114,6 +117,23 @@ describe("Guest page, sealed (Guest.png)", () => {
     const words = text(render(g, g.flight.releaseAt - 60_000));
     expect(words).toContain("Waiting in Brooklyn");
     expect(words).toContain("Your note is sealed");
+  });
+});
+
+describe("Guest page, live map bird (#846 ac-4)", () => {
+  it("lands the map bird when the progress line says Landed", () => {
+    const g = guestFlying({
+      flight: { ...guestFlying().flight, status: "landed" },
+    });
+    const html = render(g);
+    expect(text(html)).toContain("Landed in Philadelphia");
+    expect(html).toContain('data-state="landed"');
+  });
+
+  it("keeps the map bird flying mid-route", () => {
+    const html = render(guestFlying());
+    expect(text(html)).toContain("Over Trenton");
+    expect(html).toContain('data-state="flying"');
   });
 });
 

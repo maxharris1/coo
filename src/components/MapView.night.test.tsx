@@ -4,6 +4,7 @@ import type { ReactElement, ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FlightInput, FlightPlan } from "@/lib/flight/engine";
 import type { Flight } from "@/server/services/flights/shape";
+import { Bird } from "./Bird";
 import { MapView } from "./MapView";
 import { Tracker } from "./Tracker";
 
@@ -57,9 +58,15 @@ const lib = vi.hoisted(() => {
     }
   }
   const maps: FakeMap[] = [];
+  const markers: FakeMarker[] = [];
 
   class FakeMarker {
-    setLngLat() {
+    lngLat: [number, number] | undefined;
+    constructor() {
+      markers.push(this);
+    }
+    setLngLat(lngLat: [number, number]) {
+      this.lngLat = lngLat;
       return this;
     }
     addTo() {
@@ -76,7 +83,7 @@ const lib = vi.hoisted(() => {
     }
   }
 
-  return { hooks, maps, FakeMap, FakeMarker, FakeBounds };
+  return { hooks, maps, markers, FakeMap, FakeMarker, FakeBounds };
 });
 
 vi.mock("maplibre-gl", () => ({
@@ -119,7 +126,11 @@ const vectors: Vector[] = JSON.parse(
 ).vectors;
 
 function chicago(): Flight {
-  const v = vectors.find((x) => x.name === "chicago-overnight")!;
+  return fromVector("chicago-overnight", "Chicago");
+}
+
+function fromVector(name: string, toLabel: string): Flight {
+  const v = vectors.find((x) => x.name === name)!;
   return {
     id: v.input.flightId,
     kind: "delivery",
@@ -128,7 +139,7 @@ function chicago(): Flight {
     owner: { id: "u1", name: "Max", handle: "max" },
     counterpart: { id: "u2", name: "Priya", handle: "priya" },
     from: { ...v.input.from, label: "Brooklyn" },
-    to: { ...v.input.to, label: "Chicago" },
+    to: { ...v.input.to, label: toLabel },
     releaseAt: v.plan.segments[0].startMs,
     arriveAt: v.plan.arriveAtMs,
     distanceMi: v.plan.distanceMi,
@@ -140,18 +151,27 @@ function chicago(): Flight {
   };
 }
 
-function findMapView(node: ReactNode): ReactElement | undefined {
+function find(node: ReactNode, type: unknown): ReactElement | undefined {
   if (!node || typeof node !== "object") return undefined;
   if (Array.isArray(node)) {
     for (const child of node) {
-      const found = findMapView(child);
+      const found = find(child, type);
       if (found) return found;
     }
     return undefined;
   }
   const el = node as ReactElement<{ children?: ReactNode }>;
-  if (el.type === MapView) return el;
-  return findMapView(el.props?.children);
+  if (el.type === type) return el;
+  return find(el.props?.children, type);
+}
+
+function words(node: ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") return `${node} `;
+  if (!node || typeof node !== "object") return "";
+  if (Array.isArray(node)) return node.map(words).join("");
+  return words(
+    (node as ReactElement<{ children?: ReactNode }>).props?.children,
+  );
 }
 
 function renderTracker(flight: Flight) {
@@ -164,10 +184,16 @@ function renderTracker(flight: Flight) {
     timeZone: "America/New_York",
     units: "mi",
   });
-  const map = findMapView(tree);
+  const map = find(tree, MapView);
   if (!map) throw new Error("Tracker rendered no MapView");
-  MapView(map.props as Parameters<typeof MapView>[0]);
+  const drawn = MapView(map.props as Parameters<typeof MapView>[0]);
   for (const run of lib.hooks.pending) run();
+  const bird = find(drawn, Bird);
+  if (!bird) throw new Error("MapView rendered no bird");
+  return {
+    page: words(tree),
+    pose: (bird.props as { pose: string }).pose,
+  };
 }
 
 async function mapCreated() {
@@ -180,6 +206,7 @@ beforeEach(() => {
   lib.hooks.refs = [];
   lib.hooks.effects = [];
   lib.maps.length = 0;
+  lib.markers.length = 0;
   vi.stubGlobal("requestAnimationFrame", () => 1);
   vi.stubGlobal(
     "ResizeObserver",
@@ -215,9 +242,10 @@ describe("the tracker map on the Chicago vector (ac-2)", () => {
 
     vi.setSystemTime(Date.parse("2026-11-20T02:00:00-05:00"));
     renderTracker(flight);
-    expect(map.styles.map((s) => s.style), "style requests at 2 am").toEqual([
-      NIGHT_STYLE,
-    ]);
+    expect(
+      map.styles.map((s) => s.style),
+      "style requests at 2 am",
+    ).toEqual([NIGHT_STYLE]);
     expect(lib.maps.length, "the same map is restyled, not rebuilt").toBe(1);
 
     map.fire("style.load");
@@ -226,5 +254,62 @@ describe("the tracker map on the Chicago vector (ac-2)", () => {
       "route-flown-casing",
       "route-flown",
     ]);
+  });
+});
+
+describe("the tracker map as a short hop lands (#846 ac-2)", () => {
+  let frames: FrameRequestCallback[] = [];
+  const nextFrame = () => frames.at(-1)!(0);
+  const birdAt = () => lib.markers[2].lngLat;
+
+  beforeEach(() => {
+    frames = [];
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+      frames.push(cb);
+      return frames.length;
+    });
+  });
+
+  it("perches the bird on the loft before release", async () => {
+    const flight = fromVector("block", "Philly");
+    vi.setSystemTime(flight.releaseAt - 60_000);
+    const view = renderTracker({ ...flight, status: "scheduled" });
+    await mapCreated();
+    nextFrame();
+    expect(view.page).toContain("Scheduled");
+    expect(view.pose).toBe("perched");
+    expect(birdAt()).toEqual([flight.from.lon, flight.from.lat]);
+  });
+
+  it("flips the chip and the pose together and keeps the same map", async () => {
+    const flight = fromVector("block", "Philly");
+    vi.setSystemTime(flight.arriveAt! - 1000);
+    const before = renderTracker(flight);
+    const map = await mapCreated();
+    expect(before.page).toContain("In the air");
+    expect(before.pose).toBe("fly");
+
+    vi.setSystemTime(flight.arriveAt! + 1000);
+    const after = renderTracker(flight);
+    nextFrame();
+    expect(after.page).toContain("Landed");
+    expect(after.pose).toBe("landed");
+    expect(birdAt(), "bird on the sill").toEqual([
+      flight.to.lon,
+      flight.to.lat,
+    ]);
+    expect(lib.maps.length, "the same map, not rebuilt").toBe(1);
+    expect(map.removed, "the map is still open").toBe(false);
+  });
+
+  it("puts a landed bird on the sill before the local clock catches up", async () => {
+    const flight = fromVector("block", "Philly");
+    vi.setSystemTime(flight.arriveAt! - 30_000);
+    const view = renderTracker({ ...flight, status: "landed" });
+    await mapCreated();
+    nextFrame();
+    expect(view.page).toContain("Landed");
+    expect(view.pose).toBe("landed");
+    expect(birdAt()).toEqual([flight.to.lon, flight.to.lat]);
   });
 });
