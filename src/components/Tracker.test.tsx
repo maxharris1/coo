@@ -141,6 +141,93 @@ describe("Tracker on the block vector (ac-3)", () => {
   });
 });
 
+describe("Tracker in kilometres", () => {
+  it("counts the progress in km when the user picks km", () => {
+    const flight = flightFrom("calm-short");
+    const view = trackerView(flight, at(flight, 0.5), TZ, "km");
+    expect(view.progress.text).toBe("66 of 132 km");
+  });
+
+  it("keeps decimals on a short flight in km", () => {
+    const flight = flightFrom("block", { status: "landed" });
+    const view = trackerView(flight, flight.arriveAt! + 60_000, TZ, "km");
+    expect(view.progress.text).toBe("3.5 of 3.5 km");
+  });
+});
+
+describe("trackerView states", () => {
+  it("is Scheduled before release", () => {
+    const flight = flightFrom("calm-short", { status: "scheduled" });
+    const view = trackerView(flight, flight.releaseAt - 60_000, TZ, "mi");
+    expect(view.state).toBe("scheduled");
+    expect(view.chip).toBe("Scheduled");
+    expect(view.progress.text).toBe("0 of 82 mi");
+  });
+
+  it("is Landed once the flight has landed", () => {
+    const flight = flightFrom("calm-short", { status: "landed" });
+    const view = trackerView(flight, flight.arriveAt! + 60_000, TZ, "mi");
+    expect(view.state).toBe("landed");
+    expect(view.chip).toBe("Landed");
+    expect(view.progress.text).toBe("82 of 82 mi");
+  });
+
+  it("keeps the landed stats a minute after landing", () => {
+    for (const name of ["calm-short", "block"]) {
+      const flight = flightFrom(name, { status: "landed" });
+      const view = trackerView(flight, flight.arriveAt! + 60_000, TZ, "mi");
+      expect(view.stats[0]).toEqual({ value: "0 sec", label: "Lands in" });
+    }
+  });
+
+  it("keeps the landed stats once the clock passes the arrival", () => {
+    const flight = flightFrom("calm-short");
+    const view = trackerView(flight, flight.arriveAt! + 60_000, TZ, "mi");
+    expect(view.state).toBe("landed");
+    expect(view.stats[0]).toEqual({ value: "0 sec", label: "Lands in" });
+  });
+
+  it("names the place from the nearest decile", () => {
+    const deciles = Array.from({ length: 11 }, (_, i) => `Town ${i}`);
+    deciles[5] = "Trenton, NJ";
+    const flight = flightFrom("calm-short", {
+      placeNames: { deciles, events: {}, dest: null } as never,
+    });
+    const view = trackerView(flight, at(flight, 0.5), TZ, "mi");
+    expect(view.headline).toBe("Gerald is over Trenton, NJ");
+  });
+
+  it("falls back to the friend when the geocoder was down", () => {
+    const flight = flightFrom("calm-short", {
+      placeNames: { deciles: [], events: {}, dest: null } as never,
+    });
+    const view = trackerView(flight, at(flight, 0.5), TZ, "mi");
+    expect(view.headline).toBe("Gerald is on the way to Priya");
+  });
+
+  it("falls back to the friend for legacy empty place names", () => {
+    const flight = flightFrom("calm-short", { placeNames: {} });
+    const view = trackerView(flight, at(flight, 0.5), TZ, "mi");
+    expect(view.headline).toBe("Gerald is on the way to Priya");
+  });
+
+  it("falls back to the friend when the nearest decile has no name", () => {
+    const deciles: (string | null)[] = Array(11).fill("Somewhere");
+    deciles[5] = null;
+    const flight = flightFrom("calm-short", {
+      placeNames: { deciles, events: {}, dest: null } as never,
+    });
+    const view = trackerView(flight, at(flight, 0.5), TZ, "mi");
+    expect(view.headline).toBe("Gerald is on the way to Priya");
+  });
+
+  it("says on the way to you for an incoming bird", () => {
+    const flight = flightFrom("calm-short", { role: "incoming" });
+    const view = trackerView(flight, at(flight, 0.5), TZ, "mi");
+    expect(view.headline).toBe("Gerald is on the way to you");
+  });
+});
+
 function nyTime(day: string, hhmm: string): number {
   return Date.parse(`2026-11-${day}T${hhmm}:00-05:00`);
 }

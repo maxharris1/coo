@@ -7,7 +7,7 @@ import {
   isDaylight,
   positionAt,
 } from "@/lib/flight/engine";
-import { fuzzyWhen, inUnits, type Units } from "@/lib/format";
+import { duration, fuzzyWhen, inUnits, type Units } from "@/lib/format";
 import Link from "next/link";
 import type { Flight } from "@/server/services/flights/shape";
 import { Bird, type GearId, type Look } from "./Bird";
@@ -71,6 +71,7 @@ const ALTITUDES = ["Rooftop", "Lowish", "Quite high"];
 const ROOSTS = ["A barn", "A water tower", "A ledge"];
 const COUNTS = ["one", "two", "three", "four", "five", "six", "seven"];
 const TICK_MS = 10_000;
+const SHORT_FLIGHT_MS = 10 * 60_000;
 const CARD_PX = 260;
 
 function position(
@@ -112,6 +113,13 @@ function rounded(n: number, total: number): string {
   return String(Number(n.toFixed(digits)));
 }
 
+function seconds(ms: number): string {
+  const s = Math.round(ms / 1000);
+  const m = Math.floor(s / 60);
+  if (!m) return `${s} sec`;
+  return s % 60 ? `${m} min ${s % 60} sec` : `${m} min`;
+}
+
 function recipient(flight: Flight): string | undefined {
   return flight.counterpart?.name ?? flight.guestName;
 }
@@ -151,9 +159,8 @@ function subLine(flight: Flight, roost: ReturnType<typeof roostAt>): string {
   return to ? `Carrying your note to ${to}` : "Carrying your note";
 }
 
-function flyingStats(flight: Flight, lands: string): [Stat, Stat, Stat] {
+function cruiseStats(flight: Flight): [Stat, Stat] {
   return [
-    { value: lands, label: "Lands" },
     {
       value: flight.input ? `${flight.input.bird.speedMph} mph` : "–",
       label: "Speed",
@@ -162,6 +169,27 @@ function flyingStats(flight: Flight, lands: string): [Stat, Stat, Stat] {
       value: ALTITUDES[hash32(flight.id) % ALTITUDES.length],
       label: "Altitude",
     },
+  ];
+}
+
+function flyingStats(flight: Flight, lands: string): [Stat, Stat, Stat] {
+  return [{ value: lands, label: "Lands" }, ...cruiseStats(flight)];
+}
+
+function landedStats(
+  flight: Flight,
+  arrive: number | undefined,
+  nowMs: number,
+): [Stat, Stat, Stat] {
+  const left = arrive === undefined ? undefined : Math.max(0, arrive - nowMs);
+  const short =
+    arrive !== undefined && arrive - flight.releaseAt < SHORT_FLIGHT_MS;
+  return [
+    {
+      value: left === undefined ? "–" : short ? seconds(left) : duration(left),
+      label: "Lands in",
+    },
+    ...cruiseStats(flight),
   ];
 }
 
@@ -211,7 +239,9 @@ export function trackerView(
     },
     stats: roost
       ? roostingStats(flight, roost, lands)
-      : flyingStats(flight, lands),
+      : state === "landed"
+        ? landedStats(flight, arrive, nowMs)
+        : flyingStats(flight, lands),
     night,
     ...pins(flight),
   };
