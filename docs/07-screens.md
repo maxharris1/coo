@@ -23,7 +23,9 @@ General rules for every screen are in `AGENTS.md` under "Definition of done for 
 ## Drawn screens
 
 ### Main (`/`) — the loft
-Shows: greeting line by time of day with a count of birds home and away; the seed balance; an
+Shows: greeting line by time of day that counts birds home, flying, on a sill, and out on a job
+(odd jobs only; a bird napping or bathing counts as home), e.g. "Evening. One bird home, one
+flying."; the seed balance; an
 "Incoming" card for each bird headed to me (tap → tracker); "Your flock" with one row per bird:
 avatar, name, one status line, a status chip (Ready, Flying, Resting, Scheduled, On a sill, On a
 job) or a "Feed me" button when hungry; "n of m perches"; a link to the post office (More).

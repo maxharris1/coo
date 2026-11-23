@@ -248,16 +248,23 @@ describe("greeting", () => {
   const at = (iso: string) => new Date(iso).getTime();
   const flock = (...statuses: BirdStatus[]) =>
     statuses.map((status) => ({ status }));
+  const job = { status: "busy" as const, busyKind: "job" };
+  const nap = { status: "busy" as const, busyKind: "nap" };
+  const bath = { status: "busy" as const, busyKind: "bath" };
   const NY = "America/New_York";
+  const morning = at("2026-11-20T14:20:00Z");
+  const evening = at("2026-11-22T22:55:00Z");
 
-  it("reads the mock's line for a morning with three home and one away", () => {
-    expect(
-      greeting(
-        at("2026-11-20T14:20:00Z"),
-        NY,
-        flock("home", "flying", "home", "home"),
-      ),
-    ).toBe("Morning. Three birds home, one out on a job.");
+  it("reads the mock's line for a morning with three home and one flying", () => {
+    expect(greeting(morning, NY, flock("home", "flying", "home", "home"))).toBe(
+      "Morning. Three birds home, one flying.",
+    );
+  });
+
+  it("calls a flying delivery flying, not a job, at 5:55 PM ET", () => {
+    const line = greeting(evening, NY, flock("home", "flying"));
+    expect(line).toBe("Evening. One bird home, one flying.");
+    expect(line).not.toContain("job");
   });
 
   it("names the time of day in the caller's timezone", () => {
@@ -276,30 +283,58 @@ describe("greeting", () => {
     ).toMatch(/^Morning\. /);
   });
 
-  it("counts birds home and away in words", () => {
-    const morning = at("2026-11-20T14:20:00Z");
+  it("starts the evening at 17:00 in the loft timezone", () => {
+    const birds = flock("home");
+    expect(greeting(at("2026-11-22T21:59:00Z"), NY, birds)).toMatch(
+      /^Afternoon\. /,
+    );
+    expect(greeting(at("2026-11-22T22:00:00Z"), NY, birds)).toMatch(
+      /^Evening\. /,
+    );
+  });
+
+  it("counts birds home in words", () => {
     expect(greeting(morning, NY, flock("home"))).toBe(
       "Morning. One bird home.",
     );
     expect(greeting(morning, NY, flock("home", "scheduled"))).toBe(
       "Morning. Two birds home.",
     );
-    expect(
-      greeting(
-        morning,
-        NY,
-        flock("flying", "visiting", "busy", "home", "home"),
-      ),
-    ).toBe("Morning. Three birds home, two out on jobs.");
-    expect(greeting(morning, NY, flock("flying"))).toBe(
-      "Morning. No birds home, one out on a job.",
-    );
     expect(greeting(morning, NY, flock())).toBe("Morning. No birds yet.");
   });
 
-  it("counts napping and bathing birds as home, since only flying or visiting birds are away", () => {
+  it("counts an odd job as out on a job, not home", () => {
+    expect(greeting(evening, NY, [{ status: "home" }, job])).toBe(
+      "Evening. One bird home, one out on a job.",
+    );
+    expect(greeting(morning, NY, [job, job])).toBe(
+      "Morning. No birds home, two out on jobs.",
+    );
+  });
+
+  it("puts a visiting bird on a sill", () => {
+    expect(greeting(morning, NY, flock("visiting"))).toBe(
+      "Morning. No birds home, one on a sill.",
+    );
     expect(
-      greeting(at("2026-11-20T14:20:00Z"), NY, flock("busy", "busy")),
-    ).toBe("Morning. Two birds home.");
+      greeting(morning, NY, flock("flying", "visiting", "home", "home")),
+    ).toBe("Morning. Two birds home, one flying, one on a sill.");
+  });
+
+  it("joins flying, sill and job counts in that order", () => {
+    expect(
+      greeting(morning, NY, [
+        ...flock("flying", "visiting"),
+        nap,
+        ...flock("home", "home"),
+      ]),
+    ).toBe("Morning. Three birds home, one flying, one on a sill.");
+    expect(greeting(morning, NY, [job, ...flock("visiting", "flying")])).toBe(
+      "Morning. No birds home, one flying, one on a sill, one out on a job.",
+    );
+  });
+
+  it("counts napping and bathing birds as home", () => {
+    expect(greeting(morning, NY, [nap, bath])).toBe("Morning. Two birds home.");
   });
 });

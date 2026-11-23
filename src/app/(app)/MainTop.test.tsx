@@ -82,9 +82,16 @@ describe("the top of Main (ac-1)", () => {
     expect(bell).not.toContain("<span");
   });
 
-  it("greets by time of day with birds home and away counted in words", () => {
+  it("greets by time of day with birds home and flying counted in words", () => {
     expect(html).toMatch(
-      /<h1[^>]*>Morning. Three birds home, one out on a job.<\/h1>/,
+      /<h1[^>]*>Morning. Three birds home, one flying.<\/h1>/,
+    );
+  });
+
+  it("greets a bird on an odd job as out on a job", () => {
+    const onJob = bird("Brenda", { status: "busy", busyKind: "job" });
+    expect(render([bird("Gerald"), onJob])).toMatch(
+      /<h1[^>]*>Morning. One bird home, one out on a job.<\/h1>/,
     );
   });
 

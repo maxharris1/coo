@@ -200,21 +200,38 @@ function capitalise(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
+type GreetingBird = { status: BirdStatus; busyKind?: string | null };
+type Place = "home" | "flying" | "sill" | "job";
+
+function placeOf({ status, busyKind }: GreetingBird): Place {
+  if (status === "flying") return "flying";
+  if (status === "visiting") return "sill";
+  if (status === "busy" && busyKind === "job") return "job";
+  return "home";
+}
+
+const AWAY_CLAUSES: readonly [Exclude<Place, "home">, (n: number) => string][] =
+  [
+    ["flying", (n) => `${inWords(n)} flying`],
+    ["sill", (n) => `${inWords(n)} on a sill`],
+    [
+      "job",
+      (n) => (n === 1 ? "one out on a job" : `${inWords(n)} out on jobs`),
+    ],
+  ];
+
 export function greeting(
   nowMs: number,
   timeZone: string,
-  birds: readonly { status: BirdStatus }[],
+  birds: readonly GreetingBird[],
 ): string {
-  const away = birds.filter((b) => isAway(b.status)).length;
-  const home = birds.length - away;
-  const homePart = `${inWords(home)} ${home === 1 ? "bird" : "birds"} home`;
-  const awayPart =
-    away === 1 ? "one out on a job" : `${inWords(away)} out on jobs`;
+  const counts = { home: 0, flying: 0, sill: 0, job: 0 };
+  for (const bird of birds) counts[placeOf(bird)] += 1;
+  const homePart = `${inWords(counts.home)} ${counts.home === 1 ? "bird" : "birds"} home`;
+  const awayParts = AWAY_CLAUSES.filter(([place]) => counts[place] > 0).map(
+    ([place, clause]) => clause(counts[place]),
+  );
   const count =
-    birds.length === 0
-      ? "no birds yet"
-      : away === 0
-        ? homePart
-        : `${homePart}, ${awayPart}`;
+    birds.length === 0 ? "no birds yet" : [homePart, ...awayParts].join(", ");
   return `${timeOfDay(hourIn(nowMs, timeZone))}. ${capitalise(count)}.`;
 }
