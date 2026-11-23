@@ -21,7 +21,7 @@
       "r": 10
     },
     "bird": {
-      "width": 70,
+      "width": 65,
       "offsetX": 5,
       "feetY": 68,
       "feetYInBirdViewBox": 104

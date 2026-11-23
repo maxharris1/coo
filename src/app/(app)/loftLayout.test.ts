@@ -5,7 +5,6 @@ import {
   LOOKS,
   PERCH_VB,
   type Breed,
-  type GearId,
 } from "@/components/Bird";
 import { inkBounds } from "@/components/inkBounds";
 import { GESTURES } from "./loftIdle";
@@ -82,12 +81,12 @@ describe("artHeight", () => {
 });
 
 describe("birdBox", () => {
-  it("draws a 70 wide perched bird 5 in from the room's left, feet on the plank", () => {
+  it("draws a 65 wide perched bird 5 in from the room's left, feet on the plank", () => {
     const room = loftLayout(5).rooms[3];
     const box = birdBox(room);
     const [, vy, vw, vh] = PERCH_VB.split(" ").map(Number);
     const k = box.w / vw;
-    expect(box.w).toBe(70);
+    expect(box.w).toBe(65);
     expect(box.x).toBe(room.x + 5);
     expect(box.h).toBeCloseTo(vh * k);
     expect(box.y + (104 - vy) * k).toBe(room.y + 68);
@@ -103,14 +102,12 @@ const BREEDS: Breed[] = [
   "king",
   "tumbler",
 ];
-const HOP_OVER_ROOM: GearId[] = ["party"];
-const WORN = GEAR_IDS.filter((g) => !HOP_OVER_ROOM.includes(g));
 
 const perchedInk = () => {
   const all = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
   for (const look of LOOKS)
     for (const breed of BREEDS)
-      for (const gear of [[], ...WORN.map((g) => [g])]) {
+      for (const gear of [[], ...GEAR_IDS.map((g) => [g])]) {
         const b = inkBounds(drawPose(look, "perched", { breed, gear }).inner);
         all.x0 = Math.min(all.x0, b.x0);
         all.y0 = Math.min(all.y0, b.y0);
@@ -126,7 +123,7 @@ describe("perched birds in the loft rooms", () => {
   const rooms = loftLayout(5).rooms;
 
   for (const [name, { reach }] of Object.entries(GESTURES)) {
-    it(`keeps every look, breed and gear but the party hat inside its own room through ${name}`, () => {
+    it(`keeps every look, breed and gear inside its own room through ${name}`, () => {
       for (const room of rooms) {
         const box = birdBox(room);
         const k = box.w / vw;
