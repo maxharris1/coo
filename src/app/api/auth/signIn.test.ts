@@ -201,7 +201,6 @@ describe("POST /api/auth/verify (ac-1)", () => {
       name: "Max",
       timezone: "America/New_York",
       bird: { name: "Gerald", look: "gerald", pronoun: "he" },
-      secondBird: { name: "Brenda", pronoun: "she" },
     });
     await deps.db.query("update profiles set onboarded_at = $2 where id = $1", [
       userId,
@@ -235,7 +234,6 @@ describe("GET /api/auth/session", () => {
       name: "Max",
       timezone: "America/New_York",
       bird: { name: "Gerald", look: "gerald", pronoun: "he" },
-      secondBird: { name: "Brenda", pronoun: "she" },
     });
     expect((await session()).json).toMatchObject({ userId, onboarded: false });
     await deps.db.query("update profiles set onboarded_at = $2 where id = $1", [

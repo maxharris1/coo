@@ -3,9 +3,10 @@ import type { Db } from "@/server/db";
 import { log } from "@/server/log";
 import { snap } from "@/lib/game/privacy";
 import type { UserId } from "@/server/ports/auth";
-import type { Profile } from "@/server/auth";
+import type { OnboardedCaller, Profile } from "@/server/auth";
 import { onboard } from "@/server/services/onboarding";
 import { searchPlaces } from "@/server/services/places";
+import { sync } from "@/server/services/sync";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
 import { geoClient } from "@/test/geoRoute";
 import { loftPost } from "./post";
@@ -409,6 +410,22 @@ describe("POST /api/loft", () => {
       cityLat: null,
       cityLon: null,
     });
+  });
+
+  it("leaves a new user's Loft with one bird of three perches after This is home", async () => {
+    const { id, jar } = await withProfile("(555) 123-4567", "Max");
+
+    const home = await client.post({ lat: 40.71427, lon: -73.96143 }, jar);
+    expect(home.status).toBe(200);
+
+    const caller = {
+      userId: id as UserId,
+      profile: await profile(id),
+    } as OnboardedCaller;
+    const loft = await sync(deps, caller, null);
+    expect(loft.birds).toHaveLength(1);
+    expect(loft.birds[0]).toMatchObject({ name: "Gerald", look: "gerald" });
+    expect(loft.me.perches).toBe(3);
   });
 
   it("converges when posted twice, keeping the first onboarded time", async () => {

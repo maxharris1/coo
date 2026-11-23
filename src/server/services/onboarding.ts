@@ -1,16 +1,12 @@
 import { randomBytes, randomInt } from "node:crypto";
 import { z } from "zod";
-import birdLooks from "../../../public/assets/data/birds.json";
-import { freeBirdName, sameBirdName } from "@/lib/birdName";
 import { isBlocked } from "@/lib/blocklist";
 import type { Config } from "@/lib/config";
 import { handleBase } from "@/lib/handle";
-import { nextStarterLook } from "@/lib/starter";
 import type { Db } from "@/server/db";
 import type { Deps } from "@/server/deps";
 import { AppError } from "@/server/errors";
 import type { UserId } from "@/server/ports/auth";
-import { nameTaken } from "@/server/services/birdNames";
 import {
   toBirdRecord,
   toMe,
@@ -63,7 +59,6 @@ function schema(config: Config) {
       look: z.string().refine((l) => config.game.start.looks.includes(l)),
       pronoun,
     }),
-    secondBird: z.object({ name: displayName(24), pronoun }).optional(),
   });
 }
 
@@ -115,18 +110,6 @@ async function claimProfile(
   throw new AppError("internal", "Could not find a free handle");
 }
 
-function secondBird(config: Config, body: Body): StarterBird {
-  const look = nextStarterLook(body.bird.look);
-  const name =
-    body.secondBird?.name ??
-    freeBirdName(
-      birdLooks[look as keyof typeof birdLooks].name,
-      [body.bird.name],
-      config.quirks.defaultNames,
-    );
-  return { name, look, pronoun: body.secondBird?.pronoun ?? "they" };
-}
-
 export type StarterBird = {
   name: string;
   look: string;
@@ -172,14 +155,10 @@ async function stockAccount(
   config: Config,
   user: UserId,
   body: Body,
-  second: StarterBird,
   now: string,
 ): Promise<void> {
   const { start, eggs } = config.game;
-  const birds = [body.bird, second];
-  for (const [i, bird] of birds.entries()) {
-    await insertStarterBird(db, config, user, bird, start.birds[i], now);
-  }
+  await insertStarterBird(db, config, user, body.bird, start.birds[0], now);
   await db.query(
     "insert into gear_owned (user_id, gear_id, acquired_at) select $1, unnest($2::text[]), $3",
     [user, start.gear, now],
@@ -227,13 +206,10 @@ export async function onboard(
   input: unknown,
 ): Promise<OnboardingResult> {
   const body = parse(deps.config, input);
-  const second = secondBird(deps.config, body);
-  if (sameBirdName(body.bird.name, second.name))
-    throw nameTaken(body.bird.name);
   const now = new Date(deps.clock.now()).toISOString();
   return deps.db.tx(async (db) => {
     if (await claimProfile(db, caller, body, now)) {
-      await stockAccount(db, deps.config, caller, body, second, now);
+      await stockAccount(db, deps.config, caller, body, now);
     }
     await syncPhoneLast4(db, caller);
     return readAccount(db, caller);

@@ -35,23 +35,19 @@ async function markOnboarded(userId: string) {
   );
 }
 
-async function keepOnly(userId: string, name: string) {
-  await deps.db.query("delete from birds where owner_id = $1 and name <> $2", [
-    userId,
-    name,
-  ]);
-}
-
-async function twoBirds(number: string) {
-  const session = await withProfile(number);
+async function oneBird(number: string, bird = GERALD) {
+  const session = await withProfile(number, bird);
   await markOnboarded(session.id);
   return session;
 }
 
-async function oneBird(number: string, bird = GERALD) {
-  const session = await withProfile(number, bird);
-  await markOnboarded(session.id);
-  await keepOnly(session.id, bird.name);
+async function twoBirds(number: string) {
+  const session = await oneBird(number);
+  const adopted = await client.post(
+    { name: "Brenda", pronoun: "she" },
+    session.jar,
+  );
+  if (adopted.status !== 200) throw new Error("test adoption failed");
   return session;
 }
 
@@ -193,7 +189,6 @@ describe("POST /api/birds/roommate", () => {
 
   it("refuses a user who has not finished onboarding as 409 not_onboarded", async () => {
     const { id, jar } = await withProfile("(555) 123-4567");
-    await keepOnly(id, GERALD.name);
     const { status, json } = await client.post(PRETZEL, jar);
     expect(status).toBe(409);
     expect(json.error.code).toBe("not_onboarded");

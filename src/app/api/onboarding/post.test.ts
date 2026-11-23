@@ -12,7 +12,6 @@ const BODY = {
   name: "Max",
   timezone: "America/New_York",
   bird: { name: "Gerald", look: "gerald", pronoun: "he" },
-  secondBird: { name: "Brenda", pronoun: "she" },
 };
 
 let deps: TestDeps;
@@ -72,14 +71,6 @@ describe("POST /api/onboarding (ac-4)", () => {
       },
       "bird.name",
     ],
-    [
-      "a blocklisted roommate name",
-      {
-        ...BODY,
-        secondBird: { name: BLOCKED_NAMES[2].toUpperCase(), pronoun: "she" },
-      },
-      "secondBird.name",
-    ],
   ])(
     "answers %s with 400 invalid and writes nothing",
     async (_, body, field) => {
@@ -114,11 +105,56 @@ describe("POST /api/onboarding (ac-4)", () => {
     const { status, json } = await call(BODY);
     expect(status).toBe(200);
     expect(json.me).toMatchObject({ id, name: "Max", handle: "max" });
-    expect(json.birds.map((b: { name: string }) => b.name).sort()).toEqual([
-      "Brenda",
-      "Gerald",
-    ]);
+    expect(json.birds).toHaveLength(1);
+    expect(json.birds[0]).toMatchObject({ name: "Gerald", look: "gerald" });
     expect(typeof json.serverNow).toBe("number");
+  });
+
+  it("answers a malformed secondBird with 200 and one bird", async () => {
+    const id = await signIn("(555) 123-4567");
+    const { status, json } = await call({
+      ...BODY,
+      secondBird: { name: BLOCKED_NAMES[2].toUpperCase(), pronoun: 7 },
+    });
+    expect(status).toBe(200);
+    expect(json.birds.map((b: { name: string }) => b.name)).toEqual(["Gerald"]);
+    expect(
+      await count(
+        "select count(*)::int as n from birds where owner_id = $1",
+        id,
+      ),
+    ).toBe(1);
+  });
+
+  it("writes and pays nothing more on a repeat POST", async () => {
+    const id = await signIn("(555) 123-4567");
+    await call(BODY);
+    const snapshot = async () => ({
+      birds: await count(
+        "select count(*)::int as n from birds where owner_id = $1",
+        id,
+      ),
+      gear: await count(
+        "select count(*)::int as n from gear_owned where user_id = $1",
+        id,
+      ),
+      ledger: await count(
+        "select count(*)::int as n from seed_ledger where user_id = $1",
+        id,
+      ),
+      seeds: await count("select seeds as n from profiles where id = $1", id),
+    });
+    const before = await snapshot();
+
+    const again = await call({
+      ...BODY,
+      secondBird: { name: "Brenda", pronoun: "she" },
+    });
+
+    expect(again.status).toBe(200);
+    expect(again.json.birds).toHaveLength(1);
+    expect(await snapshot()).toEqual(before);
+    expect(before).toEqual({ birds: 1, gear: 2, ledger: 1, seeds: 60 });
   });
 
   it("onboards only the caller even when the body names someone else's id", async () => {
