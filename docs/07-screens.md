@@ -70,6 +70,17 @@ until sunrise, and the forecast says "Waits for sunrise. Leaves at {leavesAt}. L
 leaves at release and flies on. Its forecast says "Flies through the night (goggles). Lands
 around {arriveAt}." and its flight time is the time in the air. A leading factor, if any, follows the
 forecast. The night factor is left out there, since the night line already says it.
+When the picked bird's quote has an `espresso` variant (it would roost and wears no goggles),
+the row shows a checkbox under the stats: "Espresso shot · keep {bird} up tonight". It starts
+unticked. It is disabled when unticked and the rows already ticked use every shot the player
+holds (`me.espressoShots`), so at 0 shots it is always disabled. Any change of the row's bird
+clears the tick, whether the player picks another bird, a sync makes the bird unable to fly or
+a change of recipients reassigns the birds, and getting the first bird back does not bring the
+tick back. While ticked, the
+row's stats come from the variant: the forecast says "Flies through the night (espresso). Lands
+around {arriveAt}.", the flight time is the variant's time in the air and the odds are the
+variant's odds. Release sends `espresso: true` on that row's send only when it is ticked. The
+Forecast page offers no shot, since it schedules and a scheduled send refuses one.
 With several recipients the picker assigns one bird per recipient, fastest bird to the farthest
 friend by default, and each can be swapped.
 A napping bird stays unpickable but shows a Wake button. Wake wakes it in place

@@ -12,8 +12,10 @@ export type QuoteResult = { ok: true; quotes: RecipientQuote[] } | Failed;
 export type GuestLink = { flightId: string; url: string };
 export type ReleaseResult =
   { ok: true; flightIds: string[]; links: GuestLink[] } | Failed;
-export type Send =
-  { friendId: string; birdId: string } | { guest: Guest; birdId: string };
+export type Send = ({ friendId: string } | { guest: Guest }) & {
+  birdId: string;
+  espresso?: true;
+};
 
 const UNREACHABLE = "We could not reach the loft. Try again.";
 

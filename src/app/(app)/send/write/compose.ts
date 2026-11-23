@@ -10,7 +10,10 @@ import {
 import { type Note, noteLimit } from "@/lib/game/notes";
 import type { Wearer } from "@/lib/game/seeds";
 import type { Factor } from "@/server/services/flights/factors";
-import type { RecipientQuote } from "@/server/services/flights/quote";
+import type {
+  EspressoQuote,
+  RecipientQuote,
+} from "@/server/services/flights/quote";
 import type { FriendRow } from "@/server/services/friends";
 import { friendLine } from "../../friends/friendsApi";
 import { fastestReady, readyBySpeed } from "../recipients";
@@ -130,7 +133,7 @@ function factorText(factor: Factor, units: Units): string {
 }
 
 type BirdQuote = RecipientQuote["quotes"][number];
-type Trip = "night" | "waits" | "roosts" | "direct";
+type Trip = "espresso" | "night" | "waits" | "roosts" | "direct";
 
 function tripOf(quote: BirdQuote): Trip {
   if (quote.fliesInDark) return "night";
@@ -141,10 +144,15 @@ function tripOf(quote: BirdQuote): Trip {
 const TRIPS: Record<
   Trip,
   {
-    flightMs: (q: BirdQuote) => number;
+    flightMs: (q: EspressoQuote) => number;
     forecast: (lands: string, leaves: string) => string;
   }
 > = {
+  espresso: {
+    flightMs: (q) => q.airTimeMs,
+    forecast: (lands) =>
+      `Flies through the night (espresso). Lands around ${lands}.`,
+  },
   night: {
     flightMs: (q) => q.airTimeMs,
     forecast: (lands) =>
@@ -171,17 +179,20 @@ export function stats(
   birdId: string,
   timezone: string,
   units: Units,
+  espresso = false,
 ): ComposeStats | null {
   const quote = leg.quotes.find((q) => q.birdId === birdId);
   if (!quote) return null;
-  const trip = TRIPS[tripOf(quote)];
+  const shot = espresso ? quote.espresso : null;
+  const flight = shot ?? quote;
+  const { flightMs, forecast } = TRIPS[shot ? "espresso" : tripOf(quote)];
   const at = (ms: number) => clockTime(new Date(ms), timezone);
-  const said = trip.forecast(at(quote.arriveAt), at(quote.leavesAt));
-  const lead = quote.factors.find((f) => f.kind !== "night");
+  const said = forecast(at(flight.arriveAt), at(flight.leavesAt));
+  const lead = flight.factors.find((f) => f.kind !== "night");
   return {
     distance: shortDistance(leg.distanceMi, units),
-    flightTime: duration(trip.flightMs(quote)),
-    odds: `${Math.round(quote.odds * 100)}%`,
+    flightTime: duration(flightMs(flight)),
+    odds: `${Math.round(flight.odds * 100)}%`,
     forecast: lead ? `${said} ${factorText(lead, units)}.` : said,
   };
 }

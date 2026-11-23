@@ -144,6 +144,7 @@ const legFor = (birdIds: string[], friendId = "u2") => ({
       { kind: "clear", text: "Clear skies over Jersey", effect: "none" },
     ],
     sunsetAt: RELEASE,
+    espresso: variants[birdId] ?? null,
   })),
 });
 
@@ -153,6 +154,19 @@ const placeLeg = (birdIds: string[], recipient: unknown) => ({
   to: { label: "Fishtown, Philadelphia" },
 });
 
+const NIGHT_RUN = {
+  leavesAt: RELEASE,
+  airTimeMs: 9 * 60 * 60_000,
+  durationMs: 9 * 60 * 60_000,
+  arriveAt: RELEASE + 9 * 60 * 60_000,
+  odds: 0.77,
+  roostsOvernight: false,
+  fliesInDark: true,
+  factors: [{ kind: "night", text: "Flying in the dark", effect: "3% off" }],
+};
+
+let variants: Record<string, typeof NIGHT_RUN>;
+let shotsHeld: number;
 let friends: { status: number; body: unknown };
 let quoted: (body: QuoteBody) => Promise<{ status: number; body: unknown }>;
 let released: Promise<{ status: number; body: unknown }>;
@@ -163,7 +177,11 @@ let root: Root | null;
 
 const sync = (): SyncState => ({
   data: {
-    me: { units: "mi", timezone: "America/New_York" },
+    me: {
+      units: "mi",
+      timezone: "America/New_York",
+      espressoShots: shotsHeld,
+    },
     birds,
   } as unknown as SyncPayload,
   error: null,
@@ -190,7 +208,7 @@ async function show() {
   await act(async () => r.render(page()));
 }
 
-const sendTo = (friendId: string) => {
+const sendTo = (friendId: string | string[]) => {
   seen.to = friendId;
   return act(async () => root?.render(page()));
 };
@@ -259,6 +277,8 @@ beforeEach(() => {
     body: { flights: [{ id: "f1" }] },
   });
   birds = BIRDS;
+  variants = {};
+  shotsHeld = 2;
   woke = { status: 200, body: {} };
   onRefresh = () => {};
   root = null;
@@ -917,6 +937,156 @@ describe("Compose page for several recipients", () => {
   });
 });
 
+describe("Compose page espresso (ac-2, ac-3)", () => {
+  const tick = (rowId: string, on = true) =>
+    act(async () => view().onEspresso(rowId, on));
+  const releaseNow = async () => {
+    await type("Dinner Saturday?");
+    await act(async () => view().onRelease());
+    return JSON.parse(String(flightCalls()[0][1]?.body)).sends;
+  };
+
+  it("offers the shot only for a picked bird whose quote has the variant", async () => {
+    variants = { b1: NIGHT_RUN };
+    await show();
+    expect(row().pickedId).toBe("b2");
+    expect(row().espresso).toBeNull();
+    await pick("b1");
+    expect(row().espresso).toEqual({
+      label: "Espresso shot · keep Gerald up tonight",
+      ticked: false,
+      disabled: false,
+    });
+  });
+
+  it("disables the shot when none are held", async () => {
+    variants = { b2: NIGHT_RUN };
+    shotsHeld = 0;
+    await show();
+    expect(row().espresso).toMatchObject({ ticked: false, disabled: true });
+  });
+
+  it("releases with the shot on the ticked bird", async () => {
+    variants = { b2: NIGHT_RUN };
+    await show();
+    await tick("u2");
+    expect(row().espresso?.ticked).toBe(true);
+    expect(await releaseNow()).toEqual([
+      { friendId: "u2", birdId: "b2", espresso: true },
+    ]);
+  });
+
+  it("releases without the flag when the shot is not ticked", async () => {
+    variants = { b2: NIGHT_RUN };
+    await show();
+    await tick("u2");
+    await tick("u2", false);
+    const [send] = await releaseNow();
+    expect(send).toEqual({ friendId: "u2", birdId: "b2" });
+    expect(send).not.toHaveProperty("espresso");
+  });
+
+  it("clears the shot when another bird is picked", async () => {
+    variants = { b1: NIGHT_RUN, b2: NIGHT_RUN };
+    await show();
+    await tick("u2");
+    await pick("b1");
+    expect(row().espresso).toEqual({
+      label: "Espresso shot · keep Gerald up tonight",
+      ticked: false,
+      disabled: false,
+    });
+    expect(await releaseNow()).toEqual([{ friendId: "u2", birdId: "b1" }]);
+  });
+
+  it("keeps the shot cleared when the first bird is picked again", async () => {
+    variants = { b1: NIGHT_RUN, b2: NIGHT_RUN };
+    await show();
+    await tick("u2");
+    await pick("b1");
+    await pick("b2");
+    expect(row().espresso?.ticked).toBe(false);
+    expect(await releaseNow()).toEqual([{ friendId: "u2", birdId: "b2" }]);
+  });
+
+  it("keeps the shot cleared when a sync change moves the row off its bird and back", async () => {
+    variants = { b1: NIGHT_RUN, b2: NIGHT_RUN };
+    await show();
+    await tick("u2");
+    birds = BIRDS.map((b) => (b.id === "b2" ? { ...b, canFly: false } : b));
+    await act(async () => root?.render(page()));
+    expect(row().pickedId).toBe("b1");
+    expect(row().espresso?.ticked).toBe(false);
+    birds = BIRDS;
+    await act(async () => root?.render(page()));
+    expect(row().pickedId).toBe("b2");
+    expect(row().espresso?.ticked).toBe(false);
+    expect(await releaseNow()).toEqual([{ friendId: "u2", birdId: "b2" }]);
+  });
+
+  it("keeps the shot cleared when new recipients move the row off its bird and back", async () => {
+    friends = { status: 200, body: FOUR_FRIENDS };
+    variants = { b1: NIGHT_RUN, b2: NIGHT_RUN };
+    await show();
+    expect(row().pickedId).toBe("b2");
+    await tick("u2");
+    await sendTo(["u2", "u3"]);
+    expect(row().pickedId).toBe("b1");
+    expect(row().espresso?.ticked).toBe(false);
+    await sendTo("u2");
+    expect(row().pickedId).toBe("b2");
+    expect(row().espresso?.ticked).toBe(false);
+    expect(await releaseNow()).toEqual([{ friendId: "u2", birdId: "b2" }]);
+  });
+
+  it("switches the stats to the espresso line when ticked", async () => {
+    variants = { b2: NIGHT_RUN };
+    await show();
+    expect(row().stats?.forecast).toBe(
+      "Lands around 11:20 am. Clear skies over Jersey.",
+    );
+    await tick("u2");
+    expect(row().stats).toEqual({
+      distance: "81 mi",
+      flightTime: "9h 00m",
+      odds: "77%",
+      forecast: "Flies through the night (espresso). Lands around 6:32 pm.",
+    });
+  });
+
+  it("spends the last shot on one row and disables it on the others", async () => {
+    friends = { status: 200, body: FOUR_FRIENDS };
+    seen.to = ["u2", "u3", "u4"];
+    released = Promise.resolve({
+      status: 201,
+      body: { flights: [{ id: "f1" }, { id: "f2" }, { id: "f3" }] },
+    });
+    variants = { b1: NIGHT_RUN, b2: NIGHT_RUN };
+    shotsHeld = 1;
+    await show();
+    expect(view().rows.map((r) => r.pickedId)).toEqual(["b4", "b2", "b1"]);
+    await tick("u3");
+    expect(view().rows.map((r) => r.espresso)).toEqual([
+      null,
+      {
+        label: "Espresso shot · keep Crumbs up tonight",
+        ticked: true,
+        disabled: false,
+      },
+      {
+        label: "Espresso shot · keep Gerald up tonight",
+        ticked: false,
+        disabled: true,
+      },
+    ]);
+    expect(await releaseNow()).toEqual([
+      { friendId: "u2", birdId: "b4" },
+      { friendId: "u3", birdId: "b2", espresso: true },
+      { friendId: "u4", birdId: "b1" },
+    ]);
+  });
+});
+
 describe("Compose page for a guest (ac-1, ac-2)", () => {
   const PIN = { lat: 40.712345678, lon: -74.006012345 };
   const LINK = "https://coo.test/g/abc";
@@ -954,6 +1124,7 @@ describe("Compose page for a guest (ac-1, ac-2)", () => {
         tooLong: false,
         stats: expect.objectContaining({ distance: "81 mi", odds: "81%" }),
         forecastHref: null,
+        espresso: null,
       },
     ]);
     expect(releaseLabel()).toBe("Crumbs");
@@ -1064,10 +1235,7 @@ describe("Compose page for a guest (ac-1, ac-2)", () => {
     ]);
   });
 
-  const visit = (params: {
-    to?: string;
-    guest?: Record<string, string>;
-  }) => {
+  const visit = (params: { to?: string; guest?: Record<string, string> }) => {
     seen.to = params.to ?? null;
     seen.guest = params.guest ?? {};
     return act(async () => root?.render(page()));

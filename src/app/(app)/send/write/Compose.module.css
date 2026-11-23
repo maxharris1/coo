@@ -383,6 +383,26 @@
   overflow-wrap: anywhere;
 }
 
+.espresso {
+  min-height: var(--coo-touch);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 800;
+  font-size: 13px;
+}
+
+.espresso input {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  accent-color: var(--coo-tomato);
+}
+
+.espresso:has(input:disabled) {
+  color: var(--coo-muted);
+}
+
 .forecastLink {
   flex-shrink: 0;
   min-height: var(--coo-touch);

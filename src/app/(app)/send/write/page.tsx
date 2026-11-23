@@ -81,8 +81,7 @@ function guestTarget(guest: Guest): Target {
 function Compose() {
   const params = useSearchParams();
   const friendIds = [...new Set(params.getAll("to"))];
-  const guest =
-    friendIds.length === 0 ? readGuest(params, sessionPins) : null;
+  const guest = friendIds.length === 0 ? readGuest(params, sessionPins) : null;
   const forGuest = guest !== null;
   const router = useRouter();
   const toast = useToast();
@@ -95,6 +94,7 @@ function Compose() {
   const [doodle, setDoodle] = useState<Doodle | null>(null);
   const [sending, setSending] = useState(false);
   const [swaps, setSwaps] = useState<Swaps | null>(null);
+  const [shots, setShots] = useState<Record<string, string>>({});
   const [legs, setLegs] = useState<RecipientQuote[]>([]);
 
   useEffect(() => {
@@ -135,6 +135,12 @@ function Compose() {
             assignBirds(targets, flock),
           )
   ).map((r) => ({ ...r, birdId: pickable(r.birdId) ? r.birdId : null }));
+  const kept = Object.fromEntries(
+    Object.entries(shots).filter(
+      ([id, birdId]) => rows.find((r) => r.id === id)?.birdId === birdId,
+    ),
+  );
+  if (Object.keys(kept).length !== Object.keys(shots).length) setShots(kept);
   const birdOf = (id: string | null) => flock.find((b) => b.id === id);
   const sends: Send[] = rows.flatMap(({ birdId }, i) =>
     birdId ? [targets[i].send(birdId)] : [],
@@ -178,11 +184,27 @@ function Compose() {
     sends
       .flatMap((s) => birdOf(s.birdId) ?? [])
       .sort((x, y) => noteLimit(x) - noteLimit(y))[0] ?? PLAIN_BIRD;
+  const lines = targets.map((target, i) => {
+    const bird = birdOf(rows[i].birdId);
+    const leg = legs.find(target.owns);
+    const offered = leg?.quotes.find((q) => q.birdId === bird?.id)?.espresso
+      ? bird
+      : undefined;
+    const shot = offered !== undefined && shots[target.id] === offered.id;
+    return { target, bird, leg, offered, shot };
+  });
+  const spent = lines.filter((l) => l.shot).length;
 
   const onRelease = async () => {
     if (sends.length !== rows.length) return;
     setSending(true);
-    const r = await release(fetch, { body: note, doodle, sends });
+    const r = await release(fetch, {
+      body: note,
+      doodle,
+      sends: sends.map((s, i) =>
+        lines[i].shot ? { ...s, espresso: true } : s,
+      ),
+    });
     if (r.ok) {
       for (const send of sends)
         if ("friendId" in send) clearDraft(send.friendId);
@@ -196,19 +218,24 @@ function Compose() {
 
   return (
     <ComposeView
-      rows={targets.map((target, i) => {
-        const bird = birdOf(rows[i].birdId);
-        const leg = legs.find(target.owns);
-        return {
-          id: target.id,
-          recipient: target.card(leg, units),
-          pickedId: bird?.id ?? null,
-          tooLong: bird ? counter(note, bird).over : false,
-          stats:
-            bird && leg ? stats(leg, bird.id, data.me.timezone, units) : null,
-          forecastHref: target.forecastHref,
-        };
-      })}
+      rows={lines.map(({ target, bird, leg, offered, shot }) => ({
+        id: target.id,
+        recipient: target.card(leg, units),
+        pickedId: bird?.id ?? null,
+        tooLong: bird ? counter(note, bird).over : false,
+        stats:
+          bird && leg
+            ? stats(leg, bird.id, data.me.timezone, units, shot)
+            : null,
+        forecastHref: target.forecastHref,
+        espresso: offered
+          ? {
+              label: `Espresso shot · keep ${offered.name} up tonight`,
+              ticked: shot,
+              disabled: !shot && spent >= data.me.espressoShots,
+            }
+          : null,
+      }))}
       note={note}
       doodle={doodle}
       counter={counter(note, tightest)}
@@ -217,10 +244,19 @@ function Compose() {
       onNote={setNote}
       onDoodle={setDoodle}
       onPick={(rowId, birdId) => {
-        if (pickable(birdId))
-          setSwaps({ key, rows: swapBird(rows, rowId, birdId) });
+        if (!pickable(birdId)) return;
+        setSwaps({ key, rows: swapBird(rows, rowId, birdId) });
       }}
       onRelease={() => void onRelease()}
+      onEspresso={(rowId, on) => {
+        const birdId = rows.find((r) => r.id === rowId)?.birdId;
+        setShots(
+          Object.fromEntries([
+            ...Object.entries(shots).filter(([id]) => id !== rowId),
+            ...(on && birdId ? [[rowId, birdId]] : []),
+          ]),
+        );
+      }}
       onWake={(birdId) =>
         void feedThenRefresh(
           birdId,
