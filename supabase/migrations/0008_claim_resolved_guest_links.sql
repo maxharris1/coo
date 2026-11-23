@@ -12,7 +12,7 @@ as $$
      and gl.claimed_by is null
      and (gl.expires_at is null or gl.expires_at > pg_catalog.now())
      and gl.sender_id <> p_user
-     and pg_catalog.length(pg_catalog.regexp_replace(u.phone, '\D', '', 'g')) >= 10
+     and pg_catalog.regexp_replace(u.phone, '\D', '', 'g') ~ '^[1-9][0-9]{7,14}$'
      and pg_catalog.regexp_replace(gl.notify_phone, '\D', '', 'g')
        = pg_catalog.regexp_replace(u.phone, '\D', '', 'g')
 $$;

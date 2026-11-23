@@ -250,6 +250,32 @@ describe(`supabase/migrations/${BACKFILL}`, () => {
     expect(await snapshot()).toEqual(rowsAfter);
   });
 
+  it("matches every phone length the app's E.164 parser accepts, and nothing outside it", async () => {
+    const sam = await user("Sam");
+    const cases = [
+      { digits: "67722222", claimed: true },
+      { digits: "677222222", claimed: true },
+      { digits: "155500000012345", claimed: true },
+      { digits: "6772222", claimed: false },
+      { digits: "1555000000123456", claimed: false },
+    ];
+    const sent = [];
+    for (const { digits, claimed } of cases) {
+      const recipient = await user(`R${digits.length}`, digits);
+      const { link: id } = await send(sam, "Other", { phone: `+${digits}` });
+      sent.push({ id, recipient, claimed, length: digits.length });
+    }
+
+    await pg.exec(read(MIGRATIONS, BACKFILL));
+
+    for (const { id, recipient, claimed, length } of sent)
+      expect(await link(id), `${length}-digit phone`).toEqual(
+        claimed
+          ? { status: "claimed", claimed_by: recipient }
+          : { status: "active", claimed_by: null },
+      );
+  });
+
   it("claims a second same-name link once the phone phase has claimed the first", async () => {
     const sam = await user("Sam");
     const ethan = await user("Ethan", "15550000001");
