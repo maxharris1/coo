@@ -258,6 +258,7 @@ describe("/earn page lifecycle", () => {
           [{ id: "b-pip", name: "Pip", status: "home" }] as SyncPayload["birds"]
         }
         timeZone="UTC"
+        nowMs={0}
         sending={false}
         onSend={() => {}}
       />,
