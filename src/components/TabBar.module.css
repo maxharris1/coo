@@ -6,12 +6,18 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-around;
-  width: min(100%, 430px);
+  width: 100%;
   height: calc(84px + var(--coo-safe-bottom));
   padding: 8px 8px var(--coo-safe-bottom);
   background: var(--coo-paper);
   border-top: var(--coo-line);
   transform: translateX(-50%);
+}
+
+@media (min-width: 600px) {
+  .bar {
+    max-width: 430px;
+  }
 }
 
 .tab {

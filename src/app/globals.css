@@ -73,9 +73,8 @@ html {
 }
 
 body {
-  max-width: 430px;
   min-height: 100dvh;
-  margin: 0 auto;
+  margin: 0;
   padding: var(--coo-safe-top) var(--coo-safe-right) var(--coo-safe-bottom)
     var(--coo-safe-left);
   background: var(--coo-paper);
@@ -84,7 +83,14 @@ body {
   font-weight: 800;
 }
 
-@media (max-width: 430px) {
+@media (min-width: 600px) {
+  body {
+    max-width: 430px;
+    margin: 0 auto;
+  }
+}
+
+@media (max-width: 599.98px) {
   html[data-canvas="sun"],
   html[data-canvas="sun"] body {
     background: var(--coo-sun);

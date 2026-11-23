@@ -34,7 +34,7 @@ carry a finger doodle as well as, or instead of, text. Text limits are unchanged
 Max was told these would be assumed. Change them in `config/` if he disagrees.
 
 - English only. Miles by default, kilometres as a setting.
-- Phone layout. On a wide screen the app sits in a centred 430 px column on the paper colour.
+- Phone layout. On a wide screen (600 px and up) the app sits in a centred 430 px column on the paper colour. Below that it fills the screen width.
 - Messaging only between friends, or by a link the sender made. Links are rate limited and can be reported.
 - Picking from the phone's contacts is offered only where the browser supports it (Chrome on Android). Everywhere else you type a name.
 - Animation is SVG and CSS, as in the asset pack. No animation library.

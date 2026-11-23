@@ -13,7 +13,7 @@ General rules for every screen are in `AGENTS.md` under "Definition of done for 
   Loft `/`, Flights `/flights`, the round Send button `/send`, Sill `/sill`, Seeds `/shop`.
   The Sill tab shows a dot when a bird is waiting. The tab bar is hidden on full-screen flows:
   Compose, Forecast, Takeoff, Reply, TakeoffHome, Landed, incident report, onboarding.
-- On screens wider than 430 px the app is a centred 430 px column on the paper colour.
+- On a wide screen (600 px and up, tablets and desktop) the app is a centred 430 px column on the paper colour. Below that it fills the screen width.
 - Headers: a back arrow where the mock shows one, the title in the display font, the seed
   balance pill where the mock shows it.
 - Time and distance are formatted by `lib/format.ts`: "11:20 am", "1h 48m", "14 sec",
