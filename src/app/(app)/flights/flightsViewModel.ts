@@ -19,6 +19,7 @@ export type FlightsRow = {
   line: string;
   label: string;
   chip?: { text: string; tone: ChipTone };
+  testHop: boolean;
 };
 export type SectionKey = "inTheAir" | "landedToday";
 export type FlightsSection = {
@@ -28,13 +29,19 @@ export type FlightsSection = {
 };
 export type FlightsView = { pill: string; sections: FlightsSection[] };
 export type GroupKey = "today" | "yesterday" | "week" | "earlier";
-export type PastGroup = { key: GroupKey; title: string; rows: FlightsRow[] };
+export type PastGroup = {
+  key: GroupKey;
+  title: string;
+  rows: FlightsRow[];
+  testHops: FlightsRow[];
+};
 
 type Copy = {
   place?: string;
   lands: string;
   leaves: string;
   trip: string;
+  far: string;
 };
 
 const sill = (c: Copy) => `Lands on your sill ${c.lands}.`;
@@ -69,7 +76,7 @@ const STATES: Record<
     line: (c) =>
       sentences(c.place && `Last seen near ${c.place}.`, `Lands ${c.lands}.`),
   },
-  landed: { line: (c) => c.trip },
+  landed: { line: (c) => `${c.far} · ${c.trip}` },
 };
 
 const TITLES: Record<SectionKey, string> = {
@@ -98,6 +105,9 @@ const headingToViewer = (f: Flight): boolean =>
 
 const landsOnSill = (f: Flight): boolean =>
   f.role === "incoming" && f.kind === "delivery";
+
+const milesOf = (f: Flight): number | undefined =>
+  f.distanceMi ?? f.plan?.distanceMi;
 
 const landedAtMs = (f: Flight): number =>
   f.plan?.arriveAtMs ?? f.arriveAt ?? f.releaseAt;
@@ -131,9 +141,11 @@ function copyOf(
   frac: number,
   nowMs: number,
   timezone: string,
+  units: Units,
 ): Copy {
   const arrive = landedAtMs(f);
   return {
+    far: distance(milesOf(f) ?? 0, units),
     place: f.placeNames.deciles?.[Math.round(frac * 10)] ?? undefined,
     lands: fuzzyWhen(arrive, nowMs, timezone),
     leaves: fuzzyWhen(f.releaseAt, nowMs, timezone),
@@ -153,10 +165,8 @@ function toRow(
     : liveState(f, nowMs);
   const entry = STATES[state];
   const lineOf = (landsOnSill(f) && entry.incomingLine) || entry.line;
-  const line = lineOf(copyOf(f, frac, nowMs, timezone));
+  const line = lineOf(copyOf(f, frac, nowMs, timezone, units));
   const { other, heading } = otherParty(f);
-  const who = `${f.bird.name} ${heading}`;
-  const miles = f.distanceMi ?? f.plan?.distanceMi ?? 0;
   const named = [f.bird.name, entry.chip?.text, heading].filter(Boolean);
   return {
     id: f.id,
@@ -165,10 +175,11 @@ function toRow(
     bird: f.bird.name,
     other,
     direction: DIRECTION[f.role],
-    title: landed ? `${who}, ${distance(miles, units)}` : who,
+    title: `${f.bird.name} · ${other}`,
     line,
     label: sentences(`${named.join(", ")}.`, line),
     chip: entry.chip,
+    testHop: landed && milesOf(f) === 0,
   };
 }
 
@@ -246,10 +257,14 @@ export function pastGroups(
     "earlier";
   const keys = Object.keys(GROUP_TITLES) as GroupKey[];
   return keys
-    .map((key) => ({
-      key,
-      title: GROUP_TITLES[key],
-      rows: rows.filter((row) => groupOf(row) === key),
-    }))
-    .filter((group) => group.rows.length > 0);
+    .map((key) => {
+      const all = rows.filter((row) => groupOf(row) === key);
+      return {
+        key,
+        title: GROUP_TITLES[key],
+        rows: all.filter((row) => !row.testHop),
+        testHops: all.filter((row) => row.testHop),
+      };
+    })
+    .filter((group) => group.rows.length + group.testHops.length > 0);
 }

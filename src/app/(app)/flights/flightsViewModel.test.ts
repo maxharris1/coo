@@ -333,7 +333,7 @@ describe("flightsView status lines", () => {
     expect(rowsAt(page, clock)).toEqual({
       "In the air": [
         {
-          title: "Gerald to Priya",
+          title: "Gerald · Priya",
           line: "Over Bayonne, NJ. Lands this afternoon.",
           chip: { text: "Flying", tone: "sun" },
         },
@@ -354,7 +354,7 @@ describe("flightsView status lines", () => {
     expect(rowsAt(page, clock)).toEqual({
       "In the air": [
         {
-          title: "Gerald to Priya",
+          title: "Gerald · Priya",
           line: "Last seen near Elizabeth, NJ. Lands this afternoon.",
           chip: { text: "Delayed", tone: "tomato" },
         },
@@ -375,7 +375,11 @@ describe("flightsView status lines", () => {
     expect(rowsAt(page, clock)).toEqual({
       "In the air": [],
       "Landed today": [
-        { title: "Gerald to Priya, 82 miles", line: "5h 10m", chip: undefined },
+        {
+          title: "Gerald · Priya",
+          line: "82 miles · 5h 10m",
+          chip: undefined,
+        },
       ],
     });
   });
@@ -393,7 +397,7 @@ describe("flightsView status lines", () => {
 
     expect(rowsAt(page, clock)["In the air"]).toEqual([
       {
-        title: "Dumpling from Priya",
+        title: "Dumpling · Priya",
         line: "Lands on your sill around midday.",
         chip: { text: "Flying", tone: "sun" },
       },
@@ -402,7 +406,7 @@ describe("flightsView status lines", () => {
     clock.set(arrive - 5 * 60_000);
     expect(rowsAt(page, clock)["In the air"]).toEqual([
       {
-        title: "Dumpling from Priya",
+        title: "Dumpling · Priya",
         line: "Lands on your sill any minute now.",
         chip: { text: "Almost here", tone: "mint" },
       },
@@ -433,7 +437,7 @@ describe("flightsView status lines", () => {
     expect(rowsAt(page, clock)).toEqual({
       "In the air": [
         {
-          title: "Gerald from Priya",
+          title: "Gerald · Priya",
           line: "Over New Brunswick, NJ. Lands around midday.",
           chip: { text: "Flying", tone: "sun" },
         },
@@ -444,7 +448,7 @@ describe("flightsView status lines", () => {
     clock.set(arrive - 5 * 60_000);
     expect(rowsAt(page, clock)["In the air"]).toEqual([
       {
-        title: "Gerald from Priya",
+        title: "Gerald · Priya",
         line: "Over Brooklyn, NY. Lands any minute now.",
         chip: { text: "Flying", tone: "sun" },
       },
@@ -475,7 +479,7 @@ describe("flightsView status lines", () => {
 
     expect(rowsAt(page, clock)["In the air"]).toEqual([
       {
-        title: "Gerald to Max",
+        title: "Gerald · Max",
         line: "Over New Brunswick, NJ. Lands around midday.",
         chip: { text: "Flying", tone: "sun" },
       },
@@ -484,7 +488,7 @@ describe("flightsView status lines", () => {
     clock.set(arrive - 5 * 60_000);
     expect(rowsAt(page, clock)["In the air"]).toEqual([
       {
-        title: "Gerald to Max",
+        title: "Gerald · Max",
         line: "Over Brooklyn, NY. Lands any minute now.",
         chip: { text: "Flying", tone: "sun" },
       },
@@ -563,11 +567,63 @@ describe("flightsView live rows print no clock or countdown", () => {
     },
   );
 
-  it("keeps the landed row's trip length", () => {
+  it("keeps the landed row's distance and trip length", () => {
     const flight = vectorFlight("calm-short");
     expect(linesAt(flight, flight.plan!.arriveAtMs + 60_000)).toEqual([
-      "1h 49m",
+      "82 miles · 1h 49m",
     ]);
+  });
+});
+
+describe("earlierRows", () => {
+  const AT = Date.UTC(2026, 10, 20, 18, 0);
+  const past = (over: Partial<Flight>): Flight => ({
+    ...vectorFlight("calm-short"),
+    status: "landed",
+    plan: undefined,
+    releaseAt: AT - 5 * HOUR_MS - 10 * 60_000,
+    arriveAt: AT,
+    ...over,
+  });
+  const rowOf = (over: Partial<Flight>) =>
+    earlierRows([past(over)], AT, NY, "mi").map(({ title, line, testHop }) => ({
+      title,
+      line,
+      testHop,
+    }))[0];
+
+  it("titles a landed row bird · other and reads distance · trip length, sent or received", () => {
+    expect(rowOf({ distanceMi: 82 })).toEqual({
+      title: "Gerald · Priya",
+      line: "82 miles · 5h 10m",
+      testHop: false,
+    });
+    expect(
+      rowOf({
+        distanceMi: 82,
+        role: "incoming",
+        owner: { id: "u2", name: "Tracy", handle: "tracy" },
+        bird: { id: "b2", name: "Brenda", look: "gerald", gear: [] },
+      }),
+    ).toEqual({
+      title: "Brenda · Tracy",
+      line: "82 miles · 5h 10m",
+      testHop: false,
+    });
+  });
+
+  it("says Cancelled and is no test hop when a cancelled flight's distance is unknown", () => {
+    expect(
+      rowOf({
+        status: "cancelled",
+        arriveAt: undefined,
+        distanceMi: undefined,
+      }),
+    ).toEqual({ title: "Gerald · Priya", line: "Cancelled", testHop: false });
+  });
+
+  it("marks a zero-distance landing as a test hop", () => {
+    expect(rowOf({ distanceMi: 0 }).testHop).toBe(true);
   });
 });
 
@@ -635,6 +691,38 @@ describe("pastGroups", () => {
       ["Earlier", ["last-week"]],
     ]);
     expect(groupsAt(WEDNESDAY_1PM_NY, [])).toEqual([]);
+  });
+
+  it("folds zero-distance landings into the group's test hops, out of its rows", () => {
+    const hop = (id: string, arriveAt: number) => ({
+      ...landedAt(id, arriveAt),
+      distanceMi: 0,
+    });
+    const groups = pastGroups(
+      earlierRows(
+        [
+          landedAt("wed-real", Date.UTC(2026, 10, 4, 14, 0)),
+          hop("wed-hop", Date.UTC(2026, 10, 4, 15, 0)),
+          hop("tue-hop-1", Date.UTC(2026, 10, 3, 15, 0)),
+          hop("tue-hop-2", Date.UTC(2026, 10, 3, 16, 0)),
+        ],
+        WEDNESDAY_1PM_NY,
+        NY,
+        "mi",
+      ),
+      WEDNESDAY_1PM_NY,
+      NY,
+    );
+    expect(
+      groups.map((g) => [
+        g.title,
+        g.rows.map((r) => r.id),
+        g.testHops.map((r) => r.id),
+      ]),
+    ).toEqual([
+      ["Today", ["wed-real"], ["wed-hop"]],
+      ["Yesterday", [], ["tue-hop-1", "tue-hop-2"]],
+    ]);
   });
 
   it("files a Tuesday landing under Yesterday when the week started yesterday", () => {

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import emptyStates from "../../../../assets/copy/empty-states.json";
+import { Bird, type GearId, type Look } from "@/components/Bird";
 import { Loader } from "@/components/Loader";
 import type { Units } from "@/lib/format";
 import type { FlightsPage } from "@/server/services/flights/list";
@@ -31,6 +32,8 @@ export type FlightsViewProps = {
   units: Units;
   toggled: Partial<Record<GroupKey, boolean>>;
   onToggle: (key: GroupKey, open: boolean) => void;
+  hops: Partial<Record<GroupKey, boolean>>;
+  onHops: (key: GroupKey, open: boolean) => void;
   onMore: () => void;
   onRetry: () => void;
 };
@@ -49,6 +52,32 @@ const ARROW: Record<Direction, string> = {
   sent: "M5 11 11 5M6 5h5v5",
   received: "M11 5 5 11M5 6v5h5",
 };
+
+const SAID: Record<Direction, string> = {
+  sent: "Sent",
+  received: "Received",
+};
+
+function Badge({ direction }: { direction: Direction }) {
+  return (
+    <span
+      className={styles.badge}
+      data-direction={direction}
+      aria-hidden="true"
+    >
+      <svg width="12" height="12" viewBox="0 0 16 16">
+        <path
+          d={ARROW[direction]}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </span>
+  );
+}
 
 function AirCard({
   row,
@@ -84,22 +113,7 @@ function AirCard({
           )}
         </span>
         <span className={styles.who}>
-          <span
-            className={styles.badge}
-            data-direction={row.direction}
-            aria-hidden="true"
-          >
-            <svg width="12" height="12" viewBox="0 0 16 16">
-              <path
-                d={ARROW[row.direction]}
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </span>
+          <Badge direction={row.direction} />
           <span>{row.other}</span>
         </span>
         {row.line && <span className={styles.line}>{row.line}</span>}
@@ -111,8 +125,24 @@ function AirCard({
 function DoneRow({ row }: { row: FlightsRow }) {
   return (
     <Link href={`/flights/${row.id}`} className={styles.done}>
-      <span className={styles.doneTitle}>{row.title}</span>
-      <span className={styles.doneWhen}>{row.line}</span>
+      <span className={styles.avatar}>
+        <span className={styles.avatarBird}>
+          <Bird
+            look={row.flight.bird.look as Look}
+            gear={row.flight.bird.gear as GearId[]}
+            animated={false}
+            size={86}
+          />
+        </span>
+      </span>
+      <span className={styles.text}>
+        <span className={styles.who}>
+          <Badge direction={row.direction} />
+          <span className="srOnly">{SAID[row.direction]}</span>
+          <span>{row.title}</span>
+        </span>
+        <span className={styles.line}>{row.line}</span>
+      </span>
     </Link>
   );
 }
@@ -127,6 +157,8 @@ export function FlightsView({
   units,
   toggled,
   onToggle,
+  hops,
+  onHops,
   onMore,
   onRetry,
 }: FlightsViewProps) {
@@ -168,9 +200,12 @@ export function FlightsView({
           <p className={styles.emptyCard}>{EMPTY_LINE}</p>
         )}
       </section>
-      {groups.map(({ key, title, rows }) => {
+      {groups.map(({ key, title, rows, testHops }) => {
         const open = toggled[key] ?? key === groups[0].key;
-        const count = `${rows.length} ${rows.length === 1 ? "flight" : "flights"}`;
+        const hopsOpen = hops[key] ?? false;
+        const count =
+          rows.length > 0 &&
+          `${rows.length} ${rows.length === 1 ? "flight" : "flights"}`;
         return (
           <section key={key} className={styles.doneList}>
             <h2 className={styles.heading}>
@@ -179,17 +214,39 @@ export function FlightsView({
                 className={styles.groupHeader}
                 aria-expanded={open}
                 aria-controls={`past-${key}`}
-                aria-label={`${title}, ${count}`}
+                aria-label={count ? `${title}, ${count}` : title}
                 onClick={() => onToggle(key, !open)}
               >
                 {title}
-                <span className={styles.count}>{rows.length}</span>
+                {count && <span className={styles.count}>{rows.length}</span>}
               </button>
             </h2>
             <div id={`past-${key}`} className={styles.doneRows} hidden={!open}>
               {rows.map((row) => (
                 <DoneRow key={row.id} row={row} />
               ))}
+              {testHops.length > 0 && (
+                <>
+                  <button
+                    type="button"
+                    className={styles.hops}
+                    aria-expanded={hopsOpen}
+                    aria-controls={`hops-${key}`}
+                    onClick={() => onHops(key, !hopsOpen)}
+                  >
+                    {`${testHops.length} ${testHops.length === 1 ? "test hop" : "test hops"}`}
+                  </button>
+                  <div
+                    id={`hops-${key}`}
+                    className={styles.doneRows}
+                    hidden={!hopsOpen}
+                  >
+                    {testHops.map((row) => (
+                      <DoneRow key={row.id} row={row} />
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           </section>
         );
