@@ -6,6 +6,7 @@ import { JobsSection } from "./JobsSection";
 type Bird = SyncPayload["birds"][number];
 
 const UNTIL = Date.parse("2026-11-20T19:40:00Z");
+const NOW = UNTIL - 40 * 60_000;
 
 const bird = (over: Partial<Bird>): Bird =>
   ({
@@ -22,7 +23,7 @@ const bird = (over: Partial<Bird>): Bird =>
 
 const html = (birds: Bird[]) =>
   renderToStaticMarkup(
-    <JobsSection birds={birds} timeZone="America/New_York" />,
+    <JobsSection birds={birds} timeZone="America/New_York" nowMs={NOW} />,
   );
 
 describe("Flights odd jobs", () => {
@@ -32,7 +33,8 @@ describe("Flights odd jobs", () => {
     ]);
     expect(out).toMatch(/<h2[^>]*>On odd jobs<\/h2>/);
     expect(out).toContain("Gerald, on an odd job");
-    expect(out).toContain("Home at 2:40 pm");
+    expect(out).toContain("Home this afternoon");
+    expect(out).not.toMatch(/\d{1,2}:\d{2}\s?[ap]m/i);
     expect(out).toContain(">Working<");
   });
 

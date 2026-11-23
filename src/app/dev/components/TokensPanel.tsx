@@ -189,7 +189,7 @@ const typeFamilies: TypeFamily[] = [
     samples: [
       {
         spec: "17 / 900",
-        text: "Lands in 1h 07m",
+        text: "Lands this afternoon",
         style: { fontWeight: 900, fontSize: 17 },
       },
       {

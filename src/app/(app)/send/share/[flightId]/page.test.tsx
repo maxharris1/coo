@@ -147,7 +147,7 @@ describe("ShareLink page", () => {
       pronoun: "he",
       guestName: "Maya",
       place: "Fishtown",
-      lands: "11:20 am",
+      lands: "this morning",
       url: URL_,
       canShare: false,
     });

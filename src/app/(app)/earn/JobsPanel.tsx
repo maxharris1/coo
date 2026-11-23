@@ -6,7 +6,7 @@ import { useState } from "react";
 import { useSync } from "@/components/SyncProvider";
 import type { SyncPayload } from "@/components/sync";
 import { useToast } from "@/components/Toasts";
-import { clockTime } from "@/lib/format";
+import { fuzzyWhen } from "@/lib/format";
 import type { Earn } from "@/server/services/earn";
 import { startJob, tradeFound, type Result, type Started } from "./earn";
 import styles from "./Earn.module.css";
@@ -120,12 +120,14 @@ export function JobsList({
   jobs,
   birds,
   timeZone,
+  nowMs,
   sending,
   onSend,
 }: {
   jobs: Earn["jobs"];
   birds: Bird[];
   timeZone: string;
+  nowMs: number;
   sending: boolean;
   onSend: (jobId: string, birdId: string) => void;
 }) {
@@ -148,7 +150,7 @@ export function JobsList({
         const text =
           job.until === null
             ? `${job.name} is out on an odd job.`
-            : `${job.name} is out on an odd job. Home at ${clockTime(new Date(job.until), timeZone)}.`;
+            : `${job.name} is out on an odd job. Home ${fuzzyWhen(job.until, nowMs, timeZone)}.`;
         return job.jobId === null ? (
           <div key={job.birdId} className={styles.running}>
             {text}
@@ -219,6 +221,7 @@ export function JobsPanel({
         jobs={jobs}
         birds={birds}
         timeZone={data?.me.timezone ?? "UTC"}
+        nowMs={data?.serverNow ?? 0}
         sending={sending}
         onSend={onSend}
       />

@@ -5,7 +5,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { Loader } from "@/components/Loader";
 import { useSync } from "@/components/SyncProvider";
 import { useToast } from "@/components/Toasts";
-import { clockTime, type Pronoun } from "@/lib/format";
+import { fuzzyWhen, type Pronoun } from "@/lib/format";
 import { FlightError } from "../../../flights/[id]/FlightError";
 import { type FlightResult, loadFlight } from "../../../flights/[id]/flightApi";
 import { takeLink } from "./linkHandoff";
@@ -51,7 +51,12 @@ function ShareLinkScreen({ flightId, url }: { flightId: string; url: string }) {
       lands={
         flight.arriveAt === undefined
           ? undefined
-          : clockTime(new Date(flight.arriveAt), data.me.timezone)
+          : fuzzyWhen(
+              flight.arriveAt,
+              flight.releaseAt,
+              data.me.timezone,
+              "quote",
+            )
       }
       url={url}
       canShare={canShare}

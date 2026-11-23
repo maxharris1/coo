@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Bird, type GearId, type Look } from "@/components/Bird";
 import type { SyncPayload } from "@/components/sync";
-import { clockTime } from "@/lib/format";
+import { fuzzyWhen } from "@/lib/format";
 import { onJob } from "../earn/JobsPanel";
 import styles from "./Flights.module.css";
 
@@ -20,9 +20,11 @@ type JobBird = Pick<
 export function JobsSection({
   birds,
   timeZone,
+  nowMs,
 }: {
   birds: JobBird[];
   timeZone: string;
+  nowMs: number;
 }) {
   const working = birds.filter(onJob);
   if (working.length === 0) return null;
@@ -48,7 +50,7 @@ export function JobsSection({
               >{`${b.name}, on an odd job`}</span>
               {b.busyUntil !== null && (
                 <span className={styles.line}>
-                  {`Home at ${clockTime(new Date(b.busyUntil), timeZone)}`}
+                  {`Home ${fuzzyWhen(b.busyUntil, nowMs, timeZone)}`}
                 </span>
               )}
             </span>

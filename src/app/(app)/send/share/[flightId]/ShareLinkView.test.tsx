@@ -31,7 +31,7 @@ const props = (
   pronoun: "he",
   guestName: "Maya",
   place: "Fishtown",
-  lands: "11:20 am",
+  lands: "this morning",
   url: URL_,
   canShare: true,
   onCopy: () => {},
@@ -67,7 +67,7 @@ describe("ShareLinkView", () => {
     expect(text(html)).toBe(
       [
         "Gerald is in the air",
-        "Flying to Fishtown. Lands about 11:20 am.",
+        "Flying to Fishtown. Lands this morning.",
         "Now text Maya their link",
         "What Maya gets",
         "I sent you a pigeon. For real. Watch him fly to you:",

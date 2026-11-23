@@ -419,7 +419,7 @@ describe("/flights live", () => {
     const html = shown();
     expect(html).toMatch(/<h2[^>]*>On odd jobs<\/h2>/);
     expect(html).toContain("Gerald, on an odd job");
-    expect(html).toContain("Home at 2:00 pm");
+    expect(html).toContain("Home this afternoon");
     expect(html).not.toContain("Suspiciously quiet");
   });
 

@@ -23,7 +23,7 @@ describe("homeCopy", () => {
     expect(homeCopy(flight(), "she", ZONE)).toEqual({
       released: "Released 11:32 am",
       headline: "Homeward bound",
-      note: "Dumpling has your reply for Priya. She should land around 1:25 pm.",
+      note: "Dumpling has your reply for Priya. She should land around midday.",
       watch: "Watch her go",
       birdTitle: "Dumpling launching off your sill with the reply",
     });
@@ -32,14 +32,26 @@ describe("homeCopy", () => {
   it("agrees with the bird's pronoun", () => {
     expect(homeCopy(flight(), "he", ZONE)).toMatchObject({
       headline: "Homeward bound",
-      note: "Dumpling has your reply for Priya. He should land around 1:25 pm.",
+      note: "Dumpling has your reply for Priya. He should land around midday.",
       watch: "Watch him go",
     });
     expect(homeCopy(flight(), "they", ZONE)).toMatchObject({
       headline: "Homeward bound",
-      note: "Dumpling has your reply for Priya. They should land around 1:25 pm.",
+      note: "Dumpling has your reply for Priya. They should land around midday.",
       watch: "Watch them go",
     });
+  });
+
+  it("says a quick hop lands shortly", () => {
+    const note = homeCopy(
+      flight({ arriveAt: RELEASE + 7_000 }),
+      "she",
+      ZONE,
+    ).note;
+    expect(note).toBe(
+      "Dumpling has your reply for Priya. She should land shortly.",
+    );
+    expect(note).not.toMatch(/\d{1,2}:\d{2}\s?[ap]m/i);
   });
 
   it("drops the landing sentence when no arrival is known", () => {

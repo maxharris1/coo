@@ -148,7 +148,7 @@ describe("Takeoff page", () => {
       copy: {
         released: "Released 9:32 am",
         headline: "And he's off",
-        note: "Gerald has your note for Priya. He should land around 11:20 am.",
+        note: "Gerald has your note for Priya. He should land this morning.",
       },
       animate: true,
     });

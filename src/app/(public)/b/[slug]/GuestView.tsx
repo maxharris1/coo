@@ -5,7 +5,7 @@ import { routePlaces } from "@/components/FlightLog";
 import { MapView, birdState, type BirdState } from "@/components/MapView";
 import { config } from "@/lib/config";
 import { positionAt } from "@/lib/flight/engine";
-import { clockTime, duration, fill, pronounTokens } from "@/lib/format";
+import { fill, fuzzyWhen, pronounTokens } from "@/lib/format";
 import type { GuestView as Guest } from "@/server/services/guestLinks/get";
 import { LegalLinks } from "../../LegalLinks";
 import { GuestClaim } from "./GuestClaim";
@@ -28,16 +28,21 @@ function capital(word: string): string {
   return word.charAt(0).toUpperCase() + word.slice(1);
 }
 
-export function guestCopy(guest: Guest, timeZone: string) {
+export function guestCopy(guest: Guest, timeZone: string, nowMs: number) {
   const p = pronounTokens(guest.bird.pronoun);
   const bird = guest.bird.name;
   const plural = guest.bird.pronoun === "they";
-  const verb =
-    guest.flight.status !== "scheduled" ? "left" : plural ? "leave" : "leaves";
-  const at = clockTime(new Date(guest.flight.releaseAt), timeZone);
+  const left = guest.flight.status !== "scheduled";
+  const verb = left ? "left" : plural ? "leave" : "leaves";
+  const at = fuzzyWhen(
+    guest.flight.releaseAt,
+    nowMs,
+    timeZone,
+    left ? "past" : "live",
+  );
   return {
     title: `${guest.senderName} sent you a pigeon`,
-    lede: `${capital(p.his)} name is ${bird}. ${p.He} ${verb} ${guest.flight.from.label} at ${at} with a note for you, ${guest.recipientName}.`,
+    lede: `${capital(p.his)} name is ${bird}. ${p.He} ${verb} ${guest.flight.from.label} ${at} with a note for you, ${guest.recipientName}.`,
     sealed: `It opens the moment ${bird} lands. ${p.He} ${plural ? "take" : "takes"} this seriously.`,
     notify: `Text me when ${p.he} ${plural ? "land" : "lands"}`,
     consent: fill(config.copy.legal.consent.guest, { bird }),
@@ -45,12 +50,12 @@ export function guestCopy(guest: Guest, timeZone: string) {
   };
 }
 
-function progress(guest: Guest, nowMs: number): Progress {
+function progress(guest: Guest, nowMs: number, timeZone: string): Progress {
   const { flight } = guest;
   const left =
     flight.arriveAt === undefined
       ? undefined
-      : `Lands in ${duration(flight.arriveAt - nowMs)}`;
+      : `Lands ${fuzzyWhen(flight.arriveAt, nowMs, timeZone)}`;
   if (flight.status === "landed") {
     return {
       frac: 1,
@@ -142,8 +147,8 @@ function GuestLive({
   timeZone: string;
   onReported: () => void;
 }) {
-  const copy = guestCopy(guest, timeZone);
-  const now = progress(guest, clock.nowMs);
+  const copy = guestCopy(guest, timeZone, clock.nowMs);
+  const now = progress(guest, clock.nowMs, timeZone);
   const percent = Math.round(now.frac * 100);
   const { flight } = guest;
 

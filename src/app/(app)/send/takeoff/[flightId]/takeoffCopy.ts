@@ -1,4 +1,4 @@
-import { clockTime, fill, type Pronoun } from "@/lib/format";
+import { clockTime, fill, fuzzyWhen, type Pronoun } from "@/lib/format";
 import type { Flight } from "@/server/services/flights/shape";
 
 export type TakeoffCopy = { released: string; headline: string; note: string };
@@ -11,8 +11,7 @@ const HEADLINES: Record<Pronoun, string> = {
   they: "And they're off",
 };
 
-const NOTE =
-  "{bird} has your note for {recipient}. {He} should land around {lands}.";
+const NOTE = "{bird} has your note for {recipient}. {He} should land {lands}.";
 
 export function takeoffCopy(
   flight: Flight,
@@ -28,7 +27,10 @@ export function takeoffCopy(
       {
         bird: flight.bird.name,
         recipient: flight.counterpart?.name ?? flight.guestName,
-        lands: flight.arriveAt === undefined ? undefined : at(flight.arriveAt),
+        lands:
+          flight.arriveAt === undefined
+            ? undefined
+            : fuzzyWhen(flight.arriveAt, flight.releaseAt, timeZone, "quote"),
       },
       pronoun,
     ),

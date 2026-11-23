@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Bird, type GearId, type Look } from "@/components/Bird";
 import { MapView, type MapViewProps } from "@/components/MapView";
 import { isDaylight, positionAt } from "@/lib/flight/engine";
-import { clockTime } from "@/lib/format";
+import { fuzzyWhen } from "@/lib/format";
 import { type JobLegs, jobLegs, legAt } from "@/lib/game/jobDest";
 import type { JobView } from "@/server/services/jobs/get";
 import styles from "./JobTracker.module.css";
@@ -46,7 +46,7 @@ export function jobView(
   if (job.status === "done" || nowMs >= endMs) {
     return { state: "home", headline: `${job.bird.name} is home.` };
   }
-  const sub = `Home at ${clockTime(new Date(endMs), timeZone)}`;
+  const sub = `Home ${fuzzyWhen(endMs, nowMs, timeZone)}`;
   if (!job.map || !legs) {
     const state = nowMs < startMs + (endMs - startMs) / 2 ? "out" : "back";
     return { state, headline: HEADLINES[state], sub, map: null };

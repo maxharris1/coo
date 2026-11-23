@@ -21,25 +21,45 @@ describe("takeoffCopy", () => {
     expect(takeoffCopy(flight(), "he", ZONE)).toEqual({
       released: "Released 9:32 am",
       headline: "And he's off",
-      note: "Gerald has your note for Priya. He should land around 11:20 am.",
+      note: "Gerald has your note for Priya. He should land this morning.",
     });
   });
 
   it("agrees with the bird's pronoun", () => {
     expect(takeoffCopy(flight(), "she", ZONE)).toMatchObject({
       headline: "And she's off",
-      note: "Gerald has your note for Priya. She should land around 11:20 am.",
+      note: "Gerald has your note for Priya. She should land this morning.",
     });
     expect(takeoffCopy(flight(), "they", ZONE)).toMatchObject({
       headline: "And they're off",
-      note: "Gerald has your note for Priya. They should land around 11:20 am.",
+      note: "Gerald has your note for Priya. They should land this morning.",
     });
   });
 
   it("names a guest recipient", () => {
     const toGuest = flight({ counterpart: undefined, guestName: "Sam" });
     expect(takeoffCopy(toGuest, "he", ZONE).note).toBe(
-      "Gerald has your note for Sam. He should land around 11:20 am.",
+      "Gerald has your note for Sam. He should land this morning.",
+    );
+  });
+
+  it("says a quick hop lands shortly, with no clock or countdown", () => {
+    const note = takeoffCopy(
+      flight({ arriveAt: RELEASE + 7_000 }),
+      "he",
+      ZONE,
+    ).note;
+    expect(note).toBe(
+      "Gerald has your note for Priya. He should land shortly.",
+    );
+    expect(note).not.toMatch(/\d{1,2}:\d{2}\s?[ap]m/i);
+    expect(note).not.toMatch(/\d+\s?(min|h)\b/);
+  });
+
+  it("names the day for a landing after midnight", () => {
+    const late = flight({ arriveAt: Date.parse("2026-11-21T19:00:00Z") });
+    expect(takeoffCopy(late, "he", ZONE).note).toBe(
+      "Gerald has your note for Priya. He should land tomorrow afternoon.",
     );
   });
 

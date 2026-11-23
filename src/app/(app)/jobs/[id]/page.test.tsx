@@ -118,7 +118,7 @@ describe("JobTracker", () => {
   it("flies out from the loft before the midpoint", () => {
     const { html, map } = trackerAt("2026-11-22T15:05:59.999Z");
     expect(html).toContain("On an odd job");
-    expect(html).toContain("Home at 10:12 am");
+    expect(html).toContain("Home any minute now");
     expect(html).toContain("Gerald");
     expect(html).toContain("Rush an order slip to the deli on 4th");
     expect(map).toMatchObject({
@@ -133,7 +133,7 @@ describe("JobTracker", () => {
   it("turns for home at the midpoint", () => {
     const { html, map } = trackerAt("2026-11-22T15:06:00.000Z");
     expect(html).toContain("Heading home");
-    expect(html).toContain("Home at 10:12 am");
+    expect(html).toContain("Home any minute now");
     expect(map).toMatchObject({
       from: dest,
       to: loft,
@@ -171,7 +171,7 @@ describe("JobTracker", () => {
     const legacy = { ...job, map: null };
     const out = trackerAt("2026-11-22T15:03:00.000Z", legacy);
     expect(out.html).toContain("On an odd job");
-    expect(out.html).toContain("Home at 10:12 am");
+    expect(out.html).toContain("Home any minute now");
     expect(out.html).toContain("Rush an order slip to the deli on 4th");
     expect(out.map).toBeUndefined();
     expect(out.html).not.toContain('data-map="true"');
