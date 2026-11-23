@@ -45,10 +45,49 @@
   gap: 2px;
 }
 
+.doneRows {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.doneRows[hidden] {
+  display: none;
+}
+
 .heading {
   margin: 0;
   font-weight: 900;
   font-size: 15px;
+}
+
+.groupHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: var(--coo-touch);
+  padding: 0 4px;
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-weight: 900;
+  font-size: 15px;
+  color: var(--coo-ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.count {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  background: var(--coo-card);
+  border: var(--coo-line-thin);
+  border-radius: var(--coo-radius-pill);
+  font-size: 12px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
 }
 
 .empty {
@@ -151,6 +190,7 @@
 .card:focus-visible,
 .airCard:focus-visible,
 .done:focus-visible,
+.groupHeader:focus-visible,
 .more:focus-visible {
   outline: 3px solid var(--coo-ink);
   outline-offset: 3px;

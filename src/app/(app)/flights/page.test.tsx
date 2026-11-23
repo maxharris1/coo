@@ -1,5 +1,11 @@
 import { readFileSync } from "node:fs";
-import { act } from "react";
+import {
+  act,
+  Children,
+  isValidElement,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -219,6 +225,41 @@ const card = (html: string, id: string) =>
 const headingsOf = (html: string) =>
   [...html.matchAll(/<h2[^>]*>([^<]*)<\/h2>/g)].map((m) => m[1]);
 
+const groupsOf = (html: string) =>
+  [...html.matchAll(/<button\b[^>]*aria-expanded="(true|false)"[^>]*>/g)].map(
+    (m) => [m[0].match(/aria-label="([^"]*)"/)?.[1], m[1]],
+  );
+
+const groupBody = (html: string, title: string) => {
+  const id = html.match(
+    new RegExp(`aria-controls="([^"]*)"[^>]*aria-label="${title},`),
+  )?.[1];
+  return (
+    html.match(new RegExp(`<div[^>]*id="${id}"[^>]*>[\\s\\S]*?</div>`))?.[0] ??
+    ""
+  );
+};
+
+type Clickable = ReactElement<{
+  children?: ReactNode;
+  onClick?: () => void;
+  "aria-label"?: string;
+}>;
+
+const buttonsIn = (node: ReactNode): Clickable[] => {
+  if (!isValidElement<Clickable["props"]>(node)) return [];
+  const own = node.type === "button" ? [node] : [];
+  return [...own, ...Children.toArray(node.props.children).flatMap(buttonsIn)];
+};
+
+const header = (title: string) => {
+  const found = buttonsIn(FlightsView(props())).find((b) =>
+    b.props["aria-label"]?.startsWith(`${title},`),
+  );
+  if (!found) throw new Error(`no ${title} header`);
+  return found;
+};
+
 const air = (html: string) =>
   html.match(/<h2[^>]*>In the air<\/h2>[\s\S]*?<\/section>/)?.[0] ?? "";
 
@@ -280,7 +321,8 @@ describe("/flights ready", () => {
     const headings = [...html.matchAll(/<h2[^>]*>([^<]*)<\/h2>/g)].map(
       (m) => m[1],
     );
-    expect(headings).toEqual(["In the air", "Landed today"]);
+    expect(headings).toEqual(["In the air"]);
+    expect(groupsOf(html)).toEqual([["Today, 1 flight", "true"]]);
     for (const text of [
       "Admiral Crumbs to Rosa, 3 blocks",
       "31 sec",
@@ -290,7 +332,7 @@ describe("/flights ready", () => {
     ]) {
       expect(html).toContain(text);
     }
-    expect(html).not.toContain("Show earlier");
+    expect(html).not.toContain("Show more");
   });
 
   it("links every row to its tracker", async () => {
@@ -414,7 +456,11 @@ describe("/flights ready", () => {
       earlier: [yesterday("e1")],
     });
     const html = shown();
-    expect(headingsOf(html)).toEqual(["In the air", "Landed today", "Earlier"]);
+    expect(headingsOf(html)).toEqual(["In the air"]);
+    expect(groupsOf(html)).toEqual([
+      ["Today, 1 flight", "true"],
+      ["Yesterday, 1 flight", "false"],
+    ]);
     expect(air(html)).toContain("No birds in the air. Suspiciously quiet.");
     expect(linkTo(html, "a1")).toHaveLength(1);
     expect(linkTo(html, "e1")).toHaveLength(1);
@@ -433,7 +479,7 @@ describe("/flights ready", () => {
     await answer({ ...EMPTY, incoming: [dumpling] });
     const html = shown();
     expect(html).toContain("In the air");
-    expect(html).not.toContain("Landed today");
+    expect(groupsOf(html)).toEqual([]);
     expect(html).not.toContain("Suspiciously quiet");
   });
 
@@ -451,26 +497,66 @@ describe("/flights ready", () => {
 });
 
 describe("/flights earlier", () => {
-  it("Show earlier appends the next page by cursor without repeats", async () => {
+  it("Show more appends the next page by cursor without repeats and regroups", async () => {
     await mount();
     await answer(
       page({ earlier: [yesterday("e1"), yesterday("e2")], nextCursor: "c1" }),
     );
     let html = shown();
-    expect(html).toMatch(/<h2[^>]*>Earlier<\/h2>/);
-    expect(html).toContain("Show earlier");
+    expect(groupsOf(html)).toEqual([
+      ["Today, 1 flight", "true"],
+      ["Yesterday, 2 flights", "false"],
+    ]);
+    expect(html).toContain(">Show more<");
+    expect(html).not.toContain("Show earlier");
     await act(async () => props().onMore());
     expect(requests().at(-1)!.searchParams.get("cursor")).toBe("c1");
+    const lastWeek = landed("w1", "Brenda", NOW - 9 * 24 * HOUR);
     await answer(
-      page({ earlier: [yesterday("e2"), yesterday("e3")], nextCursor: null }),
+      page({
+        earlier: [yesterday("e2"), yesterday("e3"), lastWeek],
+        nextCursor: null,
+      }),
     );
     html = shown();
+    expect(groupsOf(html)).toEqual([
+      ["Today, 1 flight", "true"],
+      ["Yesterday, 3 flights", "false"],
+      ["Earlier, 1 flight", "false"],
+    ]);
     const order = ["e1", "e2", "e3"].map((id) => {
-      expect(linkTo(html, id)).toHaveLength(1);
+      expect(linkTo(groupBody(html, "Yesterday"), id)).toHaveLength(1);
       return html.indexOf(`href="/flights/${id}"`);
     });
     expect([...order].sort((a, b) => a - b)).toEqual(order);
-    expect(html).not.toContain("Show earlier");
+    expect(linkTo(groupBody(html, "Earlier"), "w1")).toHaveLength(1);
+    expect(html).not.toContain("Show more");
+  });
+
+  it("opens the newest group and hides the rows of collapsed ones", async () => {
+    await mount();
+    await answer({ ...EMPTY, earlier: [yesterday("e1")] });
+    const html = shown();
+    expect(groupsOf(html)).toEqual([["Yesterday, 1 flight", "true"]]);
+    expect(groupBody(html, "Yesterday")).not.toMatch(/<div[^>]*hidden/);
+  });
+
+  it("toggles a group from its header button", async () => {
+    await mount();
+    await answer(page({ earlier: [yesterday("e1")] }));
+    let html = shown();
+    expect(groupBody(html, "Yesterday")).toMatch(/^<div[^>]*hidden=""/);
+    expect(groupBody(html, "Today")).not.toMatch(/^<div[^>]*hidden/);
+    await act(async () => header("Yesterday").props.onClick?.());
+    await act(async () => header("Today").props.onClick?.());
+    html = shown();
+    expect(groupsOf(html)).toEqual([
+      ["Today, 1 flight", "false"],
+      ["Yesterday, 1 flight", "true"],
+    ]);
+    expect(groupBody(html, "Yesterday")).not.toMatch(/^<div[^>]*hidden/);
+    expect(groupBody(html, "Today")).toMatch(/^<div[^>]*hidden=""/);
+    expect(linkTo(groupBody(html, "Yesterday"), "e1")).toHaveLength(1);
   });
 
   it("says Cancelled for a cancelled flight instead of a trip time", async () => {
@@ -499,7 +585,7 @@ describe("/flights earlier", () => {
     expect(view.toasts).toEqual(["The logbook is stuck."]);
     const html = shown();
     expect(linkTo(html, "e1")).toHaveLength(1);
-    expect(html).toContain("Show earlier");
+    expect(html).toContain("Show more");
   });
 });
 
@@ -641,7 +727,7 @@ describe("/flights live", () => {
     expect(requests().at(-1)!.searchParams.get("cursor")).toBe("c2");
   });
 
-  it("keeps a newer sync refetch when an older Show earlier page resolves after it", async () => {
+  it("keeps a newer sync refetch when an older Show more page resolves after it", async () => {
     const firstPage = (url: URL) => !url.searchParams.has("cursor");
     const earlierPage = (url: URL) => url.searchParams.get("cursor") === "c1";
     await mount();
@@ -680,6 +766,13 @@ describe("/flights layout", () => {
   it("gives done rows and buttons a full tap target", () => {
     expect(rule("done")).toMatch(/min-height:\s*var\(--coo-touch\)/);
     expect(rule("more")).toMatch(/min-height:\s*var\(--coo-touch\)/);
+    expect(rule("groupHeader")).toMatch(/min-height:\s*var\(--coo-touch\)/);
+    const tokens = readFileSync(
+      new URL("../../../../assets/tokens.css", import.meta.url),
+      "utf8",
+    );
+    expect(tokens).toMatch(/--coo-touch:\s*44px/);
+    expect(css).toMatch(/\.doneRows\[hidden\]\s*{[^}]*display:\s*none/);
   });
 
   it("sizes avatars to the mock's outside edge under the global border-box", () => {
