@@ -5,7 +5,7 @@ import { routePlaces } from "@/components/FlightLog";
 import { MapView } from "@/components/MapView";
 import { config } from "@/lib/config";
 import { positionAt } from "@/lib/flight/engine";
-import { clockTime, duration, pronounTokens } from "@/lib/format";
+import { clockTime, duration, fill, pronounTokens } from "@/lib/format";
 import type { GuestView as Guest } from "@/server/services/guestLinks/get";
 import { LegalLinks } from "../../LegalLinks";
 import { GuestClaim } from "./GuestClaim";
@@ -35,7 +35,7 @@ export function guestCopy(guest: Guest, timeZone: string) {
     lede: `${capital(p.his)} name is ${bird}. ${p.He} ${verb} ${guest.flight.from.label} at ${at} with a note for you, ${guest.recipientName}.`,
     sealed: `It opens the moment ${bird} lands. ${p.He} ${plural ? "take" : "takes"} this seriously.`,
     notify: `Text me when ${p.he} ${plural ? "land" : "lands"}`,
-    consent: `Send me one text when ${bird} lands.`,
+    consent: fill(config.copy.legal.consent.guest, { bird }),
     map: `Live map. ${bird} is flying from ${guest.flight.from.label} to ${guest.flight.to.label}.`,
   };
 }

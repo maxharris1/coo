@@ -205,7 +205,7 @@ Build these from the components on the Components sheet, in the same style. Copy
 | Screen | Route | Content |
 |---|---|---|
 | Hello | `/welcome` | Logo, "Messages, eventually.", the hero illustration, one paragraph: "Write a note. Tie it to a pigeon. It flies there for real, on a real map, at pigeon speed." Button "Get a pigeon" → sign-in. Link "I already have a loft" → sign-in |
-| Phone | `/sign-in` | "What's your number?" Phone field with country code (default +1). "We text you a code. That's the whole password." Button "Text me the code" |
+| Phone | `/sign-in` | "What's your number?" Phone field with country code (default +1). "We text you a code. That's the whole password." Button "Text me the code". Small print below it: `legal.consent.signIn` from `config/copy/legal.json`, with Terms and Privacy as links |
 | Code | `/sign-in/verify` | Six boxes, auto-submit, "Send it again" after 30 seconds, wrong-code line: "That's not it. Try once more." |
 | Install | `/welcome/install` | Drawn. Step 1 of 3. Instructions change by platform: iOS Safari (Share → Add to Home Screen), Android Chrome (uses the install prompt event; one button "Install"), other browsers (skip quietly). The skip link turns on SMS fallback. If already running from the home screen, skip this step |
 | First bird | `/welcome/bird` | Drawn (Welcome). Step 2 of 3. One panel: your name (prefilled from a guest link), then swipe between three looks, name field with a shuffle button for suggestions, pronoun chips, Adopt. |

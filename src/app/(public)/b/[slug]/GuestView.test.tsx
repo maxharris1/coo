@@ -122,7 +122,9 @@ describe("guestCopy", () => {
     const c = guestCopy(guestFlying(), "America/New_York");
     expect(c.title).toBe("Max sent you a pigeon");
     expect(c.notify).toBe("Text me when he lands");
-    expect(c.consent).toBe("Send me one text when Gerald lands.");
+    expect(c.consent).toBe(
+      "Send me one text when Gerald lands. Msg and data rates may apply. Reply STOP to end.",
+    );
   });
 
   it("uses plural verbs for a bird who goes by they", () => {

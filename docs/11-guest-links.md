@@ -96,7 +96,7 @@ An existing user who opens a link while signed in sees "Add to my sill" and clai
 ## The landing text for guests
 
 On the Guest page, "Text me when he lands" opens a field for a phone number with a checkbox:
-"Send me one text when {bird} lands." With the box ticked, `POST /api/guest/[token]/notify`
+"Send me one text when {bird} lands. Msg and data rates may apply. Reply STOP to end." With the box ticked, `POST /api/guest/[token]/notify`
 stores the number. At landing we send one message (`guest-landed` in `config/copy/sms.json`)
 and clear the number. Limit: one number per link, three attempts per link.
 

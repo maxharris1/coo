@@ -77,6 +77,24 @@
   line-height: 1.35;
 }
 
+.consent {
+  margin: 0;
+  padding: 0 4px;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.consent a {
+  color: var(--coo-ink);
+  font-weight: 700;
+}
+
+.consent a:focus-visible {
+  outline: 3px solid var(--coo-ink);
+  outline-offset: 2px;
+}
+
 .actions {
   margin-top: auto;
   display: flex;
