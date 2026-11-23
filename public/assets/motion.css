@@ -36,4 +36,11 @@
 @keyframes coo-burst-u{0%,20%{transform:translate(0,0) scale(.3);opacity:0}30%{opacity:1}80%{transform:translate(0,-44px) scale(1);opacity:1}100%{transform:translate(0,-44px) scale(1);opacity:0}}
 @keyframes coo-press{0%,36%,100%{transform:translateY(0);box-shadow:0 4px 0 #2A2140}46%,62%{transform:translateY(3px);box-shadow:0 1px 0 #2A2140}72%{transform:translateY(-1px);box-shadow:0 5px 0 #2A2140}82%{transform:translateY(0);box-shadow:0 4px 0 #2A2140}}
 @keyframes coo-point{from{transform:translateY(0)}to{transform:translateY(7px)}}
+@keyframes coo-loft-hop{0%,100%{transform:translateY(0) scale(1,1)}20%{transform:translateY(2px) scale(1,.9)}45%{transform:translateY(-12px) scale(1,1.03)}70%{transform:translateY(1px) scale(1,.94)}85%{transform:translateY(-2px) scale(1,1)}}
+@keyframes coo-loft-preen{0%,100%{transform:translateY(0) scale(1,1)}30%,65%{transform:translateY(1px) scale(.97,.95)}}
+@keyframes coo-loft-ruffle{0%,100%{transform:scale(1,1)}20%{transform:scale(.98,1.04)}40%{transform:scale(1,.97)}60%{transform:scale(.98,1.03)}80%{transform:scale(1,.99)}}
+@keyframes coo-loft-look{0%,100%{transform:scale(1,1)}30%,70%{transform:scale(-1,1)}}
+@keyframes coo-loft-stretch{0%,100%{transform:translateY(0) scale(1,1)}40%,60%{transform:translateY(-2px) scale(.97,1.08)}}
+@keyframes coo-loft-coo{0%,100%{transform:translateY(0) scale(1,1)}25%,75%{transform:translateY(2px) scale(1,.96)}50%{transform:translateY(-4px) scale(1,1)}}
+@keyframes coo-cloud-wrap{from{transform:translateX(0)}to{transform:translateX(var(--coo-cloud-travel))}}
 @media (prefers-reduced-motion: reduce){*{animation:none !important}}

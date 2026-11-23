@@ -29,8 +29,17 @@ flying."; the seed balance; an
 "Incoming" card for each bird headed to me (tap → tracker); "Your flock" with one row per bird:
 avatar, name, one status line, a status chip (Ready, Flying, Resting, Scheduled, On a sill, On a
 job) or a "Feed me" button when hungry; "n of m perches"; a link to the post office (More).
-Rows tap to the bird's page. A bird drawn in the loft (on the ledge, asleep in the coop, or behind
-the OUT tag) also taps to that bird's page. "Feed me" feeds in place. Empty perches show as dashed
+Rows tap to the bird's page. The loft scene is a rooftop with one perch plank per owned perch:
+three on the parapet beside the coop, and at four or five perches an upper rack that holds the 4th
+and 5th, which makes the scene taller. Birds take perches in hatch order (the flock list order),
+one bird per perch, so a new hatchling never moves anyone. An awake home bird (napping and bathing
+count as home) sits on its own perch; a tired one sleeps in the coop and a bird away shows as the
+OUT tag, and both leave their perch bare, as does any perch no bird holds. Each bird drawn in the
+loft also taps to that bird's page. The scene moves gently: every cloud drifts across the sky at
+its own few pixels a second and wraps around, and each perched bird plays a one-shot idle (hop,
+preen, ruffle, look around, wing stretch, coo bob) on its own timer with rests of several seconds
+between, never leaving its perch. With reduced motion on, all of it is off (still clouds, still
+birds, no idle timers). While the tab is hidden the scene pauses and its timers stop. "Feed me" feeds in place. Empty perches show as dashed
 slots. While a roommate is owed, the first says "A roommate is waiting" (tap → `/aviary/roommate`).
 A ready egg takes the next empty slot: "An egg is ready" (tap → `/aviary`).
 

@@ -21,7 +21,7 @@ const bird = (name: string, over: Partial<Bird> = {}): Bird =>
 
 const data = (birds: Bird[], seeds = 240, unread = 0) =>
   ({
-    me: { seeds, timezone: "America/New_York", loft: null },
+    me: { seeds, timezone: "America/New_York", loft: null, perches: 3 },
     birds,
     unread,
   }) as unknown as SyncPayload;
@@ -101,55 +101,6 @@ describe("the top of Main (ac-1)", () => {
     }
   });
 
-  it("describes the scene from the flock", () => {
-    expect(html).toContain(
-      'aria-label="Your rooftop loft. Gerald and Admiral Crumbs stand on the ledge, Kevin is asleep in the coop, and Brenda\'s door has an OUT tag on it."',
-    );
-  });
-
-  it("puts the awake home birds on the ledge, at most two", () => {
-    const five = render([...mock, bird("Pip"), bird("Dot")]);
-    expect(five.match(/data-ledge-bird/g)).toHaveLength(2);
-    expect(html.match(/data-ledge-bird/g)).toHaveLength(2);
-  });
-
-  it("hangs the OUT tag only when a bird is away and the sleeper only when one is tired", () => {
-    const calm = render([bird("Gerald")]);
-    expect(html).toContain(">OUT</text>");
-    expect(calm).not.toContain(">OUT</text>");
-    expect(html).toContain("data-sleeper");
-    expect(calm).not.toContain("data-sleeper");
-    expect(calm).toContain(
-      'aria-label="Your rooftop loft. Gerald stands on the ledge."',
-    );
-  });
-
-  it("keeps napping and bathing birds home, with no OUT tag", () => {
-    const nap = bird("Gerald", { status: "busy", busyKind: "nap" });
-    const bath = bird("Brenda", { status: "busy", busyKind: "bath" });
-    const both = render([nap, bath]);
-    expect(both).toMatch(/<h1[^>]*>Morning. Two birds home.<\/h1>/);
-    expect(both).not.toContain(">OUT</text>");
-    expect(both.match(/data-ledge-bird/g)).toHaveLength(2);
-
-    for (const busy of [nap, bath]) {
-      const alone = render([busy]);
-      expect(alone).not.toContain(">OUT</text>");
-      expect(alone.match(/data-ledge-bird/g)).toHaveLength(1);
-      const tired = render([{ ...busy, tired: true }]);
-      expect(tired).not.toContain(">OUT</text>");
-      expect(tired).toContain("data-sleeper");
-    }
-  });
-
-  it("still hangs the OUT tag for a flying or visiting bird", () => {
-    for (const status of ["flying", "visiting"] as const) {
-      const html = render([bird("Brenda", { status })]);
-      expect(html).toContain(">OUT</text>");
-      expect(html).not.toContain("data-ledge-bird");
-    }
-  });
-
   it("uses only tokens for colour in its stylesheet", () => {
     const css = readFileSync(
       new URL("./MainTop.module.css", import.meta.url),
@@ -169,35 +120,10 @@ describe("the top of Main (ac-1)", () => {
   });
 });
 
-describe("tapping a bird in the loft scene (ac-4)", () => {
-  const sceneLinks = (markup: string) =>
-    [...markup.matchAll(/<a[^>]*data-scene-bird=""[^>]*>/g)].map((m) => m[0]);
-
-  const html = render([
-    bird("Gerald"),
-    bird("Kevin", { look: "kevin", tired: true }),
-    bird("Brenda", { look: "brenda", status: "flying" }),
-  ]);
-
-  it("opens each drawn bird's page: ledge, sleeper and OUT tag", () => {
-    const links = sceneLinks(html);
-    expect(links).toHaveLength(3);
-    for (const [id, name] of [
-      ["gerald", "Gerald"],
-      ["kevin", "Kevin"],
-      ["brenda", "Brenda"],
-    ]) {
-      expect(
-        links.filter(
-          (a) =>
-            a.includes(`href="/birds/${id}"`) &&
-            a.includes(`aria-label="Open ${name}"`),
-        ),
-      ).toHaveLength(1);
-    }
-  });
-
-  it("keeps the links out of the scene picture and the header unchanged", () => {
+describe("the loft below the header", () => {
+  it("draws the scene for the owned perches and keeps its links out of the header", () => {
+    const html = render(mock);
+    expect(html.match(/data-perch=""/g)).toHaveLength(3);
     expect(html.match(/<svg[^>]*role="img".*?<\/svg>/s)?.[0]).not.toContain(
       "<a",
     );
@@ -207,31 +133,5 @@ describe("tapping a bird in the loft scene (ac-4)", () => {
       "/more",
       "/shop",
     ]);
-  });
-
-  it("targets only the birds drawn, with two on the ledge at most", () => {
-    const five = render([
-      bird("Gerald"),
-      bird("Pip"),
-      bird("Dot"),
-      bird("Kevin", { look: "kevin", tired: true }),
-      bird("Brenda", { look: "brenda", status: "flying" }),
-    ]);
-    const hrefs = sceneLinks(five).map((a) => a.match(/href="([^"]+)"/)?.[1]);
-    expect(hrefs.sort()).toEqual(
-      ["/birds/brenda", "/birds/gerald", "/birds/kevin", "/birds/pip"].sort(),
-    );
-    expect(sceneLinks(render([bird("Gerald")]))).toHaveLength(1);
-  });
-
-  it("gives each scene target 44 px, a focus ring and a pressed state", () => {
-    const css = readFileSync(
-      new URL("./MainTop.module.css", import.meta.url),
-      "utf8",
-    );
-    expect(css).toMatch(/\.birdLink \{[^}]*min-width: var\(--coo-touch\)/);
-    expect(css).toMatch(/\.birdLink \{[^}]*min-height: var\(--coo-touch\)/);
-    expect(css).toMatch(/\.birdLink:focus-visible \{[^}]*outline: 3px solid/);
-    expect(css).toMatch(/\.birdLink:active \{/);
   });
 });
