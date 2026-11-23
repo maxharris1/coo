@@ -322,9 +322,13 @@ describe("cream guard", () => {
     expect(shell).not.toMatch(/padding-top|margin-top|safe-top/);
   });
 
-  it("keeps the body padded on all four sides in the 430px column", () => {
-    const body = read("app/globals.css").match(/\nbody \{([^}]*)\}/)![1];
-    expect(value(body, "max-width")).toBe("430px");
+  it("keeps the body padded on all four sides, a 430px column from 600px up", () => {
+    const css = read("app/globals.css");
+    const body = css.match(/\nbody \{([^}]*)\}/)![1];
+    const desktop = css.match(
+      /@media \(min-width: 600px\) \{\s*body \{([^}]*)\}/,
+    )![1];
+    expect(value(desktop, "max-width")).toBe("430px");
     expect(value(body, "background")).toBe("var(--coo-paper)");
     expect(body).toMatch(
       /padding: var\(--coo-safe-top\) var\(--coo-safe-right\) var\(--coo-safe-bottom\)\s+var\(--coo-safe-left\);/,
