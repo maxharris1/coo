@@ -26,6 +26,8 @@ export const schedule: SendHook = async (deps, me, input) => {
       "invalid",
       "sends: scheduling is for one friend and one bird",
     );
+  if (item.espresso)
+    throw new AppError("invalid", "Espresso is for sending now.");
   const friend = item.friendId;
   const nowIso = new Date(now).toISOString();
 

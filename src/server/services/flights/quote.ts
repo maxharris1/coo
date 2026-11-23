@@ -31,6 +31,7 @@ import {
   loftsOf,
   type LoftColumns,
 } from "@/server/services/friends";
+import { withEspresso } from "./espresso";
 import { factorsFor, type Factor } from "./factors";
 import {
   GEOCODER_UNAVAILABLE,
@@ -60,7 +61,20 @@ export type BirdQuote = {
   fliesInDark: boolean;
   factors: Factor[];
   sunsetAt: number;
+  espresso: EspressoQuote | null;
 };
+
+export type EspressoQuote = Pick<
+  BirdQuote,
+  | "leavesAt"
+  | "airTimeMs"
+  | "durationMs"
+  | "arriveAt"
+  | "odds"
+  | "roostsOvernight"
+  | "fliesInDark"
+  | "factors"
+>;
 
 export type RecipientQuote = {
   recipient: QuoteRecipient;
@@ -287,19 +301,27 @@ function quoteOne(
   hazards: { hawk: boolean; fair: boolean },
 ): BirdQuote {
   const input = quoteInput(bird, owner, from, to, releaseAt, weather, hazards);
-  const plan = computeFlightPlan(input);
-  const fly = plan.segments.filter((s) => s.kind === "fly");
+  const espresso = withEspresso(input);
   return {
     birdId: bird.id,
     releaseAt,
-    leavesAt: fly[0]?.startMs ?? releaseAt,
+    ...summary(input),
+    sunsetAt: sunTimes(releaseAt, from).sunsetMs,
+    espresso: espresso.used ? summary(espresso.input) : null,
+  };
+}
+
+function summary(input: FlightInput): EspressoQuote {
+  const plan = computeFlightPlan(input);
+  const fly = plan.segments.filter((s) => s.kind === "fly");
+  return {
+    leavesAt: fly[0]?.startMs ?? input.departAtMs,
     airTimeMs: fly.reduce((sum, s) => sum + s.endMs - s.startMs, 0),
-    durationMs: plan.arriveAtMs - releaseAt,
+    durationMs: plan.arriveAtMs - input.departAtMs,
     arriveAt: plan.arriveAtMs,
     odds: plan.onTimeOdds,
     roostsOvernight: plan.segments.some((s) => s.kind === "roost"),
     fliesInDark: fliesInDark(input),
     factors: factorsFor(input, plan),
-    sunsetAt: sunTimes(releaseAt, from).sunsetMs,
   };
 }

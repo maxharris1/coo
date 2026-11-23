@@ -3,7 +3,10 @@ import type { UserId } from "@/server/ports/auth";
 import { createGuestLink } from "@/server/services/guestLinks/create";
 import { searchPlaces } from "@/server/services/places";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
+import { setShots, shotsOf } from "@/test/fixtures/espresso";
+import { FakeClock } from "@/test/fakes/clock";
 import { seedWorld, type World } from "@/test/seedWorld";
+import { espressoUntil } from "./espresso";
 import type { GuestSendResult } from "./guestSend";
 import { send, type SendInput } from "./send";
 
@@ -292,5 +295,27 @@ describe("guestSend", () => {
       ),
     ).toBe("invalid");
     expect(await counts()).toEqual(before);
+  });
+
+  it("spends a shot and flies through the first night with espresso", async () => {
+    const tenPm = Date.UTC(2026, 10, 20, 3);
+    deps = await makeTestDeps({ clock: new FakeClock(tenPm) });
+    world = await seedWorld(deps.db, tenPm);
+    await setShots(deps.db, max, 1);
+    const placeId = await heldPlace(max);
+
+    const { flights } = await send(deps, max, {
+      body: BODY,
+      sends: [
+        { guest: { name: "Sam", placeId }, birdId: gerald, espresso: true },
+      ],
+    });
+
+    expect(await shotsOf(deps.db, max)).toBe(0);
+    const [{ input }] = await deps.db.query<{
+      input: Parameters<typeof espressoUntil>[0];
+    }>("select input from flights where id = $1", [flights[0].id]);
+    expect(input.nightFlightUntilMs).toBeGreaterThan(tenPm);
+    expect(input.nightFlightUntilMs).toBe(espressoUntil(input));
   });
 });

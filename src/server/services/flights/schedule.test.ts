@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { UserId } from "@/server/ports/auth";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
+import { setShots, shotsOf } from "@/test/fixtures/espresso";
 import { seedWorld, type World } from "@/test/seedWorld";
 import { unfriend } from "@/server/services/friends";
 import { send } from "./send";
@@ -143,6 +144,20 @@ describe("schedule", () => {
       ),
     ).toBe("not_found");
     expect(await snapshot()).toEqual(before);
+  });
+
+  it("refuses espresso on a scheduled send as invalid and changes nothing", async () => {
+    await setShots(deps.db, max, 1);
+    const before = await snapshot();
+    expect(
+      await refusal(
+        schedule(deps.clock.now() + HOUR_MS, [
+          { friendId: priya, birdId: gerald, espresso: true },
+        ]),
+      ),
+    ).toBe("invalid");
+    expect(await snapshot()).toEqual(before);
+    expect(await shotsOf(deps.db, max)).toBe(1);
   });
 
   it("refuses a non-friend as forbidden and changes nothing", async () => {

@@ -218,6 +218,7 @@ describe("stats", () => {
         fliesInDark: false,
         factors: [],
         sunsetAt: RELEASE,
+        espresso: null,
       },
       {
         birdId: "b1",
@@ -231,6 +232,7 @@ describe("stats", () => {
         fliesInDark: false,
         factors: [],
         sunsetAt: RELEASE,
+        espresso: null,
         ...over,
       },
     ],

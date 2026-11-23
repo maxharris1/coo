@@ -160,6 +160,7 @@ export function toMe(r: Row<"profiles">) {
     phoneLast4: r.phone_last4,
     seeds: r.seeds,
     perches: r.perches,
+    espressoShots: r.espresso_shots,
     hasBirdbath: r.has_birdbath,
     units: r.units,
     timezone: r.timezone,

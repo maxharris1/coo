@@ -395,6 +395,35 @@ describe("quote", () => {
       expect(q.roostsOvernight).toBe(false);
       expect(q.factors.map((f) => f.kind)).not.toContain("night");
     });
+
+    describe("the espresso variant", () => {
+      it("is null for a bird in night-vision goggles", async () => {
+        const q = await quoteGerald(["nightgoggles"], { priyaHome: CHICAGO });
+        expect(q.espresso).toBeNull();
+      });
+
+      it("is null on a daylight flight", async () => {
+        const q = await quoteGerald([], { at: Date.UTC(2026, 10, 19, 15) });
+        expect(q.roostsOvernight).toBe(false);
+        expect(q.espresso).toBeNull();
+      });
+
+      it("flies through the first night, sooner and 3% less likely on time", async () => {
+        const q = await quoteGerald([], { priyaHome: CHICAGO });
+
+        expect(q.roostsOvernight).toBe(true);
+        expect(q.fliesInDark).toBe(false);
+        expect(q.factors.map((f) => f.kind)).not.toContain("night");
+        expect(q.espresso).not.toBeNull();
+        const espresso = q.espresso!;
+        expect(espresso.fliesInDark).toBe(true);
+        expect(espresso.leavesAt).toBe(q.releaseAt);
+        expect(espresso.arriveAt).toBeLessThan(q.arriveAt);
+        expect(espresso.durationMs).toBe(espresso.arriveAt - q.releaseAt);
+        expect(espresso.odds).toBeCloseTo(q.odds - 0.03, 10);
+        expect(espresso.factors).toContainEqual(NIGHT);
+      });
+    });
   });
 
   describe("a 0.1 mi hop from the East Village on 2026-11-22", () => {
@@ -480,6 +509,17 @@ describe("quote", () => {
       const bare = await hop(NIGHT);
       expect(bare.fliesInDark).toBe(false);
       expect(bare.leavesAt).toBeGreaterThan(bare.releaseAt);
+    });
+
+    it("quotes an espresso hop that leaves at release in the dark", async () => {
+      const q = await hop(NIGHT);
+
+      expect(q.espresso).toMatchObject({
+        leavesAt: NIGHT,
+        roostsOvernight: false,
+        fliesInDark: true,
+      });
+      expect(q.espresso!.arriveAt).toBeLessThan(q.leavesAt);
     });
 
     it("leaves at release after a 2:00 pm release", async () => {

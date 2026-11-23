@@ -61,7 +61,7 @@ or doodle, until it has landed.
 First runs the tick steps for rows that belong to or are aimed at this user. Then returns:
 
 ```ts
-{ serverNow, me: { id, name, handle, inviteCode, seeds, perches, hasBirdbath, units, timezone,
+{ serverNow, me: { id, name, handle, inviteCode, seeds, perches, hasBirdbath, espressoShots, units, timezone,
     loft: Place & { city: string, travelling: boolean }, installed, settings: {...} },
   birds: Bird[], closet: string[], outfits: Outfit[],
   flights: Flight[],            // scheduled or flying, mine and incoming; plus landed in the last 24 h
@@ -122,7 +122,7 @@ For each recipient returns distance, the endpoints' labels, and for each request
 (default: now) a quote for the given bird, or for each ready bird if none is given:
 `{ birdId, releaseAt, leavesAt, airTimeMs, durationMs, arriveAt, odds, roostsOvernight,
 fliesInDark, factors: [{ kind: 'headwind'|'tailwind'|'rain'|'downpour'|'cold'|'snow'|'hawk'|
-'fair'|'hungry'|'scruffy'|'tired'|'night'|'distance', text, effect }] , sunsetAt }`.
+'fair'|'hungry'|'scruffy'|'tired'|'night'|'distance', text, effect }] , sunsetAt, espresso }`.
 
 `durationMs` runs from release to arrival, roosts included. `airTimeMs` is the time in the air,
 the sum of the flight's fly segments. `leavesAt` is takeoff, the start of the first fly segment;
@@ -130,12 +130,19 @@ it is later than `releaseAt` when a bird released after dark waits at the loft f
 `fliesInDark` is true when the bird wears night-vision goggles and its route meets the dark, so
 it flies on instead of roosting.
 
+`espresso` is the same quote if the sender spends an Espresso shot on this bird:
+`{ leavesAt, airTimeMs, durationMs, arriveAt, odds, roostsOvernight, fliesInDark, factors }`.
+It is null when the bird wears night-vision goggles or would not roost. The variant flies until
+the sunrise that ends the first night (see `docs/04-game-rules.md` section 6), so its odds carry
+the `night` factor whenever it flies in the dark. It is offered whether or not the sender holds
+a shot; `me.espressoShots` in sync says how many they hold.
+
 `effect` is found by running the engine with and without that one factor: a time difference
 ("+18 min") for speed factors, an odds difference ("6% off") for odds factors. Weather for
 future hours comes from the hourly forecast. Quotes never touch the database except caches.
 
 ### POST /api/flights
-Body: `{ body, doodle?, sends: [{ friendId | guest: { name, placeId, pin?: { lat, lon } }, birdId }], releaseAt? }`.
+Body: `{ body, doodle?, sends: [{ friendId | guest: { name, placeId, pin?: { lat, lon } }, birdId, espresso? }], releaseAt? }`.
 A guest `pin` works as in the quote: the flight's `to` and the guest link's `dest` are stored
 at the snapped pin, labelled by its neighbourhood. Only the sender and the guest-link holder can read it.
 The note is checked with `validateNote`: text, a doodle, or both.
@@ -146,6 +153,15 @@ text fits each bird's limit; creates one note per send; then for each send eithe
 guest link and returns the token **once**. Returns `{ flights: Flight[], guestLinks?: [{ flightId, url }] }`.
 
 Weather and place names are fetched before the transaction opens, never inside it.
+
+`espresso: true` on a send spends one of the sender's Espresso shots on that bird when the bird
+would roost and is not wearing night-vision goggles. The server sets the flight's
+`nightFlightUntilMs` to the sunrise that ends the first night and takes one from
+`profiles.espresso_shots`, in the same transaction as the send. When the bird does not need a
+shot, the send goes ahead and spends none. Without the flag the count never changes. If the
+sends need more shots than the sender holds, the whole request is refused with `conflict`
+("No espresso shots left.") and nothing is spent. With `releaseAt`, `espresso: true` is refused
+with `invalid` ("Espresso is for sending now.").
 
 ### Others
 

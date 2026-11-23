@@ -31,6 +31,13 @@ optional `nightFlightUntilMs` (the bird may fly in the dark until this moment).
 
 The server builds this once, at release, and stores it in `flights.input`.
 
+The server sets `nightFlightUntilMs` only when the sender spends an Espresso shot (see
+`docs/04-game-rules.md` section 6). It runs the engine once without the field and without a
+delay, and sets the field to the end of the first `roost` segment, the sunrise that ends the
+first night. It never sets the field for a bird wearing `nightgoggles` or a route that never
+roosts. The quote builds its `espresso` variant the same way. The rule lives in
+`src/server/services/flights/espresso.ts`.
+
 ## Step 1: distance and bearing
 
 Great-circle distance by the haversine formula on a sphere of radius 3,958.7613 miles.
@@ -181,7 +188,7 @@ Things worth noticing:
 - Released at 10 pm: 9 hours asleep on the note, then a normal flight.
 - Released at 10 pm wearing night goggles: no wait at the loft, he lands 1 h 49.5 min later. Flying in the dark costs 0.03, so odds are 0.91 − 0.03 = 0.88.
 - Chicago wearing night goggles: no barn, he flies through the night and lands 16 h 04 min after takeoff instead of 30 h 06 min. That includes a 15 minute minor delay this flight id rolls. Odds are 0.85 − 0.03 = 0.82.
-- Los Angeles with `nightFlightUntilMs` at the loft's first sunrise, the hook for the future Espresso item: he flies through the first night only and roosts on later nights. 4 roosts instead of 5, and he lands 97 h 25 min after takeoff instead of 124 h 56 min. Odds are 0.81 − 0.03 = 0.78. At the cutoff he is over northern Missouri, where the sun is not up yet, so he roosts 69 minutes until it rises there.
+- Los Angeles with `nightFlightUntilMs` at the loft's first sunrise, close to what an Espresso shot sets: he flies through the first night only and roosts on later nights. 4 roosts instead of 5, and he lands 97 h 25 min after takeoff instead of 124 h 56 min. Odds are 0.81 − 0.03 = 0.78. At the cutoff he is over northern Missouri, where the sun is not up yet, so he roosts 69 minutes until it rises there.
 - The same major delay is 3 h 21 min for a good navigator, 4 h 28 min for a poor one, and 20 minutes after a search party.
 
 ## Changing the engine

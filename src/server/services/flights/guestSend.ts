@@ -33,6 +33,7 @@ import {
 } from "@/server/services/noteInput";
 import { displayName } from "@/server/services/onboarding";
 import { sampleWeather } from "@/server/services/weather";
+import { espressoInput, spendShot } from "./espresso";
 import { getFlight } from "./get";
 import { placeNames } from "./placeNames";
 import { endpointOf, legFor, snapshotOf, type Endpoint } from "./quote";
@@ -121,17 +122,11 @@ export const guestSend: SendHook = async (
       [item.birdId, me],
     );
     const { bird, note } = readyToFly(locked, input, now, owner);
-    const flight = toFlightInput(
-      flightId,
-      bird,
-      owner,
-      from,
-      to,
-      now,
-      weather,
-      hazards,
+    const flight = espressoInput(
+      item.espresso,
+      toFlightInput(flightId, bird, owner, from, to, now, weather, hazards),
     );
-    const plan = computeFlightPlan(flight);
+    const plan = computeFlightPlan(flight.input);
 
     const care = projectCare(snapshotOf(bird), now, owner);
     const claimed = await tx.query(
@@ -142,6 +137,7 @@ export const guestSend: SendHook = async (
     );
     if (claimed.length === 0)
       throw new AppError("conflict", "That bird is not home");
+    if (flight.used) await spendShot(tx, me);
     const [{ count: sentToday }] = await tx.query<{ count: number }>(
       `select count(*)::int from flights
        where owner_id = $1 and kind = 'delivery' and status <> 'cancelled'
@@ -193,7 +189,7 @@ export const guestSend: SendHook = async (
         Math.round(plan.distanceMi * 100) / 100,
         plan.onTimeOdds,
         plan.delayKind,
-        JSON.stringify(flight),
+        JSON.stringify(flight.input),
         JSON.stringify(plan),
         JSON.stringify(names),
       ],

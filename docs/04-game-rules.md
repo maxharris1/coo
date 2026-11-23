@@ -89,9 +89,27 @@ Fully described in `docs/05-flight-engine.md`. In short:
 - Birds fly only while the sun is up where they are. Otherwise they roost and resume at sunrise.
   The exception is a bird wearing night-vision goggles. It flies through the dark and does not
   roost, at 0.03 lower arrival odds.
+- An Espresso shot keeps a bird up for one night. See "Espresso shot" below.
 - Each flight has arrival odds. That share of flights go straight through. The rest are delayed:
   80% by 4 to 25 minutes, 20% by 1 to 5 hours. Good navigators shorten delays.
 - The note always arrives.
+
+### Espresso shot
+
+When the sender releases a bird now, they may spend one Espresso shot on it. The bird then
+skips the first night's roosts: it may fly in the dark until the sunrise that ends the first
+roost it would have taken without the shot. Later nights on a long trip still roost. A bird
+released after dark that would wait at the loft leaves at once and flies until that sunrise.
+
+- The quote offers the shot only when the bird would roost and is not wearing night-vision
+  goggles. Goggled birds already fly at night, so they never use a shot.
+- A shot is spent only when the sender asks for it, one per bird, in the same transaction as the
+  send. If the sender asks but the bird no longer needs it (goggles, or the route no longer
+  meets a night), the bird is sent and no shot is spent.
+- A send that needs more shots than the sender holds is refused as a whole, and nothing is spent.
+- Flying in the dark costs the same 0.03 of arrival odds as the goggles, and only when the bird
+  actually flies in the dark.
+- Scheduled sends cannot use a shot. The shot is for releasing now.
 
 ### Search party
 
@@ -183,8 +201,7 @@ Spent:
 | Espresso shot | 25 each, see `consumables` in `config/game.json` |
 
 The Espresso shot's effect is "One night of flying". It stacks: a player can buy as many as they
-like, and the Shop shows how many they hold. Spending one at send time comes with the flight
-rules for it; until then a shot is only held.
+like, and the Shop shows how many they hold. Section 6, "Espresso shot", says how one is spent.
 
 Example: Brooklyn to Philadelphia is 81 miles. 10 + floor(81 / 25) = 13 seeds.
 
