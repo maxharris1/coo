@@ -11,7 +11,7 @@ import { Bird, type GearId, type Look } from "@/components/Bird";
 import type { SyncPayload } from "@/components/sync";
 import { isAway } from "@/lib/format";
 import { gestureAnimation, startLoftIdle, type Gesture } from "./loftIdle";
-import { BIRD_SCALE, BIRD_SIZE, loftLayout, type Box } from "./loftLayout";
+import { BIRD_SCALE, BIRD_SIZE, coopLayout, type Box } from "./coopLayout";
 import styles from "./MainTop.module.css";
 
 type FlockBird = SyncPayload["birds"][number];
@@ -90,7 +90,7 @@ export function LoftScene({
   birds: FlockBird[];
   perches: number;
 }) {
-  const layout = loftLayout(perches);
+  const layout = coopLayout(perches);
   const { width, height, parapetY, coop } = layout;
   const reduced = useSyncExternalStore(
     subscribeReducedMotion,

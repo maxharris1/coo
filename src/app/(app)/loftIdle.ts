@@ -1,4 +1,4 @@
-import type { Reach } from "./loftLayout";
+import type { Reach } from "./coopLayout";
 
 type GestureSpec = {
   keyframes: string;

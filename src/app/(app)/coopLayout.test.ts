@@ -4,9 +4,9 @@ import {
   idleEnvelope,
   inside,
   intersects,
-  loftLayout,
+  coopLayout,
   type Box,
-} from "./loftLayout";
+} from "./coopLayout";
 
 const CAPACITIES = [
   { perches: 3, height: 236, rack: false },
@@ -17,10 +17,10 @@ const CAPACITIES = [
 const pairs = <T>(xs: readonly T[]) =>
   xs.flatMap((a, i) => xs.slice(i + 1).map((b) => [a, b] as const));
 
-describe("loft layout by owned perches (ac-1, ac-3)", () => {
+describe("coop layout by owned perches (ac-1, ac-3)", () => {
   for (const { perches, height, rack } of CAPACITIES) {
     describe(`${perches} perches`, () => {
-      const layout = loftLayout(perches);
+      const layout = coopLayout(perches);
 
       it(`is 390 wide and ${height} tall, ${rack ? "with" : "without"} the upper rack`, () => {
         expect([layout.width, layout.height]).toEqual([390, height]);
@@ -75,25 +75,25 @@ describe("loft layout by owned perches (ac-1, ac-3)", () => {
   }
 
   it("gives slot boxes at least 44 pt each way", () => {
-    for (const slot of loftLayout(5).slots) {
+    for (const slot of coopLayout(5).slots) {
       expect(slot.w).toBeGreaterThanOrEqual(44);
       expect(slot.h).toBeGreaterThanOrEqual(44);
     }
   });
 
   it("puts the front row on the parapet and the 4th and 5th perches on the rack", () => {
-    const five = loftLayout(5);
+    const five = coopLayout(5);
     expect(five.slots.map((s) => s.x)).toEqual([148, 226, 304, 182, 260]);
     expect(five.slots.slice(0, 3).map((s) => s.y + s.h)).toEqual([
       218, 218, 218,
     ]);
     expect(five.slots.slice(3).map((s) => s.y + s.h)).toEqual([134, 134]);
     expect(five.rack?.beamY).toBe(134);
-    expect(loftLayout(4).slots.map((s) => s.x)).toEqual([148, 226, 304, 182]);
+    expect(coopLayout(4).slots.map((s) => s.x)).toEqual([148, 226, 304, 182]);
   });
 
   it("clamps the owned count to the 3 to 5 perches the game sells", () => {
-    expect(loftLayout(2).slots).toHaveLength(3);
-    expect(loftLayout(9).slots).toHaveLength(5);
+    expect(coopLayout(2).slots).toHaveLength(3);
+    expect(coopLayout(9).slots).toHaveLength(5);
   });
 });
