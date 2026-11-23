@@ -465,6 +465,23 @@ describe("quote", () => {
       expect(Math.abs(q.leavesAt - SUNRISE)).toBeLessThan(5 * MINUTE_MS);
     });
 
+    it("says a goggled bird flies in the dark only when its hop meets the dark", async () => {
+      const goggles = { owned: ["nightgoggles"], worn: ["nightgoggles"] };
+
+      const night = await hop(NIGHT, undefined, goggles);
+      expect(night.fliesInDark).toBe(true);
+      expect(night.roostsOvernight).toBe(false);
+      expect(night.leavesAt).toBe(night.releaseAt);
+
+      const day = await hop(DAY, [DAY], goggles);
+      expect(day.fliesInDark).toBe(false);
+      expect(day.factors.map((f) => f.kind)).not.toContain("night");
+
+      const bare = await hop(NIGHT);
+      expect(bare.fliesInDark).toBe(false);
+      expect(bare.leavesAt).toBeGreaterThan(bare.releaseAt);
+    });
+
     it("leaves at release after a 2:00 pm release", async () => {
       const q = await hop(DAY, [DAY]);
 

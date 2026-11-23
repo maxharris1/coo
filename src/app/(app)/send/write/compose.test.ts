@@ -215,6 +215,7 @@ describe("stats", () => {
         arriveAt: RELEASE,
         odds: 0.1,
         roostsOvernight: false,
+        fliesInDark: false,
         factors: [],
         sunsetAt: RELEASE,
       },
@@ -227,6 +228,7 @@ describe("stats", () => {
         arriveAt: RELEASE + 108 * 60_000,
         odds: 0.94,
         roostsOvernight: false,
+        fliesInDark: false,
         factors: [],
         sunsetAt: RELEASE,
         ...over,
@@ -364,6 +366,66 @@ describe("stats", () => {
       expect(stats(q, "b1", NY, "mi")?.forecast).toBe(
         "Waits for sunrise. Leaves at 6:52 am. Lands around 6:52 am. 12 mph from the west.",
       );
+    });
+
+    const goggled = (factors: Factor[]) =>
+      quote(
+        {
+          releaseAt: DUSK,
+          leavesAt: DUSK,
+          airTimeMs: AIR,
+          durationMs: AIR,
+          arriveAt: DUSK + AIR,
+          odds: 0.88,
+          fliesInDark: true,
+          factors,
+        },
+        0.1,
+      );
+    const NIGHT: Factor = {
+      kind: "night",
+      text: "Flying in the dark",
+      effect: "3% off",
+    };
+
+    it("flies through the night in goggles after a 4:40 pm release", () => {
+      const said = stats(goggled([NIGHT]), "b1", NY, "mi");
+
+      expect(said).toEqual({
+        distance: "2 blocks",
+        flightTime: "7 sec",
+        odds: "88%",
+        forecast: "Flies through the night (goggles). Lands around 4:40 pm.",
+      });
+      expect(said?.forecast).not.toMatch(/sunrise/);
+    });
+
+    it("puts the weather after the night line", () => {
+      const q = goggled([
+        NIGHT,
+        { kind: "headwind", text: "12 mph from the west", effect: "+1 min" },
+      ]);
+
+      expect(stats(q, "b1", NY, "mi")?.forecast).toBe(
+        "Flies through the night (goggles). Lands around 4:40 pm. 12 mph from the west.",
+      );
+    });
+
+    it("says nothing of the night on a daylight hop in goggles", () => {
+      const q = quote(
+        {
+          releaseAt: AFTERNOON,
+          leavesAt: AFTERNOON,
+          airTimeMs: AIR,
+          durationMs: AIR,
+          arriveAt: AFTERNOON + AIR,
+          odds: 0.88,
+          fliesInDark: false,
+        },
+        0.1,
+      );
+
+      expect(stats(q, "b1", NY, "mi")?.forecast).toBe("Lands around 2:00 pm.");
     });
 
     it("flies straight over after a 2:00 pm release", () => {

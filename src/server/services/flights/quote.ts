@@ -1,5 +1,6 @@
 import {
   computeFlightPlan,
+  fliesInDark,
   haversineMi,
   hazardsFor,
   interpolate,
@@ -56,6 +57,7 @@ export type BirdQuote = {
   arriveAt: number;
   odds: number;
   roostsOvernight: boolean;
+  fliesInDark: boolean;
   factors: Factor[];
   sunsetAt: number;
 };
@@ -296,6 +298,7 @@ function quoteOne(
     arriveAt: plan.arriveAtMs,
     odds: plan.onTimeOdds,
     roostsOvernight: plan.segments.some((s) => s.kind === "roost"),
+    fliesInDark: fliesInDark(input),
     factors: factorsFor(input, plan),
     sunsetAt: sunTimes(releaseAt, from).sunsetMs,
   };

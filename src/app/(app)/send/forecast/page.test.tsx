@@ -96,6 +96,7 @@ const legFor = ({ birdIds, at }: QuoteBody) => ({
     arriveAt: releaseAt + 126 * 60_000,
     odds: ODDS[i],
     roostsOvernight: false,
+    fliesInDark: false,
     factors: [],
     sunsetAt: releaseAt + 4 * HOUR,
   })),

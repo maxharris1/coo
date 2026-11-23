@@ -3,6 +3,7 @@ import emptyStates from "../../../../assets/copy/empty-states.json";
 import { config } from "@/lib/config";
 import {
   computeFlightPlan,
+  fliesInDark,
   groundSpeedMph,
   type FlightInput,
   type LatLon,
@@ -131,9 +132,8 @@ function estimate(
   miles: number,
   { loft, bird, nowMs }: { loft: LatLon; bird: FlockBird; nowMs: number },
 ): string {
-  const plan = computeFlightPlan(
-    calmFlight(id, loft, eastOf(loft, miles), bird, nowMs),
-  );
+  const input = calmFlight(id, loft, eastOf(loft, miles), bird, nowMs);
+  const plan = computeFlightPlan(input);
   const barns = plan.segments.filter(
     (s) => s.kind === "roost" && s.fromFrac > 0,
   ).length;
@@ -145,11 +145,12 @@ function estimate(
     plan.segments.find((s) => s.kind === "fly")?.startMs ?? nowMs;
   const suffix = takeoffMs > nowMs ? " after sunrise" : "";
   const elapsed = plan.arriveAtMs - takeoffMs;
+  const night = fliesInDark(input) ? "Flies through the night. " : "";
   if (elapsed < 60_000) {
     const seconds = Math.round(elapsed / 1000);
-    return `About ${seconds} ${plural(seconds, "second", "seconds")}${suffix}.`;
+    return `${night}About ${seconds} ${plural(seconds, "second", "seconds")}${suffix}.`;
   }
-  return `About ${duration(elapsed)}${suffix}.`;
+  return `${night}About ${duration(elapsed)}${suffix}.`;
 }
 
 export function friendCard(

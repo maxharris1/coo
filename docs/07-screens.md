@@ -40,7 +40,8 @@ with calm weather); on browsers with the Contact Picker, a "From your contacts" 
 new" → NewRecipient. Multi-select with a running line: "2 picked. That takes 2 birds, and 2 are
 ready." Next is disabled when more are picked than birds are ready. Friends I cannot reach
 (no loft yet) are greyed with a reason. A trip that waits at the loft for sunrise is timed from
-sunrise: "About 4h 13m after sunrise."
+sunrise: "About 4h 13m after sunrise." A bird in night-vision goggles that meets the dark flies
+on, and its line reads "Flies through the night. About {t}."
 
 ### NewRecipient (`/send/new`)
 Name field. Place search (`/api/geo/search`) with result rows by kind. Helper text as drawn.
@@ -64,7 +65,10 @@ Flight time is the time in the air (`airTimeMs`). A bird released after dark wai
 until sunrise, and the forecast says "Waits for sunrise. Leaves at {leavesAt}. Lands around
 {arriveAt}." A bird that leaves now but roosts on the way shows the door-to-door time
 (`durationMs`), and the forecast adds "Roosts for the night and finishes after sunrise." after
-"Lands around {arriveAt}." A leading factor, if any, follows the forecast.
+"Lands around {arriveAt}." A bird in night-vision goggles that meets the dark (`fliesInDark`)
+leaves at release and flies on. Its forecast says "Flies through the night (goggles). Lands
+around {arriveAt}." and its flight time is the time in the air. A leading factor, if any, follows the
+forecast. The night factor is left out there, since the night line already says it.
 With several recipients the picker assigns one bird per recipient, fastest bird to the farthest
 friend by default, and each can be swapped.
 A napping bird stays unpickable but shows a Wake button. Wake wakes it in place
@@ -79,7 +83,10 @@ rows from the quote's `factors`; the sunset line; two buttons: schedule for the 
 send at the selected hour. If the selected hour is now, the second button releases at once.
 For a bird that waits at the loft for sunrise (`leavesAt` after `releaseAt`), the selected
 hour's detail reads "Waits for sunrise, then about {airTimeMs} in the air. Lands near
-{arriveAt}." Other hours read "About {durationMs}. Lands near {arriveAt}."
+{arriveAt}." For a bird in night-vision goggles that flies through the dark (`fliesInDark`), it
+reads "Flies through the night. About {airTimeMs}. Lands near {arriveAt}." and the sunset line
+reads "Sunset is {sunsetAt}. With goggles on, {bird} flies on through the dark." Other hours
+read "About {durationMs}. Lands near {arriveAt}."
 
 ### Takeoff (`/send/takeoff/[flightId]`) and TakeoffHome (`/sill/[visitId]/takeoff`)
 The 1.5 second takeoff sequence from `assets/motion.css` (see the Motion sheet), then the copy as

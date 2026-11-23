@@ -20,6 +20,7 @@ import {
 const NYC = { lat: 40.71, lon: -74.0 };
 const MORNING = Date.parse("2026-11-20T14:00:00Z");
 const NIGHT = Date.parse("2026-11-20T04:00:00Z");
+const DUSK = Date.parse("2026-11-20T21:45:00Z");
 
 const bird = (over: Partial<FlockBird> = {}): FlockBird => ({
   canFly: true,
@@ -98,6 +99,27 @@ describe("friendCard estimate (ac-1)", () => {
     expect(lineFor(friend("theo", "Boston", 190), bird(), NIGHT)).toBe(
       "Boston, 190 mi. About 4h 13m after sunrise.",
     );
+  });
+
+  it("says a bird in goggles flies a short hop through the night", () => {
+    const goggled = bird({ gear: ["nightgoggles"] });
+
+    expect(lineFor(friend("rosa", null, 0.2), goggled, DUSK)).toMatch(
+      /^\d+ blocks? over\. Flies through the night\. About \d+ seconds?\.$/,
+    );
+  });
+
+  it("says a bird in goggles flies a long trip through the night, with no barn", () => {
+    const line = lineFor(
+      friend("dev", "Chicago", 713),
+      bird({ gear: ["nightgoggles"] }),
+      DUSK,
+    );
+
+    expect(line).toMatch(
+      /^Chicago, 713 mi\. Flies through the night\. About \d+h \d{2}m\.$/,
+    );
+    expect(line).not.toMatch(/barn|after sunrise/);
   });
 
   it("shows only the distance when no bird is ready", () => {
