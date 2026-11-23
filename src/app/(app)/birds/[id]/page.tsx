@@ -24,10 +24,17 @@ import {
   poseFor,
   pronounLines,
   recordLine,
+  trackerOf,
   tripOf,
+  type Tracker,
 } from "./pigeon";
 
 const DOT_STEP = 22;
+
+const TRACKER_NOUN: Record<Tracker["kind"], string> = {
+  flight: "flight",
+  job: "odd job",
+};
 
 function BackLink() {
   return (
@@ -77,6 +84,7 @@ export default function PigeonPage() {
 
   const lines = pronounLines(bird);
   const trip = tripOf(bird, data);
+  const tracker = trackerOf(bird, data.flights);
   const away =
     bird.status === "home"
       ? null
@@ -118,6 +126,15 @@ export default function PigeonPage() {
         <section className={styles.section}>
           <h2 className={styles.heading}>{lines.doing}</h2>
           {away && <p className={styles.away}>{away}</p>}
+          {tracker && (
+            <Link
+              href={tracker.href}
+              className={styles.tracker}
+              aria-label={`Watch ${bird.name}'s ${TRACKER_NOUN[tracker.kind]}`}
+            >
+              {`Watch this ${TRACKER_NOUN[tracker.kind]}`}
+            </Link>
+          )}
           {metersFor(bird).map((m) => (
             <div key={m.action} className={styles.meter}>
               <span className={styles.label}>{m.label}</span>
