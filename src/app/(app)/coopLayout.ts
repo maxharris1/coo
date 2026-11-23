@@ -22,7 +22,7 @@ const SLEEPER_ART: Box = { x: 49, y: 159, w: 44, h: 34 };
 const OUT_TAG_ART: Box = { x: 114, y: 138, w: 36, h: 18 };
 const PLANK = { w: 70, h: 8, under: 4 };
 
-export type CoopLayout = {
+export type ShedLayout = {
   perches: number;
   width: number;
   height: number;
@@ -66,7 +66,7 @@ const fromShedArt = (
   h: art.h * coop.scale,
 });
 
-export function coopLayout(perches: number): CoopLayout {
+export function coopLayout(perches: number): ShedLayout {
   const owned = ownedPerches(perches);
   const hasRack = owned > FRONT_X.length;
   const parapetY = hasRack ? FRONT_PARAPET + 26 : FRONT_PARAPET;
