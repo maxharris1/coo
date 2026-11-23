@@ -480,7 +480,9 @@ export function drawPose(
 ) {
   const palette: Palette = birds[look];
   const shape = breed ?? palette.breed ?? "city";
-  const worn = [...gear, ...(OWN[look] ?? [])];
+  const worn = gear.includes("nightgoggles")
+    ? gear
+    : [...gear, ...(OWN[look] ?? [])];
   return DRAW[pose](
     (o) => bird(palette, shape, { ...o, gear: worn }),
     animated,

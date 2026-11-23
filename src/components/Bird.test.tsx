@@ -54,6 +54,8 @@ function applyTransform(list: string, pt: Point): Point {
   }, pt);
 }
 
+const CAP_CROWN = 'd="M69 21 Q68 5.5 86 5';
+
 function objective(html: string): Point {
   const core = html.match(/<circle[^>]*fill="#C8F8D4"[^>]*>/);
   if (!core) throw new Error("no night-vision objective drawn");
@@ -184,6 +186,14 @@ describe("Bird props", () => {
 
   it("draws the night-vision goggles as an olive helmet and one glowing tube, and leaves the aviators alone", () => {
     for (const pose of ["perched", "fly"] as const) {
+      const admiral = renderToStaticMarkup(
+        <Bird look="admiral" pose={pose} gear={["nightgoggles"]} />,
+      );
+      expect(admiral).toContain('fill="#5C6B38"');
+      expect(admiral).not.toContain(CAP_CROWN);
+      expect(
+        renderToStaticMarkup(<Bird look="admiral" pose={pose} />),
+      ).toContain(CAP_CROWN);
       const night = renderToStaticMarkup(
         <Bird look="gerald" pose={pose} gear={["nightgoggles"]} />,
       );
@@ -205,18 +215,21 @@ describe("Bird props", () => {
   });
 
   it("flips the night-vision tube up above the crown on sleep so the closed eye shows", () => {
-    for (const animated of [false, true]) {
-      const html = renderToStaticMarkup(
-        <Bird
-          look="gerald"
-          pose="sleep"
-          gear={["nightgoggles"]}
-          animated={animated}
-        />,
-      );
-      expect(html).toContain('fill="#5C6B38"');
-      expect(html).toContain('d="M87 31 q5 4 10 0"');
-      expect(objective(html).y).toBeLessThan(16);
+    for (const look of ["gerald", "admiral"] as const) {
+      for (const animated of [false, true]) {
+        const html = renderToStaticMarkup(
+          <Bird
+            look={look}
+            pose="sleep"
+            gear={["nightgoggles"]}
+            animated={animated}
+          />,
+        );
+        expect(html).toContain('fill="#5C6B38"');
+        expect(html).not.toContain(CAP_CROWN);
+        expect(html).toContain('d="M87 31 q5 4 10 0"');
+        expect(objective(html).y).toBeLessThan(16);
+      }
     }
   });
 
