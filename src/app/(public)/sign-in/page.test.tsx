@@ -41,6 +41,15 @@ describe("/sign-in (Phone)", () => {
     expect(html).toMatch(/<a[^>]*href="\/terms"[^>]*>Terms<\/a>/);
   });
 
+  it("shows the consent small print with Terms and Privacy links in it", () => {
+    const small = html.match(/<p[^>]*>By continuing.*?<\/p>/)?.[0] ?? "";
+    expect(small).toMatch(/<a[^>]*href="\/terms"[^>]*>Terms<\/a>/);
+    expect(small).toMatch(/<a[^>]*href="\/privacy"[^>]*>Privacy<\/a>/);
+    expect(small.replace(/<[^>]+>/g, "")).toBe(
+      "By continuing you say you are 13 or older, agree to the Terms and Privacy, and agree to get a text with a sign-in code. Msg and data rates may apply.",
+    );
+  });
+
   it("keeps the number out of URLs and web storage", () => {
     for (const file of [
       "./page.tsx",
