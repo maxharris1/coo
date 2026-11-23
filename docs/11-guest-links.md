@@ -6,6 +6,8 @@ The way Coo spreads: you send a real pigeon to a friend who has never heard of i
 
 1. **Sender** taps "Someone new" (or a contact, on Android), types a name and picks where the
    bird should fly: a neighbourhood, a city or an address. The place is snapped to the roost grid.
+   A map opens there with a pin the sender can drag or tap onto the right block. The pin settles
+   on the roost grid. See "Where the bird lands" below.
 2. Sender writes the note and releases a bird, exactly as for a friend.
 3. The server creates a guest link and returns its address once. The ShareLink screen offers
    "Text it to Maya", Copy and Share. **Our server does not text the recipient.** The sender
@@ -41,6 +43,26 @@ The route's origin is the sender's roost, a point on a 200 metre grid labelled w
 neighbourhood. The sender chose to send a bird to this person, and the screen where they do it
 says "They can watch the flight", so this is consented. It is noted in `docs/12-security-privacy.md`.
 
+## Where the bird lands
+
+The sender's pin is a provisional sill for a person, not an exact destination.
+`/send/new` snaps it to the roost grid (`snap()` in `lib/game/privacy.ts`, about 200 metres),
+and `legFor` snaps it again on the server. It is stored snapped in `guest_links.dest_*` and
+`flights.to_*`, labelled with the neighbourhood or city the geocoder names for the snapped point.
+It is never a street, a house number or the text the sender typed. If the sender does not move
+the pin, the bird flies to the held place's snapped roost under that place's label.
+
+The recipient's own roost replaces the guess. When they sign up from the link, the loft step
+opens at the flight's destination (see Claiming). "This is home" with the pin unmoved saves that
+point as their roost. If they use their location, pick a different place, move the pin or choose
+their town centre, `profiles.home_*` holds their own snapped roost instead of the sender's guess. A later
+`POST /api/loft` replaces it the same way. Sends between friends after that use their current loft.
+
+A note already in the air keeps its destination. Claiming the link and `setLoft` never retarget
+a flying guest delivery. `flights.to_*`, `guest_links.dest_*`, the plan and `arrive_at` stay as
+sent. The bird lands at the provisional sill, and the flight home starts from that stored
+destination.
+
 ## Timing rules
 
 - The bird flies in real time whether or not the link has been opened.
@@ -65,8 +87,9 @@ says "They can watch the flight", so this is consented. It is noted in `docs/12-
 
 For a brand-new user, onboarding from a link is shorter: name and phone on the claim page,
 the text code, then the first-bird step. The loft step is prefilled with the link's destination
-("Is this where birds should find you?") and can be changed. Install is offered after the reply
-is sent, not before: do not put anything between a new person and their first reply.
+("Is this where birds should find you?") and can be changed, as "Where the bird lands"
+describes. Install is offered after the reply is sent, not before: do not put anything between
+a new person and their first reply.
 
 An existing user who opens a link while signed in sees "Add to my sill" and claims in one tap.
 
