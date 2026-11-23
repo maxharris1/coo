@@ -211,6 +211,14 @@ const linkTo = (html: string, id: string) =>
 const progress = (html: string) =>
   html.match(/<[a-z]+\b[^>]*role="progressbar"[^>]*>/g) ?? [];
 
+const card = (html: string, id: string) =>
+  html.match(
+    new RegExp(`<a\\b[^>]*href="/flights/${id}"[^>]*>[\\s\\S]*?</a>`),
+  )?.[0] ?? "";
+
+const accessibleName = (html: string, id: string) =>
+  linkTo(html, id)[0]?.match(/aria-label="([^"]*)"/)?.[1];
+
 beforeEach(() => {
   calls = [];
   view.props = null;
@@ -252,11 +260,8 @@ describe("/flights ready", () => {
     const headings = [...html.matchAll(/<h2[^>]*>([^<]*)<\/h2>/g)].map(
       (m) => m[1],
     );
-    expect(headings).toEqual(["Your birds", "Coming to you", "Landed today"]);
+    expect(headings).toEqual(["In the air", "Landed today"]);
     for (const text of [
-      "Gerald to Priya",
-      "Kevin to Theo",
-      "Dumpling from Priya",
       "Admiral Crumbs to Rosa, 3 blocks",
       "31 sec",
       ">Flying<",
@@ -286,17 +291,88 @@ describe("/flights ready", () => {
     expect(linkTo(html, "d1")[0]).toContain('data-state="almostHere"');
   });
 
-  it("labels each progress bar with the percent of the way", async () => {
+  it("lists my flights then incoming ones as In the air cards", async () => {
     await mount();
     await answer(page());
-    const bars = progress(shown());
-    expect(bars).toHaveLength(3);
-    expect(bars[0]).toContain('aria-valuenow="38"');
-    expect(bars[0]).toContain('aria-label="38 percent of the way"');
-    expect(bars[0]).toContain('aria-valuemin="0"');
-    expect(bars[0]).toContain('aria-valuemax="100"');
-    expect(bars[1]).toContain('aria-label="55 percent of the way"');
-    expect(bars[2]).toContain('aria-label="91 percent of the way"');
+    const html = shown();
+    const air = html.match(/<h2[^>]*>In the air<\/h2>[\s\S]*?<\/section>/)![0];
+    const order = [...air.matchAll(/href="\/flights\/([^"]+)"/g)].map(
+      (m) => m[1],
+    );
+    expect(order).toEqual(["g1", "k1", "d1"]);
+  });
+
+  it("names each card by bird, state, other person and arrival", async () => {
+    await mount();
+    await answer(page());
+    const html = shown();
+    expect(accessibleName(html, "g1")).toBe(
+      "Gerald, Flying, to Priya. Lands this afternoon.",
+    );
+    expect(accessibleName(html, "k1")).toBe(
+      "Kevin, Delayed, to Theo. Lands this afternoon.",
+    );
+    expect(accessibleName(html, "d1")).toBe(
+      "Dumpling, Almost here, from Priya. Lands on your sill any minute now.",
+    );
+  });
+
+  it("keeps the fuzzy arrival on a delayed card with no last-seen place", async () => {
+    await mount();
+    await answer(page());
+    const html = shown();
+    expect(accessibleName(html, "k1")).toMatch(/Lands /);
+    expect(card(html, "k1")).toContain("Lands this afternoon.");
+  });
+
+  it("keeps the fuzzy arrival after the last-seen place on a delayed card", async () => {
+    const seen = {
+      ...kevin,
+      placeNames: { deciles: Array(11).fill("Newark") },
+    };
+    await mount();
+    await answer(page({ yours: [gerald, seen] }));
+    const html = shown();
+    expect(accessibleName(html, "k1")).toBe(
+      "Kevin, Delayed, to Theo. Last seen near Newark. Lands this afternoon.",
+    );
+    expect(card(html, "k1")).toContain(
+      "Last seen near Newark. Lands this afternoon.",
+    );
+  });
+
+  it("shows the bird, chip, direction badge, other person and line on each card", async () => {
+    await mount();
+    await answer(page());
+    const html = shown();
+    const g = card(html, "g1");
+    expect(g).toContain(">Gerald<");
+    expect(g).toContain(">Flying<");
+    expect(g).toContain('data-direction="sent"');
+    expect(g).toContain(">Priya<");
+    expect(g).toContain("Lands this afternoon.");
+    const d = card(html, "d1");
+    expect(d).toContain(">Dumpling<");
+    expect(d).toContain(">Almost here<");
+    expect(d).toContain('data-direction="received"');
+    expect(d).toContain(">Priya<");
+    expect(d).toContain("Lands on your sill any minute now.");
+  });
+
+  it("puts a decorative map preview inside each card, with no progress bar and no Find button", async () => {
+    await mount();
+    await answer(page());
+    const html = shown();
+    for (const id of ["g1", "k1", "d1"]) {
+      const c = card(html, id);
+      expect(c).toContain('aria-hidden="true"');
+      expect(c).toContain("pin-loft.svg");
+      expect(c).toContain("pin-sill.svg");
+    }
+    expect(progress(html)).toHaveLength(0);
+    expect(html).not.toContain("percent of the way");
+    expect(html).not.toMatch(/<button[^>]*>[^<]*Find/);
+    expect(html).not.toContain("Find ");
   });
 
   it("shows the empty line and no sections when nothing is out or landed", async () => {
@@ -312,8 +388,7 @@ describe("/flights ready", () => {
     await mount();
     await answer({ ...EMPTY, incoming: [dumpling] });
     const html = shown();
-    expect(html).toContain("Coming to you");
-    expect(html).not.toContain("Your birds");
+    expect(html).toContain("In the air");
     expect(html).not.toContain("Landed today");
     expect(html).not.toContain("Suspiciously quiet");
   });
@@ -396,7 +471,9 @@ describe("/flights errors", () => {
     expect(requests()[1].searchParams.has("cursor")).toBe(false);
     await answer(page());
     html = shown();
-    expect(html).toContain("Gerald to Priya");
+    expect(accessibleName(html, "g1")).toBe(
+      "Gerald, Flying, to Priya. Lands this afternoon.",
+    );
     expect(html).not.toContain("Try again");
   });
 });
@@ -454,7 +531,9 @@ describe("/flights live", () => {
     const html = shown();
     expect(html).toContain(">Flying<");
     expect(html).not.toContain(">Scheduled<");
-    expect(progress(html)[0]).toContain('aria-valuenow="38"');
+    expect(accessibleName(html, "s1")).toBe(
+      "Gerald, Flying, to Priya. Lands this afternoon.",
+    );
   });
 
   it("keeps loaded history and its cursor across a sync refetch", async () => {
@@ -542,8 +621,11 @@ describe("/flights layout", () => {
     expect(card).toMatch(/padding:\s*8px 12px 10px 8px/);
     expect(card).toMatch(/border:\s*var\(--coo-line\)/);
     expect(card).toMatch(/border-radius:\s*var\(--coo-radius-row\)/);
+    const air = rule("airCard");
+    expect(air).toMatch(/border:\s*var\(--coo-line\)/);
+    expect(air).toMatch(/border-radius:\s*var\(--coo-radius-row\)/);
     expect(css).toMatch(
-      /\.card\[data-state="delayed"\]\s*{[^}]*var\(--coo-peach\)/,
+      /\.airCard\[data-state="delayed"\] \.airBody\s*{[^}]*var\(--coo-peach\)/,
     );
   });
 });

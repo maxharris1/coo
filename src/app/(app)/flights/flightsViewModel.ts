@@ -7,17 +7,22 @@ import type { Flight } from "@/server/services/flights/shape";
 export type RowState =
   "scheduled" | "flying" | "roosting" | "delayed" | "almostHere" | "landed";
 export type ChipTone = "card" | "sun" | "lilac" | "tomato" | "mint";
+export type Direction = "sent" | "received";
 export type FlightsRow = {
   id: string;
   flight: Flight;
   state: RowState;
+  bird: string;
+  other: string;
+  direction: Direction;
   title: string;
   line: string;
+  label: string;
   chip?: { text: string; tone: ChipTone };
-  frac: number;
 };
+export type SectionKey = "inTheAir" | "landedToday";
 export type FlightsSection = {
-  key: keyof FlightSections;
+  key: SectionKey;
   title: string;
   rows: FlightsRow[];
 };
@@ -59,15 +64,20 @@ const STATES: Record<
   },
   delayed: {
     chip: { text: "Delayed", tone: "tomato" },
-    line: (c) => sentences(c.place && `Last seen near ${c.place}.`),
+    line: (c) =>
+      sentences(c.place && `Last seen near ${c.place}.`, `Lands ${c.lands}.`),
   },
   landed: { line: (c) => c.trip },
 };
 
-const TITLES: Record<keyof FlightSections, string> = {
-  yours: "Your birds",
-  incoming: "Coming to you",
+const TITLES: Record<SectionKey, string> = {
+  inTheAir: "In the air",
   landedToday: "Landed today",
+};
+
+const DIRECTION: Record<Flight["role"], Direction> = {
+  mine: "sent",
+  incoming: "received",
 };
 
 const landedByPlan = (f: Flight, nowMs: number): boolean =>
@@ -96,7 +106,7 @@ function liveState(
   return { state, frac };
 }
 
-function rowTitle(f: Flight, landed: boolean, units: Units): string {
+function otherParty(f: Flight): { other: string; heading: string } {
   const toward = headingToViewer(f);
   const other =
     f.role === "incoming"
@@ -104,10 +114,7 @@ function rowTitle(f: Flight, landed: boolean, units: Units): string {
       : (f.counterpart?.name ??
         f.guestName ??
         (toward ? f.from.label : f.to.label));
-  const who = `${f.bird.name} ${toward ? "from" : "to"} ${other}`;
-  if (!landed) return who;
-  const miles = f.distanceMi ?? f.plan?.distanceMi ?? 0;
-  return `${who}, ${distance(miles, units)}`;
+  return { other, heading: `${toward ? "from" : "to"} ${other}` };
 }
 
 function copyOf(
@@ -136,15 +143,23 @@ function toRow(
     ? { state: "landed" as const, frac: 1 }
     : liveState(f, nowMs);
   const entry = STATES[state];
-  const line = (landsOnSill(f) && entry.incomingLine) || entry.line;
+  const lineOf = (landsOnSill(f) && entry.incomingLine) || entry.line;
+  const line = lineOf(copyOf(f, frac, nowMs, timezone));
+  const { other, heading } = otherParty(f);
+  const who = `${f.bird.name} ${heading}`;
+  const miles = f.distanceMi ?? f.plan?.distanceMi ?? 0;
+  const named = [f.bird.name, entry.chip?.text, heading].filter(Boolean);
   return {
     id: f.id,
     flight: f,
     state,
-    title: rowTitle(f, landed, units),
-    line: line(copyOf(f, frac, nowMs, timezone)),
+    bird: f.bird.name,
+    other,
+    direction: DIRECTION[f.role],
+    title: landed ? `${who}, ${distance(miles, units)}` : who,
+    line,
+    label: sentences(`${named.join(", ")}.`, line),
     chip: entry.chip,
-    frac,
   };
 }
 
@@ -163,14 +178,15 @@ export function flightsView(
   ]
     .filter((f) => landedAtMs(f) >= midnight)
     .sort((a, b) => landedAtMs(b) - landedAtMs(a));
-  const rows: FlightSections = {
-    yours: stillOut(page.yours),
-    incoming: stillOut(page.incoming),
+  const yours = stillOut(page.yours);
+  const incoming = stillOut(page.incoming);
+  const rows: Record<SectionKey, Flight[]> = {
+    inTheAir: [...yours, ...incoming],
     landedToday,
   };
-  const keys = Object.keys(TITLES) as (keyof FlightSections)[];
+  const keys = Object.keys(TITLES) as SectionKey[];
   return {
-    pill: `${rows.yours.length} out, ${rows.incoming.length} coming in`,
+    pill: `${yours.length} out, ${incoming.length} coming in`,
     sections: keys.map((key) => ({
       key,
       title: TITLES[key],
