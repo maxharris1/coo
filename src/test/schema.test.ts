@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { config } from "@/lib/config";
 import type { Db } from "@/server/db";
-import { testDb } from "@/test/testDb";
+import { asRole, testDb } from "@/test/testDb";
 
 let db: Db;
 let max: string;
@@ -135,6 +135,56 @@ describe("schema", () => {
           await t.query("select public.sync_phone_last4($1)", [max]);
         }),
       ).rejects.toThrow(/permission denied/);
+  });
+
+  it("guest_links_for_phone is a definer function only coo_app may run, and it returns no phone", async () => {
+    const fn = "public.guest_links_for_phone(uuid)";
+    const privileges = await one(
+      `select has_function_privilege('coo_app', $1, 'execute') as app,
+              has_function_privilege('anon', $1, 'execute') as anon,
+              has_function_privilege('authenticated', $1, 'execute') as authenticated,
+              exists (
+                select from pg_proc p, aclexplode(p.proacl) a
+                 where p.oid = $1::regprocedure and a.grantee = 0
+              ) as public`,
+      [fn],
+    );
+    expect(privileges).toEqual({
+      app: true,
+      anon: false,
+      authenticated: false,
+      public: false,
+    });
+    expect(
+      await one(
+        "select prosecdef, proconfig from pg_proc where oid = $1::regprocedure",
+        [fn],
+      ),
+    ).toEqual({ prosecdef: true, proconfig: ['search_path=""'] });
+    for (const role of ["anon", "authenticated"])
+      await expect(
+        db.tx(async (t) => {
+          await t.query(`set local role ${role}`);
+          await t.query("select * from public.guest_links_for_phone($1)", [
+            max,
+          ]);
+        }),
+      ).rejects.toThrow(/permission denied/);
+
+    await db.query(
+      "update auth.users set phone = '15550000001' where id = $1",
+      [priya],
+    );
+    const { id: link } = await one<{ id: string }>(
+      `insert into guest_links (token_hash, sender_id, recipient_name, dest_lat, dest_lon, dest_label, notify_phone)
+       values ('h', $1, 'Priya', 39.95, -75.17, 'Philadelphia', '+1 555-000-0001') returning id`,
+      [max],
+    );
+    const rows = await asRole(db, "coo_app").query(
+      "select * from public.guest_links_for_phone($1)",
+      [priya],
+    );
+    expect(rows).toEqual([{ id: link, sender_id: max }]);
   });
 
   it("seeds: earn, spend, never below zero, never twice", async () => {
