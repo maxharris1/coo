@@ -9,6 +9,7 @@ import foundObjects from "../../config/found-objects.json";
 import game from "../../config/game.json";
 import gear from "../../config/gear.json";
 import jobs from "../../config/jobs.json";
+import loft from "../../config/loft.json";
 import quirks from "../../config/quirks.json";
 
 export const config = {
@@ -19,6 +20,7 @@ export const config = {
   game,
   gear,
   jobs,
+  loft,
   quirks,
   copy: { flightLog, legal, notifications, sms },
 } as const;
