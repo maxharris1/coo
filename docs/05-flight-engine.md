@@ -169,6 +169,7 @@ Full inputs and outputs are in `reference/flight-engine/vectors.json`.
 | `delay-major-poor-navigator` | Same major delay, navigation 1: the delay is longer | 82.1 | 6h 17m | 0.91 | major |
 | `delay-major-search-party` | Same major delay ended early by a search party | 82.1 | 2h 09m | 0.91 | major |
 | `night-release-nightgoggles` | Released at 10 pm wearing night goggles: flies through the dark at once | 82.1 | 1h 49m | 0.88 | none |
+| `chicago-nightgoggles` | New York to Chicago wearing night goggles: no barn, flies through the night | 711.8 | 16h 04m | 0.82 | minor |
 
 Things worth noticing:
 
@@ -178,6 +179,7 @@ Things worth noticing:
 - Chicago: he flies until dusk in Pennsylvania, sleeps 14 hours, and lands the next afternoon. 30 hours for 712 miles.
 - Released at 10 pm: 9 hours asleep on the note, then a normal flight.
 - Released at 10 pm wearing night goggles: no wait at the loft, he lands 1 h 49.5 min later. Flying in the dark costs 0.03, so odds are 0.91 − 0.03 = 0.88.
+- Chicago wearing night goggles: no barn, he flies through the night and lands 16 h 04 min after takeoff instead of 30 h 06 min. That includes a 15 minute minor delay this flight id rolls. Odds are 0.85 − 0.03 = 0.82.
 - The same major delay is 3 h 21 min for a good navigator, 4 h 28 min for a poor one, and 20 minutes after a search party.
 
 ## Changing the engine
