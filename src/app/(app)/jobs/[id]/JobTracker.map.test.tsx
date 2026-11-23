@@ -1,5 +1,6 @@
 import type { ReactElement, ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { Bird } from "@/components/Bird";
 import { MapView } from "@/components/MapView";
 import type { JobView } from "@/server/services/jobs/get";
 import { JobTracker } from "./JobTracker";
@@ -141,18 +142,18 @@ const job: JobView = {
   },
 };
 
-function findMapView(node: ReactNode): ReactElement | undefined {
+function find(node: ReactNode, type: unknown): ReactElement | undefined {
   if (!node || typeof node !== "object") return undefined;
   if (Array.isArray(node)) {
     for (const child of node) {
-      const found = findMapView(child);
+      const found = find(child, type);
       if (found) return found;
     }
     return undefined;
   }
   const el = node as ReactElement<{ children?: ReactNode }>;
-  if (el.type === MapView) return el;
-  return findMapView(el.props?.children);
+  if (el.type === type) return el;
+  return find(el.props?.children, type);
 }
 
 function render() {
@@ -166,11 +167,16 @@ function render() {
     offsetMs: 0,
     timeZone: "America/New_York",
   });
-  const map = findMapView(tree);
+  const map = find(tree, MapView);
   if (!map) throw new Error("JobTracker rendered no MapView");
-  MapView(map.props as Parameters<typeof MapView>[0]);
+  const drawn = MapView(map.props as Parameters<typeof MapView>[0]);
   for (const run of lib.hooks.pending) run();
-  return map.props as { flightId: string };
+  const bird = find(drawn, Bird);
+  if (!bird) throw new Error("MapView rendered no bird");
+  return {
+    flightId: (map.props as { flightId: string }).flightId,
+    pose: (bird.props as { pose: string }).pose,
+  };
 }
 
 async function mapMounted(n: number) {
@@ -232,11 +238,15 @@ describe("the job tracker map as the clock ticks (ac-1)", () => {
 
   it("swaps to the return leg at the midpoint with one remount", async () => {
     vi.setSystemTime(Date.parse("2026-11-22T15:05:57.000Z"));
-    expect(render().flightId).toBe("j1:out");
+    const out = render();
+    expect(out.flightId).toBe("j1:out");
+    expect(out.pose, "flying on the out leg").toBe("fly");
     await mapMounted(1);
 
     await tickSeconds(3);
-    expect(render().flightId, "return leg at the midpoint").toBe("j1:back");
+    const back = render();
+    expect(back.flightId, "return leg at the midpoint").toBe("j1:back");
+    expect(back.pose, "still flying at the midpoint, never landed").toBe("fly");
     await mapMounted(2);
 
     await tickSeconds(3);

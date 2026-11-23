@@ -11,7 +11,8 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: () => {} }),
 }));
 
-vi.mock("@/components/MapView", () => ({
+vi.mock("@/components/MapView", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/components/MapView")>()),
   MapView: () => <div data-map="true" />,
 }));
 

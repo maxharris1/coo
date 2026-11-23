@@ -12,12 +12,12 @@ import Link from "next/link";
 import type { Flight } from "@/server/services/flights/shape";
 import { Bird, type GearId, type Look } from "./Bird";
 import { FlightLog, placeNear } from "./FlightLog";
-import { MapView } from "./MapView";
+import { MapView, birdState, type BirdState } from "./MapView";
 import styles from "./Tracker.module.css";
 import { TrackerDelay } from "./TrackerDelay";
 import { TrackerEarn } from "./TrackerEarn";
 
-type TrackerState = "scheduled" | "flying" | "roosting" | "delayed" | "landed";
+type TrackerState = BirdState;
 type Stat = { value: string; label: string };
 export type TrackerView = {
   state: TrackerState;
@@ -90,7 +90,7 @@ function position(
   }
   const p = positionAt(flight.plan, flight.from, flight.to, nowMs);
   return {
-    state: p.state === "waiting" ? "scheduled" : p.state,
+    state: birdState(p.state),
     frac: p.frac,
     night: !isDaylight(nowMs, p),
   };
@@ -304,6 +304,7 @@ export function Tracker({
             night={view.night}
             loftLabel={view.loftLabel}
             sillLabel={view.sillLabel}
+            state={view.state}
           />
         )}
       </div>

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { routePlaces } from "@/components/FlightLog";
-import { MapView } from "@/components/MapView";
+import { MapView, birdState, type BirdState } from "@/components/MapView";
 import { config } from "@/lib/config";
 import { positionAt } from "@/lib/flight/engine";
 import { clockTime, duration, fill, pronounTokens } from "@/lib/format";
@@ -17,7 +17,12 @@ import { useGuestPage } from "./useGuestPage";
 
 const MAP_BOTTOM_PX = 24;
 
-type Progress = { frac: number; where: string; when: string };
+type Progress = {
+  frac: number;
+  where: string;
+  when: string;
+  state: BirdState;
+};
 
 function capital(word: string): string {
   return word.charAt(0).toUpperCase() + word.slice(1);
@@ -47,13 +52,19 @@ function progress(guest: Guest, nowMs: number): Progress {
       ? undefined
       : `Lands in ${duration(flight.arriveAt - nowMs)}`;
   if (flight.status === "landed") {
-    return { frac: 1, where: `Landed in ${flight.to.label}`, when: "" };
+    return {
+      frac: 1,
+      where: `Landed in ${flight.to.label}`,
+      when: "",
+      state: "landed",
+    };
   }
   if (!flight.plan) {
     return {
       frac: 0,
       where: `Waiting in ${flight.from.label}`,
       when: left ?? "",
+      state: "scheduled",
     };
   }
   const at = positionAt(flight.plan, flight.from, flight.to, nowMs);
@@ -71,7 +82,12 @@ function progress(guest: Guest, nowMs: number): Progress {
         : place
           ? `Over ${place}`
           : `On the way to ${flight.to.label}`;
-  return { frac: at.frac, where, when: left ?? "" };
+  return {
+    frac: at.frac,
+    where,
+    when: left ?? "",
+    state: birdState(at.state),
+  };
 }
 
 export function GuestView({
@@ -155,6 +171,7 @@ function GuestLive({
             night={false}
             loftLabel={`${guest.senderName}, ${flight.from.label}`}
             sillLabel={`You, ${flight.to.label}`}
+            state={now.state}
           />
         )}
       </div>

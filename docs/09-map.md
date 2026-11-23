@@ -64,10 +64,14 @@ All as MapLibre layers or HTML markers, so they zoom with the map:
   with `coo-march` if drawn as SVG, static otherwise.
 - **Pins:** `assets/svg/map/pin-loft.svg` at the origin, `pin-sill.svg` at the destination,
   with a short label chip.
-- **The bird:** an HTML marker holding the `<Bird pose="fly" animated>` component, about 56 px,
-  flipped when the route heads west. While roosting: the `sleep` pose on a small barn, water
-  tower or tree illustration (chosen by hash of the flight id and the roost's index). While
-  delayed: the `surprise` pose on the statue or pretzel illustration.
+- **The bird:** an HTML marker holding the `<Bird>` component, about 56 px, flipped when the
+  route heads west. Its pose follows the tracker's state chip: `fly` (animated wings) while
+  flying, `sleep` at the roost while roosting, `surprise` while delayed, `landed` on the
+  destination pin once landed, and `perched` on the origin pin while scheduled. A pose change
+  re-renders the marker in place and never remounts the map. Odd-job maps keep `fly` on the
+  current leg. Later, the roost can sit on a small barn, water tower or tree illustration
+  (chosen by hash of the flight id and the roost's index) and the delay on the statue or pretzel
+  illustration. Those assets are not in the repo yet.
 - **Thought bubble:** now and then a small bubble above the bird with a short line.
 - **Night:** when the sun is down at the bird's position (use `isDaylight` from the engine),
   switch to the night style and add a few `coo-twinkle` stars in the map's corners.

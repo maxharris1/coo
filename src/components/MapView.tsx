@@ -7,10 +7,11 @@ import {
   bearingDeg,
   interpolate,
   positionAt,
+  type BirdPosition,
   type FlightPlan,
   type LatLon,
 } from "@/lib/flight/engine";
-import { Bird, type GearId, type Look } from "./Bird";
+import { Bird, type GearId, type Look, type Pose } from "./Bird";
 import { mountMap, type MountedMap } from "./mountMap";
 
 export type Place = LatLon & { label: string };
@@ -20,6 +21,21 @@ export type BirdLite = {
   look: string;
   gear: string[];
 };
+
+export type BirdState =
+  "scheduled" | "flying" | "roosting" | "delayed" | "landed";
+
+const POSE: Record<BirdState, Pose> = {
+  scheduled: "perched",
+  flying: "fly",
+  roosting: "sleep",
+  delayed: "surprise",
+  landed: "landed",
+};
+
+export function birdState(p: BirdPosition["state"]): BirdState {
+  return p === "waiting" ? "scheduled" : p;
+}
 
 export type MapViewProps = {
   flightId: string;
@@ -33,6 +49,7 @@ export type MapViewProps = {
   night: boolean;
   loftLabel: string;
   sillLabel: string;
+  state?: BirdState;
 };
 
 export const ZOOM_BANDS: readonly { underMi: number; zoom: number }[] = [
@@ -125,6 +142,7 @@ export function MapView({
   night,
   loftLabel,
   sillLabel,
+  state = "flying",
 }: MapViewProps) {
   const container = useRef<HTMLDivElement>(null);
   const birdEl = useRef<HTMLDivElement>(null);
@@ -136,6 +154,7 @@ export function MapView({
   const style = MAP_STYLES[night ? "night" : "day"];
   const styleRef = useRef(style);
   const mapRef = useRef<MapLibreMap | null>(null);
+  const stateRef = useRef(state);
   const west = headsWest(from, to);
 
   useEffect(() => {
@@ -143,6 +162,10 @@ export function MapView({
     styleRef.current = style;
     mapRef.current?.setStyle(style, { diff: false });
   }, [style]);
+
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   useEffect(() => {
     let mounted: MountedMap | null = null;
@@ -153,6 +176,10 @@ export function MapView({
     const fracs = routeFractions(distanceMi);
     const now = () => Date.now() + offsetMs;
     const bearing = bearingDeg(from, to) * (Math.PI / 180);
+    const where = () =>
+      stateRef.current === "landed"
+        ? { ...to, frac: 1 }
+        : positionAt(plan, from, to, now());
 
     void import("maplibre-gl").then((lib) => {
       const { Marker, LngLatBounds } = lib;
@@ -191,7 +218,7 @@ export function MapView({
       const sill = new Marker({ element: sillEl.current, anchor: "bottom" })
         .setLngLat([to.lon, to.lat])
         .addTo(m);
-      const start = positionAt(plan, from, to, now());
+      const start = where();
       const marker = new Marker({ element: birdEl.current })
         .setLngLat([start.lon, start.lat])
         .addTo(m);
@@ -206,7 +233,7 @@ export function MapView({
       };
 
       m.on("style.load", () => {
-        const { frac } = positionAt(plan, from, to, now());
+        const { frac } = where();
         const { flown, left } = splitRoute(from, to, fracs, frac);
         m.addSource("route-flown", { type: "geojson", data: flown });
         m.addSource("route-left", { type: "geojson", data: left });
@@ -238,14 +265,14 @@ export function MapView({
       });
 
       const tick = () => {
-        const p = positionAt(plan, from, to, now());
+        const p = where();
         marker.setLngLat([p.lon, p.lat]);
         frame = requestAnimationFrame(tick);
       };
       frame = requestAnimationFrame(tick);
 
       const follow = (always: boolean) => {
-        const p = positionAt(plan, from, to, now());
+        const p = where();
         drawRoute(p.frac);
         if (!followRef.current || (!always && !nearEdge(m, p))) return;
         m.easeTo({
@@ -318,7 +345,7 @@ export function MapView({
           <Bird
             look={bird.look as Look}
             gear={bird.gear as GearId[]}
-            pose="fly"
+            pose={POSE[state]}
             animated
             size={BIRD_PX}
             flip={west}
