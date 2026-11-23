@@ -60,6 +60,7 @@ export default function SendPage() {
       loft: data.me.loft,
       bird: fastestReady(data.birds),
       nowMs: data.serverNow,
+      timezone: data.me.timezone,
       units: asUnits(data.me.units),
     };
     return friends.friends.map((f) => friendCard(f, from));

@@ -21,7 +21,7 @@ const MOCK: ForecastModel = {
   selected: {
     odds: "81%",
     heading: "Arrival odds leaving at 1:00 pm",
-    detail: "About 2h 06m. Lands near 3:06 pm.",
+    detail: "Lands this afternoon.",
   },
   factors: [
     {
@@ -91,7 +91,7 @@ describe("ForecastView", () => {
       "11 am 88%",
       "1 pm 81%",
       "3 pm Roosts",
-      "81% Arrival odds leaving at 1:00 pm About 2h 06m. Lands near 3:06 pm.",
+      "81% Arrival odds leaving at 1:00 pm Lands this afternoon.",
       "Along the route",
       "Headwind 14 mph from the southwest +18 min",
       "Rain over Trenton Light, starting around 1 pm 6% off",

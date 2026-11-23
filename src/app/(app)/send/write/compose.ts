@@ -1,9 +1,9 @@
 import type { Breed, GearId, Look } from "@/components/Bird";
 import type { SyncPayload } from "@/components/sync";
 import {
-  clockTime,
   distance,
   duration,
+  fuzzyWhen,
   shortDistance,
   type Units,
 } from "@/lib/format";
@@ -145,32 +145,30 @@ const TRIPS: Record<
   Trip,
   {
     flightMs: (q: EspressoQuote) => number;
-    forecast: (lands: string, leaves: string) => string;
+    forecast: (lands: string) => string;
   }
 > = {
   espresso: {
     flightMs: (q) => q.airTimeMs,
-    forecast: (lands) =>
-      `Flies through the night (espresso). Lands around ${lands}.`,
+    forecast: (lands) => `Flies through the night (espresso). Lands ${lands}.`,
   },
   night: {
     flightMs: (q) => q.airTimeMs,
-    forecast: (lands) =>
-      `Flies through the night (goggles). Lands around ${lands}.`,
+    forecast: (lands) => `Flies through the night (goggles). Lands ${lands}.`,
   },
   waits: {
     flightMs: (q) => q.airTimeMs,
-    forecast: (lands, leaves) =>
-      `Waits for sunrise. Leaves at ${leaves}. Lands around ${lands}.`,
+    forecast: (lands) =>
+      `Waits for sunrise. Leaves at first light. Lands ${lands}.`,
   },
   roosts: {
     flightMs: (q) => q.durationMs,
     forecast: (lands) =>
-      `Lands around ${lands}. Roosts for the night and finishes after sunrise.`,
+      `Lands ${lands}. Roosts for the night and finishes after sunrise.`,
   },
   direct: {
     flightMs: (q) => q.durationMs,
-    forecast: (lands) => `Lands around ${lands}.`,
+    forecast: (lands) => `Lands ${lands}.`,
   },
 };
 
@@ -186,8 +184,9 @@ export function stats(
   const shot = espresso ? quote.espresso : null;
   const flight = shot ?? quote;
   const { flightMs, forecast } = TRIPS[shot ? "espresso" : tripOf(quote)];
-  const at = (ms: number) => clockTime(new Date(ms), timezone);
-  const said = forecast(at(flight.arriveAt), at(flight.leavesAt));
+  const said = forecast(
+    fuzzyWhen(flight.arriveAt, quote.releaseAt, timezone, "quote"),
+  );
   const lead = flight.factors.find((f) => f.kind !== "night");
   return {
     distance: shortDistance(leg.distanceMi, units),
