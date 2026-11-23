@@ -20,6 +20,7 @@
           "Where you send birds. A place you pick from search is snapped to the same grid and kept with a neighbourhood label. If you drop a pin by hand to send a bird to someone new, we snap it to the same grid before we keep it, and its neighbourhood label comes from the snapped point. Where you dropped it is never saved. The words you type into the search box are not saved.",
           "Your notes and doodles. They are stored as plain text and plain drawing data. They are not end-to-end encrypted, so the person who runs Coo can technically read them in the database. We do not read them as part of running Coo. Only the sender can see a note, and the recipient once the bird lands. Note text never goes into our logs, notifications or text messages.",
           "Your account and play. Your name, your birds and their names, your friends, your flights, your settings and the report text if you file one.",
+          "Bug reports. If you send one from the Post office, we keep what you wrote and the account it came from. We also keep a few details that help us find the problem: the page you were on, the app version, your browser and device type, whether you were using the home screen app, your screen size and your time zone. We read it so we can fix the problem. Please do not put passwords, your address or the text of a note in it. If a report becomes an issue on GitHub, which is public, we write it in our own words, without your name or anything personal.",
           "Your push subscription, if you turn on notifications. It lets us tell your phone that a bird landed. The alert says a bird landed, never what the note says.",
           "A guest's phone number, if they ask for a text when a bird lands. We clear it when the bird lands.",
           "Technical records. Our host and our database keep ordinary server logs for a short time. They can include your IP address. To stop abuse we also count requests by IP address on guest links."
@@ -40,6 +41,7 @@
           "These services handle some of this data so the app can work.",
           "Supabase runs sign-in and the database. Its disks are encrypted at rest.",
           "Vercel hosts the app.",
+          "GitHub hosts our public list of issues. A bug report only reaches it in our own words, as described under \"What we keep\".",
           "Twilio sends sign-in codes and text messages, so it sees your phone number and the text.",
           "OpenFreeMap serves the map tiles. Your phone asks it for tiles directly, so it can see your IP address and roughly which part of the map you are looking at.",
           "Photon, run by Komoot, finds places when you search. Our server sends it the words you typed, or a snapped point, without your name or number.",
@@ -65,7 +67,7 @@
       {
         "heading": "How to delete it",
         "paragraphs": [
-          "Open Settings and choose \"Delete my account\". That removes your account, your phone number from sign-in, your roost, your birds, your friendships, your guest links and the notes you sent.",
+          "Open Settings and choose \"Delete my account\". That removes your account, your phone number from sign-in, your roost, your birds, your friendships, your guest links, the notes you sent and the bug reports you sent.",
           "A friend's bird on your sill flies home straight away.",
           "Notes your friends sent you stay in their shoeboxes. They show as sent to \"a former friend\".",
           "Otherwise we keep your information while your account exists. Backups at our database host may hold it a little longer. A guest link closes seven days after its bird lands.",
