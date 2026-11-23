@@ -161,6 +161,166 @@ describe("flight engine vectors", () => {
   });
 });
 
+describe("night flight", () => {
+  const vector = (name: string) => {
+    const v = data.vectors.find((x) => x.name === name);
+    if (!v) throw new Error(`vectors.json has no ${name} vector`);
+    return v;
+  };
+  const goggled = (input: E.FlightInput): E.FlightInput => ({
+    ...input,
+    gear: [...input.gear, "nightgoggles"],
+  });
+  const roosts = (plan: E.FlightPlan) =>
+    plan.segments.filter((s) => s.kind === "roost");
+  const nightRelease = vector("night-release").input;
+
+  it("nightgoggles skip the roost on a night release", () => {
+    const plan = E.computeFlightPlan(goggled(nightRelease));
+
+    expect(roosts(plan)).toEqual([]);
+    expect(
+      plan.events.filter((e) =>
+        ["nightwait", "dusk", "sunrise"].includes(e.kind),
+      ),
+    ).toEqual([]);
+    expect(plan.segments[0]).toMatchObject({
+      kind: "fly",
+      startMs: nightRelease.departAtMs,
+    });
+  });
+
+  it("a bird without the goggles still roosts at the loft until sunrise", () => {
+    const plan = E.computeFlightPlan(nightRelease);
+    const { sunriseMs } = E.sunTimes(
+      nightRelease.departAtMs + 12 * 3_600_000,
+      nightRelease.from,
+    );
+
+    expect(plan.segments[0].kind).toBe("roost");
+    expect(plan.events.map((e) => e.kind)).toContain("nightwait");
+    const firstFly = plan.segments.find((s) => s.kind === "fly")!;
+    expect(Math.abs(firstFly.startMs - sunriseMs)).toBeLessThan(5 * 60_000);
+  });
+
+  it("a goggled bird flies New York to Chicago without a roost and lands sooner", () => {
+    const chicago = vector("chicago-overnight");
+    const plan = E.computeFlightPlan(goggled(chicago.input));
+
+    expect(roosts(plan)).toEqual([]);
+    expect(plan.arriveAtMs).toBeLessThan(chicago.plan.arriveAtMs);
+  });
+
+  it("nightFlightUntilMs allows dark flight only before the cutoff", () => {
+    const la = vector("la-many-nights");
+    const cutoff = E.sunTimes(
+      la.input.departAtMs + 86_400_000,
+      la.input.from,
+    ).sunriseMs;
+    const input = { ...la.input, nightFlightUntilMs: cutoff };
+    const plan = E.computeFlightPlan(input);
+
+    expect(roosts(plan).filter((s) => s.startMs < cutoff)).toEqual([]);
+    expect(roosts(plan).length).toBeGreaterThan(0);
+    expect(roosts(plan).length).toBeLessThan(roosts(la.plan).length);
+    expect(E.fliesInDark(input)).toBe(true);
+  });
+
+  it("dark flight ends at a cutoff that falls inside a minute", () => {
+    for (const offsetMs of [1, 30_000, 59_999, 90_500, 3 * 60_000 + 17_250]) {
+      const cutoff = nightRelease.departAtMs + offsetMs;
+      const input = { ...nightRelease, nightFlightUntilMs: cutoff };
+      const plan = E.computeFlightPlan(input);
+      const at = (ms: number) =>
+        E.positionAt(plan, input.from, input.to, ms).state;
+
+      expect(plan.segments[0], `offset ${offsetMs}`).toMatchObject({
+        kind: "fly",
+        startMs: nightRelease.departAtMs,
+        endMs: cutoff,
+      });
+      expect(plan.segments[1], `offset ${offsetMs}`).toMatchObject({
+        kind: "roost",
+        startMs: cutoff,
+      });
+      expect(at(cutoff - 1), `offset ${offsetMs}`).toBe("flying");
+      expect(at(cutoff), `offset ${offsetMs}`).toBe("roosting");
+      expect(plan.events.map((e) => e.kind)).toContain("dusk");
+    }
+  });
+
+  it("goggles change nothing on a daylight flight", () => {
+    const calm = vector("calm-short").input;
+
+    expect(E.computeFlightPlan(goggled(calm))).toEqual(
+      E.computeFlightPlan(calm),
+    );
+    expect(E.fliesInDark(goggled(calm))).toBe(false);
+  });
+
+  it("flying in the dark costs 0.03 of the arrival odds", () => {
+    expect(E.computeFlightPlan(nightRelease).onTimeOdds).toBe(0.91);
+    expect(E.computeFlightPlan(goggled(nightRelease)).onTimeOdds).toBe(0.88);
+  });
+
+  it("takes the night penalty before the clamp", () => {
+    const best = {
+      ...nightRelease,
+      bird: { ...nightRelease.bird, focus: 5 },
+      gear: ["band"],
+    };
+
+    expect(E.computeFlightPlan(best).onTimeOdds).toBe(E.CONFIG.oddsMax);
+    expect(E.computeFlightPlan(goggled(best)).onTimeOdds).toBe(
+      E.CONFIG.oddsMax,
+    );
+  });
+
+  it("no vector input flies in the dark, a goggled night release does", () => {
+    for (const v of data.vectors) {
+      expect(E.fliesInDark(v.input), v.name).toBe(false);
+    }
+    expect(E.fliesInDark(goggled(nightRelease))).toBe(true);
+  });
+
+  it("rolls the delay against the night odds", () => {
+    let flightId = "";
+    for (let i = 0; i < 10_000 && !flightId; i++) {
+      const r = E.rng(E.hash32(`night-roll-${i}`))();
+      if (r >= 0.88 && r < 0.91) flightId = `night-roll-${i}`;
+    }
+    expect(flightId).not.toBe("");
+
+    expect(E.computeFlightPlan({ ...nightRelease, flightId }).delayed).toBe(
+      false,
+    );
+    expect(
+      E.computeFlightPlan(goggled({ ...nightRelease, flightId })).delayed,
+    ).toBe(true);
+  });
+
+  it("a search party keeps the night odds and the delay kind", () => {
+    let plan: E.FlightPlan | undefined;
+    let input = goggled(nightRelease);
+    for (let i = 0; i < 10_000 && plan?.delayKind !== "major"; i++) {
+      input = goggled({ ...nightRelease, flightId: `night-major-${i}` });
+      plan = E.computeFlightPlan(input);
+    }
+    if (plan?.delayKind !== "major") throw new Error("no major delay found");
+    const delay = plan.segments.find((s) => s.kind === "delay")!;
+
+    const found = E.computeFlightPlan({
+      ...input,
+      delayEndOverrideMs: delay.startMs + 20 * 60_000,
+    });
+
+    expect(found.onTimeOdds).toBe(0.88);
+    expect(found.onTimeOdds).toBe(plan.onTimeOdds);
+    expect(found.delayKind).toBe("major");
+    expect(found.arriveAtMs).toBeLessThan(plan.arriveAtMs);
+  });
+});
+
 describe("flight engine config", () => {
   it("config/game.json engine matches the engine's CONFIG", () => {
     expect(config.game.engine).toEqual(E.CONFIG);

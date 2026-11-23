@@ -1,6 +1,7 @@
 import {
   CONFIG,
   computeFlightPlan,
+  fliesInDark,
   haversineMi,
   onTimeOdds,
   type BirdState,
@@ -21,6 +22,7 @@ export type FactorKind =
   | "hungry"
   | "scruffy"
   | "tired"
+  | "night"
   | "distance";
 
 export type Factor =
@@ -39,7 +41,7 @@ type FactorDef = {
 const MEASURES: Record<
   Measure,
   {
-    delta: (plan: FlightPlan, without: FlightInput) => number;
+    delta: (plan: FlightPlan, without: FlightInput, inDark: boolean) => number;
     format: (n: number) => string;
   }
 > = {
@@ -51,9 +53,9 @@ const MEASURES: Record<
     format: (n) => `${n > 0 ? "+" : "-"}${Math.abs(n)} min`,
   },
   odds: {
-    delta: (plan, without) =>
+    delta: (plan, without, inDark) =>
       Math.round(
-        (onTimeOdds(without, haversineMi(without.from, without.to)) -
+        (onTimeOdds(without, haversineMi(without.from, without.to), inDark) -
           plan.onTimeOdds) *
           100,
       ),
@@ -172,9 +174,13 @@ const DEFS: FactorDef[] = [
   },
 ];
 
-function distanceFactor(input: FlightInput, plan: FlightPlan): Factor[] {
+function distanceFactor(
+  input: FlightInput,
+  plan: FlightPlan,
+  inDark: boolean,
+): Factor[] {
   const odds = MEASURES.odds;
-  const n = odds.delta(plan, { ...input, to: input.from });
+  const n = odds.delta(plan, { ...input, to: input.from }, inDark);
   if (n === 0) return [];
   return [
     {
@@ -185,14 +191,32 @@ function distanceFactor(input: FlightInput, plan: FlightPlan): Factor[] {
   ];
 }
 
+function nightFactor(
+  input: FlightInput,
+  plan: FlightPlan,
+  inDark: boolean,
+): Factor[] {
+  const odds = MEASURES.odds;
+  const n = inDark ? odds.delta(plan, input, false) : 0;
+  if (n === 0) return [];
+  return [
+    { kind: "night", text: "Flying in the dark", effect: odds.format(n) },
+  ];
+}
+
 export function factorsFor(input: FlightInput, plan: FlightPlan): Factor[] {
+  const inDark = fliesInDark(input);
   const named: Factor[] = DEFS.flatMap((def) => {
     const measure = MEASURES[def.measure];
-    const n = measure.delta(plan, def.without(input));
+    const n = measure.delta(plan, def.without(input), inDark);
     if (n === 0) return [];
     const kind =
       def.kind !== "wind" ? def.kind : n > 0 ? "headwind" : "tailwind";
     return [{ kind, text: def.text(input), effect: measure.format(n) }];
   });
-  return [...named, ...distanceFactor(input, plan)];
+  return [
+    ...named,
+    ...nightFactor(input, plan, inDark),
+    ...distanceFactor(input, plan, inDark),
+  ];
 }

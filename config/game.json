@@ -36,6 +36,7 @@
     "oddsHawkBandana": 0.02,
     "oddsFair": 0.03,
     "oddsBand": 0.03,
+    "oddsNight": 0.03,
     "oddsPer100Mi": 0.01,
     "oddsDistanceCap": 0.1,
     "oddsMin": 0.4,

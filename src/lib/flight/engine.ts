@@ -42,6 +42,8 @@ export type FlightInput = {
   hazards?: { hawk?: boolean; fair?: boolean };
   /** Set by a successful search party: ends a delay early (epoch ms). */
   delayEndOverrideMs?: number;
+  /** The bird may fly in the dark while t is before this (epoch ms). */
+  nightFlightUntilMs?: number;
 };
 
 export type SegmentKind = 'fly' | 'roost' | 'delay';
@@ -75,7 +77,7 @@ export const CONFIG = {
   rainMmH: 0.5, downpourMmH: 4,
   rainSpeed: 0.85, downpourSpeed: 0.7, coldF: 32, coldSpeed: 0.8, snowSpeed: 0.7,
   oddsBase: 0.85, oddsPerFocus: 0.03,
-  oddsHungry: 0.06, oddsDirty: 0.03, oddsTired: 0.10, oddsRain: 0.06, oddsHawk: 0.04, oddsHawkBandana: 0.02, oddsFair: 0.03, oddsBand: 0.03,
+  oddsHungry: 0.06, oddsDirty: 0.03, oddsTired: 0.10, oddsRain: 0.06, oddsHawk: 0.04, oddsHawkBandana: 0.02, oddsFair: 0.03, oddsBand: 0.03, oddsNight: 0.03,
   oddsPer100Mi: 0.01, oddsDistanceCap: 0.10, oddsMin: 0.40, oddsMax: 0.99,
   hungryBelow: 30, dirtyBelow: 30, tiredBelow: 40,
   majorDelayShare: 0.2,
@@ -176,6 +178,9 @@ export function rng(seed: number): () => number {
 const has = (gear: string[], id: string) => gear.includes(id);
 const isRain = (w: WeatherSample) => w.precipMmH >= CONFIG.rainMmH;
 const isDownpour = (w: WeatherSample) => w.precipMmH >= CONFIG.downpourMmH;
+const sunLimitDeg = (b: BirdState) => (b.breed === 'king' ? CONFIG.kingSunAltitudeDeg : CONFIG.sunAltitudeDeg);
+const mayFlyAtNight = (input: FlightInput, t: number) =>
+  has(input.gear, 'nightgoggles') || (input.nightFlightUntilMs !== undefined && t < input.nightFlightUntilMs);
 
 /** Ground speed in mph for one third of the route (index 0, 1 or 2). */
 export function groundSpeedMph(input: FlightInput, third: number, routeBearing: number): number {
@@ -191,7 +196,7 @@ export function groundSpeedMph(input: FlightInput, third: number, routeBearing: 
 }
 
 /** Chance the bird arrives without a delay. This is the "arrival odds" number in the interface. */
-export function onTimeOdds(input: FlightInput, distanceMi: number): number {
+export function onTimeOdds(input: FlightInput, distanceMi: number, inDark: boolean): number {
   const c = CONFIG, b = input.bird, g = input.gear;
   let p = c.oddsBase + c.oddsPerFocus * b.focus;
   if (b.belly < c.hungryBelow) p -= c.oddsHungry;
@@ -202,8 +207,28 @@ export function onTimeOdds(input: FlightInput, distanceMi: number): number {
   if (input.hazards?.hawk) p -= has(g, 'bandana') ? c.oddsHawkBandana : c.oddsHawk;
   if (input.hazards?.fair && !has(g, 'earmuffs') && b.breed !== 'jacobin') p -= c.oddsFair;
   if (has(g, 'band')) p += c.oddsBand;
+  if (inDark) p -= c.oddsNight;
   p -= Math.min(c.oddsDistanceCap, c.oddsPer100Mi * Math.floor(Math.max(0, distanceMi - 100) / 100));
   return Math.round(Math.min(c.oddsMax, Math.max(c.oddsMin, p)) * 100) / 100;
+}
+
+/**
+ * True when the bird will fly in the dark at all. Judged on the route without a
+ * delay, because the odds must be known before the delay is rolled.
+ */
+export function fliesInDark(input: FlightInput): boolean {
+  if (!has(input.gear, 'nightgoggles') && input.nightFlightUntilMs === undefined) return false;
+  const c = CONFIG, distanceMi = haversineMi(input.from, input.to), bearing = bearingDeg(input.from, input.to);
+  const speeds = [0, 1, 2].map((i) => groundSpeedMph(input, i, bearing));
+  const sunDeg = sunLimitDeg(input.bird), limit = input.departAtMs + c.maxSimDays * DAY_MS;
+  let t = input.departAtMs, frac = distanceMi < 1e-6 ? 1 : 0;
+  while (frac < 1 && t < limit) {
+    if (!isDaylight(t, interpolate(input.from, input.to, frac), sunDeg)) {
+      if (mayFlyAtNight(input, t)) return true;
+    } else frac += (speeds[Math.min(2, Math.floor(frac * 3))] * (c.stepMs / 3_600_000)) / distanceMi;
+    t += c.stepMs;
+  }
+  return false;
 }
 
 // ---------------------------------------------------------------- the plan
@@ -211,7 +236,7 @@ export function computeFlightPlan(input: FlightInput): FlightPlan {
   const c = CONFIG;
   const distanceMi = haversineMi(input.from, input.to);
   const bearing = bearingDeg(input.from, input.to);
-  const odds = onTimeOdds(input, distanceMi);
+  const odds = onTimeOdds(input, distanceMi, fliesInDark(input));
   const rand = rng(hash32(input.flightId));
 
   // Draw order is fixed. Always draw all five numbers, used or not.
@@ -221,7 +246,7 @@ export function computeFlightPlan(input: FlightInput): FlightPlan {
   const range = delayKind === 'major' ? c.majorDelayMin : c.minorDelayMin;
   const navFactor = c.navDelayBase - c.navDelayPerPoint * input.bird.navigation;
   const delayMs = delayed ? Math.round((range[0] + Math.floor(rLen * (range[1] - range[0] + 1))) * navFactor) * 60_000 : 0;
-  const sunDeg = input.bird.breed === 'king' ? c.kingSunAltitudeDeg : c.sunAltitudeDeg;
+  const sunDeg = sunLimitDeg(input.bird);
   const delayAtFrac = c.delayFracRange[0] + rFrac * (c.delayFracRange[1] - c.delayFracRange[0]);
 
   const speeds = [0, 1, 2].map((i) => groundSpeedMph(input, i, bearing));
@@ -245,7 +270,8 @@ export function computeFlightPlan(input: FlightInput): FlightPlan {
       continue;
     }
     const here = interpolate(input.from, input.to, frac);
-    if (!isDaylight(t, here, sunDeg)) {
+    const dark = !isDaylight(t, here, sunDeg);
+    if (dark && !mayFlyAtNight(input, t)) {
       const last = segments[segments.length - 1];
       if (!last || last.kind !== 'roost') events.push({ atMs: t, kind: frac === 0 ? 'nightwait' : 'dusk', pick: Math.floor(frac * 1000) });
       push('roost', t, t + c.stepMs, frac, frac);
@@ -258,6 +284,8 @@ export function computeFlightPlan(input: FlightInput): FlightPlan {
     let nextFrac = frac + stepFrac, dt = c.stepMs;
     const cap = !delayDone && frac < delayAtFrac ? Math.min(1, delayAtFrac) : 1;
     if (nextFrac >= cap) { dt = Math.ceil((c.stepMs * (cap - frac)) / stepFrac); nextFrac = cap; }
+    const until = input.nightFlightUntilMs;
+    if (dark && !has(input.gear, 'nightgoggles') && until !== undefined && t + dt > until) { dt = until - t; nextFrac = frac + (stepFrac * dt) / c.stepMs; }
     push('fly', t, t + dt, frac, nextFrac);
     t += dt; frac = nextFrac;
   }

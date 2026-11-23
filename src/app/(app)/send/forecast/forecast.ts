@@ -48,6 +48,7 @@ const FACTOR_TITLES: Record<FactorKind, string> = {
   hungry: "Hungry",
   scruffy: "Scruffy",
   tired: "Tired",
+  night: "Night flight",
   distance: "Long way",
 };
 

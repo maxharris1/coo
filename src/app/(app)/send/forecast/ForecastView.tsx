@@ -26,6 +26,7 @@ const FACTOR_LOOK: Record<FactorKind, { icon: string; tint: Tint }> = {
   hungry: { icon: "seed", tint: "sun" },
   scruffy: { icon: "feather", tint: "lilac" },
   tired: { icon: "moon", tint: "lilac" },
+  night: { icon: "moon", tint: "lilac" },
   distance: { icon: "map", tint: "sand" },
 };
 
