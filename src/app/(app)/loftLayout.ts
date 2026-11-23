@@ -56,7 +56,7 @@ const plankUnder = (slot: Box): Box => ({
   h: PLANK.h,
 });
 
-const fromCoopArt = (
+const fromShedArt = (
   art: Box,
   coop: { x: number; y: number; scale: number },
 ): Box => ({
@@ -90,8 +90,8 @@ export function loftLayout(perches: number): LoftLayout {
     planks: slots.map(plankUnder),
     rack: hasRack ? { beamY, x: 172, w: 172 } : null,
     coop,
-    sleeperBox: fromCoopArt(SLEEPER_ART, coop),
-    outTagBox: fromCoopArt(OUT_TAG_ART, coop),
+    sleeperBox: fromShedArt(SLEEPER_ART, coop),
+    outTagBox: fromShedArt(OUT_TAG_ART, coop),
     waterTower: { x: 342, y: parapetY - 126, w: 50.4, h: 66.2 },
   };
 }
