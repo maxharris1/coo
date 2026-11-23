@@ -89,18 +89,20 @@ export async function resolveLinksBetween(
   a: UserId,
   b: UserId,
   now: number,
+  within?: readonly string[],
 ): Promise<Resolved[]> {
   const friendship = await friendshipBetween(db, a, b);
   if (friendship?.status === "blocked") return [];
   const nowIso = new Date(now).toISOString();
 
-  const ids = await linksBetween(
+  const found = await linksBetween(
     db,
     a,
     b,
     now,
     friendship?.status === "accepted",
   );
+  const ids = within ? found.filter((id) => within.includes(id)) : found;
   if (ids.length === 0) return [];
 
   await db.query(

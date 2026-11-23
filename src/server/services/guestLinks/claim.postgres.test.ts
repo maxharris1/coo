@@ -404,4 +404,133 @@ describe.skipIf(!url)("claimGuestLink on PostgreSQL", () => {
       await admin.end();
     }
   });
+
+  it("claims and lands a reverse send committed after the claim's candidate scan", async () => {
+    const database = `coo_claim_${randomUUID().replaceAll("-", "")}`;
+    const admin = pool(new URL(url!).pathname.slice(1) || "postgres");
+    await admin.query(`create database ${database}`);
+    const conn = pool(database, "-c deadlock_timeout=50ms");
+    try {
+      await migrate(conn);
+      const db = poolDb(conn);
+      const deps = await makeTestDeps({ db });
+      const world = await seedWorld(db, deps.clock.now());
+      const max = world.max.id as UserId;
+      const rosa = world.rosa.id as UserId;
+      await db.query("delete from friendships where a_id = $1 and b_id = $2", [
+        ...pair(max, rosa),
+      ]);
+      const toRosa = await namedGuestSend(
+        deps,
+        max,
+        world.max.birds[0].id,
+        "Rosa",
+      );
+
+      const scanned = gate();
+      const resumeScan = gate();
+      const profilesHeld = gate();
+      const resumeProfiles = gate();
+      let firstScan = true;
+      let firstProfiles = true;
+      const claimDb = (base: Db): Db => ({
+        async query<T>(sql: string, params?: unknown[]) {
+          const rows = await base.query<T>(sql, params);
+          if (firstScan && sql.includes("with dir (sender_id, recipient_id)")) {
+            firstScan = false;
+            scanned.open();
+            await resumeScan.opened;
+          }
+          if (firstProfiles && /from profiles[\s\S]*for update/.test(sql)) {
+            firstProfiles = false;
+            profilesHeld.open();
+            await resumeProfiles.opened;
+          }
+          return rows;
+        },
+        tx: (fn) => base.tx((tx) => fn(claimDb(tx))),
+      });
+      const claim = claimGuestLink(
+        { ...deps, db: claimDb(db) },
+        rosa,
+        PEPPER,
+        "203.0.113.10",
+        toRosa.token,
+      );
+      await scanned.opened;
+
+      const toMax = await namedGuestSend(
+        deps,
+        rosa,
+        world.rosa.birds[0].id,
+        "Max",
+      );
+      const [{ arrive_at }] = await db.query<{ arrive_at: Date }>(
+        "select arrive_at from flights where id = $1",
+        [toMax.flightId],
+      );
+      deps.clock.set(arrive_at.getTime() + 1);
+      const landingHolds = gate();
+      const resumeLanding = gate();
+      const landingDb = (base: Db): Db => ({
+        async query<T>(sql: string, params?: unknown[]) {
+          const rows = await base.query<T>(sql, params);
+          if (sql.includes("update flights set status = 'landed'")) {
+            landingHolds.open();
+            await resumeLanding.opened;
+          }
+          return rows;
+        },
+        tx: (fn) => base.tx((tx) => fn(landingDb(tx))),
+      });
+      const landing = landDeliveries({
+        deps: { ...deps, db: landingDb(db) },
+        userId: rosa,
+        limit: 50,
+        timeUp: () => false,
+      });
+      await landingHolds.opened;
+      resumeScan.open();
+      await profilesHeld.opened;
+      resumeLanding.open();
+      await untilLockWait(admin, database);
+      resumeProfiles.open();
+
+      const [claimed, landed] = await Promise.allSettled([claim, landing]);
+      expect(claimed).toEqual({
+        status: "fulfilled",
+        value: { friendId: max },
+      });
+      expect(landed).toEqual({
+        status: "fulfilled",
+        value: { count: 1, failed: 0 },
+      });
+      expect(
+        await db.query(
+          `select g.status, g.claimed_by, f.counterpart_id, n.recipient_id
+             from guest_links g
+             join flights f on f.guest_link_id = g.id
+             join notes n on n.id = f.note_id
+            order by g.sender_id`,
+        ),
+      ).toEqual([
+        {
+          status: "claimed",
+          claimed_by: rosa,
+          counterpart_id: rosa,
+          recipient_id: rosa,
+        },
+        {
+          status: "claimed",
+          claimed_by: max,
+          counterpart_id: max,
+          recipient_id: max,
+        },
+      ]);
+    } finally {
+      await conn.end();
+      await admin.query(`drop database ${database}`);
+      await admin.end();
+    }
+  });
 });
