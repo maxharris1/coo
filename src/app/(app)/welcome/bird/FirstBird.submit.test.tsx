@@ -40,7 +40,7 @@ afterEach(() => {
 });
 
 describe("Adopt on /welcome/bird (ac-1)", () => {
-  it("posts you and the first bird with no roommate, then goes to the loft", async () => {
+  it("posts you and the first bird with no roommate, then goes to install", async () => {
     const posts: { url: string; body: unknown }[] = [];
     vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
       posts.push({ url, body: JSON.parse(String(init.body)) });
@@ -57,10 +57,10 @@ describe("Adopt on /welcome/bird (ac-1)", () => {
     });
     expect(posts[0].body).not.toHaveProperty("secondBird");
     expect(dispatched).toEqual([{ type: "send" }]);
-    expect(push).toHaveBeenCalledExactlyOnceWith("/welcome/loft");
+    expect(push).toHaveBeenCalledExactlyOnceWith("/welcome/install");
   });
 
-  it("names a blank pigeon after its look, then goes to the loft", async () => {
+  it("names a blank pigeon after its look, then goes to install", async () => {
     state = named("   ");
     const posts: unknown[] = [];
     vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
@@ -76,7 +76,7 @@ describe("Adopt on /welcome/bird (ac-1)", () => {
         bird: { name: "Gerald", look: "gerald", pronoun: "they" },
       }),
     ]);
-    expect(push).toHaveBeenCalledExactlyOnceWith("/welcome/loft");
+    expect(push).toHaveBeenCalledExactlyOnceWith("/welcome/install");
   });
 
   it("stays on the page and shows the error when the API refuses", async () => {

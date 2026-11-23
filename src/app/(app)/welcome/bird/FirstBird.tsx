@@ -7,6 +7,7 @@ import { pendingLink } from "@/app/(public)/b/[slug]/linkSignUp";
 import { Bird } from "@/components/Bird";
 import { HatchScene } from "@/components/HatchScene";
 import { PronounChips } from "@/components/PronounChips";
+import { welcomeStep } from "../steps";
 import {
   FIRST_BIRD,
   firstBird,
@@ -51,7 +52,7 @@ export function FirstBird() {
     dispatch({ type: "send" });
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const result = await submitOnboarding(onboardingBody(state, timezone));
-    if (result.ok) router.push("/welcome/loft");
+    if (result.ok) router.push(welcomeStep("/welcome/bird").next);
     else dispatch({ type: "failed", message: result.message });
   };
   return <FirstBirdForm state={state} dispatch={dispatch} onSubmit={send} />;

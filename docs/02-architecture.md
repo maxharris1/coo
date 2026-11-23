@@ -128,7 +128,7 @@ export interface Db {
 - `src/proxy.ts` refreshes the session on every request it matches.
 - `requireUser()` reads the user id from the cookie session with `auth.getClaims()` and loads the
   `profiles` row. A user with no row is not onboarded. `requireOnboarded()` refuses them, and
-  `/api/auth/verify` sends them to `/welcome/install`.
+  `/api/auth/verify` marks them new, and the code page starts them at `/welcome/bird`.
 - Phone numbers stay in Supabase Auth. `profiles` holds only the last four digits, for display.
 
 ## Staying live

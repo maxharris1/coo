@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 
 export default async function InstallPage() {
   const { profile } = await requireUser();
-  if (profile?.installed)
-    redirect(profile.onboarded_at ? "/" : "/welcome/bird");
+  if (!profile) redirect("/welcome/bird");
+  if (profile.installed) redirect(profile.onboarded_at ? "/" : "/welcome/loft");
   return <Install />;
 }

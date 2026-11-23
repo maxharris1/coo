@@ -3,7 +3,7 @@
 ## Home screen install
 
 Coo is a web app that should feel installed. Notifications on iPhone only work for web apps
-opened from the home screen, so install is step 1 of onboarding.
+opened from the home screen, so every new sign-up sees install right after naming their first bird.
 
 - `public/manifest.webmanifest` from `assets/`: `display: standalone`, portrait, theme colour sky,
   background paper, icons 192, 512 and maskable 512. Name and short name from `config/app.json`.

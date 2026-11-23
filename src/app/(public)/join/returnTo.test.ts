@@ -109,10 +109,14 @@ describe("returning to an invite after sign-in", () => {
       expect(jar.has("coo_return")).toBe(false);
     });
 
-    it("sends a new user to onboarding and keeps the invite for later", () => {
+    it("sends a new user to the first bird and keeps the invite for later", () => {
       rememberReturn(CODE);
-      expect(afterSignIn("/welcome/install")).toBe("/welcome/install");
+      expect(afterSignIn("/welcome/install")).toBe("/welcome/bird");
       expect(takeReturn()).toBe(`/join/${CODE}`);
+    });
+
+    it("sends a new user with no invite or link to the first bird", () => {
+      expect(afterSignIn("/welcome/install")).toBe("/welcome/bird");
     });
 
     it("returns to a newer invite over an abandoned guest signup", () => {
@@ -125,7 +129,8 @@ describe("returning to an invite after sign-in", () => {
     it("sends a new user from a newer invite through full onboarding", () => {
       rememberLink(LINK);
       rememberReturn(CODE);
-      expect(afterSignIn("/welcome/install")).toBe("/welcome/install");
+      expect(afterSignIn("/welcome/install")).toBe("/welcome/bird");
+      expect(takeReturn()).toBe(`/join/${CODE}`);
     });
 
     it("returns to a newer guest link over an abandoned invite", () => {

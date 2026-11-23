@@ -7,6 +7,7 @@ import {
   submitOnboarding,
 } from "@/app/(app)/welcome/bird/choices";
 import { saveLoft } from "@/app/(app)/welcome/loft/roost";
+import { welcomeStep } from "@/app/(app)/welcome/steps";
 import { guestClaimPost } from "@/app/api/guest/[token]/claim/post";
 import { guestGet } from "@/app/api/guest/[token]/get";
 import { loftPost } from "@/app/api/loft/post";
@@ -100,7 +101,11 @@ async function signUpFromLink(
 ) {
   rememberLink({ token, name: "Priya", phone: PRIYA });
   const { userId, fetchImpl } = await newUserFetch();
-  const afterCode = afterSignIn("/welcome/install");
+  const route = [
+    afterSignIn("/welcome/install"),
+    welcomeStep("/welcome/bird").next,
+    welcomeStep("/welcome/install").next,
+  ];
 
   const bird = firstBird(initialFirstBird(), {
     type: "yourName",
@@ -116,7 +121,7 @@ async function signUpFromLink(
     fetchImpl,
   );
   const next = await claim(fetchImpl);
-  return { userId, afterCode, body, onboarded, roost, saved, next, fetchImpl };
+  return { userId, route, body, onboarded, roost, saved, next, fetchImpl };
 }
 
 describe("short onboarding from a guest link (ac-3)", () => {
@@ -139,7 +144,11 @@ describe("short onboarding from a guest link (ac-3)", () => {
       "select name from profiles where id = $1",
       [run.userId],
     );
-    expect(run.afterCode).toBe("/welcome/bird");
+    expect(run.route).toEqual([
+      "/welcome/bird",
+      "/welcome/install",
+      "/welcome/loft",
+    ]);
     expect(run.onboarded).toEqual({ ok: true });
     expect(profile.name).toBe("Priya");
     const birds = await deps.db.query<{ name: string; look: string }>(

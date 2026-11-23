@@ -86,10 +86,9 @@ destination.
 6. Insert `bird_meetings`. Notify the sender `friend-joined`.
 
 For a brand-new user, onboarding from a link is shorter: name and phone on the claim page,
-the text code, then the first-bird step. The loft step is prefilled with the link's destination
-("Is this where birds should find you?") and can be changed, as "Where the bird lands"
-describes. Install is offered after the reply is sent, not before: do not put anything between
-a new person and their first reply.
+the text code, the first-bird step, then the install step. The loft step is prefilled with the
+link's destination ("Is this where birds should find you?") and can be changed, as "Where the
+bird lands" describes.
 
 An existing user who opens a link while signed in sees "Add to my sill" and claims in one tap.
 

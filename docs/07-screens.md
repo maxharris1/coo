@@ -219,8 +219,8 @@ Build these from the components on the Components sheet, in the same style. Copy
 | Hello | `/welcome` | Logo, "Messages, eventually.", the hero illustration, one paragraph: "Write a note. Tie it to a pigeon. It flies there for real, on a real map, at pigeon speed." Button "Get a pigeon" → sign-in. Link "I already have a loft" → sign-in |
 | Phone | `/sign-in` | "What's your number?" Phone field with country code (default +1). "We text you a code. That's the whole password." Button "Text me the code". Small print below it: `legal.consent.signIn` from `config/copy/legal.json`, with Terms and Privacy as links |
 | Code | `/sign-in/verify` | Six boxes, auto-submit, "Send it again" after 30 seconds, wrong-code line: "That's not it. Try once more." |
-| Install | `/welcome/install` | Drawn. Step 1 of 3. Instructions change by platform: iOS Safari (Share → Add to Home Screen), Android Chrome (uses the install prompt event; one button "Install"), other browsers (skip quietly). The skip link turns on SMS fallback. If already running from the home screen, skip this step |
-| First bird | `/welcome/bird` | Drawn (Welcome). Step 2 of 3. One panel: your name (prefilled from a guest link), then swipe between three looks, name field with a shuffle button for suggestions, pronoun chips, Adopt. |
+| Install | `/welcome/install` | Drawn. Step 2 of 3, right after First bird, for every new sign-up (direct, invite code or guest link). Instructions change by platform: iOS Safari (Share → Add to Home Screen), Android Chrome (uses the install prompt event; one button "Install"), other browsers (skip quietly). The skip link turns on SMS fallback and goes to the Loft. If already running from the home screen, skip this step |
+| First bird | `/welcome/bird` | Drawn (Welcome). Step 1 of 3. One panel: your name (prefilled from a guest link), then swipe between three looks, name field with a shuffle button for suggestions, pronoun chips, Adopt → Install. |
 | Loft | `/welcome/loft` | Step 3 of 3. "Where should birds find you?" Two choices: "Use my location" (browser geolocation → `/api/geo/here`) or search a neighbourhood. Shows the result as "Your roost: Williamsburg, Brooklyn" on a small map at block zoom with the roost pin, and the line "We keep the roost, not your address." A link "Use my town centre instead" stores the snapped city centre as the roost. Button "This is home". Arriving from a guest link, the map opens at the flight's destination under "Is this where birds should find you?" (`docs/11-guest-links.md`) |
 | Notifications ask | part of first Main visit | A sheet after onboarding when running from the home screen: "Want a tap on the shoulder when a bird lands?" Yes → browser permission prompt. No → nothing. Never ask from a browser tab on iOS, where it cannot work |
 | Join | `/join/[code]` | Public. "{name} wants to trade pigeons with you." Signed in: button "Add {name}". Signed out: "Get a pigeon" → sign-in, then back here |
@@ -242,7 +242,7 @@ Build these from the components on the Components sheet, in the same style. Copy
 ## Navigation summary
 
 ```
-/welcome → /sign-in → /sign-in/verify → /welcome/install → /welcome/bird → /welcome/loft → /
+/welcome → /sign-in → /sign-in/verify → /welcome/bird → /welcome/install → /welcome/loft → /   (or /join/{code}, or the claimed guest link)
 /  ↔ /flights ↔ /sill ↔ /shop          (tabs)
 /send → /send/write → (/send/forecast) → /send/takeoff/[id] → /flights/[id]
 /send → /send/new → /send/write → /send/takeoff/[id] → /send/share/[id] → /flights/[id]
