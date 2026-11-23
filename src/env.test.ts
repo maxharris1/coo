@@ -15,6 +15,7 @@ const full = {
   LINK_TOKEN_PEPPER: "pepper-value",
   GEOCODER_URL: "https://geocoder.example",
   WEATHER_URL: "https://weather.example",
+  VERCEL_GIT_COMMIT_SHA: "0123456789abcdef0123456789abcdef01234567",
   APP_ENV: "preview",
 };
 
