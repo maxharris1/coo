@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import styles from "./AppShell.module.css";
+import { LastPageTracker } from "./LastPageTracker";
 import { RealtimeNudge } from "./RealtimeNudge";
 import { chromeFor } from "./shell";
 import { SyncProvider } from "./SyncProvider";
@@ -16,6 +17,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <SyncProvider>
       <ToastProvider>
         <RealtimeNudge />
+        <LastPageTracker />
         <div className={chrome === "tabs" ? styles.withTabs : styles.column}>
           {children}
         </div>
