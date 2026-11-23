@@ -186,7 +186,18 @@ function withoutInsets(v: string | undefined) {
     .replace(/calc\((\d+px|var\(--[\w-]+\))\)/g, "$1");
 }
 
+function atInset(v: string | undefined, px: number) {
+  return v
+    ?.replace(/var\(--coo-safe-\w+\)/g, `${px}px`)
+    .replace(/calc\(-1 \* (\d+)px\)/g, (_, n) => `${-n}px`)
+    .replace(/calc\((\d+)px \+ (\d+)px\)/g, (_, a, b) => `${+a + +b}px`);
+}
+
 const count = (text: string, part: string) => text.split(part).length - 1;
+
+const LEFT_RIGHT = ["right", "left"] as const;
+const sidePad = (vertical: string) =>
+  `${vertical} calc(20px + ${inset("right")}) 0 calc(20px + ${inset("left")})`;
 
 function moduleFiles(dir: string): string[] {
   return readdirSync(new URL(dir, src), { withFileTypes: true }).flatMap((e) =>
@@ -209,12 +220,54 @@ describe("Loft top", () => {
 
   it("pads the header back down by the same inset, so the controls clear the notch", () => {
     expect(value(top, "padding-top")).toBe("var(--coo-safe-top)");
-    expect(value(rule(css, "header"), "padding")).toBe("20px 20px 0");
+  });
+
+  it.each(LEFT_RIGHT)("bleeds the sky into the %s safe area", (side) => {
+    expect(value(top, `margin-${side}`)).toBe(bleed(side));
+  });
+
+  it("keeps side padding off the sky, so the scene reaches the screen edge", () => {
+    expect(top).not.toMatch(/(?:^|\s)padding(?:-left|-right)?:/);
+  });
+
+  it("pads the header and greeting 20px inside each side inset", () => {
+    expect(value(rule(css, "header"), "padding")).toBe(sidePad("20px"));
+    expect(value(rule(css, "greeting"), "padding")).toBe(sidePad("10px"));
+  });
+
+  it.each(LEFT_RIGHT)(
+    "uses the %s inset once per rule, so nothing is padded twice",
+    (side) => {
+      for (const name of ["top", "header", "greeting"]) {
+        expect(count(rule(css, name), inset(side))).toBe(1);
+      }
+      expect(count(css, inset(side))).toBe(3);
+    },
+  );
+
+  it("moves the sky out and the controls in by a 16px side inset", () => {
+    expect(atInset(value(top, "margin-left"), 16)).toBe("-16px");
+    expect(atInset(value(top, "margin-right"), 16)).toBe("-16px");
+    expect(atInset(value(rule(css, "header"), "padding"), 16)).toBe(
+      "20px 36px 0 36px",
+    );
+    expect(atInset(value(rule(css, "greeting"), "padding"), 16)).toBe(
+      "10px 36px 0 36px",
+    );
   });
 
   it("lays out as before when the inset is 0", () => {
     expect(withoutInsets(value(top, "margin-top"))).toBe("0px");
     expect(withoutInsets(value(top, "padding-top"))).toBe("0px");
+    for (const side of LEFT_RIGHT) {
+      expect(withoutInsets(value(top, `margin-${side}`))).toBe("0px");
+    }
+    expect(withoutInsets(value(rule(css, "header"), "padding"))).toBe(
+      "20px 20px 0 20px",
+    );
+    expect(withoutInsets(value(rule(css, "greeting"), "padding"))).toBe(
+      "10px 20px 0 20px",
+    );
   });
 });
 
@@ -233,9 +286,16 @@ describe("Shop awning", () => {
     );
   });
 
+  it.each(LEFT_RIGHT)("bleeds the stripes into the %s safe area", (side) => {
+    expect(value(awning, `margin-${side}`)).toBe(bleed(side));
+  });
+
   it("is 30px tall with no offset when the inset is 0", () => {
     expect(withoutInsets(value(awning, "height"))).toBe("30px");
     expect(withoutInsets(value(awning, "margin-top"))).toBe("0px");
+    for (const side of LEFT_RIGHT) {
+      expect(withoutInsets(value(awning, `margin-${side}`))).toBe("0px");
+    }
   });
 });
 
@@ -294,13 +354,26 @@ describe.each(PAGES)("%s page shell", (file) => {
 });
 
 describe("side and bottom bleed guard", () => {
-  it("bleeds the side and bottom insets only on the page shells", () => {
-    for (const side of SIDES) {
-      const bleeding = moduleFiles("")
-        .filter((f) => read(f).includes(bleed(side)))
-        .sort();
-      expect(bleeding).toEqual([...PAGES].sort());
-    }
+  const bleedingInto = (side: string) =>
+    moduleFiles("")
+      .filter((f) => read(f).includes(bleed(side)))
+      .sort();
+
+  it.each(LEFT_RIGHT)(
+    "bleeds the %s inset only on the page shells, the Loft top and the Shop awning",
+    (side) => {
+      expect(bleedingInto(side)).toEqual(
+        [
+          ...PAGES,
+          "app/(app)/MainTop.module.css",
+          "app/(app)/shop/ShopTop.module.css",
+        ].sort(),
+      );
+    },
+  );
+
+  it("bleeds the bottom inset only on the page shells", () => {
+    expect(bleedingInto("bottom")).toEqual([...PAGES].sort());
   });
 });
 
@@ -314,6 +387,14 @@ describe("cream guard", () => {
       expect(read(file).split(BLEED)).toHaveLength(2);
       expect(value(rule(read(file), name), "margin-top")).toBe(BLEED);
     }
+  });
+
+  it("keeps the Loft flock on the cream gutter with no side bleed", () => {
+    const flock = rule(read("app/(app)/Flock.module.css"), "flock");
+    expect(value(flock, "padding")).toBe(
+      "var(--coo-gutter) var(--coo-gutter) 24px",
+    );
+    expect(flock).not.toMatch(/margin-(?:left|right)|safe-(?:left|right)/);
   });
 
   it("keeps the app shell cream with no top offset", () => {
