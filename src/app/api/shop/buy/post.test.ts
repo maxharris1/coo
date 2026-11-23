@@ -264,6 +264,27 @@ describe("POST /api/shop/buy", () => {
     },
   );
 
+  it("charges once for the same buy sent twice at once", async () => {
+    const { id, jar } = await onboarded("(555) 123-4567", "Max", 1000);
+    const before = await holdings(id);
+    const body = {
+      itemId: "espresso",
+      price: 25,
+      actionId: crypto.randomUUID(),
+    };
+    const answers = await Promise.all([
+      client.post(body, jar),
+      client.post(body, jar),
+    ]);
+    expect(answers.map((a) => a.status)).toEqual([200, 200]);
+    expect(await holdings(id)).toEqual({
+      ...before,
+      seeds: before.seeds - 25,
+      espresso_shots: 1,
+      entries: 1,
+    });
+  });
+
   it("sells a second shot under a new actionId", async () => {
     const { id, jar } = await onboarded("(555) 123-4567", "Max", 60);
     const buyShot = () =>
