@@ -41,7 +41,7 @@ Everything below is in scope. Nothing here is "later".
 - Homing: sill visits, free replies, real-time return flights.
 - Sending to someone who is not a user, with a private link they can open without an account.
 - Seeds: earned by deliveries, replies, new cities, a weekly punch card, odd jobs and found objects.
-- A closet shared by the flock, 13 items for sale, saved outfits.
+- A closet shared by the flock, 14 items for sale, saved outfits.
 - Postmarks, badges, a shoebox of every note.
 - Installable to the home screen. Push notifications. Text message fallback when a bird lands.
 - Settings: notifications, quiet hours, units, per-friend location detail, travel switch, delete account.

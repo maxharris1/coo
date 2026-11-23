@@ -82,3 +82,45 @@ describe("validateOutfit", () => {
     expect(run()).toEqual(run());
   });
 });
+
+describe("validateOutfit with the night-vision goggles", () => {
+  const owned: GearId[] = ["goggles", "nightgoggles", "bow"];
+
+  it("takes the head slot, so it cannot be worn with the aviator goggles", () => {
+    expect(validateOutfit(["goggles", "nightgoggles"], owned, [])).toEqual({
+      ok: false,
+      problems: [
+        {
+          kind: "slot_taken",
+          item: "nightgoggles",
+          slot: "head",
+          by: "goggles",
+        },
+      ],
+    });
+  });
+
+  it("goes with a neck item", () => {
+    expect(validateOutfit(["nightgoggles", "bow"], owned, [])).toEqual({
+      ok: true,
+      items: ["nightgoggles", "bow"],
+    });
+  });
+
+  it("rejects them while another bird wears them", () => {
+    const others = [{ id: "b2", gear: ["nightgoggles"] }];
+    expect(validateOutfit(["nightgoggles"], owned, others)).toEqual({
+      ok: false,
+      problems: [
+        { kind: "worn_elsewhere", item: "nightgoggles", birdId: "b2" },
+      ],
+    });
+  });
+
+  it("rejects them when they are not in the closet", () => {
+    expect(validateOutfit(["nightgoggles"], ["goggles"], [])).toEqual({
+      ok: false,
+      problems: [{ kind: "not_owned", item: "nightgoggles" }],
+    });
+  });
+});

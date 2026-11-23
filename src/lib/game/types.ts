@@ -16,6 +16,7 @@ export const gearIds = [
   "cap",
   "party",
   "earmuffs",
+  "nightgoggles",
   "scarf",
   "bow",
   "bandana",

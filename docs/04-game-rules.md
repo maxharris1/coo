@@ -87,6 +87,8 @@ Fully described in `docs/05-flight-engine.md`. In short:
 
 - Birds fly great-circle routes at their speed, adjusted for level, mood, weather and wind.
 - Birds fly only while the sun is up where they are. Otherwise they roost and resume at sunrise.
+  The exception is a bird wearing night-vision goggles. It flies through the dark and does not
+  roost, at 0.03 lower arrival odds.
 - Each flight has arrival odds. That share of flights go straight through. The rest are delayed:
   80% by 4 to 25 minutes, 20% by 1 to 5 hours. Good navigators shorten delays.
 - The note always arrives.
@@ -183,13 +185,14 @@ Example: Brooklyn to Philadelphia is 81 miles. 10 + floor(81 / 25) = 13 seeds.
 
 ## 11. Gear
 
-Thirteen items for sale, four slots (head, neck, leg, back), one item per slot per bird.
+Fourteen items for sale, fifteen in the catalog (the tiny backpack is coming later), four slots
+(head, neck, leg, back), one item per slot per bird.
 The closet belongs to the user. Any of their birds can wear any item, one bird at a time.
 Gear can be changed only on a bird that is `home`. Exact effects are the `rule` field in
 `config/gear.json`; the engine implements the ones marked `engine:`.
 
 Note the two neck items that matter in bad weather cannot be combined with each other, and
-neither can goggles and the beanie. Choosing is the game.
+neither can the beanie and either pair of goggles. Choosing is the game.
 
 ## 12. Levels
 

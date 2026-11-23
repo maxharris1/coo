@@ -115,6 +115,19 @@ describe("pick (ac-1)", () => {
     expect(tap("beanie")).toEqual(["bow", "beanie"]);
   });
 
+  it("swaps the aviator goggles for owned night-vision goggles", () => {
+    const owned = closetCells(
+      wardrobe({ closet: [...wardrobe().closet, "nightgoggles"] }),
+    );
+    const cell = cellFor(owned, "nightgoggles");
+    expect(cell).toMatchObject({
+      kind: "owned",
+      name: "Night-vision goggles",
+      slot: "head",
+    });
+    expect(pick(gerald.gear, cell)).toEqual(["bow", "nightgoggles"]);
+  });
+
   it("takes an item off another home bird", () => {
     expect(tap("band")).toEqual(["goggles", "bow", "band"]);
   });

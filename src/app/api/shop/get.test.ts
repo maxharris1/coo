@@ -4,6 +4,7 @@ import type { UserId } from "@/server/ports/auth";
 import { onboard } from "@/server/services/onboarding";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
 import { geoClient } from "@/test/geoRoute";
+import { confirmLine, shopRows, type BuyRow } from "@/app/(app)/shop/shop";
 import { shopGet } from "./get";
 
 const SETUP = {
@@ -97,6 +98,37 @@ describe("GET /api/shop", () => {
       forSale: false,
       owned: false,
       affordable: false,
+    });
+  });
+
+  it("sells the night-vision goggles for 200 as buy, short or owned", async () => {
+    const { id, jar } = await onboarded("(555) 123-4567", "Max");
+    const goggleRow = async () => {
+      const { json } = await client.get({}, jar);
+      return shopRows(json).gear.find((r) => r.itemId === "nightgoggles");
+    };
+    await setSeeds(id, 199);
+    expect((await goggleRow())?.action).toEqual({
+      kind: "short",
+      price: 200,
+      toGo: 1,
+    });
+    await setSeeds(id, 200);
+    const row = await goggleRow();
+    expect(row).toMatchObject({
+      name: "Night-vision goggles",
+      action: { kind: "buy", price: 200 },
+    });
+    expect(confirmLine(row as BuyRow)).toBe(
+      "Buy the night-vision goggles for 200 seeds?",
+    );
+    await deps.db.query(
+      "insert into gear_owned (user_id, gear_id, acquired_at) values ($1, 'nightgoggles', now())",
+      [id],
+    );
+    expect((await goggleRow())?.action).toEqual({
+      kind: "owned",
+      label: "In the closet",
     });
   });
 

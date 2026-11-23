@@ -68,6 +68,16 @@
       "available": true
     },
     {
+      "id": "nightgoggles",
+      "name": "Night-vision goggles",
+      "slot": "head",
+      "price": 200,
+      "effect": "Flies through the night",
+      "rule": "engine: flies through the dark instead of roosting; dark flight costs 0.03 odds",
+      "starter": false,
+      "available": true
+    },
+    {
       "id": "scarf",
       "name": "Thermal scarf",
       "slot": "neck",

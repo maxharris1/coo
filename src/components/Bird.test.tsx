@@ -138,6 +138,22 @@ describe("Bird props", () => {
     }
   });
 
+  it("draws mint lenses on the night-vision goggles and sky lenses on the aviators", () => {
+    for (const pose of ["perched", "fly"] as const) {
+      const night = renderToStaticMarkup(
+        <Bird look="gerald" pose={pose} gear={["nightgoggles"]} />,
+      );
+      expect(night).toContain('fill="#86D9A0"');
+      expect(night).toContain('stroke="#D99A6C"');
+      expect(night).not.toContain("#DFF3FC");
+      const day = renderToStaticMarkup(
+        <Bird look="gerald" pose={pose} gear={["goggles"]} />,
+      );
+      expect(day).toContain('fill="#DFF3FC"');
+      expect(day).not.toContain("#86D9A0");
+    }
+  });
+
   it("takes the shape from breed and the colours from look", () => {
     const html = renderToStaticMarkup(
       <Bird look="gerald" breed="fantail" animated={false} />,

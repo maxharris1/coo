@@ -155,6 +155,28 @@ describe("buy", () => {
     expect(await shopRows(max)).toEqual([{ delta: -120 }]);
   });
 
+  it("sells the night-vision goggles once for 200 and refuses a short balance", async () => {
+    const short = await wallet(max);
+    expect(short.seeds).toBeLessThan(200);
+    expect(await refusal(buy(deps, max, item("nightgoggles", 200)))).toBe(
+      "insufficient_seeds",
+    );
+    expect(await wallet(max)).toEqual(short);
+
+    await grant(max, 200);
+    const result = await buy(deps, max, item("nightgoggles", 200));
+    expect(result.me).toMatchObject({ seeds: short.seeds });
+    expect(result.closet).toEqual(["bell", "bow", "nightgoggles"]);
+    expect(await shopRows(max)).toEqual([{ delta: -200 }]);
+    const after = await wallet(max);
+    expect(after.ledgerSum).toBe(after.seeds);
+
+    expect(await refusal(buy(deps, max, item("nightgoggles", 200)))).toBe(
+      "conflict",
+    );
+    expect(await wallet(max)).toEqual(after);
+  });
+
   it.each([
     ["an owned gear item", "bell"],
     ["the backpack, which is not for sale", "backpack"],

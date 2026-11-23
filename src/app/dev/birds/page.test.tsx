@@ -85,7 +85,7 @@ describe("/dev/birds", () => {
 
   it("shows every gear item with slot, price, effect and icon", () => {
     const shop = decode(section("Gear"));
-    expect(shop.match(/<article/g)).toHaveLength(14);
+    expect(shop.match(/<article/g)).toHaveLength(15);
     for (const item of gear.items) {
       const card = shop
         .split("<article")
