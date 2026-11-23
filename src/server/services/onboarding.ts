@@ -268,8 +268,9 @@ export async function onboard(
       if (await claimProfile(db, caller, body, now)) {
         await stockAccount(db, deps.config, caller, body, now);
       }
-      await syncPhoneLast4(db, caller);
       const notificationIds = await claimSendsToMyPhone(db, caller, nowMs);
+      // Flights before profiles, as lockPeopleAndLinks takes them, or this deadlocks with joinByCode.
+      await syncPhoneLast4(db, caller);
       return { account: await readAccount(db, caller), notificationIds };
     },
   );
