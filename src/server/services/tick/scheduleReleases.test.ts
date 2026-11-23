@@ -142,6 +142,21 @@ describe("scheduleReleases", () => {
     expect(await everything()).toEqual(before);
   });
 
+  it("tells the recipient the time of day the released pigeon lands, not a clock time", async () => {
+    const releaseAt = Date.UTC(2026, 10, 19, 17, 30);
+    const flightId = await scheduleGerald(releaseAt);
+    deps.clock.set(releaseAt);
+
+    await tick(deps);
+
+    const [incoming] = await deps.db.query<{ body: string }>(
+      "select body from notifications where kind = 'incoming' and ref_id = $1",
+      [flightId],
+    );
+    expect(incoming.body).toContain("Lands this afternoon.");
+    expect(incoming.body).not.toMatch(/\d{1,2}:\d{2}\s?[ap]m/i);
+  });
+
   it("departs at the scheduled time even when the tick runs late", async () => {
     const flightId = await scheduleGerald();
     deps.clock.set(SEVEN_AM_TOMORROW + HOUR_MS + 17 * 60_000);

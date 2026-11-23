@@ -171,6 +171,22 @@ describe("sendMany through send", () => {
     );
   });
 
+  it("tells each recipient the time of day the pigeon lands, not a clock time", async () => {
+    deps.clock.set(Date.UTC(2026, 10, 19, 17, 30));
+    await send(deps, max, { body: BODY, sends: threeSends() });
+
+    const incoming = await deps.db.query<{ user_id: string; body: string }>(
+      "select user_id, body from notifications where kind = 'incoming'",
+    );
+    expect(incoming).toHaveLength(3);
+    expect(incoming.find((n) => n.user_id === priya)?.body).toContain(
+      "Lands this afternoon.",
+    );
+    for (const { body } of incoming) {
+      expect(body).not.toMatch(/\d{1,2}:\d{2}\s?[ap]m/i);
+    }
+  });
+
   describe("refuses the whole batch when one bird cannot fly, naming the bird", () => {
     it.each([
       ["flying", "status = 'flying'", "conflict", "Brenda is not home"],

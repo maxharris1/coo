@@ -1,5 +1,5 @@
 import type { FlightPlan, Segment } from "@/lib/flight/engine";
-import { clockTime, type Pronoun } from "@/lib/format";
+import type { Pronoun } from "@/lib/format";
 import type { Db } from "@/server/db";
 import type { Deps } from "@/server/deps";
 import type { PlaceNames } from "../flights/placeNames";
@@ -64,10 +64,6 @@ async function noticeNights(deps: Deps, tx: Db, id: string): Promise<string[]> {
     "select name, pronoun from birds where id = $1",
     [f.bird_id],
   );
-  const [owner] = await tx.query<{ timezone: string }>(
-    "select timezone from profiles where id = $1",
-    [f.owner_id],
-  );
   const created: string[] = [];
   for (const [i, night] of unnotified.entries()) {
     const named = f.place_names.deciles?.[Math.round(night.fromFrac * 10)];
@@ -82,7 +78,6 @@ async function noticeNights(deps: Deps, tx: Db, id: string): Promise<string[]> {
           bird: bird.name,
           flightId: id,
           place,
-          sunrise: clockTime(new Date(night.endMs), owner.timezone),
         },
         bird.pronoun,
       ),

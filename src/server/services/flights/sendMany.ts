@@ -6,7 +6,7 @@ import {
   type FlightInput,
   type WeatherSample,
 } from "@/lib/flight/engine";
-import { clockTime, type Pronoun } from "@/lib/format";
+import { fuzzyWhen, type Pronoun } from "@/lib/format";
 import { careAt, projectCare, type CareOwner } from "@/lib/game/care";
 import { levelFor } from "@/lib/game/levels";
 import type { Note } from "@/lib/game/notes";
@@ -201,7 +201,7 @@ export const sendMany: SendHook = async (deps, me, input) => {
             bird: bird.name,
             fromCity: from.label,
             friend: mine.name,
-            eta: clockTime(new Date(plan.arriveAtMs), timezone),
+            eta: fuzzyWhen(plan.arriveAtMs, now, timezone, "quote"),
             flightId,
           },
           bird.pronoun as Pronoun,
