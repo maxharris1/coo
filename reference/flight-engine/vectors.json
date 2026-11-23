@@ -4835,6 +4835,188 @@
      "state": "landed"
     }
    ]
+  },
+  {
+   "name": "chicago-nightgoggles",
+   "about": "New York to Chicago wearing night goggles: no barn, flies through the night",
+   "input": {
+    "flightId": "vector-29-chicago-nightgoggles",
+    "from": {
+     "lat": 40.7306,
+     "lon": -73.9866
+    },
+    "to": {
+     "lat": 41.8781,
+     "lon": -87.6298
+    },
+    "departAtMs": 1795100400000,
+    "bird": {
+     "speedMph": 45,
+     "focus": 2,
+     "navigation": 4,
+     "level": 1,
+     "belly": 80,
+     "feathers": 80,
+     "energy": 80,
+     "sulking": false,
+     "breed": "city"
+    },
+    "gear": [
+     "nightgoggles"
+    ],
+    "weather": [
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     }
+    ]
+   },
+   "plan": {
+    "distanceMi": 711.7950481515863,
+    "bearingDeg": 280.8732161593893,
+    "onTimeOdds": 0.82,
+    "delayed": true,
+    "delayKind": "minor",
+    "arriveAtMs": 1795158243605,
+    "segments": [
+     {
+      "kind": "fly",
+      "startMs": 1795100400000,
+      "endMs": 1795139097580,
+      "fromFrac": 0,
+      "toFrac": 0.6795772737357765
+     },
+     {
+      "kind": "delay",
+      "startMs": 1795139097580,
+      "endMs": 1795139997580,
+      "fromFrac": 0.6795772737357765,
+      "toFrac": 0.6795772737357765
+     },
+     {
+      "kind": "fly",
+      "startMs": 1795139997580,
+      "endMs": 1795158243605,
+      "fromFrac": 0.6795772737357765,
+      "toFrac": 1
+     }
+    ],
+    "events": [
+     {
+      "atMs": 1795100400000,
+      "kind": "takeoff",
+      "pick": 175
+     },
+     {
+      "atMs": 1795105707392,
+      "kind": "food",
+      "pick": 929
+     },
+     {
+      "atMs": 1795115878446,
+      "kind": "landmark",
+      "pick": 773
+     },
+     {
+      "atMs": 1795125311894,
+      "kind": "landmark",
+      "pick": 321
+     },
+     {
+      "atMs": 1795133407444,
+      "kind": "cruising",
+      "pick": 633
+     },
+     {
+      "atMs": 1795139097580,
+      "kind": "delay",
+      "pick": 631
+     },
+     {
+      "atMs": 1795141872501,
+      "kind": "food",
+      "pick": 259
+     },
+     {
+      "atMs": 1795155242522,
+      "kind": "food",
+      "pick": 406
+     },
+     {
+      "atMs": 1795158243605,
+      "kind": "landing",
+      "pick": 245
+     }
+    ]
+   },
+   "samples": [
+    {
+     "atMs": 1795100400000,
+     "lat": 40.7306,
+     "lon": -73.9866,
+     "frac": 0,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795106184361,
+     "lat": 40.920033561791406,
+     "lon": -75.34670237252914,
+     "frac": 0.10158051947133515,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795119488390,
+     "lat": 41.29444880657655,
+     "lon": -78.50237206189223,
+     "frac": 0.33521569142580127,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795129321803,
+     "lat": 41.515317041681854,
+     "lon": -80.85593475018706,
+     "frac": 0.5079025622342069,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795143782704,
+     "lat": 41.740579100615356,
+     "lon": -84.12447778590258,
+     "frac": 0.7460487244395951,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795157665169,
+     "lat": 41.87464814373963,
+     "lon": -87.4893321542763,
+     "frac": 0.9898419496800333,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795158243605,
+     "lat": 41.8781,
+     "lon": -87.6298,
+     "frac": 1,
+     "state": "landed"
+    }
+   ]
   }
  ]
 }
