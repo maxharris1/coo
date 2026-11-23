@@ -3,7 +3,7 @@
   "incoming": {
     "setting": "notify_landed_in",
     "title": "A pigeon is headed your way",
-    "body": "{bird} left {fromCity} with a note from {friend}. Lands about {eta}.",
+    "body": "{bird} left {fromCity} with a note from {friend}. Lands {eta}.",
     "url": "/flights/{flightId}",
     "sms": false
   },
@@ -52,7 +52,7 @@
   "roosting": {
     "setting": "notify_delays",
     "title": "{bird} stopped for the night",
-    "body": "Asleep near {place}. Back in the air at {sunrise}.",
+    "body": "Asleep near {place}. Back in the air at first light.",
     "url": "/flights/{flightId}",
     "sms": false
   },

@@ -7,7 +7,7 @@ import emptyStates from "../../../../assets/copy/empty-states.json";
 import { Bird, type GearId, type Look } from "@/components/Bird";
 import { Loader } from "@/components/Loader";
 import { useSync } from "@/components/SyncProvider";
-import { duration } from "@/lib/format";
+import { fuzzyWhen } from "@/lib/format";
 import type { SyncVisit } from "@/server/services/visits/syncRead";
 import styles from "./Sill.module.css";
 
@@ -22,9 +22,11 @@ function OpenVisit({ id }: { id: string }) {
 function WaitingList({
   visits,
   nowMs,
+  timeZone,
 }: {
   visits: SyncVisit[];
   nowMs: number;
+  timeZone: string;
 }) {
   return (
     <section className={styles.sill}>
@@ -45,7 +47,8 @@ function WaitingList({
               <span className={styles.rowText}>
                 <span className={styles.rowName}>{v.bird.name}</span>
                 <span className={styles.rowLine}>
-                  From {v.owner.name}. Leaves in {duration(v.leavesAt - nowMs)}.
+                  From {v.owner.name}. Leaves{" "}
+                  {fuzzyWhen(v.leavesAt, nowMs, timeZone)}.
                 </span>
               </span>
             </Link>
@@ -74,5 +77,11 @@ export default function SillPage() {
   const visits = data.visits.toSorted((a, b) => a.leavesAt - b.leavesAt);
   if (visits.length === 1) return <OpenVisit id={visits[0].id} />;
   if (visits.length === 0) return <EmptySill />;
-  return <WaitingList visits={visits} nowMs={data.serverNow} />;
+  return (
+    <WaitingList
+      visits={visits}
+      nowMs={data.serverNow}
+      timeZone={data.me.timezone}
+    />
+  );
 }

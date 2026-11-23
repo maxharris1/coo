@@ -108,12 +108,13 @@ export function clockTime(at: Date, timeZone: string): string {
   return `${p.hour}:${p.minute} ${p.dayPeriod.toLowerCase()}`;
 }
 
-export type WhenVoice = "live" | "quote";
+export type WhenVoice = "live" | "quote" | "past";
 
 type Bucket = {
   fromMinute: number;
   today: string;
   tomorrow: string;
+  yesterday: string;
   onDay: (day: string) => string;
   dated: string;
 };
@@ -123,6 +124,7 @@ const WHEN_BUCKETS: readonly Bucket[] = [
     fromMinute: 0,
     today: "overnight",
     tomorrow: "overnight",
+    yesterday: "overnight yesterday",
     onDay: (day) => `overnight ${day}`,
     dated: "overnight",
   },
@@ -130,6 +132,7 @@ const WHEN_BUCKETS: readonly Bucket[] = [
     fromMinute: 5 * 60,
     today: "early this morning",
     tomorrow: "early tomorrow morning",
+    yesterday: "early yesterday morning",
     onDay: (day) => `early ${day} morning`,
     dated: "early in the morning",
   },
@@ -137,6 +140,7 @@ const WHEN_BUCKETS: readonly Bucket[] = [
     fromMinute: 8 * 60,
     today: "this morning",
     tomorrow: "tomorrow morning",
+    yesterday: "yesterday morning",
     onDay: (day) => `${day} morning`,
     dated: "in the morning",
   },
@@ -144,6 +148,7 @@ const WHEN_BUCKETS: readonly Bucket[] = [
     fromMinute: 11 * 60 + 30,
     today: "around midday",
     tomorrow: "around midday tomorrow",
+    yesterday: "around midday yesterday",
     onDay: (day) => `around midday ${day}`,
     dated: "around midday",
   },
@@ -151,6 +156,7 @@ const WHEN_BUCKETS: readonly Bucket[] = [
     fromMinute: 13 * 60 + 30,
     today: "this afternoon",
     tomorrow: "tomorrow afternoon",
+    yesterday: "yesterday afternoon",
     onDay: (day) => `${day} afternoon`,
     dated: "in the afternoon",
   },
@@ -158,6 +164,7 @@ const WHEN_BUCKETS: readonly Bucket[] = [
     fromMinute: 17 * 60,
     today: "this evening",
     tomorrow: "tomorrow evening",
+    yesterday: "yesterday evening",
     onDay: (day) => `${day} evening`,
     dated: "in the evening",
   },
@@ -165,13 +172,14 @@ const WHEN_BUCKETS: readonly Bucket[] = [
     fromMinute: 20 * 60,
     today: "tonight",
     tomorrow: "tomorrow night",
+    yesterday: "last night",
     onDay: (day) => `${day} night`,
     dated: "at night",
   },
 ];
 
 const IMMINENT_MS = 10 * 60_000;
-const IMMINENT: Record<WhenVoice, string> = {
+const IMMINENT: Record<Exclude<WhenVoice, "past">, string> = {
   live: "any minute now",
   quote: "shortly",
 };
@@ -201,7 +209,7 @@ export function fuzzyWhen(
   timeZone: string,
   voice: WhenVoice = "live",
 ): string {
-  if (atMs - nowMs <= IMMINENT_MS) return IMMINENT[voice];
+  if (voice !== "past" && atMs - nowMs <= IMMINENT_MS) return IMMINENT[voice];
   const minute = minuteOfDay(atMs, timeZone);
   const bucket = WHEN_BUCKETS.findLast((b) => b.fromMinute <= minute)!;
   const days =
@@ -210,7 +218,8 @@ export function fuzzyWhen(
     DAY_MS;
   if (days === 0) return bucket.today;
   if (days === 1) return bucket.tomorrow;
-  if (days < WEEK_DAYS) {
+  if (days === -1) return bucket.yesterday;
+  if (Math.abs(days) < WEEK_DAYS) {
     const day = cached(dayFormatters, timeZone, { weekday: "long" });
     return bucket.onDay(day.format(atMs));
   }

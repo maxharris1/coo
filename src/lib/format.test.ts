@@ -414,6 +414,36 @@ describe("fuzzyWhen", () => {
     );
   });
 
+  it("says when a past instant was in the past voice", () => {
+    const now = nyAt("2026-11-23T12:00");
+    const text = fuzzyWhen(nyAt("2026-11-23T09:00"), now, ny, "past");
+    expect(text).toBe("this morning");
+    expect(text).not.toMatch(CLOCK);
+    expect(fuzzyWhen(nyAt("2026-11-23T11:58"), now, ny, "past")).toBe(
+      "around midday",
+    );
+  });
+
+  it.each([
+    ["2026-11-22T03:00", "overnight yesterday"],
+    ["2026-11-22T06:00", "early yesterday morning"],
+    ["2026-11-22T09:00", "yesterday morning"],
+    ["2026-11-22T12:00", "around midday yesterday"],
+    ["2026-11-22T15:00", "yesterday afternoon"],
+    ["2026-11-22T18:00", "yesterday evening"],
+    ["2026-11-22T22:00", "last night"],
+    ["2026-11-20T18:00", "Friday evening"],
+    ["2026-11-10T09:00", "Tuesday, November 10, in the morning"],
+  ])("names the past day of %s, seen Monday noon, %j", (local, phrase) => {
+    const now = nyAt("2026-11-23T12:00");
+    expect(fuzzyWhen(nyAt(local), now, ny, "past")).toBe(phrase);
+  });
+
+  it("keeps any minute now for an overdue landing in the live voice", () => {
+    const now = nyAt("2026-11-23T12:00");
+    expect(fuzzyWhen(now - 3 * 3_600_000, now, ny)).toBe("any minute now");
+  });
+
   it("reads one UTC instant in the viewer's time zone", () => {
     const now = Date.parse("2026-11-23T12:00:00Z");
     const at = Date.parse("2026-11-23T15:00:00Z");

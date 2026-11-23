@@ -208,6 +208,18 @@ describe("send", () => {
     expect(rows[0].title + rows[0].body).not.toContain(BODY);
   });
 
+  it("tells the recipient the time of day the pigeon lands, not a clock time", async () => {
+    deps.clock.set(Date.UTC(2026, 10, 19, 17, 30));
+    await sendGerald();
+
+    const [incoming] = await deps.db.query<{ body: string }>(
+      "select body from notifications where user_id = $1 and kind = 'incoming'",
+      [priya],
+    );
+    expect(incoming.body).toContain("Lands this afternoon.");
+    expect(incoming.body).not.toMatch(/\d{1,2}:\d{2}\s?[ap]m/i);
+  });
+
   it("refuses a send to someone who is not a friend as forbidden and creates nothing", async () => {
     const before = await counts();
     const kevin = world.priya.birds[0].id;

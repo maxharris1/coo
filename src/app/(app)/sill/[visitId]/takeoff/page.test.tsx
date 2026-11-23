@@ -150,7 +150,7 @@ describe("TakeoffHome page", () => {
       copy: {
         released: "Released 11:32 am",
         headline: "Homeward bound",
-        note: "Dumpling has your reply for Priya. She should land around 1:25 pm.",
+        note: "Dumpling has your reply for Priya. She should land around midday.",
       },
       watchLabel: "Watch her go",
       birdTitle: "Dumpling launching off your sill with the reply",

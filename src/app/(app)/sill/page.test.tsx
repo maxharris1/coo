@@ -97,7 +97,11 @@ describe("/sill (ac-1)", () => {
     );
     expect(hrefs).toEqual(["/sill/soon", "/sill/mid", "/sill/late"]);
     expect(html).toContain("Dumpling");
-    expect(html).toContain("From Priya. Leaves in 5 min.");
+    expect(html).toContain("From Priya. Leaves any minute now.");
+    expect(html).toContain("From Priya. Leaves this evening.");
+    expect(html).not.toMatch(
+      /Leaves in|\d+\s?(min|h)\b|\d{1,2}:\d{2}\s?[ap]m/i,
+    );
     expect(router.replace).not.toHaveBeenCalled();
   });
 

@@ -1,11 +1,10 @@
-import { clockTime, fill, type Pronoun } from "@/lib/format";
+import { clockTime, fill, fuzzyWhen, type Pronoun } from "@/lib/format";
 import type { Flight } from "@/server/services/flights/shape";
 import type { TakeoffCopy } from "../../../send/takeoff/[flightId]/takeoffCopy";
 
 export type HomeCopy = TakeoffCopy & { watch: string; birdTitle: string };
 
-const NOTE =
-  "{bird} has your reply for {recipient}. {He} should land around {lands}.";
+const NOTE = "{bird} has your reply for {recipient}. {He} should land {lands}.";
 
 export function homeCopy(
   flight: Flight,
@@ -22,7 +21,10 @@ export function homeCopy(
         bird: flight.bird.name,
         // A return flight belongs to the bird's owner; the counterpart is the viewer.
         recipient: flight.owner.name,
-        lands: flight.arriveAt === undefined ? undefined : at(flight.arriveAt),
+        lands:
+          flight.arriveAt === undefined
+            ? undefined
+            : fuzzyWhen(flight.arriveAt, flight.releaseAt, timeZone, "quote"),
       },
       pronoun,
     ),

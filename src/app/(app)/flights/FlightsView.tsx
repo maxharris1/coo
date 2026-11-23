@@ -143,7 +143,7 @@ export function FlightsView({
           )}
         </section>
       ))}
-      <JobsSection birds={birds} timeZone={timeZone} />
+      <JobsSection birds={birds} timeZone={timeZone} nowMs={nowMs} />
       {earlier.length > 0 && (
         <section className={styles.doneList}>
           <h2 className={styles.heading}>Earlier</h2>

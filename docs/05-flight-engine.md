@@ -132,7 +132,9 @@ An event is shown once the clock has passed its time.
 
 - `positionAt` returns the bird's position, the fraction flown and a state: `waiting`, `flying`,
   `roosting`, `delayed` or `landed`. Call it every animation frame with server-corrected time.
-- "Lands in" is `arriveAtMs − now`. "Takes off again" is the end of the current roost segment.
+- The displayed landing time is `fuzzyWhen(arriveAtMs, now, tz)`, a time of day such as "this
+  afternoon". The engine still returns the exact `arriveAtMs`. "Takes off again" reads "first
+  light", the end of the current roost segment.
 - For the forecast screen, run the engine with forecast weather for each candidate hour and a
   throwaway flight id, and show `onTimeOdds` and the no-delay duration. To get the no-delay
   duration, compute the plan and subtract the delay segment's length.

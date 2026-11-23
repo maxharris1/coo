@@ -7,7 +7,6 @@ import {
   type LatLon,
   type Segment,
 } from "@/lib/flight/engine";
-import { clockTime } from "@/lib/format";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
 import { insertFlyingDelivery } from "@/test/fixtures/flights";
 import { seedWorld, type World } from "@/test/seedWorld";
@@ -140,9 +139,7 @@ describe("roost notices", () => {
       title: "Gerald stopped for the night",
       url: `/flights/${flightId}`,
     });
-    expect(notices[0].body).toContain(
-      `Back in the air at ${clockTime(new Date(night.endMs), ZONE)}.`,
-    );
+    expect(notices[0].body).toContain("Back in the air at first light.");
     const [f] = await deps.db.query<{ roosts_notified: number }>(
       "select roosts_notified from flights where id = $1",
       [flightId],
@@ -181,10 +178,8 @@ describe("roost notices", () => {
     const notices = await roostingNotices();
     expect(new Set(notices.map((n) => n.ref_id)).size).toBe(nights.length);
     expect(notices.map((n) => n.body)).toEqual(
-      nights.map((n) =>
-        expect.stringContaining(
-          `Back in the air at ${clockTime(new Date(n.endMs), ZONE)}.`,
-        ),
+      nights.map(() =>
+        expect.stringContaining("Back in the air at first light."),
       ),
     );
   });
@@ -207,10 +202,8 @@ describe("roost notices", () => {
       expect.arrayContaining(
         nights
           .slice(0, 2)
-          .map((n) =>
-            expect.stringContaining(
-              `Back in the air at ${clockTime(new Date(n.endMs), ZONE)}.`,
-            ),
+          .map(() =>
+            expect.stringContaining("Back in the air at first light."),
           ),
       ),
     );
@@ -275,9 +268,7 @@ describe("roost notices", () => {
 
     expect(result).toEqual({ count: 1, failed: 1 });
     expect((await roostingNotices()).map((n) => n.body)).toEqual([
-      expect.stringContaining(
-        `Back in the air at ${clockTime(new Date(nightsAfterTakeoff(healthy.plan)[0].endMs), ZONE)}.`,
-      ),
+      expect.stringContaining("Back in the air at first light."),
     ]);
     const notifiedRows = await deps.db.query<{
       id: string;

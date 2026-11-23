@@ -5,7 +5,7 @@ import {
   type FlightInput,
   type LatLon,
 } from "@/lib/flight/engine";
-import { clockTime, type Pronoun } from "@/lib/format";
+import { fuzzyWhen, type Pronoun } from "@/lib/format";
 import { careAt, projectCare, type CareOwner } from "@/lib/game/care";
 import { levelFor } from "@/lib/game/levels";
 import { isWeekend } from "@/lib/game/time";
@@ -234,7 +234,7 @@ async function releaseOne(
           bird: bird.name,
           fromCity: current.from.label,
           friend: owner.name,
-          eta: clockTime(new Date(plan.arriveAtMs), them.timezone),
+          eta: fuzzyWhen(plan.arriveAtMs, now, them.timezone, "quote"),
           flightId: f.id,
         },
         bird.pronoun as Pronoun,

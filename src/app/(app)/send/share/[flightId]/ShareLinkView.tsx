@@ -108,7 +108,7 @@ export function ShareLinkView({
         <div className={styles.statusText}>
           <div className={styles.statusTitle}>{bird.name} is in the air</div>
           <div className={styles.statusLine}>
-            {fill("Flying to {place}. Lands about {lands}.", tokens)}
+            {fill("Flying to {place}. Lands {lands}.", tokens)}
           </div>
         </div>
       </div>

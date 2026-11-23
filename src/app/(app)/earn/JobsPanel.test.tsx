@@ -55,12 +55,14 @@ const JOBS: Earn["jobs"] = {
 };
 
 const UNTIL = Date.parse("2026-11-20T19:40:00Z");
+const NOW = UNTIL - 40 * 60_000;
 
 const list = (props: Partial<Parameters<typeof JobsList>[0]> = {}) => (
   <JobsList
     jobs={JOBS}
     birds={[bird({})]}
     timeZone="UTC"
+    nowMs={NOW}
     sending={false}
     onSend={() => {}}
     {...props}
@@ -88,6 +90,7 @@ const tree = (props: Partial<Parameters<typeof JobsList>[0]> = {}) =>
     jobs: JOBS,
     birds: [bird({})],
     timeZone: "UTC",
+    nowMs: NOW,
     sending: false,
     onSend: () => {},
     ...props,
@@ -182,19 +185,22 @@ describe("JobsPanel running jobs (ac-1)", () => {
 
   it("shows a running job with its return time in the profile timezone", () => {
     const markup = html({ birds: [working], timeZone: "America/New_York" });
-    expect(markup).toContain("Gerald is out on an odd job. Home at 2:40 pm.");
+    expect(markup).toContain(
+      "Gerald is out on an odd job. Home this afternoon.",
+    );
+    expect(markup).not.toMatch(/\d{1,2}:\d{2}\s?[ap]m/i);
   });
 
   it("links a running job to its tracker when the job id is known", () => {
     const markup = html({ birds: [{ ...working, jobId: "j-77" }] });
     expect(markup).toMatch(
-      /<a[^>]*href="\/jobs\/j-77"[^>]*>Gerald is out on an odd job\. Home at 7:40 pm\.<\/a>/,
+      /<a[^>]*href="\/jobs\/j-77"[^>]*>Gerald is out on an odd job\. Home this evening\.<\/a>/,
     );
   });
 
   it("keeps a running job as text when the job id is null", () => {
     const markup = html({ birds: [{ ...working, jobId: null }] });
-    expect(markup).toContain("Gerald is out on an odd job. Home at 7:40 pm.");
+    expect(markup).toContain("Gerald is out on an odd job. Home this evening.");
     expect(markup).not.toContain("<a");
   });
 
@@ -238,7 +244,7 @@ describe("JobsPanel taken offers", () => {
     expect(sends[0]).toContain("Send Pip");
     expect(sends[0]).not.toContain("disabled");
     expect(markup).toMatch(
-      /<a[^>]*href="\/jobs\/j-deli"[^>]*>Gerald is out on an odd job\. Home at 7:40 pm\.<\/a>/,
+      /<a[^>]*href="\/jobs\/j-deli"[^>]*>Gerald is out on an odd job\. Home this evening\.<\/a>/,
     );
   });
 
@@ -353,6 +359,7 @@ describe("JobsPanel mounted (ac-1)", () => {
   it("reads birds and the timezone from sync", () => {
     const markup = render({
       me: { timezone: "America/New_York" },
+      serverNow: NOW,
       birds: [
         bird({
           id: "b-ada",
@@ -364,7 +371,7 @@ describe("JobsPanel mounted (ac-1)", () => {
         bird({ id: "b-gerald", name: "Gerald" }),
       ],
     } as unknown as SyncPayload);
-    expect(markup).toContain("Ada is out on an odd job. Home at 2:40 pm.");
+    expect(markup).toContain("Ada is out on an odd job. Home this afternoon.");
     expect(markup).toContain("Send Gerald");
   });
 

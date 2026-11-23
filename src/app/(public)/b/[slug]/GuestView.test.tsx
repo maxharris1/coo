@@ -46,6 +46,9 @@ function guestFlying(over: Partial<Guest> = {}): Guest {
   };
 }
 
+const HOUR_MS = 3_600_000;
+const CLOCK = /\d{1,2}:\d{2}\s?[ap]m/i;
+
 const midway = (g: Guest) =>
   g.flight.releaseAt + (g.flight.arriveAt! - g.flight.releaseAt) * 0.62;
 
@@ -73,9 +76,25 @@ describe("Guest page, sealed (Guest.png)", () => {
     const words = text(render(guestFlying()));
     expect(words).toContain("No app needed");
     expect(words).toContain("Max sent you a pigeon");
-    expect(words).toMatch(
-      /His name is Gerald\. He left Brooklyn at \d{1,2}:\d{2} [ap]m with a note for you, Maya\./,
+    expect(words).toContain(
+      "His name is Gerald. He left Brooklyn this morning with a note for you, Maya.",
     );
+    expect(words).not.toMatch(CLOCK);
+  });
+
+  it("says the bird left yesterday when the flight began the day before", () => {
+    const g = guestFlying();
+    const words = text(render(g, g.flight.releaseAt + 26 * HOUR_MS));
+    expect(words).toContain("He left Brooklyn yesterday morning with a note");
+  });
+
+  it("says when a scheduled bird leaves as a time of day", () => {
+    const g = guestFlying({
+      flight: { ...guestFlying().flight, status: "scheduled", plan: undefined },
+    });
+    const words = text(render(g, g.flight.releaseAt - 9 * HOUR_MS));
+    expect(words).toContain("He leaves Brooklyn this morning with a note");
+    expect(words).not.toMatch(CLOCK);
   });
 
   it("shows the live map, the progress and the time left", () => {
@@ -85,8 +104,15 @@ describe("Guest page, sealed (Guest.png)", () => {
     expect(html).toMatch(/role="progressbar"[^>]*aria-valuenow="62"/);
     const words = text(html);
     expect(words).toContain("Over Trenton");
-    const left = Math.round((g.flight.arriveAt! - midway(g)) / 60_000);
-    expect(words).toContain(`Lands in ${left} min`);
+    expect(words).toContain("Lands around midday");
+    expect(words).not.toMatch(CLOCK);
+    expect(words).not.toMatch(/Lands in|\d+\s?(min|h)\b/);
+  });
+
+  it("says any minute now when the landing is under 10 minutes off", () => {
+    const g = guestFlying();
+    const words = text(render(g, g.flight.arriveAt! - 5 * 60_000));
+    expect(words).toContain("Lands any minute now");
   });
 
   it("keeps the note sealed and out of the page", () => {
@@ -139,7 +165,8 @@ describe("Guest page, live map bird (#846 ac-4)", () => {
 
 describe("guestCopy", () => {
   it("matches the mock's sentences", () => {
-    const c = guestCopy(guestFlying(), "America/New_York");
+    const g = guestFlying();
+    const c = guestCopy(g, "America/New_York", midway(g));
     expect(c.title).toBe("Max sent you a pigeon");
     expect(c.notify).toBe("Text me when he lands");
     expect(c.consent).toBe(
@@ -152,6 +179,7 @@ describe("guestCopy", () => {
     const c = guestCopy(
       { ...g, bird: { ...g.bird, pronoun: "they" } },
       "America/New_York",
+      midway(g),
     );
     expect(c.notify).toBe("Text me when they land");
     expect(c.sealed).toBe(

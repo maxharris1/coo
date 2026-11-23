@@ -22,7 +22,7 @@ const props = (animate: boolean): ComponentProps<typeof TakeoffView> => ({
   copy: {
     released: "Released 9:32 am",
     headline: "And he's off",
-    note: "Gerald has your note for Priya. He should land around 11:20 am.",
+    note: "Gerald has your note for Priya. He should land this morning.",
   },
   animate,
 });
@@ -39,7 +39,7 @@ describe("TakeoffView", () => {
   it("reads as the mock, top to bottom", () => {
     const html = renderToStaticMarkup(<TakeoffView {...props(true)} />);
     expect(text(html)).toBe(
-      "Released 9:32 am And he's off Gerald has your note for Priya. He should land around 11:20 am. Watch the flight The tracker opens by itself after a second.",
+      "Released 9:32 am And he's off Gerald has your note for Priya. He should land this morning. Watch the flight The tracker opens by itself after a second.",
     );
     expect(html).toMatch(/<h1[^>]*>And he&#x27;s off<\/h1>/);
   });
@@ -81,7 +81,7 @@ describe("TakeoffView", () => {
   it("with reduced motion keeps the button and drops the promise to move on", () => {
     const html = renderToStaticMarkup(<TakeoffView {...props(false)} />);
     expect(text(html)).toBe(
-      "Released 9:32 am And he's off Gerald has your note for Priya. He should land around 11:20 am. Watch the flight",
+      "Released 9:32 am And he's off Gerald has your note for Priya. He should land this morning. Watch the flight",
     );
   });
 
