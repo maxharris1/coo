@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Bird, type GearId, type Look } from "@/components/Bird";
+import { Bird, perchedHeight, type GearId, type Look } from "@/components/Bird";
 import type { SyncPayload } from "@/components/sync";
 import { greeting, isAway } from "@/lib/format";
 import styles from "./MainTop.module.css";
@@ -15,8 +15,6 @@ const LEDGE_SPOTS = [
   { x: 288, y: 116, scale: 0.78 },
 ];
 const LEDGE_BIRD_SIZE = 120;
-// A perched Bird at size 120 draws a 120 by 113 box.
-const LEDGE_BIRD_HEIGHT = 113;
 
 type Box = { x: number; y: number; w: number; h: number };
 
@@ -65,7 +63,7 @@ function LoftScene({ birds }: { birds: FlockBird[] }) {
           x,
           y,
           w: LEDGE_BIRD_SIZE * scale,
-          h: LEDGE_BIRD_HEIGHT * scale,
+          h: perchedHeight(LEDGE_BIRD_SIZE) * scale,
         },
       };
     }),

@@ -31,8 +31,8 @@ avatar, name, one status line, a status chip (Ready, Flying, Resting, Scheduled,
 job) or a "Feed me" button when hungry; "n of m perches"; a link to the post office (More).
 Rows tap to the bird's page. A bird drawn in the loft (on the ledge, asleep in the coop, or behind
 the OUT tag) also taps to that bird's page. "Feed me" feeds in place. Empty perches show as dashed
-slots. While a roommate is owed, the first says "A roommate is waiting" (tap → `/aviary/roommate`). A ready egg
-takes the next empty slot: "An egg is ready" (tap → `/aviary`).
+slots. While a roommate is owed, the first says "A roommate is waiting" (tap → `/aviary/roommate`).
+A ready egg takes the next empty slot: "An egg is ready" (tap → `/aviary`).
 
 ### Recipients (`/send`)
 Shows: at the top, any bird of a friend's on my sill ("A reply rides home free" → Reply);

@@ -255,7 +255,7 @@ describe("Flock rows open the bird's page", () => {
     expect(empty).not.toContain("<a");
   });
 
-  it("shows a pressed and focused state on a 44 px row (ac-3)", () => {
+  it("shows a pressed and focused state on a 44 px row (ac-1)", () => {
     const css = readFileSync(
       new URL("./Flock.module.css", import.meta.url),
       "utf8",

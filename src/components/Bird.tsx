@@ -165,6 +165,9 @@ const FLYING: Motion = {
 const OWN: Partial<Record<Look, GearId[]>> = { admiral: ["cap"] };
 
 const PERCH_VB = "-10 -22 140 132";
+const [, , PERCH_W, PERCH_H] = PERCH_VB.split(" ").map(Number);
+export const perchedHeight = (size: number) =>
+  Math.round((size * PERCH_H) / PERCH_W);
 const FLY_VB = "-24 -12 164 120";
 const WING = "M46 55 Q32 22 62 2 Q70 8 72 20 Q80 27 78 39 Q83 47 77 58 Z";
 
