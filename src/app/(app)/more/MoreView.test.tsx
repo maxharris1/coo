@@ -101,7 +101,7 @@ describe("MoreView", () => {
     ]);
   });
 
-  it("links only inside Coo, with no mail, phone, text or outside links", () => {
+  it("links only inside the app, with no mail, phone, text or outside links", () => {
     for (const sources of [MOCK, { ...MOCK, friends: null, notes: null }]) {
       const html = renderToStaticMarkup(<MoreView sources={sources} />);
       expect(html).toContain('href="/more/report-bug"');
