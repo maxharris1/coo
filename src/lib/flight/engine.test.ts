@@ -223,6 +223,16 @@ describe("night flight", () => {
     expect(plan.arriveAtMs).toBeLessThan(chicago.plan.arriveAtMs);
   });
 
+  it("the chicago-nightgoggles vector flies to Chicago without a roost and lands sooner", () => {
+    const v = vector("chicago-nightgoggles");
+    const overnight = vector("chicago-overnight");
+
+    expect(v.input.to).toEqual(overnight.input.to);
+    expect(v.input.gear).toEqual(["nightgoggles"]);
+    expect(roosts(v.plan)).toEqual([]);
+    expect(v.plan.arriveAtMs).toBeLessThan(overnight.plan.arriveAtMs);
+  });
+
   it("nightFlightUntilMs allows dark flight only before the cutoff", () => {
     const la = vector("la-many-nights");
     const cutoff = E.sunTimes(
@@ -288,10 +298,14 @@ describe("night flight", () => {
     );
   });
 
-  it("only the goggled vector input flies in the dark", () => {
+  it("only the goggled vector inputs fly in the dark", () => {
+    const goggledVectors = [
+      "night-release-nightgoggles",
+      "chicago-nightgoggles",
+    ];
     for (const v of data.vectors) {
       expect(E.fliesInDark(v.input), v.name).toBe(
-        v.name === "night-release-nightgoggles",
+        goggledVectors.includes(v.name),
       );
     }
   });
