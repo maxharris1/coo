@@ -450,15 +450,14 @@ describe("onboard claims a guest send addressed to the new phone (ac-1)", () => 
     ]);
   });
 
-  it("claims the send in a coo_app transaction and changes nothing on a second onboard", async () => {
+  it("claims the send as the coo_app role and changes nothing on a second onboard", async () => {
     const { linkId } = await addressedSend();
     const user = await userWithPhone(PHONE);
-    const app = {
-      ...deps,
-      db: { ...deps.db, tx: asRole(deps.db, "coo_app").tx },
-    };
+    const app = { ...deps, db: asRole(deps.db, "coo_app") };
 
-    await onboard(app, user, { ...BODY, name: "Bea" });
+    await expect(
+      onboard(app, user, { ...BODY, name: "Bea" }),
+    ).resolves.toMatchObject({ me: { id: user } });
     const after = await attribution(linkId);
     await onboard(app, user, { ...BODY, name: "Bea" });
 

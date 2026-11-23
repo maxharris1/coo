@@ -6,6 +6,7 @@ import { handleBase } from "@/lib/handle";
 import type { Db } from "@/server/db";
 import type { Deps } from "@/server/deps";
 import { AppError } from "@/server/errors";
+import { log } from "@/server/log";
 import type { UserId } from "@/server/ports/auth";
 import {
   pair,
@@ -266,6 +267,20 @@ export async function onboard(
       return { account: await readAccount(db, caller), notificationIds };
     },
   );
-  for (const id of notificationIds) await deliver(deps, id);
+  for (const id of notificationIds) await deliverQuietly(deps, id);
   return account;
+}
+
+async function deliverQuietly(
+  deps: Deps,
+  notificationId: string,
+): Promise<void> {
+  try {
+    await deliver(deps, notificationId);
+  } catch (error) {
+    log.error("onboard.notify_failed", {
+      notificationId,
+      error: error instanceof Error ? error.name : typeof error,
+    });
+  }
 }
