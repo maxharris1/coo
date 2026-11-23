@@ -1,7 +1,6 @@
 import Link from "next/link";
 import type { ComponentProps } from "react";
 import emptyStates from "../../../../assets/copy/empty-states.json";
-import { Bird, type GearId, type Look } from "@/components/Bird";
 import { Loader } from "@/components/Loader";
 import { onJob } from "../earn/JobsPanel";
 import type { Units } from "@/lib/format";
@@ -10,8 +9,10 @@ import {
   earlierRows,
   flightsView,
   type ChipTone,
+  type Direction,
   type FlightsRow,
 } from "./flightsViewModel";
+import { FlightMapPreview } from "./FlightMapPreview";
 import { JobsSection } from "./JobsSection";
 import styles from "./Flights.module.css";
 
@@ -24,6 +25,7 @@ export type FlightsViewProps = {
   list: List;
   birds: ComponentProps<typeof JobsSection>["birds"];
   nowMs: number;
+  offsetMs: number;
   timeZone: string;
   units: Units;
   onMore: () => void;
@@ -40,46 +42,65 @@ const TONE: Record<ChipTone, string> = {
   mint: styles.chipMint,
 };
 
-function LiveRow({ row }: { row: FlightsRow }) {
-  const pct = Math.round(row.frac * 100);
-  const { bird } = row.flight;
+const ARROW: Record<Direction, string> = {
+  sent: "M5 11 11 5M6 5h5v5",
+  received: "M11 5 5 11M5 6v5h5",
+};
+
+function AirCard({
+  row,
+  nowMs,
+  offsetMs,
+}: {
+  row: FlightsRow;
+  nowMs: number;
+  offsetMs: number;
+}) {
   return (
     <Link
       href={`/flights/${row.id}`}
-      className={styles.card}
+      aria-label={row.label}
       data-state={row.state}
+      className={styles.airCard}
     >
-      <span className={styles.top}>
-        <span className={styles.avatar}>
-          <span className={styles.avatarBird}>
-            <Bird
-              look={bird.look as Look}
-              gear={bird.gear as GearId[]}
-              animated={false}
-              size={86}
-            />
-          </span>
+      <div className={styles.preview}>
+        <FlightMapPreview
+          flight={row.flight}
+          state={row.state}
+          nowMs={nowMs}
+          offsetMs={offsetMs}
+        />
+      </div>
+      <div className={styles.airBody}>
+        <span className={styles.airTop}>
+          <span className={styles.rowTitle}>{row.bird}</span>
+          {row.chip && (
+            <span className={`${styles.chip} ${TONE[row.chip.tone]}`}>
+              {row.chip.text}
+            </span>
+          )}
         </span>
-        <span className={styles.text}>
-          <span className={styles.rowTitle}>{row.title}</span>
-          <span className={styles.line}>{row.line}</span>
-        </span>
-        {row.chip && (
-          <span className={`${styles.chip} ${TONE[row.chip.tone]}`}>
-            {row.chip.text}
+        <span className={styles.who}>
+          <span
+            className={styles.badge}
+            data-direction={row.direction}
+            aria-hidden="true"
+          >
+            <svg width="12" height="12" viewBox="0 0 16 16">
+              <path
+                d={ARROW[row.direction]}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
           </span>
-        )}
-      </span>
-      <span
-        role="progressbar"
-        aria-valuenow={pct}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-label={`${pct} percent of the way`}
-        className={styles.bar}
-      >
-        <span className={styles.fill} style={{ width: `${pct}%` }} />
-      </span>
+          <span>{row.other}</span>
+        </span>
+        {row.line && <span className={styles.line}>{row.line}</span>}
+      </div>
     </Link>
   );
 }
@@ -97,6 +118,7 @@ export function FlightsView({
   list,
   birds,
   nowMs,
+  offsetMs,
   timeZone,
   units,
   onMore,
@@ -138,7 +160,12 @@ export function FlightsView({
             s.key === "landedToday" ? (
               <DoneRow key={row.id} row={row} />
             ) : (
-              <LiveRow key={row.id} row={row} />
+              <AirCard
+                key={row.id}
+                row={row}
+                nowMs={nowMs}
+                offsetMs={offsetMs}
+              />
             ),
           )}
         </section>

@@ -131,13 +131,16 @@ describe("flightsView", () => {
     );
 
     expect(view.sections.map((x) => x.title)).toEqual([
-      "Your birds",
-      "Coming to you",
+      "In the air",
       "Landed today",
     ]);
     expect(rowIds(view)).toEqual({
-      "Your birds": [s.toRosa.flightId, s.toPriya.flightId, s.scheduled],
-      "Coming to you": [s.incoming.flightId],
+      "In the air": [
+        s.toRosa.flightId,
+        s.toPriya.flightId,
+        s.scheduled,
+        s.incoming.flightId,
+      ],
       "Landed today": [s.landedLatest, s.landedEarlier],
     });
     expect(view.pill).toBe("3 out, 1 coming in");
@@ -150,8 +153,7 @@ describe("flightsView", () => {
     const view = flightsView(page, s.toRosa.arriveAtMs, NY, "mi");
 
     expect(rowIds(view)).toEqual({
-      "Your birds": [s.toPriya.flightId, s.scheduled],
-      "Coming to you": [s.incoming.flightId],
+      "In the air": [s.toPriya.flightId, s.scheduled, s.incoming.flightId],
       "Landed today": [s.toRosa.flightId, s.landedLatest, s.landedEarlier],
     });
     expect(view.pill).toBe("2 out, 1 coming in");
@@ -169,8 +171,7 @@ describe("flightsView", () => {
     const view = flightsView(page, later, NY, "mi");
 
     expect(rowIds(view)).toEqual({
-      "Your birds": [s.scheduled],
-      "Coming to you": [],
+      "In the air": [s.scheduled],
       "Landed today": [
         first.flightId,
         second.flightId,
@@ -206,8 +207,7 @@ describe("flightsView", () => {
     const view = flightsView(page, deps.clock.now(), NY, "mi");
 
     expect(rowIds(view)).toEqual({
-      "Your birds": [],
-      "Coming to you": [],
+      "In the air": [],
       "Landed today": [newer.flightId, older.flightId],
     });
   });
@@ -231,8 +231,7 @@ describe("flightsView", () => {
     const view = flightsView(page, deps.clock.now(), NY, "mi");
 
     expect(rowIds(view)).toEqual({
-      "Your birds": [],
-      "Coming to you": [],
+      "In the air": [],
       "Landed today": [],
     });
     expect(view.pill).toBe("0 out, 0 coming in");
@@ -246,8 +245,7 @@ describe("flightsView", () => {
     const view = flightsView(page, nextMidnightNy, NY, "mi");
 
     expect(rowIds(view)).toEqual({
-      "Your birds": [s.scheduled],
-      "Coming to you": [],
+      "In the air": [s.scheduled],
       "Landed today": [],
     });
   });
@@ -315,6 +313,11 @@ const rowsAt = (page: FlightsPage, clock: FakeClock) =>
     ]),
   );
 
+const cardsAt = (page: FlightsPage, clock: FakeClock) =>
+  flightsView(page, clock.now(), NY, "mi").sections[0].rows.map(
+    ({ bird, other, direction, label }) => ({ bird, other, direction, label }),
+  );
+
 describe("flightsView status lines", () => {
   it("a delayed flight's row reads Flying, then Delayed, then sits in Landed today as the clock moves", () => {
     const flight = vectorFlight("delay-major");
@@ -323,34 +326,48 @@ describe("flightsView status lines", () => {
     const clock = new FakeClock(fly.startMs + (fly.endMs - fly.startMs) / 2);
 
     expect(rowsAt(page, clock)).toEqual({
-      "Your birds": [
+      "In the air": [
         {
           title: "Gerald to Priya",
           line: "Over Bayonne, NJ. Lands this afternoon.",
           chip: { text: "Flying", tone: "sun" },
         },
       ],
-      "Coming to you": [],
       "Landed today": [],
     });
+    expect(cardsAt(page, clock)).toEqual([
+      {
+        bird: "Gerald",
+        other: "Priya",
+        direction: "sent",
+        label:
+          "Gerald, Flying, to Priya. Over Bayonne, NJ. Lands this afternoon.",
+      },
+    ]);
 
     clock.set(delay.startMs + 60_000);
     expect(rowsAt(page, clock)).toEqual({
-      "Your birds": [
+      "In the air": [
         {
           title: "Gerald to Priya",
           line: "Last seen near Elizabeth, NJ.",
           chip: { text: "Delayed", tone: "tomato" },
         },
       ],
-      "Coming to you": [],
       "Landed today": [],
     });
+    expect(cardsAt(page, clock)).toEqual([
+      {
+        bird: "Gerald",
+        other: "Priya",
+        direction: "sent",
+        label: "Gerald, Delayed, to Priya. Last seen near Elizabeth, NJ.",
+      },
+    ]);
 
     clock.set(flight.plan!.arriveAtMs + 60_000);
     expect(rowsAt(page, clock)).toEqual({
-      "Your birds": [],
-      "Coming to you": [],
+      "In the air": [],
       "Landed today": [
         { title: "Gerald to Priya, 82 miles", line: "5h 10m", chip: undefined },
       ],
@@ -368,7 +385,7 @@ describe("flightsView status lines", () => {
     const arrive = flight.plan!.arriveAtMs;
     const clock = new FakeClock(arrive - 60 * 60_000);
 
-    expect(rowsAt(page, clock)["Coming to you"]).toEqual([
+    expect(rowsAt(page, clock)["In the air"]).toEqual([
       {
         title: "Dumpling from Priya",
         line: "Lands on your sill around midday.",
@@ -377,11 +394,20 @@ describe("flightsView status lines", () => {
     ]);
 
     clock.set(arrive - 5 * 60_000);
-    expect(rowsAt(page, clock)["Coming to you"]).toEqual([
+    expect(rowsAt(page, clock)["In the air"]).toEqual([
       {
         title: "Dumpling from Priya",
         line: "Lands on your sill any minute now.",
         chip: { text: "Almost here", tone: "mint" },
+      },
+    ]);
+    expect(cardsAt(page, clock)).toEqual([
+      {
+        bird: "Dumpling",
+        other: "Priya",
+        direction: "received",
+        label:
+          "Dumpling, Almost here, from Priya. Lands on your sill any minute now.",
       },
     ]);
   });
@@ -399,23 +425,31 @@ describe("flightsView status lines", () => {
     const clock = new FakeClock((flight.releaseAt + arrive) / 2);
 
     expect(rowsAt(page, clock)).toEqual({
-      "Your birds": [
+      "In the air": [
         {
           title: "Gerald from Priya",
           line: "Over New Brunswick, NJ. Lands around midday.",
           chip: { text: "Flying", tone: "sun" },
         },
       ],
-      "Coming to you": [],
       "Landed today": [],
     });
 
     clock.set(arrive - 5 * 60_000);
-    expect(rowsAt(page, clock)["Your birds"]).toEqual([
+    expect(rowsAt(page, clock)["In the air"]).toEqual([
       {
         title: "Gerald from Priya",
         line: "Over Brooklyn, NY. Lands any minute now.",
         chip: { text: "Flying", tone: "sun" },
+      },
+    ]);
+    expect(cardsAt(page, clock)).toEqual([
+      {
+        bird: "Gerald",
+        other: "Priya",
+        direction: "sent",
+        label:
+          "Gerald, Flying, from Priya. Over Brooklyn, NY. Lands any minute now.",
       },
     ]);
   });
@@ -433,7 +467,7 @@ describe("flightsView status lines", () => {
     const arrive = flight.plan!.arriveAtMs;
     const clock = new FakeClock((flight.releaseAt + arrive) / 2);
 
-    expect(rowsAt(page, clock)["Coming to you"]).toEqual([
+    expect(rowsAt(page, clock)["In the air"]).toEqual([
       {
         title: "Gerald to Max",
         line: "Over New Brunswick, NJ. Lands around midday.",
@@ -442,11 +476,20 @@ describe("flightsView status lines", () => {
     ]);
 
     clock.set(arrive - 5 * 60_000);
-    expect(rowsAt(page, clock)["Coming to you"]).toEqual([
+    expect(rowsAt(page, clock)["In the air"]).toEqual([
       {
         title: "Gerald to Max",
         line: "Over Brooklyn, NY. Lands any minute now.",
         chip: { text: "Flying", tone: "sun" },
+      },
+    ]);
+    expect(cardsAt(page, clock)).toEqual([
+      {
+        bird: "Gerald",
+        other: "Max",
+        direction: "received",
+        label:
+          "Gerald, Flying, to Max. Over Brooklyn, NY. Lands any minute now.",
       },
     ]);
   });

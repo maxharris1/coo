@@ -445,7 +445,9 @@ describe("/flights errors", () => {
     expect(requests()[1].searchParams.has("cursor")).toBe(false);
     await answer(page());
     html = shown();
-    expect(html).toContain("Gerald to Priya");
+    expect(accessibleName(html, "g1")).toBe(
+      "Gerald, Flying, to Priya. Lands this afternoon.",
+    );
     expect(html).not.toContain("Try again");
   });
 });
@@ -593,8 +595,11 @@ describe("/flights layout", () => {
     expect(card).toMatch(/padding:\s*8px 12px 10px 8px/);
     expect(card).toMatch(/border:\s*var\(--coo-line\)/);
     expect(card).toMatch(/border-radius:\s*var\(--coo-radius-row\)/);
+    const air = rule("airCard");
+    expect(air).toMatch(/border:\s*var\(--coo-line\)/);
+    expect(air).toMatch(/border-radius:\s*var\(--coo-radius-row\)/);
     expect(css).toMatch(
-      /\.card\[data-state="delayed"\]\s*{[^}]*var\(--coo-peach\)/,
+      /\.airCard\[data-state="delayed"\] \.airBody\s*{[^}]*var\(--coo-peach\)/,
     );
   });
 });
