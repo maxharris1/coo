@@ -160,6 +160,18 @@ describe("/shop gear and loft lists (ac-1)", () => {
     expect(card).toContain('src="/assets/svg/gear/icons/backpack.svg"');
   });
 
+  it("draws the night-vision goggles in a lilac tile with their icon", () => {
+    const nightgoggles: ShopRow = {
+      itemId: "nightgoggles",
+      name: "Night-vision goggles",
+      effect: "Flies through the night",
+      action: { kind: "buy", price: 200 },
+    };
+    const [card] = cards(render({ gear: [nightgoggles], loft: [] }));
+    expect(card).toMatch(/class="[^"]*tile[^"]*" style="[^"]*--coo-lilac/);
+    expect(card).toContain('src="/assets/svg/gear/icons/nightgoggles.svg"');
+  });
+
   it("shows In the closet as a mint chip on owned gear", () => {
     const [goggles] = cards(html);
     expect(goggles).toMatch(/class="[^"]*chip[^"]*">In the closet</);

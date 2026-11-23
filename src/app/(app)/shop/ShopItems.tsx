@@ -13,6 +13,7 @@ type Tint = "sky" | "lilac" | "sun" | "peach";
 
 const TINTS: Partial<Record<string, Tint>> = {
   goggles: "sky",
+  nightgoggles: "lilac",
   rainhat: "sky",
   cap: "lilac",
   tube: "sun",

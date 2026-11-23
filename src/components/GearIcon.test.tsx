@@ -15,7 +15,7 @@ describe("GearIcon", () => {
       .filter((f) => f.endsWith(".svg"))
       .map((f) => f.replace(/\.svg$/, ""))
       .sort();
-    expect(files).toHaveLength(14);
+    expect(files).toHaveLength(15);
     expect([...GEAR_IDS].sort()).toEqual(files);
     expect(gear.items.map((i) => i.id).sort()).toEqual(files);
   });

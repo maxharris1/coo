@@ -26,6 +26,7 @@ export const GEAR_IDS = [
   "cap",
   "party",
   "earmuffs",
+  "nightgoggles",
   "band",
   "bell",
   "tube",
@@ -69,12 +70,27 @@ const T = Math.round(SW * 0.56 * 10) / 10;
 const S = `stroke="${INK}" stroke-width="${SW}"`;
 const J = `${S} stroke-linejoin="round"`;
 
-const ON_PRE_GOGGLES =
-  '<path d="M68.5 30 Q74 21.5 83 25" fill="none" stroke="#2A2140" stroke-width="6.6" stroke-linecap="round"/><path d="M68.5 30 Q74 21.5 83 25" fill="none" stroke="#D99A6C" stroke-width="3.6" stroke-linecap="round"/><rect x="71.5" y="22.6" width="4.6" height="5.6" rx="1.2" fill="#FFC93C" stroke="#2A2140" stroke-width="1.6" transform="rotate(-28 73.8 25.4)"/><circle cx="92" cy="30" r="11.2" fill="#FFC93C" stroke="#2A2140" stroke-width="2.6"/><circle cx="92" cy="30" r="8.6" fill="#DFF3FC" stroke="#2A2140" stroke-width="2"/>';
+const GOGGLE_LENS = {
+  goggles: "#DFF3FC",
+  nightgoggles: "#86D9A0",
+} satisfies Partial<Record<GearId, string>>;
+
+type Goggles = keyof typeof GOGGLE_LENS;
+
+const goggleLens = (gear: readonly GearId[]) => {
+  const worn = gear.find((id): id is Goggles => id in GOGGLE_LENS);
+  return worn && GOGGLE_LENS[worn];
+};
+
+const preGoggles = (lens: string) =>
+  `<path d="M68.5 30 Q74 21.5 83 25" fill="none" stroke="#2A2140" stroke-width="6.6" stroke-linecap="round"/><path d="M68.5 30 Q74 21.5 83 25" fill="none" stroke="#D99A6C" stroke-width="3.6" stroke-linecap="round"/><rect x="71.5" y="22.6" width="4.6" height="5.6" rx="1.2" fill="#FFC93C" stroke="#2A2140" stroke-width="1.6" transform="rotate(-28 73.8 25.4)"/><circle cx="92" cy="30" r="11.2" fill="#FFC93C" stroke="#2A2140" stroke-width="2.6"/><circle cx="92" cy="30" r="8.6" fill="${lens}" stroke="#2A2140" stroke-width="2"/>`;
+
+const GLINT =
+  '<path d="M85.6 25.4 Q88 22.4 91.6 22" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#FFFBF0" stroke-width="2.2"/>';
 
 const ON: Record<GearId, string> = {
-  goggles:
-    '<path d="M85.6 25.4 Q88 22.4 91.6 22" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#FFFBF0" stroke-width="2.2"/>',
+  goggles: GLINT,
+  nightgoggles: GLINT,
   scarf:
     '<g§scarf§><path d="M79 59 L78 84 L87.5 83 L86 61 Z" fill="#D24F2E" stroke="#2A2140" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/><path d="M78.3 76 H86.8 M78.2 80 H87" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#FFFBF0" stroke-width="2"/><path d="M79.5 84 v4 M83 83.8 v4 M86.4 83.4 v4" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#2A2140" stroke-width="1.6"/><path d="M73 57 L66 80 L76 83 L80.5 61 Z" fill="#F4623F" stroke="#2A2140" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/><path d="M68.6 72 L77.6 74.6 M67.4 76.4 L76.8 79" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#FFFBF0" stroke-width="2"/><path d="M66.4 80.4 l-1 4 M69.8 81.4 l-.7 4 M73.2 82.3 l-.3 4" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#2A2140" stroke-width="1.6"/></g><ellipse cx="83" cy="53" rx="17.5" ry="9" fill="#F4623F" stroke="#2A2140" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/><path d="M67.5 51 Q83 60.5 98.5 51" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#D24F2E" stroke-width="2.4"/><path d="M71 49.5 Q83 55 95 49.5" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#FFFBF0" stroke-width="2.2"/>',
   bow: '<path d="M99 53 C94 45.5 88 44.5 87 47 V59 C88 61.5 94 60.5 99 53 Z" fill="#A98BE8" stroke="#2A2140" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/><path d="M99 53 C104 45.5 110 44.5 111 47 V59 C110 61.5 104 60.5 99 53 Z" fill="#A98BE8" stroke="#2A2140" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/><path d="M90.5 49.5 L94.5 53 L90.5 56.5 M107.5 49.5 L103.5 53 L107.5 56.5" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#7E63C9" stroke-width="1.8"/><g fill="#FFFBF0"><circle cx="89.6" cy="48.4" r="1.1"/><circle cx="89.6" cy="57.6" r="1.1"/><circle cx="108.4" cy="48.4" r="1.1"/><circle cx="108.4" cy="57.6" r="1.1"/></g><rect x="96" y="49.4" width="6" height="7.2" rx="2.4" fill="#7E63C9" stroke="#2A2140" stroke-width="2"/>',
@@ -259,13 +275,14 @@ function bird(
       `<circle cx="86" cy="34" r="18" fill="${body}" ${S}/><path d="M73.6 27.4 Q77.6 19.4 86.6 18.6" fill="none" stroke="${CARD}" stroke-width="${T}" stroke-linecap="round" opacity=".55"/>`,
     );
   }
-  if (gear.includes("goggles")) hd.push(ON_PRE_GOGGLES);
+  const lens = goggleLens(gear);
+  if (lens) hd.push(preGoggles(lens));
   hd.push(eyeSvg(eye, body));
   if (anim?.blink && (eye === "open" || eye === "wide"))
     hd.push(
       `<circle cx="92" cy="30" r="7.6" fill="${body}" stroke="${INK}" stroke-width="${W}" style="transform-box: fill-box; transform-origin: 50% 0%; transform: scaleY(0); animation: coo-blink 4.6s ease-in-out infinite"/>`,
     );
-  hd.push(g("goggles"));
+  hd.push(g("goggles"), g("nightgoggles"));
   hd.push(
     `<path d="M104 31 L118 36 L104 41 Z" fill="${SUN}" stroke="${INK}" stroke-width="${W}" stroke-linejoin="round"/><path d="M104.6 36 H114.6" stroke="${INK}" stroke-width="${T}" stroke-linecap="round"/>`,
   );
@@ -318,11 +335,12 @@ function fly(p: Palette, gear: readonly GearId[], anim: Motion | undefined) {
   const hd = `<circle cx="96" cy="44" r="15" fill="${body}" ${S}/><path d="M85.6 38.4 Q89 31.6 96.6 31" fill="none" stroke="${CARD}" stroke-width="${T}" stroke-linecap="round" opacity=".55"/>`;
   const onHead = (inner: string) =>
     `<g transform="translate(96 44) scale(.84) translate(-86 -34)">${inner}</g>`;
-  const hgPre = gear.includes("goggles") ? onHead(ON_PRE_GOGGLES) : "";
+  const lens = goggleLens(gear);
+  const hgPre = lens ? onHead(preGoggles(lens)) : "";
   let eye = `<circle cx="101" cy="41" r="5.5" fill="#FFB03A" stroke="${INK}" stroke-width="${W}"/><circle cx="102.4" cy="41" r="2.2" fill="${INK}"/><circle cx="103.2" cy="40" r=".8" fill="${CARD}"/>`;
   if (anim?.blink)
     eye += `<circle cx="101" cy="41" r="6.4" fill="${body}" stroke="${INK}" stroke-width="${W}" style="transform-box: fill-box; transform-origin: 50% 0%; transform: scaleY(0); animation: coo-blink 3.8s ease-in-out infinite"/>`;
-  const onTop: GearId[] = ["goggles", ...HEAD];
+  const onTop: GearId[] = ["goggles", "nightgoggles", ...HEAD];
   const hg = onTop
     .filter((x) => gear.includes(x))
     .map((x) => onHead(tokens(ON[x], anim)))
