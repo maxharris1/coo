@@ -93,6 +93,27 @@ a new person and their first reply.
 
 An existing user who opens a link while signed in sees "Add to my sill" and claims in one tap.
 
+### Leftover sends
+
+Any path that makes two people friends resolves the leftover guest sends between them: claiming a
+link, joining by invite code, and signing up with the phone a send was addressed to. Each path
+claims every `active`, unexpired link between the pair, in either direction, in the same
+transaction, with steps 2, 3, 5 and 6 above. A bird already in the air keeps its destination and
+`arrive_at`; only who it is for changes. The sender's Pending row goes away, and the note stays
+hidden from the recipient until `delivered_at`.
+
+A link matches the pair when its `notify_phone` equals the other person's verified phone (through
+`guest_links_for_phone`, never by the last 4), or, once the phone is cleared after landing, when
+the pair is already friends and the link's `recipient_name` uniquely matches that friend's name.
+
+- **Sign-up with the addressed phone.** Onboarding claims every send addressed to the new
+  person's phone without opening the claim page. It creates the friendship
+  (`via = 'guest_link'`) and notifies the sender `friend-joined`, as a claim does.
+- **Invite code.** `joinByCode` claims the leftover links after it makes the friendship, and also
+  when the pair is already friends, without an error.
+- **Blocked.** A blocked pair resolves nothing. The claim still refuses with `forbidden`,
+  `joinByCode` with `conflict`, and onboarding skips that sender.
+
 ## The landing text for guests
 
 On the Guest page, "Text me when he lands" opens a field for a phone number with a checkbox:

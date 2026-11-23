@@ -1,8 +1,15 @@
 import type { Db } from "@/server/db";
+import type { Deps } from "@/server/deps";
+import { AppError } from "@/server/errors";
 import type { UserId } from "@/server/ports/auth";
 import { friendshipBetween } from "../friends";
 
 export type Resolved = { linkId: string; senderId: UserId; claimerId: UserId };
+
+export type Person = { id: string; name: string };
+
+const LOCK_ATTEMPTS = 3;
+const LINKS_GREW = new Error("crossed links appeared during the lock");
 
 export async function attributeLink(
   db: Db,
@@ -141,4 +148,53 @@ export async function linksToMyPhone(
     [me],
   );
   return rows.map((r) => ({ id: r.id, senderId: r.sender_id }));
+}
+
+// Flights before profiles, the order landing takes them. Any link that
+// appears between the scan and the profile locks retries the transaction.
+export async function lockPeopleAndLinks(
+  db: Db,
+  me: UserId,
+  others: readonly UserId[],
+  now: number,
+  also: readonly string[] = [],
+): Promise<{ people: Person[]; owned: string[] }> {
+  const open: UserId[] = [];
+  for (const other of others)
+    if ((await friendshipBetween(db, me, other))?.status !== "blocked")
+      open.push(other);
+  const scan = async () => {
+    const ids: string[] = [];
+    for (const other of open)
+      ids.push(...(await linksBetween(db, me, other, now, true)));
+    return ids;
+  };
+
+  const owned = [...new Set([...also, ...(await scan())])];
+  await db.query(
+    `select 1 from flights where guest_link_id = any($1::uuid[]) and kind = 'delivery'
+     order by id for update`,
+    [owned],
+  );
+  const people = await db.query<Person>(
+    "select id, name from profiles where id = any($1::uuid[]) order by id for update",
+    [[me, ...others]],
+  );
+  if ((await scan()).some((id) => !owned.includes(id))) throw LINKS_GREW;
+  return { people, owned };
+}
+
+export async function txLockingLinks<T>(
+  deps: Deps,
+  fn: (db: Db) => Promise<T>,
+): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await deps.db.tx(fn);
+    } catch (err) {
+      if (err !== LINKS_GREW) throw err;
+      if (attempt === LOCK_ATTEMPTS)
+        throw new AppError("unavailable", "Try again in a moment");
+    }
+  }
 }
