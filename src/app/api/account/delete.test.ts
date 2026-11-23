@@ -1,12 +1,14 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { requireUser } from "@/server/auth";
 import type { UserId } from "@/server/ports/auth";
 import { setLoft } from "@/server/services/loft";
 import { onboard } from "@/server/services/onboarding";
 import { searchPlaces } from "@/server/services/places";
+import { tick } from "@/server/services/tick";
 import { TEST_SESSION_COOKIE } from "@/server/testAuth";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
 import { geoClient } from "@/test/geoRoute";
+import { geoSearchGet } from "../geo/search/get";
 import { accountDelete } from "./delete";
 
 const SETUP = {
@@ -108,6 +110,43 @@ describe("DELETE /api/account", () => {
     expect(status).toBe(200);
     expect(await heldFor(max.id)).toEqual([]);
     expect(await heldFor(priya.id)).toEqual(priyaHeld);
+  });
+
+  it("leaves no held place behind when a search is in flight during delete", async () => {
+    const max = await onboarded("(555) 123-4567", "Max");
+    const caller = await requireUser({ auth: deps.auth(max.jar), db: deps.db });
+    const { results } = await searchPlaces(deps, caller.userId, "East Village");
+    await setLoft(deps, caller, { placeId: results[0].placeId });
+
+    const search = deps.geocoder.search.bind(deps.geocoder);
+    let reached = () => {};
+    const atGeocoder = new Promise<void>((resolve) => (reached = resolve));
+    let release = () => {};
+    const released = new Promise<void>((resolve) => (release = resolve));
+    vi.spyOn(deps.geocoder, "search").mockImplementation(async (q) => {
+      reached();
+      await released;
+      return search(q);
+    });
+    const geo = geoClient(deps, geoSearchGet, "/api/geo/search");
+    const inFlight = geo.get({ q: "East Village" }, max.jar);
+    await atGeocoder;
+
+    const { status } = await client.del(max.jar, { confirm: max.handle });
+    expect(status).toBe(200);
+    expect(await exists(max.id)).toBe(false);
+    expect(await heldFor(max.id)).toEqual([]);
+
+    release();
+    const late = await inFlight;
+    expect(await heldFor(max.id)).toEqual([]);
+    expect(late.status).toBe(401);
+    expect(late.json.error.code).toBe("unauthenticated");
+
+    deps.clock.advance(31 * 24 * 60 * 60_000);
+    const { failed } = await tick(deps);
+    expect(failed).toEqual({});
+    expect(await heldFor(max.id)).toEqual([]);
   });
 
   it("accepts the handle typed with capitals and stray spaces", async () => {

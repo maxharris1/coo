@@ -3,6 +3,7 @@ import { photon } from "@/server/adapters/photon";
 import { createJsonRoute } from "@/server/http";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
 import { geoClient } from "@/test/geoRoute";
+import { asRole } from "@/test/testDb";
 import type { HeldPlace, PlaceResult } from "@/server/services/places";
 import { geoSearchGet } from "./get";
 
@@ -40,6 +41,18 @@ describe("GET /api/geo/search", () => {
     const { status, json } = await client.get({ q: "  " }, jar);
     expect(status).toBe(400);
     expect(json.error.code).toBe("invalid");
+  });
+
+  it("answers a search made as the coo_app server role", async () => {
+    const { jar } = await client.signIn("(555) 123-4567");
+    const app = geoClient(
+      { ...deps, db: asRole(deps.db, "coo_app") },
+      geoSearchGet,
+      "/api/geo/search",
+    );
+    const { status, json } = await app.get({ q: "Boston" }, jar);
+    expect(status).toBe(200);
+    expect(json.results).toHaveLength(1);
   });
 
   it("returns place ids and labels with no coordinates (ac-3)", async () => {
