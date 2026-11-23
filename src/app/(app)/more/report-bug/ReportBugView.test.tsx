@@ -147,7 +147,7 @@ describe("ReportBugView sent", () => {
   });
 });
 
-describe("ReportBugView stays inside Coo", () => {
+describe("ReportBugView stays inside the app", () => {
   const STATES: [string, string, ReportBugStatus][] = [
     ["editing empty", "", EDITING],
     ["editing long", "x".repeat(1900), EDITING],
