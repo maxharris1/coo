@@ -41,6 +41,7 @@ function forecastFor(units: Units): string {
         fliesInDark: false,
         factors,
         sunsetAt: plan.segments[0].startMs,
+        espresso: null,
       },
     ],
   };

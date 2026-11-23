@@ -34,12 +34,13 @@ import {
 import { notificationText, recordNotification } from "@/server/services/notify";
 import { deliver } from "@/server/services/notify/deliver";
 import { sampleWeather } from "@/server/services/weather";
+import { espressoInput, spendShot } from "./espresso";
 import { getFlight } from "./get";
 import { placeNames } from "./placeNames";
 import { endpointOf, legFor, snapshotOf, type Endpoint } from "./quote";
 import type { SendHook, SendItem } from "./send";
 
-type FriendSend = { friendId: UserId; birdId: string };
+type FriendSend = { friendId: UserId; birdId: string; espresso?: boolean };
 
 type Me = LoftColumns &
   Pick<Row<"profiles">, "has_birdbath" | "timezone" | "name">;
@@ -139,17 +140,11 @@ export const sendMany: SendHook = async (deps, me, input) => {
       const friend = friends[i];
       const { from, to } = routes[i];
       const { flightId, weather, hazards, names, timezone } = legs[i];
-      const flightInput = toFlightInput(
-        flightId,
-        bird,
-        owner,
-        from,
-        to,
-        now,
-        weather,
-        hazards,
+      const flightInput = espressoInput(
+        items[i].espresso,
+        toFlightInput(flightId, bird, owner, from, to, now, weather, hazards),
       );
-      const plan = computeFlightPlan(flightInput);
+      const plan = computeFlightPlan(flightInput.input);
 
       const care = projectCare(snapshotOf(bird), now, owner);
       const claimed = await tx.query(
@@ -160,6 +155,7 @@ export const sendMany: SendHook = async (deps, me, input) => {
       );
       if (claimed.length === 0)
         throw new AppError("conflict", `${bird.name} is not home`);
+      if (flightInput.used) await spendShot(tx, me);
 
       const [noteRow] = await tx.query<{ id: string }>(
         `insert into notes (sender_id, recipient_id, body, doodle, created_at)
@@ -190,7 +186,7 @@ export const sendMany: SendHook = async (deps, me, input) => {
           Math.round(plan.distanceMi * 100) / 100,
           plan.onTimeOdds,
           plan.delayKind,
-          JSON.stringify(flightInput),
+          JSON.stringify(flightInput.input),
           JSON.stringify(plan),
           JSON.stringify(names),
         ],
@@ -237,6 +233,7 @@ function checkBatch(sends: SendItem[], max: number): FriendSend[] {
     return {
       friendId: s.friendId.toLowerCase() as UserId,
       birdId: s.birdId.toLowerCase(),
+      espresso: s.espresso,
     };
   });
   if (new Set(items.map((i) => i.birdId)).size < items.length)

@@ -9,6 +9,7 @@ const SEND = z.union([
   z.object({
     friendId: z.uuid().transform((id) => id as UserId),
     birdId: z.uuid(),
+    espresso: z.boolean().optional(),
   }),
   z.object({
     guest: z.object({
@@ -17,6 +18,7 @@ const SEND = z.union([
       pin: z.object(COORDINATES).optional(),
     }),
     birdId: z.uuid(),
+    espresso: z.boolean().optional(),
   }),
 ]);
 

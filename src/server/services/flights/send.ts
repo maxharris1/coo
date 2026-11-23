@@ -34,6 +34,7 @@ import {
 import { notificationText, recordNotification } from "@/server/services/notify";
 import { deliver } from "@/server/services/notify/deliver";
 import { sampleWeather } from "@/server/services/weather";
+import { espressoInput, spendShot } from "./espresso";
 import { getFlight } from "./get";
 import { guestSend } from "./guestSend";
 import { placeNames } from "./placeNames";
@@ -42,9 +43,10 @@ import { schedule } from "./schedule";
 import { sendMany } from "./sendMany";
 import type { Flight } from "./shape";
 
-export type SendItem =
+export type SendItem = (
   | { friendId: UserId; birdId: string }
-  | { guest: { name: string; placeId: string; pin?: Point }; birdId: string };
+  | { guest: { name: string; placeId: string; pin?: Point }; birdId: string }
+) & { espresso?: boolean };
 
 export type SendInput = NoteInput & { sends: SendItem[]; releaseAt?: number };
 
@@ -124,17 +126,11 @@ export async function send(
       [item.birdId, me],
     );
     const { bird, note } = readyToFly(locked, input, now, owner);
-    const flightInput = toFlightInput(
-      flightId,
-      bird,
-      owner,
-      from,
-      to,
-      now,
-      weather,
-      hazards,
+    const flightInput = espressoInput(
+      item.espresso,
+      toFlightInput(flightId, bird, owner, from, to, now, weather, hazards),
     );
-    const plan = computeFlightPlan(flightInput);
+    const plan = computeFlightPlan(flightInput.input);
 
     const care = projectCare(snapshotOf(bird), now, owner);
     const claimed = await tx.query(
@@ -145,6 +141,7 @@ export async function send(
     );
     if (claimed.length === 0)
       throw new AppError("conflict", "That bird is not home");
+    if (flightInput.used) await spendShot(tx, me);
     const [{ count: sentToday }] = await tx.query<{ count: number }>(
       `select count(*)::int from flights
        where owner_id = $1 and kind = 'delivery' and status <> 'cancelled'
@@ -189,7 +186,7 @@ export async function send(
         Math.round(plan.distanceMi * 100) / 100,
         plan.onTimeOdds,
         plan.delayKind,
-        JSON.stringify(flightInput),
+        JSON.stringify(flightInput.input),
         JSON.stringify(plan),
         JSON.stringify(names),
       ],

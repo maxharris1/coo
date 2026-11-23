@@ -12,8 +12,11 @@ import { makeTestDeps, type TestDeps } from "@/test/deps";
 import { geoClient } from "@/test/geoRoute";
 import { addDelivery, HOUR_MS } from "@/test/fixtures/flights";
 import { addNote } from "@/test/fixtures/notes";
+import { setShots, shotsOf } from "@/test/fixtures/espresso";
+import { FakeClock } from "@/test/fakes/clock";
 import { seedWorld, type World } from "@/test/seedWorld";
 import { block, setShows, unfriend } from "@/server/services/friends";
+import { espressoUntil } from "./espresso";
 import { send } from "./send";
 
 const BODY = "Bring the good bagels on Sunday";
@@ -440,6 +443,97 @@ describe("send", () => {
         expect(bird.status).toBe("home");
       },
     );
+  });
+});
+
+describe("send with espresso", () => {
+  const TEN_PM = Date.UTC(2026, 10, 20, 3);
+
+  beforeEach(async () => {
+    deps = await makeTestDeps({ clock: new FakeClock(TEN_PM) });
+    world = await seedWorld(deps.db, TEN_PM);
+  });
+
+  function sendWithEspresso(espresso?: boolean, birdId = gerald) {
+    return send(deps, max, {
+      body: BODY,
+      sends: [{ friendId: priya, birdId, espresso }],
+    });
+  }
+
+  async function wear(gear: string[]) {
+    await deps.db.query("update birds set gear = $2 where id = $1", [
+      gerald,
+      gear,
+    ]);
+  }
+
+  const roosts = (plan: FlightPlan) =>
+    plan.segments.filter((s) => s.kind === "roost");
+
+  it("spends one shot and flies through the first night", async () => {
+    await setShots(deps.db, max, 1);
+
+    const { flights } = await sendWithEspresso(true);
+
+    expect(await shotsOf(deps.db, max)).toBe(0);
+    const row = await storedFlight(flights[0].id);
+    const until = espressoUntil(row.input);
+    expect(until).not.toBeNull();
+    expect(row.input.nightFlightUntilMs).toBe(until);
+    expect(roosts(row.plan).filter((s) => s.startMs < until!)).toEqual([]);
+    expect(row.plan.segments[0]).toMatchObject({
+      kind: "fly",
+      startMs: TEN_PM,
+    });
+    expect(row.plan).toEqual(computeFlightPlan(row.input));
+  });
+
+  it("refuses a send that needs a shot when none are left and consumes nothing", async () => {
+    const before = await counts();
+
+    expect(await refusal(sendWithEspresso(true))).toBe("conflict");
+
+    expect(await counts()).toEqual(before);
+    expect(await shotsOf(deps.db, max)).toBe(0);
+    const [bird] = await deps.db.query<{ status: string }>(
+      "select status from birds where id = $1",
+      [gerald],
+    );
+    expect(bird.status).toBe("home");
+  });
+
+  it("never spends a shot on a bird in night-vision goggles", async () => {
+    await setShots(deps.db, max, 1);
+    await wear(["nightgoggles"]);
+
+    const { flights } = await sendWithEspresso(true);
+
+    expect(await shotsOf(deps.db, max)).toBe(1);
+    const row = await storedFlight(flights[0].id);
+    expect(row.input).not.toHaveProperty("nightFlightUntilMs");
+    expect(roosts(row.plan)).toEqual([]);
+  });
+
+  it("leaves the shots alone and roosts without the flag", async () => {
+    await setShots(deps.db, max, 1);
+
+    const { flights } = await sendWithEspresso();
+
+    expect(await shotsOf(deps.db, max)).toBe(1);
+    const row = await storedFlight(flights[0].id);
+    expect(row.input).not.toHaveProperty("nightFlightUntilMs");
+    expect(roosts(row.plan)).not.toEqual([]);
+  });
+
+  it("refuses someone else's bird and spends nothing", async () => {
+    await setShots(deps.db, max, 1);
+
+    expect(await refusal(sendWithEspresso(true, world.priya.birds[0].id))).toBe(
+      "not_found",
+    );
+
+    expect(await shotsOf(deps.db, max)).toBe(1);
   });
 });
 

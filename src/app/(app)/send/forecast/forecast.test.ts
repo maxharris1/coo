@@ -35,6 +35,7 @@ function hourQuote(
     fliesInDark: false,
     factors: [],
     sunsetAt: SUNSET,
+    espresso: null,
     ...over,
   };
 }

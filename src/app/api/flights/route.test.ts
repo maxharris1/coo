@@ -552,6 +552,15 @@ describe("POST /api/flights", () => {
         ],
       }),
     ],
+    [
+      "an espresso flag that is not a boolean",
+      () => ({
+        body: BODY,
+        sends: [
+          { friendId: world.priya.id, birdId: gerald(), espresso: "yes" },
+        ],
+      }),
+    ],
   ])("refuses %s as invalid", async (_, body) => {
     const before = await counts();
     const { status, json } = await postClient().post(
@@ -561,6 +570,18 @@ describe("POST /api/flights", () => {
     expect(status).toBe(400);
     expect(json.error.code).toBe("invalid");
     expect(await counts()).toEqual(before);
+  });
+
+  it("accepts the espresso flag and sends", async () => {
+    const { status, json } = await postClient().post(
+      {
+        body: BODY,
+        sends: [{ friendId: world.priya.id, birdId: gerald(), espresso: true }],
+      },
+      await jarOf("max"),
+    );
+    expect(status).toBe(200);
+    expect(json.flights).toHaveLength(1);
   });
 
   it("refuses a request without a session as 401", async () => {

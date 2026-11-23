@@ -6,6 +6,8 @@ import { pair } from "@/server/rows";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
 import { addDelivery } from "@/test/fixtures/flights";
 import { addNote } from "@/test/fixtures/notes";
+import { setShots, shotsOf } from "@/test/fixtures/espresso";
+import { FakeClock } from "@/test/fakes/clock";
 import { geoClient } from "@/test/geoRoute";
 import { seedWorld, type World } from "@/test/seedWorld";
 import { send } from "./send";
@@ -414,6 +416,52 @@ describe("sendMany through send", () => {
     ).toBe("rate_limited");
 
     expect(await counts()).toEqual(before);
+  });
+});
+
+describe("sendMany with espresso", () => {
+  const TEN_PM = Date.UTC(2026, 10, 20, 3);
+
+  beforeEach(async () => {
+    deps = await makeTestDeps({ clock: new FakeClock(TEN_PM) });
+    world = await seedWorld(deps.db, TEN_PM);
+  });
+
+  const twoFlagged = () => [
+    { friendId: priya, birdId: gerald, espresso: true },
+    { friendId: rosa, birdId: brenda, espresso: true },
+  ];
+
+  it("spends one shot per flagged bird", async () => {
+    await setShots(deps.db, max, 2);
+
+    const { flights } = await send(deps, max, {
+      body: BODY,
+      sends: twoFlagged(),
+    });
+
+    expect(flights).toHaveLength(2);
+    expect(await shotsOf(deps.db, max)).toBe(0);
+    const stored = await deps.db.query<{
+      input: { nightFlightUntilMs?: number };
+    }>("select input from flights where owner_id = $1", [max]);
+    expect(stored.map((f) => typeof f.input.nightFlightUntilMs)).toEqual([
+      "number",
+      "number",
+    ]);
+  });
+
+  it("refuses the whole batch when there are not enough shots and spends nothing", async () => {
+    await setShots(deps.db, max, 1);
+    const before = await counts();
+
+    expect(
+      (await refusal(send(deps, max, { body: BODY, sends: twoFlagged() })))
+        .code,
+    ).toBe("conflict");
+
+    expect(await counts()).toEqual(before);
+    expect(await shotsOf(deps.db, max)).toBe(1);
   });
 });
 

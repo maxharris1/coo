@@ -95,6 +95,7 @@ describe("mappers", () => {
       phoneLast4: null,
       seeds: start.seeds,
       perches: start.perches,
+      espressoShots: 0,
       hasBirdbath: false,
       units: "mi",
       timezone: "America/New_York",
@@ -125,6 +126,14 @@ describe("mappers", () => {
       max.id,
     ]);
     expect(toMe(await one(db, "profiles", max.id)).phoneLast4).toBe("0142");
+  });
+
+  it("toMe exposes how many espresso shots are held", async () => {
+    const { max } = world;
+    await db.query("update profiles set espresso_shots = 3 where id = $1", [
+      max.id,
+    ]);
+    expect(toMe(await one(db, "profiles", max.id)).espressoShots).toBe(3);
   });
 
   it("toMe reads the travel loft while travelling", async () => {
