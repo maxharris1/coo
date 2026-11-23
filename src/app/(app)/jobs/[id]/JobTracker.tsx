@@ -10,7 +10,7 @@ import { type JobLegs, jobLegs, legAt } from "@/lib/game/jobDest";
 import type { JobView } from "@/server/services/jobs/get";
 import styles from "./JobTracker.module.css";
 
-type JobMap = Pick<
+export type JobMap = Pick<
   MapViewProps,
   | "flightId"
   | "from"
