@@ -84,6 +84,16 @@ describe("readContext", () => {
     ).toBe(true);
   });
 
+  it("caps a viewport wider or taller than the server allows", () => {
+    const win = { ...fakeWindow(), innerWidth: 15360, innerHeight: 12000.4 };
+    expect(readContext("/", win).viewport).toEqual({ w: 10000, h: 10000 });
+  });
+
+  it("cuts a route longer than the server allows", () => {
+    const route = `/${"a".repeat(300)}`;
+    expect(readContext(route, fakeWindow()).route).toBe(route.slice(0, 200));
+  });
+
   it("never sends a zero viewport the server would refuse", () => {
     const win = { ...fakeWindow(), innerWidth: 0, innerHeight: 0.2 };
     expect(readContext("/", win).viewport).toEqual({ w: 1, h: 1 });
@@ -126,6 +136,34 @@ describe("createReportSender", () => {
       readContext("/flights", fakeWindow()),
     );
     expect(bugReportInput.safeParse(sent()[0]).success).toBe(true);
+  });
+
+  it("sends a report from a very wide screen that the server accepts", async () => {
+    const seen: unknown[] = [];
+    const schemaFetch = (async (_: string, init: RequestInit) => {
+      const payload: unknown = JSON.parse(String(init.body));
+      seen.push(payload);
+      return bugReportInput.safeParse(payload).success
+        ? new Response(JSON.stringify({ id: "r1" }), { status: 201 })
+        : new Response(
+            JSON.stringify({ error: { code: "invalid", message: "no" } }),
+            { status: 400 },
+          );
+    }) as unknown as typeof fetch;
+    const win = {
+      ...fakeWindow(),
+      innerWidth: 15360,
+      innerHeight: 2160,
+    };
+
+    const result = await createReportSender(schemaFetch, keys()).send(
+      "The map froze.",
+      readContext(`/${"a".repeat(300)}`, win),
+    );
+
+    expect(result).toEqual({ ok: true });
+    const parsed = bugReportInput.parse(seen[0]);
+    expect(parsed.context.viewport).toEqual({ w: 10000, h: 2160 });
   });
 
   it.each<[string, SendFailure, Reply]>([

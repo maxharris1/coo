@@ -1,3 +1,5 @@
+import { ROUTE_MAX, VIEWPORT_MAX } from "@/lib/bugReportLimits";
+
 export type BugContext = {
   route: string;
   standalone: boolean;
@@ -13,14 +15,15 @@ export type ReportSender = {
   send(text: string, context: BugContext): Promise<SendResult> | null;
 };
 
-const side = (px: number) => Math.max(1, Math.round(px));
+const side = (px: number) =>
+  Math.min(VIEWPORT_MAX, Math.max(1, Math.round(px)));
 
 export function readContext(
   route: string,
   win: Pick<Window, "innerWidth" | "innerHeight" | "matchMedia" | "navigator">,
 ): BugContext {
   return {
-    route,
+    route: route.slice(0, ROUTE_MAX),
     standalone:
       win.matchMedia("(display-mode: standalone)").matches ||
       (win.navigator as Navigator & { standalone?: boolean }).standalone ===
