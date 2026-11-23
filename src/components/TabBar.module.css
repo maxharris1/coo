@@ -7,8 +7,8 @@
   align-items: flex-start;
   justify-content: space-around;
   width: 100%;
-  height: calc(84px + var(--coo-safe-bottom));
-  padding: 8px 8px var(--coo-safe-bottom);
+  height: calc(84px + env(safe-area-inset-bottom, 0px));
+  padding: 8px 8px env(safe-area-inset-bottom, 0px);
   background: var(--coo-paper);
   border-top: var(--coo-line);
   transform: translateX(-50%);

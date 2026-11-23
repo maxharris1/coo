@@ -87,7 +87,7 @@ vi.mock("react", async (importOriginal) => ({
   useEffect: lib.setEffect,
 }));
 
-const props: MapViewProps = {
+const props = {
   flightId: "f1",
   from: { lat: 40, lon: -74, label: "Loft" },
   to: { lat: 41, lon: -73, label: "Sill" },
@@ -108,7 +108,7 @@ const props: MapViewProps = {
   night: false,
   loftLabel: "Your loft",
   sillLabel: "Priya, Philly",
-};
+} satisfies MapViewProps;
 
 function routeStart(): [number, number] {
   const p = positionAt(props.plan, props.from, props.to, Date.now());

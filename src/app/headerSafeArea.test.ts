@@ -1,61 +1,22 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import {
+  declaration,
+  type Env,
+  firstToken,
+  GUTTER,
+  px,
+  read,
+  type Ref,
+} from "./safeArea.testkit";
 
 const src = new URL("../", import.meta.url);
-const read = (path: string) => readFileSync(new URL(path, src), "utf8");
 
 const ISLAND = 59;
 const VIEWPORTS = [
   { name: "iPhone 393x852", height: 852 },
   { name: "iPhone 440x956", height: 956 },
 ];
-const GUTTER = Number(
-  readFileSync(new URL("../public/assets/tokens.css", src), "utf8").match(
-    /--coo-gutter: (\d+)px;/,
-  )![1],
-);
-
-type Env = { inset: number; height: number };
-type Ref = { file: string; rule: string; prop: string };
-
-function declaration({ file, rule, prop }: Ref) {
-  const css = read(file);
-  const selector = rule === "body" ? "\\nbody" : `\\.${rule}`;
-  const body = css.match(new RegExp(`${selector} \\{([^}]*)\\}`))?.[1];
-  if (body === undefined) throw new Error(`no ${rule} rule in ${file}`);
-  const v = body.match(new RegExp(`(?:^|\\s)${prop}: ([^;]+);`))?.[1];
-  if (v === undefined) throw new Error(`no ${prop} on ${rule} in ${file}`);
-  return v.replace(/\s+/g, " ").trim();
-}
-
-function firstToken(shorthand: string) {
-  let depth = 0;
-  for (let i = 0; i < shorthand.length; i++) {
-    const c = shorthand[i];
-    if (c === "(") depth++;
-    if (c === ")") depth--;
-    if (c === " " && depth === 0) return shorthand.slice(0, i);
-  }
-  return shorthand;
-}
-
-function px(expr: string, { inset, height }: Env) {
-  const arithmetic = expr
-    .replace(/env\(safe-area-inset-top, 0px\)/g, `${inset}px`)
-    .replace(/var\(--coo-safe-top\)/g, `${inset}px`)
-    .replace(/var\(--coo-safe-\w+(?:, 0px)?\)/g, "0px")
-    .replace(/env\(safe-area-inset-\w+(?:, 0px)?\)/g, "0px")
-    .replace(/var\(--coo-gutter\)/g, `${GUTTER}px`)
-    .replace(/(\d+(?:\.\d+)?)dvh/g, (_, n) => `${(+n * height) / 100}px`)
-    .replace(/(\d+(?:\.\d+)?)px/g, "$1")
-    .replace(/calc\(/g, "(");
-  if (!/^(?:[\d\s.+\-*/(),]|max|min)*$/.test(arithmetic)) {
-    throw new Error(`cannot evaluate ${expr}`);
-  }
-  return Function(
-    `return ${arithmetic.replace(/\b(max|min)\(/g, "Math.$1(")};`,
-  )() as number;
-}
 
 const top = (ref: Ref, env: Env) => px(firstToken(declaration(ref)), env);
 
@@ -174,6 +135,14 @@ const ROWS: Row[] = [
     ],
   },
   {
+    screen: "Friends back button and title",
+    file: "app/(app)/friends/Friends.module.css",
+    chain: [
+      BODY,
+      at("app/(app)/friends/Friends.module.css", "screen", "padding"),
+    ],
+  },
+  {
     screen: "Toasts",
     file: "components/Toasts.module.css",
     chain: [at("components/Toasts.module.css", "stack", "top")],
@@ -203,8 +172,8 @@ const CASES = ROWS.flatMap((row) =>
 );
 
 describe.each(CASES)("$screen on $viewport", (row) => {
-  const island = { inset: ISLAND, height: row.height };
-  const desktop = { inset: 0, height: row.height };
+  const island = { top: ISLAND, bottom: 0, height: row.height };
+  const desktop = { top: 0, bottom: 0, height: row.height };
 
   it(`sits entirely below a ${ISLAND}px status-bar inset`, () => {
     expect(controlTop(row, island)).toBeGreaterThanOrEqual(ISLAND);
@@ -222,8 +191,8 @@ describe.each(CASES)("$screen on $viewport", (row) => {
 });
 
 const ISLAND_AND_DESKTOP = (height: number) => [
-  { inset: ISLAND, height },
-  { inset: 0, height },
+  { top: ISLAND, bottom: 0, height },
+  { top: 0, bottom: 0, height },
 ];
 
 describe.each(CASES.filter((row) => row.bleed))(
@@ -241,7 +210,7 @@ describe.each(CASES.filter((row) => row.tracker))(
   "$screen on $viewport",
   (row) => {
     it("keeps the header inside the map", () => {
-      const island = { inset: ISLAND, height: row.height };
+      const island = { top: ISLAND, bottom: 0, height: row.height };
       expect(controlTop(row, island)).toBeLessThan(
         sum(row.bleed!, island) + top(row.tracker!, island),
       );
@@ -253,7 +222,7 @@ describe.each(CASES.filter((row) => row.sticky))(
   "$screen on $viewport",
   (row) => {
     it("sits at the inset in flow and once the page scrolls", () => {
-      const island = { inset: ISLAND, height: row.height };
+      const island = { top: ISLAND, bottom: 0, height: row.height };
       expect(top(row.sticky!, island)).toBe(ISLAND);
       expect(sum(row.chain, island)).toBe(ISLAND);
     });

@@ -415,7 +415,7 @@ describe("cream guard", () => {
     expect(value(desktop, "max-width")).toBe("430px");
     expect(value(body, "background")).toBe("var(--coo-paper)");
     expect(body).toMatch(
-      /padding: env\(safe-area-inset-top, 0px\) var\(--coo-safe-right\)\s+var\(--coo-safe-bottom\) var\(--coo-safe-left\);/,
+      /padding: env\(safe-area-inset-top, 0px\) env\(safe-area-inset-right, 0px\)\s+env\(safe-area-inset-bottom, 0px\) env\(safe-area-inset-left, 0px\);/,
     );
   });
 });
