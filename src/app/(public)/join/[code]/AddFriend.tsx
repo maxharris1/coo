@@ -5,7 +5,7 @@ import { useState } from "react";
 import styles from "../../auth.module.css";
 import { joinFriend } from "./joinFriend";
 
-export function AddFriend({ code, name }: { code: string; name: string }) {
+export function AddFriend({ code, label }: { code: string; label: string }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
@@ -35,7 +35,7 @@ export function AddFriend({ code, name }: { code: string; name: string }) {
         disabled={sending}
         onClick={add}
       >
-        Add {name}
+        {label}
       </button>
     </>
   );

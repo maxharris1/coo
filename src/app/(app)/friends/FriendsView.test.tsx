@@ -71,7 +71,7 @@ describe("Friends screen (ac-1)", () => {
     expect(html).toContain("<span>Copy</span>");
     expect(html).toContain("<span>Text it</span>");
     expect(html).toContain(
-      `href="sms:?&amp;body=${encodeURIComponent(`Trade pigeons with me on ${config.app.name}: https://${config.app.domain}${config.app.paths.invite}max`)}"`,
+      `href="sms:?&amp;body=${encodeURIComponent(`I saved you a perch on ${config.app.name}: https://${config.app.domain}${config.app.paths.invite}max`)}"`,
     );
   });
 

@@ -5,17 +5,29 @@ import { JoinView } from "./JoinView";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: () => {} }) }));
 
-const render = (signedIn: boolean) =>
+const render = (signedIn: boolean, name = "Priya") =>
   renderToStaticMarkup(
-    <JoinView name="Priya" code="priya-AAAA" signedIn={signedIn} />,
+    <JoinView name={name} code="priya-AAAA" signedIn={signedIn} />,
   ).replaceAll("&#x27;", "'");
+
+const SUBHEAD = "Keep a pigeon and send notes, at pigeon speed.";
 
 describe("/join/[code]", () => {
   it("says who sent the invite", () => {
     for (const signedIn of [true, false]) {
-      expect(render(signedIn)).toContain(
-        "Priya wants to trade pigeons with you.",
-      );
+      const html = render(signedIn);
+      expect(html).toContain(">Priya saved you a perch.</h1>");
+      expect(html).toContain(SUBHEAD);
+      expect(html).not.toMatch(/trade/i);
+    }
+  });
+
+  it("falls back to a friend when the inviter has no name", () => {
+    const html = render(true, "  ");
+    expect(html).toContain("A friend saved you a perch.");
+    expect(html).toContain(">Add friend</button>");
+    for (const broken of [">Add <", "> saved", " wants to", "someone wants"]) {
+      expect(html).not.toContain(broken);
     }
   });
 

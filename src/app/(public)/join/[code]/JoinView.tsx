@@ -1,6 +1,7 @@
 import { Bird } from "@/components/Bird";
 import { HatchScene } from "@/components/HatchScene";
 import { config } from "@/lib/config";
+import { inviteCopy } from "@/lib/inviteCopy";
 import styles from "../../auth.module.css";
 import { AddFriend } from "./AddFriend";
 import { GetAPigeon } from "./GetAPigeon";
@@ -14,6 +15,7 @@ export function JoinView({
   code: string;
   signedIn: boolean;
 }) {
+  const copy = inviteCopy(name);
   return (
     <main className={styles.page}>
       <div className={styles.brand}>
@@ -30,10 +32,11 @@ export function JoinView({
           <Bird look="gerald" size={203} />
         </div>
       </div>
-      <p className={styles.lede}>{name} wants to trade pigeons with you.</p>
+      <h1 className={styles.title}>{copy.headline}</h1>
+      <p className={styles.lede}>{copy.subhead}</p>
       <div className={styles.actions}>
         {signedIn ? (
-          <AddFriend code={code} name={name} />
+          <AddFriend code={code} label={copy.addButton} />
         ) : (
           <GetAPigeon code={code} />
         )}

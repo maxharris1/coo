@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Loader } from "@/components/Loader";
-import { config } from "@/lib/config";
+import { inviteShareText } from "@/lib/inviteCopy";
 import type { Units } from "@/lib/format";
 import type { FriendRow, Shows } from "@/server/services/friends";
 import { friendLine, type FriendsList } from "./friendsApi";
@@ -118,7 +118,7 @@ export function FriendsView({
   onShows,
 }: FriendsViewProps) {
   const sms = `sms:?&body=${encodeURIComponent(
-    `Trade pigeons with me on ${config.app.name}: ${inviteLink}`,
+    inviteShareText(inviteLink),
   )}`;
 
   return (
