@@ -631,6 +631,144 @@ describe("Pigeon on a trip (ac-1, docs/08-design-system.md:92)", () => {
   });
 });
 
+describe("Pigeon tracker link (#843)", () => {
+  const mineFlight = (over: Record<string, unknown> = {}) => ({
+    id: "f1",
+    kind: "delivery",
+    status: "flying",
+    role: "mine",
+    bird: { id: "g", name: "Gerald" },
+    owner: { id: "u", name: "Me" },
+    counterpart: { id: "m", name: "Maya" },
+    to: { label: "Newark" },
+    releaseAt: NOW - HOUR,
+    arriveAt: Date.parse("2026-11-20T19:30:00Z"),
+    ...over,
+  });
+  const trackerHrefs = (html: string) =>
+    [...html.matchAll(/href="(\/(?:flights|jobs)\/[^"]*)"/g)].map((m) => m[1]);
+  const css = readFileSync(
+    new URL("./page.module.css", import.meta.url),
+    "utf8",
+  );
+  const rule = (selector: string) =>
+    new RegExp(`(?:^|\\n)\\.${selector}\\s*\\{([^}]*)\\}`).exec(css)?.[1] ?? "";
+
+  it("links a flying bird to its flight tracker, beside the away line (ac-1)", () => {
+    const html = render(
+      payload([gerald({ status: "flying" })], { flights: [mineFlight()] }),
+    );
+    const link =
+      /<a [^>]*href="\/flights\/f1"[^>]*>([^<]*)<\/a>/.exec(html) ?? [];
+    expect(link[0]).toContain(`aria-label="Watch Gerald&#x27;s flight"`);
+    expect(link[0]).not.toContain("tabindex");
+    expect(link[1]).toBe("Watch this flight");
+    expect(trackerHrefs(html)).toEqual(["/flights/f1"]);
+    expect(html).toMatch(/<p class="[^"]*away[^"]*">To Maya in Newark[^<]*<\/p><a /);
+    for (const label of ["Feed", "Bath", "Nap"]) {
+      expect(button(label)?.props.disabled).toBe(true);
+    }
+  });
+
+  it("gives the link a 44px hit area and a pressed state (ac-1)", () => {
+    const html = render(
+      payload([gerald({ status: "flying" })], { flights: [mineFlight()] }),
+    );
+    const name = /<a class="_(\w+)_[0-9a-f]+" [^>]*href="\/flights\/f1"/.exec(
+      html,
+    )?.[1];
+    expect(name).toBeDefined();
+    expect(rule(name!)).toMatch(/min-height:\s*var\(--coo-touch\)/);
+    expect(rule(name!)).toMatch(/box-shadow:\s*var\(--coo-shadow-1\)/);
+    expect(rule(`${name}:active`)).toMatch(/transform:\s*translateY\(3px\)/);
+    expect(rule(`${name}:active`)).toMatch(/box-shadow:\s*none/);
+  });
+
+  it("adds no map or coordinates, only the link (ac-4)", () => {
+    const html = render(
+      payload([gerald({ status: "flying" })], { flights: [mineFlight()] }),
+    );
+    expect(html).not.toMatch(/maplibre|lat=|lng=|lon=|-74|40\.7/i);
+  });
+
+  it("links a scheduled bird to its matching flight (ac-2)", () => {
+    const html = render(
+      payload([gerald({ status: "scheduled" })], {
+        flights: [mineFlight({ id: "f2", status: "scheduled" })],
+      }),
+    );
+    expect(trackerHrefs(html)).toEqual(["/flights/f2"]);
+    expect(html).toContain(`aria-label="Watch Gerald&#x27;s flight"`);
+  });
+
+  it("keeps the plain away line when no mine flight matches (ac-2)", () => {
+    const cases: [string, unknown[], string][] = [
+      ["flying", [], "Out on a delivery"],
+      ["scheduled", [], "Waiting to leave"],
+      ["flying", [mineFlight({ bird: { id: "x", name: "Xavier" } })], "Out on a delivery"],
+      ["flying", [mineFlight({ role: "theirs" })], "Out on a delivery"],
+      ["flying", [mineFlight({ status: "scheduled" })], "Out on a delivery"],
+    ];
+    for (const [status, flights, line] of cases) {
+      const html = render(payload([gerald({ status })], { flights }));
+      expect(html, status).toContain(line);
+      expect(trackerHrefs(html), status).toEqual([]);
+      expect(html, status).not.toContain("Watch ");
+    }
+  });
+
+  it("links a bird on an odd job to its job tracker (ac-3)", () => {
+    const html = render(
+      payload([gerald({ status: "busy", busyKind: "job", jobId: "j-77" })]),
+    );
+    const link = /<a [^>]*href="\/jobs\/j-77"[^>]*>([^<]*)<\/a>/.exec(html) ?? [];
+    expect(link[0]).toContain(`aria-label="Watch Gerald&#x27;s odd job"`);
+    expect(link[1]).toBe("Watch this odd job");
+    expect(trackerHrefs(html)).toEqual(["/jobs/j-77"]);
+    expect(html).toContain("On an odd job");
+  });
+
+  it("keeps an odd job with no job id as plain text (ac-3)", () => {
+    for (const over of [{ jobId: null }, {}]) {
+      const html = render(
+        payload([gerald({ status: "busy", busyKind: "job", ...over })]),
+      );
+      expect(html).toContain("On an odd job");
+      expect(trackerHrefs(html)).toEqual([]);
+      expect(html).not.toContain("Watch ");
+    }
+  });
+
+  it("adds no link for naps, baths or visits (ac-3)", () => {
+    const later = Date.parse("2026-11-20T19:20:00Z");
+    for (const over of [
+      { status: "busy", busyKind: "nap", busyUntil: later, jobId: "j-77" },
+      { status: "busy", busyKind: "bath", busyUntil: later, jobId: "j-77" },
+      { status: "visiting" },
+    ]) {
+      const html = render(
+        payload([gerald(over)], { flights: [mineFlight()] }),
+      );
+      expect(html, over.status).toMatch(/<p class="[^"]*away[^"]*">/);
+      expect(trackerHrefs(html), JSON.stringify(over)).toEqual([]);
+      expect(html, JSON.stringify(over)).not.toContain("Watch ");
+    }
+  });
+
+  it("leaves a home bird unchanged (ac-3)", () => {
+    const html = render(
+      payload([gerald({ jobId: "j-77" })], { flights: [mineFlight()] }),
+    );
+    expect(html).toContain('href="/birds/g/closet"');
+    expect(html).not.toMatch(/<p class="[^"]*away/);
+    expect(trackerHrefs(html)).toEqual([]);
+    expect(html).not.toContain("Watch ");
+    for (const label of ["Feed", "Bath", "Nap"]) {
+      expect(button(label)?.props.disabled).toBe(false);
+    }
+  });
+});
+
 describe("Pigeon states", () => {
   it("shows the loader until the first sync lands", () => {
     expect(render(null)).toContain('aria-busy="true"');
