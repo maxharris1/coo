@@ -6,6 +6,7 @@ import {
   flockRow,
   incomingCards,
   perchSlots,
+  ROOM_LINK,
   type Chip,
   type FlightLite,
   type PerchSlot,
@@ -26,8 +27,9 @@ const CHIP_TONE: Record<Chip, string> = {
 };
 
 const SLOT_OFFER: Record<PerchSlot, { href: string; label: string } | null> = {
-  roommate: { href: "/aviary/roommate", label: "A roommate is waiting" },
-  egg: { href: "/aviary", label: "An egg is ready" },
+  roommate: ROOM_LINK.roommate({ kind: "roommate" }),
+  egg: ROOM_LINK.egg({ kind: "egg", ready: true }),
+  nest: null,
   empty: null,
 };
 

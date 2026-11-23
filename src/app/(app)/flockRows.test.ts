@@ -1,11 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 import type { SyncPayload } from "@/components/sync";
 import {
+  describeLoft,
   feedThenRefresh,
   flockRow,
   incomingCards,
+  loftRooms,
   perchSlots,
+  ROOM_LINK,
   type FlightLite,
+  type Room,
 } from "./flockRows";
 
 type Bird = SyncPayload["birds"][number];
@@ -235,10 +239,21 @@ describe("perchSlots", () => {
 
   it("leaves one empty slot per free perch (ac-3)", () => {
     expect(perchSlots(4, 5, null)).toEqual(["empty"]);
+    expect(perchSlots(2, 4, null)).toEqual(["empty", "empty"]);
+  });
+
+  it("puts an incubating egg in a nest after the roommate and before empty", () => {
     expect(perchSlots(2, 4, { status: "incubating" })).toEqual([
-      "empty",
+      "nest",
       "empty",
     ]);
+    expect(perchSlots(1, 4, { status: "incubating" })).toEqual([
+      "roommate",
+      "nest",
+      "empty",
+    ]);
+    expect(perchSlots(1, 2, { status: "incubating" })).toEqual(["roommate"]);
+    expect(perchSlots(2, 4, ready)).toEqual(["egg", "empty"]);
   });
 
   it("puts a ready egg in the first empty slot only (ac-3)", () => {
@@ -253,7 +268,7 @@ describe("perchSlots", () => {
     expect(perchSlots(1, 3, null)).toEqual(["roommate", "empty"]);
     expect(perchSlots(1, 3, { status: "incubating" })).toEqual([
       "roommate",
-      "empty",
+      "nest",
     ]);
   });
 
@@ -267,6 +282,165 @@ describe("perchSlots", () => {
     expect(perchSlots(0, 3, null)).not.toContain("roommate");
     expect(perchSlots(2, 5, null)).not.toContain("roommate");
     expect(perchSlots(4, 5, ready)).not.toContain("roommate");
+  });
+});
+
+describe("loftRooms", () => {
+  const kinds = (rooms: Room[]) => rooms.map((r) => r.kind);
+
+  it("gives each bird its room in flock order, then the free rooms", () => {
+    const awake = bird({ id: "a", name: "Gerald" });
+    const tired = bird({ id: "t", name: "Kevin", tired: true });
+    const napping = bird({
+      id: "n",
+      name: "Pip",
+      status: "busy",
+      busyKind: "nap",
+    });
+    expect(loftRooms([awake, tired, napping], 5, null)).toEqual([
+      { kind: "home", bird: awake, asleep: false },
+      { kind: "home", bird: tired, asleep: true },
+      { kind: "home", bird: napping, asleep: true },
+      { kind: "empty" },
+      { kind: "empty" },
+    ]);
+  });
+
+  it("sends flying and visiting birds out and keeps other busy birds awake at home", () => {
+    const flying = bird({ id: "f", status: "flying" });
+    const visiting = bird({ id: "v", status: "visiting" });
+    const bathing = bird({ id: "b", status: "busy", busyKind: "bath" });
+    const scheduled = bird({ id: "s", status: "scheduled" });
+    expect(loftRooms([flying, visiting, bathing, scheduled], 4, null)).toEqual([
+      { kind: "away", bird: flying },
+      { kind: "away", bird: visiting },
+      { kind: "home", bird: bathing, asleep: false },
+      { kind: "home", bird: scheduled, asleep: false },
+      { kind: "tolet" },
+    ]);
+  });
+
+  it("fills free rooms with the roommate, then the egg, then empty", () => {
+    const one = [bird()];
+    expect(kinds(loftRooms(one, 3, { status: "ready" }))).toEqual([
+      "home",
+      "roommate",
+      "egg",
+    ]);
+    expect(loftRooms(one, 3, { status: "incubating" }).slice(1)).toEqual([
+      { kind: "roommate" },
+      { kind: "egg", ready: false },
+    ]);
+    expect(
+      loftRooms([bird(), bird({ id: "b2" })], 3, { status: "ready" })[2],
+    ).toEqual({ kind: "egg", ready: true });
+  });
+
+  it("builds room 5 as to let only with 4 perches", () => {
+    expect(kinds(loftRooms([bird()], 3, null))).toHaveLength(3);
+    expect(kinds(loftRooms([bird(), bird({ id: "b2" })], 4, null))).toEqual([
+      "home",
+      "home",
+      "empty",
+      "empty",
+      "tolet",
+    ]);
+    expect(kinds(loftRooms([bird()], 5, null))).not.toContain("tolet");
+  });
+});
+
+describe("ROOM_LINK", () => {
+  const link = (room: Room) => ROOM_LINK[room.kind](room as never);
+  const gerald = bird({ id: "g1", name: "Gerald" });
+
+  it("maps each room to its docs/17 route and accessible name", () => {
+    expect(link({ kind: "home", bird: gerald, asleep: false })).toEqual({
+      href: "/birds/g1",
+      label: "Gerald, at home",
+    });
+    expect(link({ kind: "home", bird: gerald, asleep: true })).toEqual({
+      href: "/birds/g1",
+      label: "Gerald, asleep",
+    });
+    expect(link({ kind: "away", bird: gerald })).toEqual({
+      href: "/birds/g1",
+      label: "Gerald, out",
+    });
+    expect(link({ kind: "roommate" })).toEqual({
+      href: "/aviary/roommate",
+      label: "A roommate is waiting",
+    });
+    expect(link({ kind: "egg", ready: true })).toEqual({
+      href: "/aviary",
+      label: "An egg is ready",
+    });
+    expect(link({ kind: "egg", ready: false })).toEqual({
+      href: "/aviary",
+      label: "An egg in its nest",
+    });
+    expect(link({ kind: "empty" })).toBeNull();
+    expect(link({ kind: "tolet" })).toEqual({
+      href: "/shop",
+      label: "Room to let. Open the shop",
+    });
+  });
+});
+
+describe("describeLoft", () => {
+  const home = (name: string): Room => ({
+    kind: "home",
+    bird: bird({ name }),
+    asleep: false,
+  });
+  const asleep = (name: string): Room => ({
+    kind: "home",
+    bird: bird({ name, tired: true }),
+    asleep: true,
+  });
+  const away = (name: string): Room => ({
+    kind: "away",
+    bird: bird({ name, status: "flying" }),
+  });
+
+  it("says who is home, asleep and out, and what is free or to let", () => {
+    expect(
+      describeLoft([
+        home("Gerald"),
+        asleep("Kevin"),
+        away("Brenda"),
+        { kind: "empty" },
+        { kind: "tolet" },
+      ]),
+    ).toBe(
+      "Your rooftop loft. Gerald sits at home. Kevin is asleep. Brenda is out. One room is free. One room is to let.",
+    );
+  });
+
+  it("names several birds in one sentence and counts free rooms", () => {
+    expect(
+      describeLoft([
+        home("Gerald"),
+        home("Pip"),
+        home("Dot"),
+        asleep("Kevin"),
+        asleep("Moss"),
+        away("Brenda"),
+        away("Fig"),
+        { kind: "empty" },
+        { kind: "empty" },
+      ]),
+    ).toBe(
+      "Your rooftop loft. Gerald, Pip and Dot sit at home. Kevin and Moss are asleep. Brenda and Fig are out. Two rooms are free.",
+    );
+  });
+
+  it("leaves out sentences with nobody in them", () => {
+    expect(describeLoft([{ kind: "empty" }])).toBe(
+      "Your rooftop loft. One room is free.",
+    );
+    expect(describeLoft([away("Brenda"), { kind: "roommate" }])).toBe(
+      "Your rooftop loft. Brenda is out.",
+    );
   });
 });
 
