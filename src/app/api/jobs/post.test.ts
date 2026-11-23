@@ -5,10 +5,14 @@ import { jobDestination, oneWayMiles } from "@/lib/game/jobDest";
 import { offersFor, type Job } from "@/lib/game/jobs";
 import { levelFor } from "@/lib/game/levels";
 import { snap, type Point } from "@/lib/game/privacy";
+import { jobPay } from "@/lib/game/seeds";
 import { localDate } from "@/lib/game/time";
+import type { OnboardedCaller, Profile } from "@/server/auth";
 import type { UserId } from "@/server/ports/auth";
 import type { Row } from "@/server/rows";
 import { onboard } from "@/server/services/onboarding";
+import { adoptRoommate } from "@/server/services/roommate";
+import { tick } from "@/server/services/tick";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
 import { geoClient } from "@/test/geoRoute";
 import { jobsPost } from "./post";
@@ -61,6 +65,19 @@ async function onboarded(number: string, name: string) {
   return { ...session, birdId: bird.id };
 }
 
+async function withRoommate(userId: string) {
+  const [profile] = await deps.db.query<Profile & { onboarded_at: Date }>(
+    "select * from profiles where id = $1",
+    [userId],
+  );
+  const caller: OnboardedCaller = { userId: userId as UserId, profile };
+  const { bird } = await adoptRoommate(deps, caller, {
+    name: "Brenda",
+    pronoun: "she",
+  });
+  return bird.id;
+}
+
 const HOME = snap(40.7128, -74.006);
 const TRAVEL = snap(64.1466, -21.9426);
 
@@ -101,6 +118,10 @@ function moveToDayWithOddPay(userId: string): Job {
 async function sendHome(birdId: string) {
   await deps.db.query(
     "update birds set status = 'home', busy_kind = null, busy_until = null where id = $1",
+    [birdId],
+  );
+  await deps.db.query(
+    "update jobs set status = 'done' where bird_id = $1 and status = 'running'",
     [birdId],
   );
 }
@@ -304,6 +325,90 @@ describe("POST /api/jobs", () => {
     expect(await birdRow(birdId)).toEqual(before);
   });
 
+  it("ac-1: refuses a second bird on a running job as 409, naming the bird on it", async () => {
+    const {
+      id,
+      jar,
+      birdId: gerald,
+    } = await onboarded("(555) 123-4567", "Max");
+    const brenda = await withRoommate(id);
+    const [offer] = todaysOffers(id);
+    expect(
+      (await client.post({ jobId: offer.id, birdId: gerald }, jar)).status,
+    ).toBe(200);
+    const jobsBefore = await jobsOf(id);
+    const geraldBefore = await birdRow(gerald);
+    const brendaBefore = await birdRow(brenda);
+
+    const { status, json } = await client.post(
+      { jobId: offer.id, birdId: brenda },
+      jar,
+    );
+
+    expect(status).toBe(409);
+    expect(json.error).toEqual({
+      code: "conflict",
+      message: "Gerald is already on that job.",
+    });
+    expect(jobsBefore).toHaveLength(1);
+    expect(await jobsOf(id)).toEqual(jobsBefore);
+    expect(brendaBefore).toMatchObject({ status: "home" });
+    expect(await birdRow(brenda)).toEqual(brendaBefore);
+    expect(await birdRow(gerald)).toEqual(geraldBefore);
+  });
+
+  it("ac-3: once the first job is done, the same job starts again at the daily table's pay", async () => {
+    const {
+      id,
+      jar,
+      birdId: gerald,
+    } = await onboarded("(555) 123-4567", "Max");
+    const brenda = await withRoommate(id);
+    const [offer] = todaysOffers(id);
+    const first = await client.post({ jobId: offer.id, birdId: gerald }, jar);
+    expect(first.status).toBe(200);
+    deps.clock.set(Date.parse(first.json.job.endsAt));
+    await tick(deps, { userId: id });
+
+    const { status, json } = await client.post(
+      { jobId: offer.id, birdId: brenda },
+      jar,
+    );
+
+    expect(status).toBe(200);
+    expect(jobPay(offer, 1)).toEqual({ ok: true, seeds: json.job.pay });
+    expect((await jobsOf(id)).map((j) => j.status)).toEqual([
+      "done",
+      "running",
+    ]);
+  });
+
+  it("ac-3: two users may run the same catalog job at once", async () => {
+    const max = await onboarded("(555) 123-4567", "Max");
+    const priya = await onboarded("(555) 987-6543", "Priya");
+    const [offer] = todaysOffers(max.id);
+    await deps.db.query(
+      `insert into jobs (user_id, bird_id, job_id, pay, started_at, ends_at)
+       values ($1, $2, $3, 8, to_timestamp($4 / 1000.0), to_timestamp($4 / 1000.0 + 3600))`,
+      [priya.id, priya.birdId, offer.id, deps.clock.now()],
+    );
+
+    expect(
+      (await client.post({ jobId: offer.id, birdId: max.birdId }, max.jar))
+        .status,
+    ).toBe(200);
+
+    expect(
+      [...(await jobsOf(max.id)), ...(await jobsOf(priya.id))].map((j) => [
+        j.job_id,
+        j.status,
+      ]),
+    ).toEqual([
+      [offer.id, "running"],
+      [offer.id, "running"],
+    ]);
+  });
+
   it("refuses someone else's bird as 404 not_found", async () => {
     const max = await onboarded("(555) 123-4567", "Max");
     const priya = await onboarded("(555) 987-6543", "Priya");
@@ -411,6 +516,28 @@ describe("POST /api/jobs", () => {
           [id, birdId],
         ),
       ).rejects.toThrow(/jobs_dest_check/);
+    });
+
+    it("ac-2: the database refuses a second running row for the same catalog job and user until the first is done", async () => {
+      const { id, birdId: gerald } = await onboarded("(555) 123-4567", "Max");
+      const brenda = await withRoommate(id);
+      const insert = (birdId: string) =>
+        deps.db.query<{ id: string }>(
+          `insert into jobs (user_id, bird_id, job_id, pay, ends_at)
+           values ($1, $2, 'deli-slip', 8, to_timestamp($3 / 1000.0))
+           returning id`,
+          [id, birdId, deps.clock.now()],
+        );
+      const [first] = await insert(gerald);
+
+      await expect(insert(brenda)).rejects.toThrow(
+        /jobs_one_running_per_offer/,
+      );
+
+      await deps.db.query("update jobs set status = 'done' where id = $1", [
+        first.id,
+      ]);
+      await expect(insert(brenda)).resolves.toHaveLength(1);
     });
 
     it("ac-2: labels the destination with the job's short text, adds no address column, logs nothing and calls no geocoder", async () => {

@@ -110,16 +110,16 @@ async function onboardWithLoft(id: UserId) {
   );
 }
 
-async function startJobFor(userId: string, birdId: string) {
+async function startJobFor(userId: string, birdId: string, offerIndex = 0) {
   const [profile] = await base.db.query<Profile & { onboarded_at: Date }>(
     "select * from profiles where id = $1",
     [userId],
   );
   const caller: OnboardedCaller = { userId: userId as UserId, profile };
-  const [offer] = offersFor(
+  const offer = offersFor(
     userId,
     localDate(deps.clock.now(), profile.timezone),
-  );
+  )[offerIndex];
   const { job } = await startJob(base, caller, { jobId: offer.id, birdId });
   return job.id;
 }
@@ -137,7 +137,7 @@ describe("GET /api/sync", () => {
     it("is the running job with a destination, and null for a bird whose job is done", async () => {
       const [gerald, brenda] = world.max.birds.map((b) => b.id);
       const running = await startJobFor(world.max.id, gerald);
-      const done = await startJobFor(world.max.id, brenda);
+      const done = await startJobFor(world.max.id, brenda, 1);
       await base.db.query("update jobs set status = 'done' where id = $1", [
         done,
       ]);

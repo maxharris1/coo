@@ -207,6 +207,9 @@ Shown as "Level 4 city pigeon".
 - Two jobs are offered at a time, chosen from `config/jobs.json` by a hash of user id and local date.
 - Sending a `home` bird makes it busy for the job's minutes. When the time passes the owner is
   paid and, 1 time in 4, the bird brings back a found object (chosen by a hash of the job id).
+- One bird per offered job at a time. While a job runs, starting it with another bird is refused
+  with "{bird} is already on that job." Once it is done it can be started again, and that start
+  counts toward the day's six at the pay table's rate as usual.
 - Found objects sit on the Earn screen until traded. "Trade" sells all of them at once.
 - Jobs use the map. Starting a job stores a snapped destination as far from the loft as the bird
   flies in half the job's minutes. The owner watches the bird on `/jobs/[id]` fly out to it until
