@@ -230,7 +230,8 @@ leaves the offers until it is done, so while both of today's jobs run Earn shows
 rows and no Send button. "That's all the odd jobs for today." shows only when no jobs are left today.
 
 ### More (`/more`)
-As drawn. Six rows with live sub lines.
+As drawn. Six rows with live sub lines. Below the grid, one full-width "Report a bug" row,
+"Something's off? Tell us.", opens `/more/report-bug`. It is not in the mock.
 
 ### Friends (`/friends`)
 As drawn: my invite link with Copy and "Text it"; the explanation; each friend with where they

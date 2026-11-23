@@ -73,7 +73,7 @@ describe("MoreView", () => {
   it("hides the icons from assistive tech", () => {
     const html = renderToStaticMarkup(<MoreView sources={MOCK} />);
     const svgs = [...html.matchAll(/<svg[^>]*>/g)].map((m) => m[0]);
-    expect(svgs).toHaveLength(7);
+    expect(svgs).toHaveLength(8);
     for (const svg of svgs) expect(svg).toContain('aria-hidden="true"');
   });
 
@@ -88,5 +88,32 @@ describe("MoreView", () => {
     expect(
       renderToStaticMarkup(<MoreView sources={{ ...MOCK, notes: null }} />),
     ).not.toContain("notes saved");
+  });
+
+  it("keeps the grid to the six cards and puts one Report a bug row after it", () => {
+    const html = renderToStaticMarkup(<MoreView sources={MOCK} />);
+    const [grid, after] = html.split("</ul>");
+    const gridLinks = [...grid.matchAll(/<li[^>]*><a [^>]*href="([^"]+)"/g)];
+    expect(gridLinks.map((m) => m[1])).toEqual(MOCK_CARDS.map(([h]) => h));
+    const rows = [...after.matchAll(/<a [^>]*href="([^"]+)"[^>]*>(.*?)<\/a>/g)];
+    expect(rows.map((m) => [m[1], text(m[2])])).toEqual([
+      ["/more/report-bug", "Report a bug Something&#x27;s off? Tell us."],
+    ]);
+  });
+
+  it("links only inside Coo, with no mail, phone, text or outside links", () => {
+    for (const sources of [MOCK, { ...MOCK, friends: null, notes: null }]) {
+      const html = renderToStaticMarkup(<MoreView sources={sources} />);
+      expect(html).toContain('href="/more/report-bug"');
+      for (const banned of [
+        "mailto:",
+        'href="http',
+        'target="_blank"',
+        "sms:",
+        "tel:",
+      ]) {
+        expect(html, banned).not.toContain(banned);
+      }
+    }
   });
 });

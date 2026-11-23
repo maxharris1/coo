@@ -88,6 +88,28 @@ export function MoreView({ sources }: { sources: MoreSources }) {
           );
         })}
       </ul>
+      <Link href="/more/report-bug" className={styles.report}>
+        <span className={`${styles.icon} ${styles.sand}`}>
+          <svg
+            width="26"
+            height="26"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+            fill="none"
+            stroke="var(--coo-ink)"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <rect x="7" y="7" width="10" height="13" rx="5" />
+            <path d="M9 7 a3 3 0 0 1 6 0 M12 11 V20 M7 12 H3 M17 12 H21 M7 17 H4 M17 17 H20 M9 5 L7 3 M15 5 L17 3" />
+          </svg>
+        </span>
+        <span className={styles.reportText}>
+          <span className={styles.title}>Report a bug</span>
+          <span className={styles.sub}>Something&apos;s off? Tell us.</span>
+        </span>
+      </Link>
     </div>
   );
 }

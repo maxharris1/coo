@@ -27,6 +27,17 @@ describe("More layout", () => {
     expect(value(rule("card"), "min-height")).toBe("126px");
   });
 
+  it("stacks the Report a bug row under the grid at the page's full width", () => {
+    expect(value(rule("page"), "flex-direction")).toBe("column");
+    expect(value(rule("page"), "align-items")).toBeUndefined();
+    expect(value(rule("report"), "width")).toBeUndefined();
+    expect(value(rule("report"), "max-width")).toBeUndefined();
+  });
+
+  it("makes the Report a bug row at least a 44px target", () => {
+    expect(value(rule("report"), "min-height")).toBe("var(--coo-touch)");
+  });
+
   it("gives the back link a 44px circle", () => {
     for (const prop of ["width", "height"]) {
       expect(value(rule("back"), prop), prop).toBe("var(--coo-touch)");
@@ -34,7 +45,7 @@ describe("More layout", () => {
   });
 
   it("lets long titles and lines wrap instead of clipping at 360px", () => {
-    for (const name of ["title", "sub"]) {
+    for (const name of ["title", "sub", "reportText"]) {
       expect(value(rule(name), "overflow-wrap"), name).toBe("anywhere");
       expect(value(rule(name), "white-space"), name).toBeUndefined();
     }
