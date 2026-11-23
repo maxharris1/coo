@@ -135,6 +135,11 @@ const ROWS: Row[] = [
     ],
   },
   {
+    screen: "Flights title and filter chips",
+    file: "app/(app)/flights/Flights.module.css",
+    chain: [BODY, at("app/(app)/flights/Flights.module.css", "screen", "padding")],
+  },
+  {
     screen: "Friends back button and title",
     file: "app/(app)/friends/Friends.module.css",
     chain: [
