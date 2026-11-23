@@ -1,7 +1,7 @@
 .awning {
   flex-shrink: 0;
-  height: calc(30px + var(--coo-safe-top));
-  margin-top: calc(-1 * var(--coo-safe-top));
+  height: calc(30px + env(safe-area-inset-top, 0px));
+  margin-top: calc(-1 * env(safe-area-inset-top, 0px));
   margin-right: calc(-1 * var(--coo-safe-right));
   margin-left: calc(-1 * var(--coo-safe-left));
   background: repeating-linear-gradient(

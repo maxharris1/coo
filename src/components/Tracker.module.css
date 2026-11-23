@@ -1,8 +1,8 @@
 .tracker {
   position: relative;
-  margin-top: calc(-1 * var(--coo-safe-top));
+  margin-top: calc(-1 * env(safe-area-inset-top, 0px));
   height: calc(
-    100dvh - 84px - var(--coo-safe-bottom, 0px) + var(--coo-safe-top)
+    100dvh - 84px - var(--coo-safe-bottom, 0px) + env(safe-area-inset-top, 0px)
   );
   min-height: 560px;
   overflow: hidden;
@@ -26,7 +26,7 @@
 
 .top {
   position: absolute;
-  top: calc(var(--coo-gutter) + var(--coo-safe-top));
+  top: calc(var(--coo-gutter) + env(safe-area-inset-top, 0px));
   left: var(--coo-gutter);
   right: var(--coo-gutter);
   z-index: 3;

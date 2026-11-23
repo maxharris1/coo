@@ -72,7 +72,14 @@ describe("root layout", () => {
 describe("safe areas", () => {
   const css = readFileSync(new URL("./globals.css", import.meta.url), "utf8");
 
-  it.each(["top", "right", "bottom", "left"])(
+  it("pads the body with the top inset directly, not through a variable", () => {
+    expect(css).toMatch(
+      /body\s*\{[^}]*padding:\s*env\(safe-area-inset-top,\s*0px\)/,
+    );
+    expect(css).not.toContain("--coo-safe-top");
+  });
+
+  it.each(["right", "bottom", "left"])(
     "exposes the %s inset as a variable and pads the body with it",
     (side) => {
       expect(css).toMatch(

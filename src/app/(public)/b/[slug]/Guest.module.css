@@ -3,11 +3,11 @@
   min-height: 100dvh;
   max-width: 480px;
   margin: 0 auto;
-  margin-top: calc(-1 * var(--coo-safe-top));
+  margin-top: calc(-1 * env(safe-area-inset-top, 0px));
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: calc(22px + var(--coo-safe-top)) var(--coo-gutter)
+  padding: calc(22px + env(safe-area-inset-top, 0px)) var(--coo-gutter)
     calc(8px + var(--coo-safe-bottom));
   background: var(--coo-sky);
   color: var(--coo-ink);

@@ -2,8 +2,9 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  margin-top: calc(-1 * var(--coo-safe-top));
-  padding: calc(var(--coo-gutter) + var(--coo-safe-top)) var(--coo-gutter) 0;
+  margin-top: calc(-1 * env(safe-area-inset-top, 0px));
+  padding: calc(var(--coo-gutter) + env(safe-area-inset-top, 0px))
+    var(--coo-gutter) 0;
   color: var(--coo-ink);
   background: var(--coo-sky);
   border-bottom: var(--coo-line);
