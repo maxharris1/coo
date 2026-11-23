@@ -2,6 +2,8 @@
 
 The way Coo spreads: you send a real pigeon to a friend who has never heard of it.
 
+A guest link carries a note on a bird already flying. An invite code (`/join/[code]`) only invites someone to keep a pigeon and become friends.
+
 ## The flow
 
 1. **Sender** taps "Someone new" (or a contact, on Android), types a name and picks where the
