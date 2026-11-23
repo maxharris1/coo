@@ -1,29 +1,37 @@
 {
-  "draft": "Draft. A person must read and approve this text before it is final.",
   "contact": {
     "withEmail": "Questions, privacy requests or help: {email}.",
     "withoutEmail": "Questions or help: use Report in the app, or open an issue at github.com/maxharris1/coo. Issues there are public, so do not post personal details."
   },
+  "consent": {
+    "signIn": "By continuing you say you are 13 or older, agree to the {terms} and {privacy}, and agree to get a text with a sign-in code. Msg and data rates may apply.",
+    "guest": "Send me one text when {bird} lands. Msg and data rates may apply. Reply STOP to end."
+  },
   "privacy": {
     "title": "Privacy",
-    "intro": "Coo holds three sensitive things: roughly where you live, your phone number and your notes. This page says what we keep, what we never keep, who handles it and how to delete it.",
+    "effective": "2026-11-22",
+    "intro": "Coo holds three sensitive things: roughly where you live, your phone number and your notes. This page says what we keep, what we never keep, who handles it and how to delete it. Coo is run by Max Harris, a person in New York, not a company. \"We\" means him.",
     "sections": [
       {
         "heading": "What we keep",
         "paragraphs": [
           "Your phone number. It lives in our sign-in system so we can text you a code. Your profile keeps only the last four digits. Other people never see your number.",
-          "Your roost. We snap the spot where birds find you to a coarse grid and keep that point, with a neighbourhood label. If you choose your town centre instead, we keep the town centre. Each friend sees your roost or only your city, whichever you pick for them. People who are not your friends see neither, with two exceptions. A flight shows where it left from and where it lands to the two people in it, even if you are not friends or stop being friends. If you send a bird by guest link, the person holding that link sees those two places too.",
-          "Your notes. Notes are stored as plain text. They are not end-to-end encrypted. Only the sender can read a note, and the recipient once the bird lands. Note text never goes into our logs, notifications or text messages.",
-          "Your push subscription, if you turn on notifications. It lets us tell your phone that a bird landed.",
-          "A guest's phone number, if they ask for a text when a bird lands. We keep it until that one text is sent, then clear it."
+          "Your roost. We snap the spot where birds find you to a coarse grid, about 200 metres across, and keep that point, with a neighbourhood label. If you choose your town centre instead, we keep the town centre. Each friend sees your roost or only your city, whichever you pick for them. People who are not your friends see neither, with two exceptions. A flight shows where it left from and where it lands to the two people in it, even if you are not friends or stop being friends. If you send a bird by guest link, the person holding that link sees those two places too.",
+          "Where you send birds. A place you pick from search is snapped to the same grid and kept with a neighbourhood label. If you drop a pin by hand to send a bird to someone new, we snap it to the same grid before we keep it, and its neighbourhood label comes from the snapped point. Where you dropped it is never saved. The words you type into the search box are not saved.",
+          "Your notes and doodles. They are stored as plain text and plain drawing data. They are not end-to-end encrypted, so the person who runs Coo can technically read them in the database. We do not read them as part of running Coo. Only the sender can see a note, and the recipient once the bird lands. Note text never goes into our logs, notifications or text messages.",
+          "Your account and play. Your name, your birds and their names, your friends, your flights, your settings and the report text if you file one.",
+          "Your push subscription, if you turn on notifications. It lets us tell your phone that a bird landed. The alert says a bird landed, never what the note says.",
+          "A guest's phone number, if they ask for a text when a bird lands. We clear it when the bird lands.",
+          "Technical records. Our host and our database keep ordinary server logs for a short time. They can include your IP address. To stop abuse we also count requests by IP address on guest links."
         ]
       },
       {
         "heading": "What we never keep",
         "paragraphs": [
-          "Your exact location. A position from your phone or a search is snapped to the roost grid before it is saved or logged.",
+          "Your exact location. A position from your phone, a search or a pin you drop by hand is snapped to the grid before it is saved or logged. That covers your roost, every sill and a pin for someone new. Odd-job destinations are the only pins drawn at their exact spot. Coo picks them itself, and they are nobody's location.",
           "Your address. If you search for one, we keep the snapped point and a neighbourhood label. The search text is not saved.",
-          "Your contacts. There is no contacts upload. Friends are made by links, not by looking up phone numbers. If you pick a contact to fill in a name, only the name you confirm is sent to us."
+          "Your contacts. There is no contacts upload. Friends are made by links, not by looking up phone numbers. If you pick a contact to fill in a name, only the name you confirm is sent to us.",
+          "Anything for ads. Coo has no ads, no analytics and no tracking scripts. We do not sell your data."
         ]
       },
       {
@@ -32,19 +40,43 @@
           "These services handle some of this data so the app can work.",
           "Supabase runs sign-in and the database. Its disks are encrypted at rest.",
           "Vercel hosts the app.",
-          "Twilio sends sign-in codes and text messages.",
-          "OpenFreeMap serves the map tiles.",
-          "Photon finds places when you search.",
-          "Open-Meteo provides the weather."
+          "Twilio sends sign-in codes and text messages, so it sees your phone number and the text.",
+          "OpenFreeMap serves the map tiles. Your phone asks it for tiles directly, so it can see your IP address and roughly which part of the map you are looking at.",
+          "Photon, run by Komoot, finds places when you search. Our server sends it the words you typed, or a snapped point, without your name or number.",
+          "Open-Meteo provides the weather for snapped areas.",
+          "Apple, Google or Mozilla carry push notifications to your phone, if you turn them on.",
+          "These services may run outside your country. They do their own handling under their own privacy policies."
+        ]
+      },
+      {
+        "heading": "Text messages",
+        "paragraphs": [
+          "Coo sends texts for sign-in codes, and for landings. Sign-in codes go out when you ask for one. If a push notification cannot reach you, we may text you when a bird lands on your sill. The \"Text me when a push can't reach me\" switch in Settings controls that, and it starts on. A guest gets one text, only if they tick the box on the guest page.",
+          "Message and data rates may apply. We send only a few texts, mostly when birds land. We never send marketing texts.",
+          "Reply STOP to a landing text to stop landing texts. Reply HELP for help. STOP does not stop sign-in codes, which only come when you ask for one."
+        ]
+      },
+      {
+        "heading": "Children",
+        "paragraphs": [
+          "Coo is not for children under 13. We do not knowingly keep information from them. If you think a child under 13 has an account, tell us and we will delete it."
         ]
       },
       {
         "heading": "How to delete it",
         "paragraphs": [
-          "Open Settings and choose \"Delete my account\". That removes your account, your roost, your birds and the notes you sent.",
+          "Open Settings and choose \"Delete my account\". That removes your account, your phone number from sign-in, your roost, your birds, your friendships, your guest links and the notes you sent.",
           "A friend's bird on your sill flies home straight away.",
           "Notes your friends sent you stay in their shoeboxes. They show as sent to \"a former friend\".",
-          "There is no export yet. Your shoebox shows every note.",
+          "Otherwise we keep your information while your account exists. Backups at our database host may hold it a little longer. A guest link closes seven days after its bird lands.",
+          "There is no export yet. Your shoebox shows every note."
+        ]
+      },
+      {
+        "heading": "Your rights and changes",
+        "paragraphs": [
+          "Wherever you live, you can ask what we hold about you, ask us to fix it, or ask us to delete it. Deleting your account in Settings is the fastest way. For the rest, contact us.",
+          "If we change this page we will change the date at the top.",
           "{contact}"
         ]
       }
@@ -52,41 +84,72 @@
   },
   "terms": {
     "title": "Terms",
-    "intro": "These are the rules for using Coo. They are short on purpose.",
+    "effective": "2026-11-22",
+    "intro": "These are the rules for using Coo. They are short on purpose. Coo is run by Max Harris, a person in New York, not a company. \"We\" means him. By using Coo you agree to these terms and to the privacy page.",
     "sections": [
       {
         "heading": "Who can use it",
         "paragraphs": [
-          "Coo is not for children under 13.",
-          "You sign in with a phone number that can get a text code."
+          "You must be at least 13. Coo is not for children under 13. If you are under 18, you need a parent or guardian to be fine with it.",
+          "You sign in with a phone number that can get a text code. One person, one account. Keep your phone secure, because anyone with the code can be you."
         ]
       },
       {
         "heading": "Be kind",
         "paragraphs": [
-          "Do not use Coo to harass, threaten or spam anyone.",
+          "Do not use Coo to harass, threaten, scare or spam anyone. Do not send anything illegal, hateful or sexual about a person who has not agreed to it. Do not pretend to be someone else.",
+          "Guest links are for sending a bird to one person you know. Do not post them in public, send them in bulk, or use them to advertise, scam or spread malware.",
+          "Do not scrape Coo, probe it for weaknesses, or use bots to play it.",
           "Names and bird names cannot contain slurs.",
           "You can block anyone. Blocking ends the friendship, sends their bird home and stops contact both ways.",
-          "You can report a person or a link. A person reads every report."
+          "You can report a person or a link. A person reads every report. We may remove content, close guest links or end accounts that break these rules."
+        ]
+      },
+      {
+        "heading": "Your notes",
+        "paragraphs": [
+          "A note is yours. You give us permission to store it and deliver it to the person you sent it to, and nothing more.",
+          "Notes are not end-to-end encrypted. Do not send anything you would not want to risk leaking, like passwords or card numbers."
+        ]
+      },
+      {
+        "heading": "Text messages",
+        "paragraphs": [
+          "By signing in you agree to get a text with a sign-in code. If a push notification cannot reach you, you also agree that we may text you when a bird lands, until you turn that off in Settings or reply STOP. A guest who ticks the box agrees to one text when their bird lands.",
+          "Message and data rates may apply. Reply STOP to end landing texts and HELP for help. See the privacy page for details."
         ]
       },
       {
         "heading": "Birds are slow",
         "paragraphs": [
-          "Coo is not for anything urgent. Birds fly at pigeon speed and sometimes stop on the way.",
-          "Delivery times are estimates, not promises."
+          "Coo is not for anything urgent or important. Birds fly at pigeon speed and sometimes stop on the way.",
+          "Delivery times are estimates, not promises. Do not use Coo for emergencies."
         ]
       },
       {
-        "heading": "Changes",
+        "heading": "No warranty",
         "paragraphs": [
-          "We may change Coo or these terms, or stop the service."
+          "Coo is a free hobby project run by one person. It is provided \"as is\" and \"as available\". We make no promises that it will work, stay online, keep your notes safe or be free of errors. To the most the law allows, we disclaim every warranty, including any warranty of merchantability, fitness for a purpose or non-infringement."
         ]
       },
       {
-        "heading": "Your account",
+        "heading": "Limit of liability",
         "paragraphs": [
-          "You can delete your account at any time in Settings.",
+          "To the most the law allows, we are not liable for indirect, incidental, special or consequential damages, or for lost data, lost notes or lost profits, from your use of Coo. Our total liability for any claim is limited to $50.",
+          "Nothing here limits rights you cannot waive by law."
+        ]
+      },
+      {
+        "heading": "Changes and ending",
+        "paragraphs": [
+          "We may change Coo or these terms, or stop the service. If we change these terms we will change the date at the top. Using Coo after that means you accept the change.",
+          "You can delete your account at any time in Settings. We may suspend or end an account that breaks these rules."
+        ]
+      },
+      {
+        "heading": "The law",
+        "paragraphs": [
+          "These terms are governed by the laws of the State of New York, without regard to conflict-of-law rules. Any dispute goes to the state or federal courts in New York County, New York, and you agree to their jurisdiction.",
           "{contact}"
         ]
       }

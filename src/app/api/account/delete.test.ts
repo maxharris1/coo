@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { requireUser } from "@/server/auth";
 import type { UserId } from "@/server/ports/auth";
+import { setLoft } from "@/server/services/loft";
 import { onboard } from "@/server/services/onboarding";
+import { searchPlaces } from "@/server/services/places";
 import { TEST_SESSION_COOKIE } from "@/server/testAuth";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
 import { geoClient } from "@/test/geoRoute";
@@ -36,6 +39,12 @@ const exists = async (id: string) =>
       [id],
     )
   )[0].n === 1;
+
+const heldFor = (id: string) =>
+  deps.db.query<{ payload: unknown }>(
+    "select payload from geo_cache where payload ->> 'userId' = $1",
+    [id],
+  );
 
 describe("DELETE /api/account", () => {
   it("refuses a request without a session as 401", async () => {
@@ -79,6 +88,26 @@ describe("DELETE /api/account", () => {
     expect(typeof json.serverNow).toBe("number");
     expect(await exists(max.id)).toBe(false);
     expect(await exists(priya.id)).toBe(true);
+  });
+
+  it("forgets the caller's roost and held places but not anyone else's", async () => {
+    const priya = await onboarded("(555) 765-4321", "Priya");
+    const max = await onboarded("(555) 123-4567", "Max");
+    await searchPlaces(deps, priya.id as UserId, "Williamsburg");
+    const caller = await requireUser({ auth: deps.auth(max.jar), db: deps.db });
+    const { results } = await searchPlaces(deps, caller.userId, "East Village");
+    await setLoft(deps, caller, { placeId: results[0].placeId });
+    await searchPlaces(deps, caller.userId, "Williamsburg");
+    const priyaHeld = await heldFor(priya.id);
+    expect(priyaHeld).not.toEqual([]);
+    expect(await heldFor(max.id)).toContainEqual({
+      payload: expect.objectContaining({ saved: true }),
+    });
+
+    const { status } = await client.del(max.jar, { confirm: max.handle });
+    expect(status).toBe(200);
+    expect(await heldFor(max.id)).toEqual([]);
+    expect(await heldFor(priya.id)).toEqual(priyaHeld);
   });
 
   it("accepts the handle typed with capitals and stray spaces", async () => {
