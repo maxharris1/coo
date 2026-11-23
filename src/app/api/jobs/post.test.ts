@@ -518,7 +518,7 @@ describe("POST /api/jobs", () => {
       ).rejects.toThrow(/jobs_dest_check/);
     });
 
-    it("ac-1: the database refuses a second running row for the same catalog job and user", async () => {
+    it("ac-2: the database refuses a second running row for the same catalog job and user until the first is done", async () => {
       const { id, birdId: gerald } = await onboarded("(555) 123-4567", "Max");
       const brenda = await withRoommate(id);
       const insert = (birdId: string) =>
