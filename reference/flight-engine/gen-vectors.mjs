@@ -48,6 +48,7 @@ const cases = [
   ['delay-major', 'A flight id that rolls a major delay', { flightId: majorId }],
   ['delay-major-poor-navigator', 'Same major delay, navigation 1: the delay is longer', { flightId: majorId, bird: { ...gerald, navigation: 1 } }],
   ['delay-major-search-party', 'Same major delay ended early by a search party', { flightId: majorId, delayEndOverrideMs: majorDelay.startMs + 20 * 60_000 }],
+  ['night-release-nightgoggles', 'Released at 10 pm wearing night goggles: flies through the dark at once', { departAtMs: Date.UTC(2026, 10, 20, 3, 0, 0), gear: ['nightgoggles'] }],
 ];
 
 const vectors = cases.map(([name, about, over], i) => {

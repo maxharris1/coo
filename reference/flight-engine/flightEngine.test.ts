@@ -53,11 +53,13 @@ test('same input, same plan', () => {
 
 test('birds do not fly in the dark', () => {
   for (const v of data.vectors) {
+    if (v.input.gear.includes('nightgoggles')) continue;
     const plan = E.computeFlightPlan(v.input);
     const limit = v.input.bird.breed === 'king' ? E.CONFIG.kingSunAltitudeDeg : E.CONFIG.sunAltitudeDeg;
     for (const s of plan.segments) {
       if (s.kind !== 'fly' || s.endMs - s.startMs < 3 * 60_000) continue;
       const mid = (s.startMs + s.endMs) / 2, p = E.positionAt(plan, v.input.from, v.input.to, mid);
+      if (mid < (v.input.nightFlightUntilMs ?? -Infinity)) continue;
       assert.ok(E.sunAltitudeDeg(mid, p) > limit, `${v.name}: flying at night`);
     }
   }

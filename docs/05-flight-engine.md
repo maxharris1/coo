@@ -168,6 +168,7 @@ Full inputs and outputs are in `reference/flight-engine/vectors.json`.
 | `delay-major` | A flight id that rolls a major delay | 82.1 | 5h 10m | 0.91 | major |
 | `delay-major-poor-navigator` | Same major delay, navigation 1: the delay is longer | 82.1 | 6h 17m | 0.91 | major |
 | `delay-major-search-party` | Same major delay ended early by a search party | 82.1 | 2h 09m | 0.91 | major |
+| `night-release-nightgoggles` | Released at 10 pm wearing night goggles: flies through the dark at once | 82.1 | 1h 49m | 0.88 | none |
 
 Things worth noticing:
 
@@ -176,6 +177,7 @@ Things worth noticing:
 - Light rain costs speed and odds. Goggles give the speed back but not the odds. The rain hat gives both.
 - Chicago: he flies until dusk in Pennsylvania, sleeps 14 hours, and lands the next afternoon. 30 hours for 712 miles.
 - Released at 10 pm: 9 hours asleep on the note, then a normal flight.
+- Released at 10 pm wearing night goggles: no wait at the loft, he lands 1 h 49.5 min later. Flying in the dark costs 0.03, so odds are 0.91 − 0.03 = 0.88.
 - The same major delay is 3 h 21 min for a good navigator, 4 h 28 min for a poor one, and 20 minutes after a search party.
 
 ## Changing the engine

@@ -108,6 +108,7 @@ describe("flight engine vectors", () => {
 
   it("birds do not fly in the dark", () => {
     for (const v of data.vectors) {
+      if (v.input.gear.includes("nightgoggles")) continue;
       const plan = E.computeFlightPlan(v.input);
       const limit =
         v.input.bird.breed === "king"
@@ -116,6 +117,7 @@ describe("flight engine vectors", () => {
       for (const s of plan.segments) {
         if (s.kind !== "fly" || s.endMs - s.startMs < 3 * 60_000) continue;
         const mid = (s.startMs + s.endMs) / 2;
+        if (mid < (v.input.nightFlightUntilMs ?? -Infinity)) continue;
         const p = E.positionAt(plan, v.input.from, v.input.to, mid);
         expect(
           E.sunAltitudeDeg(mid, p) > limit,
@@ -188,6 +190,16 @@ describe("night flight", () => {
       kind: "fly",
       startMs: nightRelease.departAtMs,
     });
+  });
+
+  it("the night-release-nightgoggles vector flies through the dark at once", () => {
+    const v = vector("night-release-nightgoggles");
+    const plan = E.computeFlightPlan(v.input);
+
+    expect(new Set(plan.segments.map((s) => s.kind))).toEqual(new Set(["fly"]));
+    expect(plan.segments[0].startMs).toBe(v.input.departAtMs);
+    expect(plan.onTimeOdds).toBe(0.88);
+    expect(plan.delayKind).toBe("none");
   });
 
   it("a bird without the goggles still roosts at the loft until sunrise", () => {
@@ -276,11 +288,12 @@ describe("night flight", () => {
     );
   });
 
-  it("no vector input flies in the dark, a goggled night release does", () => {
+  it("only the goggled vector input flies in the dark", () => {
     for (const v of data.vectors) {
-      expect(E.fliesInDark(v.input), v.name).toBe(false);
+      expect(E.fliesInDark(v.input), v.name).toBe(
+        v.name === "night-release-nightgoggles",
+      );
     }
-    expect(E.fliesInDark(goggled(nightRelease))).toBe(true);
   });
 
   it("rolls the delay against the night odds", () => {
