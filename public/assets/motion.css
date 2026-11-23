@@ -43,4 +43,5 @@
 @keyframes coo-loft-stretch{0%,100%{transform:translateY(0) scale(1,1)}40%,60%{transform:translateY(-2px) scale(.97,1.08)}}
 @keyframes coo-loft-coo{0%,100%{transform:translateY(0) scale(1,1)}25%,75%{transform:translateY(2px) scale(1,.96)}50%{transform:translateY(-4px) scale(1,1)}}
 @keyframes coo-cloud-wrap{from{transform:translateX(0)}to{transform:translateX(var(--coo-cloud-travel))}}
+@keyframes loft-smoke{0%{transform:translate(0,10px) scale(.4);opacity:0}25%{opacity:1}100%{transform:translate(9px,-12px) scale(1.25);opacity:0}}
 @media (prefers-reduced-motion: reduce){*{animation:none !important}}
