@@ -9,6 +9,7 @@ import { notificationText, recordNotification } from "../notify";
 import { deliver } from "../notify/deliver";
 import { hashToken } from "./create";
 import { guestIpLimit, NO_SUCH_LINK } from "./get";
+import { attributeLink, resolveLinksBetween } from "./resolve";
 
 export type ClaimResult = { friendId: UserId; visitId?: string };
 
@@ -114,30 +115,7 @@ async function claim(
       [...pair(me, sender), nowIso],
     );
 
-  await db.query(
-    "update guest_links set status = 'claimed', claimed_by = $2, claimed_at = $3 where id = $1",
-    [link.id, me, nowIso],
-  );
-  const [flight] = await db.query<{ bird_id: string; note_id: string | null }>(
-    `update flights set counterpart_id = $2
-     where guest_link_id = $1 and kind = 'delivery' returning bird_id, note_id`,
-    [link.id, me],
-  );
-  if (flight.note_id)
-    await db.query("update notes set recipient_id = $2 where id = $1", [
-      flight.note_id,
-      me,
-    ]);
-  await db.query(
-    `update visits set host_id = $2
-     where guest_link_id = $1 and status = 'waiting' and leaves_at > $3`,
-    [link.id, me, nowIso],
-  );
-  await db.query(
-    `insert into bird_meetings (user_id, bird_id, first_at) values ($1, $2, $3)
-     on conflict (user_id, bird_id) do nothing`,
-    [me, flight.bird_id, nowIso],
-  );
+  await attributeLink(db, link.id, me, nowIso);
   await db.query(
     `insert into events (user_id, kind, created_at)
      select u, k, $2 from unnest($1::uuid[]) u, unnest(array['friends', 'flight']) k`,
@@ -152,6 +130,7 @@ async function claim(
     refId: link.id,
     ...notificationText("friend-joined", { friend: claimer.name }),
   });
+  await resolveLinksBetween(db, me, sender, now);
   return created?.id ?? null;
 }
 
