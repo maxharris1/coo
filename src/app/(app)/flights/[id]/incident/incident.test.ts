@@ -224,3 +224,45 @@ describe("incidentReport on place names stored by the real producer", () => {
     });
   });
 });
+
+describe("incidentReport on a trip home (#882)", () => {
+  const home = (over: Partial<Flight> = {}) =>
+    flight({
+      kind: "return",
+      from: { ...INPUT.from, label: "Upper East Side" },
+      to: { ...INPUT.to, label: "Tudor City" },
+      counterpart: { id: "tracy", name: "Tracy", handle: "tracy" },
+      hasNote: false,
+      ...over,
+    });
+  const noteRow = (f: Flight) =>
+    incidentReport(f, ctx())!.rows.find((r) => r.label === "Your note")!.value;
+
+  it("says the bird is late coming home, not that a note to the host is late", () => {
+    const report = incidentReport(home(), ctx())!;
+    expect(report.sub).toBe("Kevin is running late on the way home.");
+    expect(report.sub).not.toContain("Your note to Tracy");
+    expect(report.rows).toContainEqual({
+      label: "Route",
+      value: "Upper East Side to Tudor City, 82 miles",
+    });
+  });
+
+  it("mentions the reply riding along and keeps the note row honest", () => {
+    const report = incidentReport(home({ hasNote: true }), ctx())!;
+    expect(report.sub).toBe(
+      "Kevin is running late on the way home. A reply from Tracy is riding along.",
+    );
+    expect(noteRow(home({ hasNote: true }))).toBe("Still attached. Probably.");
+    expect(noteRow(home())).toBe("Nothing attached this trip.");
+  });
+
+  it("offers no resend, because the outbound note already landed", () => {
+    expect(incidentReport(home(), ctx())!.resend).toBeNull();
+    expect(incidentReport(home({ hasNote: true }), ctx())!.resend).toBeNull();
+  });
+
+  it("still offers the search party", () => {
+    expect(incidentReport(home(), ctx())!.search.kind).toBe("available");
+  });
+});

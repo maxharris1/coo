@@ -147,6 +147,13 @@ One screen. `Flight`, `FlightBlock` and `FlightLong` are the same screen at diff
 - Flight log, newest first, events whose time has passed. Seconds are shown for flights under ten minutes.
 - For an incoming flight the sub line reads "Carrying a note for you" and there is no log of
   the sender's seeds.
+- A trip home (`kind = 'return'`) reads the way the Flights list does: the bird is coming to
+  the owner. For the owner the header is "{bird} → You", "Your loft" sits on the destination pin
+  and "{host}, {from}" on the origin pin, and the sub line is "Coming home from {host}" or
+  "Bringing a reply from {host}", never a note carried to the host. For the host the header is
+  "{bird} → {owner}", "Your sill" sits on the origin and "{owner}, {to}" on the destination, and
+  the sub line is "Heading back to {owner}" or "Carrying a note to {owner}". The route and the
+  progress bar still run from origin to destination.
 - When the flight lands while open: the landing animation, then for my bird a "Delivered" card
   with seeds earned; for an incoming bird, a button to the Landed screen.
 - A delayed flight (major) shows a banner linking to the incident report.
@@ -158,6 +165,8 @@ cost; disabled after use, with the result: "Found him. Back in the air." or "The
 different pigeon. Sorry."), Wait it out (back to tracker), Resend with another bird (opens
 Compose with the same recipient and body). The footer counts this bird's detours.
 The report number is the owner's count of delayed flights.
+On a trip home the sub line is about the trip home ("{bird} is running late on the way home.",
+plus the reply from the host when one is attached) and there is no Resend button.
 
 ### Flights (`/flights`)
 Sections: Your birds (scheduled, flying and delayed), Coming to you, Landed today, then a

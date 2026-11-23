@@ -12,7 +12,7 @@ import Link from "next/link";
 import type { Flight } from "@/server/services/flights/shape";
 import { Bird, type GearId, type Look } from "./Bird";
 import { FlightLog, placeNear } from "./FlightLog";
-import { MapView, birdState, type BirdState } from "./MapView";
+import { MapView, birdState, type BirdState, type LoftAt } from "./MapView";
 import styles from "./Tracker.module.css";
 import { TrackerDelay } from "./TrackerDelay";
 import { TrackerEarn } from "./TrackerEarn";
@@ -32,6 +32,7 @@ export type TrackerView = {
   toName: string;
   loftLabel: string;
   sillLabel: string;
+  loftAt: LoftAt;
 };
 
 type Copy = {
@@ -133,31 +134,73 @@ function headedTo(flight: Flight): string {
     : (recipient(flight) ?? flight.to.label);
 }
 
-function pins(flight: Flight) {
-  if (flight.role === "incoming") {
-    return {
-      toName: "You",
-      loftLabel: `${flight.owner.name}, ${flight.from.label}`,
-      sillLabel: "Your sill",
-    };
-  }
-  const to = recipient(flight);
-  return {
-    toName: to ?? flight.to.label,
-    loftLabel: "Your loft",
-    sillLabel: to ? `${to}, ${flight.to.label}` : flight.to.label,
-  };
+type Roost = ReturnType<typeof roostAt>;
+type Chrome = {
+  toName: string;
+  loftLabel: string;
+  sillLabel: string;
+  loftAt: LoftAt;
+  sub: (roost: Roost) => string;
+};
+
+function nights(roost: Roost, where: string): string | undefined {
+  if (!roost || roost.count >= COUNTS.length) return undefined;
+  return `Night ${COUNTS[roost.index]} of a ${COUNTS[roost.count]}-day flight ${where}`;
 }
 
-function subLine(flight: Flight, roost: ReturnType<typeof roostAt>): string {
-  if (flight.role === "incoming") return "Carrying a note for you";
-  if (roost && roost.count < COUNTS.length) {
-    const to = recipient(flight) ?? flight.to.label;
-    return `Night ${COUNTS[roost.index]} of a ${COUNTS[roost.count]}-day flight to ${to}`;
-  }
-  const to = recipient(flight);
-  return to ? `Carrying your note to ${to}` : "Carrying your note";
-}
+const CHROME: Record<
+  `${Flight["role"]}:${Flight["kind"]}`,
+  (flight: Flight) => Chrome
+> = {
+  "mine:delivery": (flight) => {
+    const to = recipient(flight);
+    return {
+      toName: to ?? flight.to.label,
+      loftLabel: "Your loft",
+      sillLabel: to ? `${to}, ${flight.to.label}` : flight.to.label,
+      loftAt: "from",
+      sub: (roost) =>
+        nights(roost, `to ${to ?? flight.to.label}`) ??
+        (to ? `Carrying your note to ${to}` : "Carrying your note"),
+    };
+  },
+  "incoming:delivery": (flight) => ({
+    toName: "You",
+    loftLabel: `${flight.owner.name}, ${flight.from.label}`,
+    sillLabel: "Your sill",
+    loftAt: "from",
+    sub: () => "Carrying a note for you",
+  }),
+  "mine:return": (flight) => {
+    const host = recipient(flight);
+    return {
+      toName: "You",
+      loftLabel: "Your loft",
+      sillLabel: host ? `${host}, ${flight.from.label}` : flight.from.label,
+      loftAt: "to",
+      sub: (roost) =>
+        nights(roost, "home") ??
+        (host
+          ? flight.hasNote
+            ? `Bringing a reply from ${host}`
+            : `Coming home from ${host}`
+          : "Heading home"),
+    };
+  },
+  "incoming:return": (flight) => {
+    const owner = flight.owner.name;
+    return {
+      toName: owner,
+      loftLabel: `${owner}, ${flight.to.label}`,
+      sillLabel: "Your sill",
+      loftAt: "to",
+      sub: () =>
+        flight.hasNote
+          ? `Carrying a note to ${owner}`
+          : `Heading back to ${owner}`,
+    };
+  },
+};
 
 function cruiseStats(flight: Flight): [Stat, Stat] {
   return [
@@ -219,6 +262,7 @@ export function trackerView(
   const total = inUnits(totalMi(flight), units);
   const arrive = flight.arriveAt ?? flight.plan?.arriveAtMs;
   const lands = arrive === undefined ? "–" : fuzzyWhen(arrive, nowMs, timeZone);
+  const { sub, ...pins } = CHROME[`${flight.role}:${flight.kind}`](flight);
   const copy = {
     bird: flight.bird.name,
     place: placeNear(flight, frac),
@@ -230,7 +274,7 @@ export function trackerView(
     state,
     chip: STATES[state].chip,
     headline: STATES[state].headline(copy),
-    sub: subLine(flight, roost),
+    sub: sub(roost),
     fromLabel: flight.from.label,
     toLabel: flight.to.label,
     progress: {
@@ -243,7 +287,7 @@ export function trackerView(
         ? landedStats(flight, arrive, nowMs)
         : flyingStats(flight, lands),
     night,
-    ...pins(flight),
+    ...pins,
   };
 }
 
@@ -288,6 +332,7 @@ export function Tracker({
             night={view.night}
             loftLabel={view.loftLabel}
             sillLabel={view.sillLabel}
+            loftAt={view.loftAt}
             state={view.state}
           />
         )}

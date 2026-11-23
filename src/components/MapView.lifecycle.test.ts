@@ -1,12 +1,15 @@
 import type { MapOptions } from "maplibre-gl";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { positionAt } from "@/lib/flight/engine";
 import { MapView, type MapViewProps } from "./MapView";
 
 const lib = vi.hoisted(() => {
   const maps: FakeMap[] = [];
   const calls: string[] = [];
   const liveMarkers = new Set<FakeMarker>();
+  const markerAt: [number, number][] = [];
   let effect: (() => (() => void) | void) | undefined;
+  let deps: unknown[] | undefined;
 
   class FakeMap {
     removed = false;
@@ -30,7 +33,8 @@ const lib = vi.hoisted(() => {
   }
 
   class FakeMarker {
-    setLngLat() {
+    setLngLat(at: [number, number]) {
+      markerAt.push(at);
       return this;
     }
     addTo() {
@@ -56,13 +60,16 @@ const lib = vi.hoisted(() => {
       calls.push(`setWorkerUrl ${url}`);
     },
     liveMarkers,
+    markerAt,
     FakeMap,
     FakeMarker,
     FakeBounds,
-    setEffect: (fn: typeof effect) => {
+    setEffect: (fn: typeof effect, d?: unknown[]) => {
       effect = fn;
+      deps = d;
     },
     runEffect: () => effect!(),
+    deps: () => deps,
   };
 });
 
@@ -103,8 +110,13 @@ const props: MapViewProps = {
   sillLabel: "Priya, Philly",
 };
 
-async function mountMap() {
-  MapView(props);
+function routeStart(): [number, number] {
+  const p = positionAt(props.plan, props.from, props.to, Date.now());
+  return [p.lon, p.lat];
+}
+
+async function mountMap(over: Partial<MapViewProps> = {}) {
+  MapView({ ...props, ...over });
   const cleanup = lib.runEffect() as () => void;
   await vi.waitFor(() => expect(lib.maps.at(-1)?.removed).toBe(false));
   return { map: lib.maps.at(-1)!, cleanup };
@@ -114,6 +126,7 @@ beforeEach(() => {
   lib.maps.length = 0;
   lib.calls.length = 0;
   lib.liveMarkers.clear();
+  lib.markerAt.length = 0;
   vi.stubGlobal("requestAnimationFrame", () => 1);
   vi.stubGlobal("cancelAnimationFrame", () => {});
   vi.stubGlobal(
@@ -162,4 +175,29 @@ it("shows the licence once, from the tiles, with no custom attribution", async (
   const { map, cleanup } = await mountMap();
   expect(map.options.attributionControl).toEqual({ compact: true });
   cleanup();
+});
+
+it("plants the loft at the origin and the sill at the destination by default", async () => {
+  const { cleanup } = await mountMap();
+  const [loft, sill, bird] = lib.markerAt;
+  expect(loft, "loft pin").toEqual([-74, 40]);
+  expect(sill, "sill pin").toEqual([-73, 41]);
+  expect(bird, "bird on the from-to route").toEqual(routeStart());
+  cleanup();
+});
+
+it("plants the loft at the destination on a trip home, with the route unchanged", async () => {
+  const { cleanup } = await mountMap({ loftAt: "to" });
+  const [loft, sill, bird] = lib.markerAt;
+  expect(loft, "loft pin").toEqual([-73, 41]);
+  expect(sill, "sill pin").toEqual([-74, 40]);
+  expect(bird, "bird still on the from-to route").toEqual(routeStart());
+  cleanup();
+});
+
+it("keeps the map mounted when only the pin labels change", () => {
+  MapView(props);
+  const before = lib.deps();
+  MapView({ ...props, loftLabel: "Max, Tudor City", sillLabel: "Your sill" });
+  expect(lib.deps()).toEqual(before);
 });
