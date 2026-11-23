@@ -4692,6 +4692,149 @@
      "state": "landed"
     }
    ]
+  },
+  {
+   "name": "night-release-nightgoggles",
+   "about": "Released at 10 pm wearing night goggles: flies through the dark at once",
+   "input": {
+    "flightId": "vector-28-night-release-nightgoggles",
+    "from": {
+     "lat": 40.7306,
+     "lon": -73.9866
+    },
+    "to": {
+     "lat": 39.9526,
+     "lon": -75.1652
+    },
+    "departAtMs": 1795143600000,
+    "bird": {
+     "speedMph": 45,
+     "focus": 2,
+     "navigation": 4,
+     "level": 1,
+     "belly": 80,
+     "feathers": 80,
+     "energy": 80,
+     "sulking": false,
+     "breed": "city"
+    },
+    "gear": [
+     "nightgoggles"
+    ],
+    "weather": [
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     }
+    ]
+   },
+   "plan": {
+    "distanceMi": 82.10858428522562,
+    "bearingDeg": 229.48837723069127,
+    "onTimeOdds": 0.88,
+    "delayed": false,
+    "delayKind": "none",
+    "arriveAtMs": 1795150168687,
+    "segments": [
+     {
+      "kind": "fly",
+      "startMs": 1795143600000,
+      "endMs": 1795150168687,
+      "fromFrac": 0,
+      "toFrac": 1
+     }
+    ],
+    "events": [
+     {
+      "atMs": 1795143600000,
+      "kind": "takeoff",
+      "pick": 703
+     },
+     {
+      "atMs": 1795144538667,
+      "kind": "landmark",
+      "pick": 468
+     },
+     {
+      "atMs": 1795148695507,
+      "kind": "food",
+      "pick": 962
+     },
+     {
+      "atMs": 1795150168687,
+      "kind": "landing",
+      "pick": 973
+     }
+    ]
+   },
+   "samples": [
+    {
+     "atMs": 1795143600000,
+     "lat": 40.7306,
+     "lon": -73.9866,
+     "frac": 0,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795144256869,
+     "lat": 40.653341907246755,
+     "lon": -74.10568915749198,
+     "frac": 0.10000004567122775,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795145767667,
+     "lat": 40.4751861760533,
+     "lon": -74.37854943776024,
+     "frac": 0.3300000441488535,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795146884344,
+     "lat": 40.343095205620706,
+     "lon": -74.5792983135723,
+     "frac": 0.5000000761187129,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795148526515,
+     "lat": 40.148216764234306,
+     "lon": -74.87309114440244,
+     "frac": 0.7499999619406436,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795150103000,
+     "lat": 39.960438741470504,
+     "lon": -75.15354777261079,
+     "frac": 0.9899999802091346,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795150168687,
+     "lat": 39.9526,
+     "lon": -75.1652,
+     "frac": 1,
+     "state": "landed"
+    }
+   ]
   }
  ]
 }

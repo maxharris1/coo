@@ -190,6 +190,16 @@ describe("night flight", () => {
     });
   });
 
+  it("the night-release-nightgoggles vector flies through the dark at once", () => {
+    const v = vector("night-release-nightgoggles");
+    const plan = E.computeFlightPlan(v.input);
+
+    expect(new Set(plan.segments.map((s) => s.kind))).toEqual(new Set(["fly"]));
+    expect(plan.segments[0].startMs).toBe(v.input.departAtMs);
+    expect(plan.onTimeOdds).toBe(0.88);
+    expect(plan.delayKind).toBe("none");
+  });
+
   it("a bird without the goggles still roosts at the loft until sunrise", () => {
     const plan = E.computeFlightPlan(nightRelease);
     const { sunriseMs } = E.sunTimes(
