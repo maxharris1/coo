@@ -108,6 +108,67 @@ describe("/privacy", () => {
   });
 });
 
+describe("/privacy bug reports", () => {
+  const section = (heading: string) => {
+    const match = privacyHtml.match(
+      new RegExp(`<h2[^>]*>${heading}</h2>(.*?)(?=<h2|$)`, "s"),
+    );
+    return text(match?.[1] ?? "");
+  };
+  const bugReports = privacy.slice(
+    privacy.indexOf("Bug reports."),
+    privacy.indexOf("What we never keep"),
+  );
+
+  it("lists bug reports under What we keep, before What we never keep", () => {
+    const keep = privacy.indexOf("What we keep");
+    const bug = privacy.indexOf("Bug reports.");
+    const never = privacy.indexOf("What we never keep");
+    expect(keep).toBeGreaterThan(-1);
+    expect(bug).toBeGreaterThan(keep);
+    expect(never).toBeGreaterThan(bug);
+    expect(section("What we keep")).toContain("Bug reports.");
+  });
+
+  it.each([
+    "the page you were on",
+    "the app version",
+    "your browser and device type",
+    "whether you were using the home screen app",
+    "your screen size",
+    "your time zone",
+  ])("names %s as stored with a bug report", (item) => {
+    expect(bugReports).toContain(item);
+  });
+
+  it("says why reports are read and how a public GitHub issue is written", () => {
+    expect(bugReports).toContain("We read it so we can fix the problem.");
+    expect(bugReports).toContain("on GitHub, which is public");
+    expect(bugReports).toContain("we write it in our own words");
+  });
+
+  it("names GitHub under Who handles it", () => {
+    expect(section("Who handles it")).toContain(
+      "GitHub hosts our public list of issues.",
+    );
+  });
+
+  it("deletes the bug reports you sent with the account", () => {
+    expect(section("How to delete it")).toContain(
+      "the notes you sent and the bug reports you sent.",
+    );
+  });
+
+  it("never says or implies screenshots, email or analytics for bug reports", () => {
+    expect(privacy.toLowerCase()).not.toContain("screenshot");
+    expect(privacy.toLowerCase()).not.toContain("email us a bug");
+    expect(bugReports.toLowerCase()).not.toMatch(/screenshot|e-?mail|analytics/);
+    expect(privacy).toContain(
+      `Anything for ads. ${config.app.name} has no ads, no analytics and no tracking scripts`,
+    );
+  });
+});
+
 describe("/terms", () => {
   it("has a section for each topic", () => {
     expect(headings(termsHtml)).toEqual([
