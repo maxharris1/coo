@@ -1,0 +1,315 @@
+{
+  "_about": "The loft scene on the home screen: layout, slots and the five times of day. Generated from reference/generator/loft.py; docs/17-loft-scene.md explains it. Code reads these; nothing here is typed into components.",
+  "scene": {
+    "width": 390,
+    "height": 412,
+    "floorY": 378,
+    "copingHeight": 10,
+    "skyBandHeight": 128,
+    "minWidth": 320,
+    "maxWidth": 430
+  },
+  "rooms": {
+    "width": 74,
+    "height": 80,
+    "perFloor": 3,
+    "topFloorMinRooms": 2,
+    "perchTopY": 68,
+    "door": {
+      "cx": 17,
+      "cy": 19,
+      "r": 10
+    },
+    "bird": {
+      "width": 70,
+      "offsetX": 5,
+      "feetY": 68,
+      "feetYInBirdViewBox": 104
+    }
+  },
+  "roof": {
+    "overhang": 10,
+    "riseThreeRooms": 44,
+    "riseTwoRooms": 40
+  },
+  "slots": {
+    "birdbath": {
+      "centerX": 38,
+      "width": 60,
+      "height": 60
+    },
+    "cart": {
+      "centerX": 353,
+      "width": 60,
+      "height": 70
+    },
+    "flowerBoxes": {
+      "centerX": [
+        38,
+        353
+      ],
+      "topBelowFloor": 10
+    },
+    "weathervane": "roof peak"
+  },
+  "lights": {
+    "y": 150,
+    "sag": 50,
+    "bulbs": 13,
+    "fromT": 0.05,
+    "toT": 0.95,
+    "colors": [
+      "#F4623F",
+      "#FFC93C",
+      "#86D9A0",
+      "#FFFBF0",
+      "#F59C8E"
+    ],
+    "unlitMixToCard": 0.38
+  },
+  "stars": [
+    {
+      "x": 120,
+      "y": 30
+    },
+    {
+      "x": 168,
+      "y": 16
+    },
+    {
+      "x": 228,
+      "y": 38
+    },
+    {
+      "x": 266,
+      "y": 60
+    },
+    {
+      "x": 270,
+      "y": 112
+    },
+    {
+      "x": 378,
+      "y": 64
+    },
+    {
+      "x": 374,
+      "y": 132
+    },
+    {
+      "x": 34,
+      "y": 140
+    },
+    {
+      "x": 92,
+      "y": 146
+    },
+    {
+      "x": 200,
+      "y": 140
+    },
+    {
+      "x": 246,
+      "y": 150
+    },
+    {
+      "x": 300,
+      "y": 142
+    }
+  ],
+  "times": {
+    "thresholdsDeg": {
+      "dayAbove": 6,
+      "sunDownBelow": -0.833,
+      "nightBelow": -6
+    },
+    "risingCheckMs": 600000,
+    "recheckMs": 60000,
+    "crossFadeMs": 2000,
+    "order": [
+      "sunrise",
+      "day",
+      "sunset",
+      "dusk",
+      "night"
+    ],
+    "sunrise": {
+      "sky": [
+        {
+          "fromY": -300,
+          "color": "#C7E8F5"
+        },
+        {
+          "fromY": 178,
+          "color": "#FAD0C0"
+        },
+        {
+          "fromY": 238,
+          "color": "#FFDA7B"
+        }
+      ],
+      "far": "#D1ABB5",
+      "mid": "#AB88AB",
+      "litWindowKeys": [
+        2,
+        9
+      ],
+      "moreNeighbourWindowsLit": false,
+      "tint": "#F9C5B4",
+      "tintNeighbours": 0.2,
+      "tintHouseAndAddOns": 0.1,
+      "tintDeckAndFlowerBoxes": 0.16,
+      "birdFilter": "none",
+      "lightsOn": false,
+      "birdsAsleep": false,
+      "doorwaysGlow": false,
+      "textColor": "#2A2140",
+      "cloud": "#FDEBDE",
+      "sun": {
+        "cx": 312,
+        "cy": 204,
+        "r": 40,
+        "color": "#FFD360"
+      },
+      "moon": false,
+      "stars": 0
+    },
+    "day": {
+      "sky": [
+        {
+          "fromY": -300,
+          "color": "#A9DDF7"
+        }
+      ],
+      "far": "#9BC8E3",
+      "mid": "#89AEC9",
+      "litWindowKeys": [
+        2
+      ],
+      "moreNeighbourWindowsLit": false,
+      "tint": null,
+      "tintNeighbours": 0,
+      "tintHouseAndAddOns": 0,
+      "tintDeckAndFlowerBoxes": 0.0,
+      "birdFilter": "none",
+      "lightsOn": false,
+      "birdsAsleep": false,
+      "doorwaysGlow": false,
+      "textColor": "#2A2140",
+      "cloud": "#FFFBF0",
+      "sun": null,
+      "moon": false,
+      "stars": 0
+    },
+    "sunset": {
+      "sky": [
+        {
+          "fromY": -300,
+          "color": "#E2BBC3"
+        },
+        {
+          "fromY": 178,
+          "color": "#F7AE9F"
+        },
+        {
+          "fromY": 238,
+          "color": "#FDB23D"
+        }
+      ],
+      "far": "#BF899F",
+      "mid": "#936C9E",
+      "litWindowKeys": [
+        2,
+        5,
+        9
+      ],
+      "moreNeighbourWindowsLit": true,
+      "tint": "#BD5F6A",
+      "tintNeighbours": 0.26,
+      "tintHouseAndAddOns": 0.12,
+      "tintDeckAndFlowerBoxes": 0.208,
+      "birdFilter": "none",
+      "lightsOn": true,
+      "birdsAsleep": false,
+      "doorwaysGlow": false,
+      "textColor": "#2A2140",
+      "cloud": "#FBD5C9",
+      "sun": {
+        "cx": 72,
+        "cy": 202,
+        "r": 42,
+        "color": "#FBA83D"
+      },
+      "moon": false,
+      "stars": 0
+    },
+    "dusk": {
+      "sky": [
+        {
+          "fromY": -300,
+          "color": "#635D93"
+        },
+        {
+          "fromY": 196,
+          "color": "#926886"
+        },
+        {
+          "fromY": 262,
+          "color": "#F6AA9B"
+        }
+      ],
+      "far": "#614767",
+      "mid": "#433354",
+      "litWindowKeys": [
+        1,
+        2,
+        5,
+        8,
+        9
+      ],
+      "moreNeighbourWindowsLit": true,
+      "tint": "#4A4380",
+      "tintNeighbours": 0.42,
+      "tintHouseAndAddOns": 0.26,
+      "tintDeckAndFlowerBoxes": 0.336,
+      "birdFilter": "brightness(.9) saturate(.9)",
+      "lightsOn": true,
+      "birdsAsleep": true,
+      "doorwaysGlow": true,
+      "textColor": "#FFFBF0",
+      "cloud": "#AEA8BE",
+      "sun": null,
+      "moon": false,
+      "stars": 5
+    },
+    "night": {
+      "sky": [
+        {
+          "fromY": -300,
+          "color": "#3E386E"
+        }
+      ],
+      "far": "#342F5F",
+      "mid": "#2B2751",
+      "litWindowKeys": [
+        2,
+        5,
+        9
+      ],
+      "moreNeighbourWindowsLit": true,
+      "tint": "#2C2752",
+      "tintNeighbours": 0.52,
+      "tintHouseAndAddOns": 0.34,
+      "tintDeckAndFlowerBoxes": 0.416,
+      "birdFilter": "brightness(.8) saturate(.82)",
+      "lightsOn": true,
+      "birdsAsleep": true,
+      "doorwaysGlow": true,
+      "textColor": "#FFFBF0",
+      "cloud": "#928DAD",
+      "sun": null,
+      "moon": true,
+      "stars": 12
+    }
+  }
+}
