@@ -6,14 +6,25 @@ import { handleBase } from "@/lib/handle";
 import type { Db } from "@/server/db";
 import type { Deps } from "@/server/deps";
 import { AppError } from "@/server/errors";
+import { log } from "@/server/log";
 import type { UserId } from "@/server/ports/auth";
 import {
+  pair,
   toBirdRecord,
   toMe,
   type BirdRecord,
   type Me,
   type Row,
 } from "@/server/rows";
+import { friendshipBetween } from "./friends";
+import {
+  linksToMyPhone,
+  lockPeopleAndLinks,
+  resolveLinksBetween,
+  txLockingLinks,
+} from "./guestLinks/resolve";
+import { notificationText, recordNotification } from "./notify";
+import { deliver } from "./notify/deliver";
 
 export type OnboardingResult = { me: Me; birds: BirdRecord[] };
 
@@ -200,18 +211,83 @@ async function readAccount(db: Db, user: UserId): Promise<OnboardingResult> {
   return { me: toMe(profile), birds: birds.map(toBirdRecord) };
 }
 
+async function claimSendsToMyPhone(
+  db: Db,
+  me: UserId,
+  now: number,
+): Promise<string[]> {
+  const links = await linksToMyPhone(db, me);
+  const senders = [...new Set(links.map((l) => l.other))];
+  if (senders.length === 0) return [];
+  const { people, owned } = await lockPeopleAndLinks(
+    db,
+    me,
+    senders,
+    now,
+    links,
+  );
+  const joiner = people.find((p) => p.id === me);
+  if (!joiner) throw new AppError("not_found", "No profile");
+  const nowIso = new Date(now).toISOString();
+
+  const notificationIds: string[] = [];
+  for (const sender of senders) {
+    const existing = await friendshipBetween(db, me, sender);
+    if (existing?.status === "blocked") continue;
+    if (!existing)
+      await db.query(
+        `insert into friendships (a_id, b_id, via, created_at)
+         values ($1, $2, 'guest_link', $3)`,
+        [...pair(me, sender), nowIso],
+      );
+    const resolved = await resolveLinksBetween(db, me, sender, now, owned);
+    const link = resolved.find((r) => r.senderId === sender);
+    if (existing || !link) continue;
+    const created = await recordNotification(db, now, {
+      userId: sender,
+      kind: "friend-joined",
+      refId: link.linkId,
+      ...notificationText("friend-joined", { friend: joiner.name }),
+    });
+    if (created) notificationIds.push(created.id);
+  }
+  return notificationIds;
+}
+
 export async function onboard(
   deps: Deps,
   caller: UserId,
   input: unknown,
 ): Promise<OnboardingResult> {
   const body = parse(deps.config, input);
-  const now = new Date(deps.clock.now()).toISOString();
-  return deps.db.tx(async (db) => {
-    if (await claimProfile(db, caller, body, now)) {
-      await stockAccount(db, deps.config, caller, body, now);
-    }
-    await syncPhoneLast4(db, caller);
-    return readAccount(db, caller);
-  });
+  const nowMs = deps.clock.now();
+  const now = new Date(nowMs).toISOString();
+  const { account, notificationIds } = await txLockingLinks(
+    deps,
+    async (db) => {
+      if (await claimProfile(db, caller, body, now)) {
+        await stockAccount(db, deps.config, caller, body, now);
+      }
+      const notificationIds = await claimSendsToMyPhone(db, caller, nowMs);
+      // Flights before profiles, as lockPeopleAndLinks takes them, or this deadlocks with joinByCode.
+      await syncPhoneLast4(db, caller);
+      return { account: await readAccount(db, caller), notificationIds };
+    },
+  );
+  for (const id of notificationIds) await deliverQuietly(deps, id);
+  return account;
+}
+
+async function deliverQuietly(
+  deps: Deps,
+  notificationId: string,
+): Promise<void> {
+  try {
+    await deliver(deps, notificationId);
+  } catch (error) {
+    log.error("onboard.notify_failed", {
+      notificationId,
+      error: error instanceof Error ? error.name : typeof error,
+    });
+  }
 }

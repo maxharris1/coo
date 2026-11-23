@@ -40,7 +40,9 @@ One per user. `id` equals the Supabase Auth user id.
 ### friendships
 One row per pair, with `a_id < b_id`. `a_shows` is the detail a lets b see (`block` or `city`),
 `b_shows` the reverse. `status` is `accepted` or `blocked`; `blocked_by` says who blocked.
-There is no pending state: opening an invite link or claiming a guest link makes the row.
+There is no pending state: opening an invite link, claiming a guest link or signing up with the
+phone a guest send was addressed to makes the row. Any path that makes or finds an accepted row
+also claims the leftover guest sends between the pair (`docs/11-guest-links.md`, Leftover sends).
 Write a helper `pair(x, y)` that orders the ids, and use it everywhere.
 
 ### birds
@@ -64,7 +66,9 @@ Write a helper `pair(x, y)` that orders the ids, and use it everywhere.
 A private link for a recipient without an account. `token_hash` is the SHA-256 of pepper plus
 token; the token itself is never stored. `dest_*` is the snapped destination the sender picked.
 `notify_phone` holds a phone number only if the guest asked for a landing text, and is cleared
-when that text is sent. `expires_at` is set at landing. Details in `docs/11-guest-links.md`.
+when that text is sent. `expires_at` is set at landing. A link stays `active` until someone
+claims it; any path that makes the sender and the recipient friends claims it, and signing up with
+the `notify_phone` it was addressed to does too. Details in `docs/11-guest-links.md`.
 
 ### notes
 The message. `recipient_id` is null while the recipient is a guest and is filled on claim.

@@ -13,6 +13,11 @@ import { AppError } from "@/server/errors";
 import type { UserId } from "@/server/ports/auth";
 import { rateLimit } from "@/server/rateLimit";
 import { pair, type Row } from "@/server/rows";
+import {
+  lockPeopleAndLinks,
+  resolveLinksBetween,
+  txLockingLinks,
+} from "./guestLinks/resolve";
 
 export type Shows = "block" | "city";
 
@@ -87,8 +92,9 @@ export async function joinByCode(
   me: UserId,
   code: string,
 ): Promise<{ friend: { id: UserId; name: string; handle: string } }> {
-  const now = new Date(deps.clock.now()).toISOString();
-  return deps.db.tx(async (db) => {
+  const nowMs = deps.clock.now();
+  const now = new Date(nowMs).toISOString();
+  return txLockingLinks(deps, async (db) => {
     const [inviter] = await db.query<
       Pick<Row<"profiles">, "id" | "name" | "handle">
     >("select id, name, handle from profiles where invite_code = $1", [code]);
@@ -101,12 +107,20 @@ export async function joinByCode(
     if (friend.id === me)
       throw new AppError("invalid", "That is your own code");
 
-    const locked = await lockPair(db, me, friend.id);
+    const { people, owned } = await lockPeopleAndLinks(
+      db,
+      me,
+      [friend.id],
+      nowMs,
+    );
 
     const existing = await friendshipBetween(db, me, friend.id);
     if (existing?.status === "blocked")
       throw new AppError("conflict", "You can't join this person");
-    if (existing) return { friend };
+    if (existing) {
+      await resolveLinksBetween(db, me, friend.id, nowMs, owned);
+      return { friend };
+    }
 
     const max = deps.config.game.limits.friendsMax;
     const full = await db.query<{ id: string }>(
@@ -129,7 +143,7 @@ export async function joinByCode(
       [a, b, now],
     );
 
-    const joiner = locked.find((p) => p.id === me);
+    const joiner = people.find((p) => p.id === me);
     const copy = deps.config.copy.notifications["friend-joined"];
     await db.query(
       `insert into notifications (user_id, kind, title, body, url, ref_id, created_at)
@@ -145,6 +159,7 @@ export async function joinByCode(
       ],
     );
     await nudgeBoth(db, me, friend.id, now);
+    await resolveLinksBetween(db, me, friend.id, nowMs, owned);
     return { friend };
   });
 }

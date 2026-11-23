@@ -1,10 +1,20 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BLOCKED_NAMES } from "@/lib/blocklist";
 import { config } from "@/lib/config";
 import type { UserId } from "@/server/ports/auth";
+import { pair } from "@/server/rows";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
+import { landingAtFirstFlightLock, sendGuestFlight } from "@/test/guestFlight";
+import { seedWorld, type World } from "@/test/seedWorld";
 import { asRole } from "@/test/testDb";
+import { listFriends } from "./friends";
+import { listNotes } from "./notes";
 import { onboard, syncPhoneLast4 } from "./onboarding";
+import { tick } from "./tick";
+
+vi.mock("@/env", () => ({
+  getEnv: () => ({ LINK_TOKEN_PEPPER: "test-pepper" }),
+}));
 
 const BODY = {
   name: "Max",
@@ -356,5 +366,139 @@ describe("syncPhoneLast4 as coo_app", () => {
 
     expect(await phoneLast4(a)).toBe("4567");
     expect(await phoneLast4(b)).toBe("0000");
+  });
+});
+
+describe("onboard claims a guest send addressed to the new phone (ac-1)", () => {
+  const PHONE = "15550000099";
+  let world: World;
+  let max: UserId;
+
+  beforeEach(async () => {
+    world = await seedWorld(deps.db, deps.clock.now());
+    max = world.max.id as UserId;
+  });
+
+  async function addressedSend() {
+    const sent = await sendGuestFlight(deps, world);
+    const [{ id: linkId }] = await deps.db.query<{ id: string }>(
+      `update guest_links set notify_phone = $2
+       where id = (select guest_link_id from flights where id = $1) returning id`,
+      [sent.flightId, PHONE],
+    );
+    return { ...sent, linkId };
+  }
+
+  async function attribution(linkId: string) {
+    const [row] = await deps.db.query<Record<string, unknown>>(
+      `select g.status, g.claimed_by, f.counterpart_id, n.recipient_id,
+              f.to_lat, f.to_lon, f.to_label, f.arrive_at
+         from guest_links g
+         join flights f on f.guest_link_id = g.id and f.kind = 'delivery'
+         join notes n on n.id = f.note_id
+        where g.id = $1`,
+      [linkId],
+    );
+    return row;
+  }
+
+  it("befriends the sender, claims the mid-flight link, and holds the note until it lands", async () => {
+    const { linkId, arriveAt } = await addressedSend();
+    const before = await attribution(linkId);
+    deps.clock.advance(60_000);
+    const user = await userWithPhone(PHONE);
+
+    await onboard(deps, user, { ...BODY, name: "Bea" });
+
+    expect(await attribution(linkId)).toEqual({
+      ...before,
+      status: "claimed",
+      claimed_by: user,
+      counterpart_id: user,
+      recipient_id: user,
+    });
+    expect(
+      await deps.db.query(
+        "select status, via from friendships where a_id = $1 and b_id = $2",
+        pair(max, user),
+      ),
+    ).toEqual([{ status: "accepted", via: "guest_link" }]);
+    const { friends, guestLinks } = await listFriends(deps, max);
+    expect(friends.map((f) => f.id)).toContain(user);
+    expect(guestLinks).toEqual([]);
+    expect(
+      await deps.db.query(
+        "select kind, ref_id from notifications where user_id = $1",
+        [max],
+      ),
+    ).toEqual([{ kind: "friend-joined", ref_id: linkId }]);
+
+    const shoebox = async () => (await listNotes(deps, user, {})).notes;
+    expect(await shoebox()).toEqual([]);
+    deps.clock.set(arriveAt - 1);
+    await tick(deps);
+    expect(await shoebox()).toEqual([]);
+    deps.clock.set(arriveAt + 60_000);
+    await tick(deps);
+    expect(await shoebox()).toEqual([
+      expect.objectContaining({
+        direction: "received",
+        state: "delivered",
+        body: "Come see the new loft",
+        deliveredAt: expect.any(Number),
+      }),
+    ]);
+  });
+
+  it("claims the send as the coo_app role and changes nothing on a second onboard", async () => {
+    const { linkId } = await addressedSend();
+    const user = await userWithPhone(PHONE);
+    const app = { ...deps, db: asRole(deps.db, "coo_app") };
+
+    await expect(
+      onboard(app, user, { ...BODY, name: "Bea" }),
+    ).resolves.toMatchObject({ me: { id: user } });
+    const after = await attribution(linkId);
+    await onboard(app, user, { ...BODY, name: "Bea" });
+
+    expect(after).toMatchObject({ status: "claimed", claimed_by: user });
+    expect(await attribution(linkId)).toEqual(after);
+    expect(
+      await deps.db.query("select 1 from notifications where user_id = $1", [
+        max,
+      ]),
+    ).toHaveLength(1);
+  });
+
+  it("claims the send when it lands between finding the phone and locking the flight", async () => {
+    const { linkId, arriveAt } = await addressedSend();
+    const user = await userWithPhone(PHONE);
+    deps.clock.set(arriveAt - 1);
+    const landing = landingAtFirstFlightLock(deps, arriveAt + 1);
+
+    await onboard(landing.deps, user, { ...BODY, name: "Bea" });
+
+    expect(landing.landings).toEqual([{ count: 1, failed: 0 }]);
+    expect(await attribution(linkId)).toMatchObject({
+      status: "claimed",
+      claimed_by: user,
+      counterpart_id: user,
+      recipient_id: user,
+    });
+  });
+
+  it("leaves the link alone for a different phone", async () => {
+    const { linkId } = await addressedSend();
+    const user = await userWithPhone("15550000098");
+
+    await onboard(deps, user, { ...BODY, name: "Bea" });
+
+    expect(await attribution(linkId)).toMatchObject({
+      status: "active",
+      claimed_by: null,
+    });
+    expect(
+      (await listFriends(deps, max)).friends.map((f) => f.id),
+    ).not.toContain(user);
   });
 });
