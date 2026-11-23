@@ -807,6 +807,18 @@ describe("past filters", () => {
     expect(ids({ dir: "received", birds: new Set(["b1"]) })).toEqual([]);
   });
 
+  it("ignores a picked bird once it has no chip, so the list never strands", () => {
+    const gerald = rows.filter((r) => r.flight.bird.id === "b1");
+    expect(
+      filterPast(gerald, { dir: "all", birds: new Set(["b2"]) }).map(
+        (r) => r.id,
+      ),
+    ).toEqual(["sent-gerald", "sent-gerald-hop"]);
+    expect(ids({ dir: "all", birds: new Set(["gone", "b3"]) })).toEqual([
+      "sent-kevin",
+    ]);
+  });
+
   it("offers one chip per loaded bird only once two or more birds are loaded", () => {
     expect(birdChips(rows)).toEqual([
       { id: "b2", name: "Brenda" },

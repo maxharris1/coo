@@ -277,10 +277,15 @@ export function filterPast(
   rows: FlightsRow[],
   { dir, birds }: PastFilter,
 ): FlightsRow[] {
+  const picked = new Set(
+    birdChips(rows)
+      .map(({ id }) => id)
+      .filter((id) => birds.has(id)),
+  );
   return rows.filter(
     (row) =>
       (dir === "all" || row.direction === dir) &&
-      (birds.size === 0 || birds.has(row.flight.bird.id)),
+      (picked.size === 0 || picked.has(row.flight.bird.id)),
   );
 }
 
