@@ -26,6 +26,10 @@ let deps: TestDeps;
 beforeEach(async () => {
   uuid.pinned = null;
   deps = await makeTestDeps();
+  await deps.db.query("insert into auth.users (id) values ($1), ($2)", [
+    ME,
+    OTHER,
+  ]);
 });
 
 afterEach(() => vi.restoreAllMocks());

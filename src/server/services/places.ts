@@ -80,6 +80,11 @@ export async function searchPlaces(
   if (held.length === 0) return { results: [], message: PLACE_NOT_FOUND };
 
   await deps.db.tx(async (db) => {
+    const [user] = await db.query(
+      "select 1 from auth.users where id = $1 for key share",
+      [userId],
+    );
+    if (!user) throw new AppError("unauthenticated", "Sign in to continue.");
     for (const { placeId, place } of held) {
       await db.query(
         `insert into geo_cache (key, payload, fetched_at)

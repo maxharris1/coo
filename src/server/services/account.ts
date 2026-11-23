@@ -102,8 +102,8 @@ async function tryDelete(
        from friendships where a_id = $1 or b_id = $1`,
       [userId, new Date(nowMs).toISOString()],
     );
-    await forgetPlaces(tx, userId);
     await tx.query("delete from auth.users where id = $1", [userId]);
+    await forgetPlaces(tx, userId);
     return true;
   });
 }
