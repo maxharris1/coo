@@ -227,6 +227,7 @@
     "outfitsMax": 6,
     "geoSearchPerMinute": 30,
     "reportsPerDay": 10,
+    "bugReportsPerHour": 5,
     "smsPerUserPer15Min": 1,
     "smsWindowMinutes": 15,
     "guestViewsPerMinutePerIp": 30
