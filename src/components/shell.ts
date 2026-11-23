@@ -14,6 +14,7 @@ export const FULL_SCREEN_FLOWS = [
   { flow: "Reply", pattern: /^\/sill\/[^/]+\/reply$/ },
   { flow: "TakeoffHome", pattern: /^\/sill\/[^/]+\/takeoff$/ },
   { flow: "Incident report", pattern: /^\/flights\/[^/]+\/incident$/ },
+  { flow: "Report a bug", pattern: /^\/more\/report-bug$/ },
 ] as const;
 
 const COLOURED_TOPS = [

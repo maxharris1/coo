@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canvasFor, topFor } from "./shell";
+import { canvasFor, chromeFor, topFor } from "./shell";
 
 describe("topFor", () => {
   it.each([
@@ -76,5 +76,15 @@ describe("canvasFor", () => {
     "/more",
   ])("keeps the canvas behind %s paper", (path) => {
     expect(canvasFor(path)).toBe("paper");
+  });
+});
+
+describe("chromeFor", () => {
+  it("gives the Report a bug screen the full-screen chrome", () => {
+    expect(chromeFor("/more/report-bug")).toBe("full");
+  });
+
+  it("keeps the tab bar on /more itself", () => {
+    expect(chromeFor("/more")).toBe("tabs");
   });
 });
