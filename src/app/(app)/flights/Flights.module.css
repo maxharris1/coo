@@ -86,8 +86,11 @@
 }
 
 .filter {
+  min-width: var(--coo-touch);
+  max-width: 100%;
   min-height: var(--coo-touch);
   padding: 0 14px;
+  overflow-wrap: anywhere;
   background: var(--coo-card);
   border: var(--coo-line-thin);
   border-radius: var(--coo-radius-pill);

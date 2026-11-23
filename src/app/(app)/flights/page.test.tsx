@@ -970,6 +970,15 @@ describe("/flights layout", () => {
     expect(css).toMatch(/\.doneRows\[hidden\]\s*{[^}]*display:\s*none/);
   });
 
+  it("keeps every chip at least 44 px wide and wraps a long bird name inside the row", () => {
+    const filter = rule("filter");
+    expect(filter).toMatch(/min-width:\s*var\(--coo-touch\)/);
+    expect(filter).toMatch(/max-width:\s*100%/);
+    expect(filter).toMatch(/overflow-wrap:\s*anywhere/);
+    expect(filter).not.toMatch(/white-space:\s*nowrap|overflow:\s*hidden/);
+    expect(rule("filters")).toMatch(/flex-wrap:\s*wrap/);
+  });
+
   it("sizes avatars to the mock's outside edge under the global border-box", () => {
     const globals = readFileSync(
       new URL("../../globals.css", import.meta.url),
