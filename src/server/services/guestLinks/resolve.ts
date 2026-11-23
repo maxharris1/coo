@@ -8,6 +8,8 @@ export type Resolved = { linkId: string; senderId: UserId; claimerId: UserId };
 
 export type Person = { id: string; name: string };
 
+export type Candidate = { id: string; other: UserId; byPhone: boolean };
+
 const LOCK_ATTEMPTS = 3;
 const LINKS_GREW = new Error("crossed links appeared during the lock");
 
@@ -47,15 +49,20 @@ const CANDIDATES = `
   with dir (sender_id, recipient_id) as (
     values ($1::uuid, $2::uuid), ($2::uuid, $1::uuid)
   )
-  select gl.id
+  select gl.id, m.by_phone
     from dir d
     join guest_links gl on gl.sender_id = d.sender_id
     join profiles r on r.id = d.recipient_id
+    cross join lateral (
+      select gl.id in (
+        select fp.id from public.guest_links_for_phone(d.recipient_id) fp
+      ) as by_phone
+    ) m
    where gl.status = 'active'
      and gl.claimed_by is null
      and (gl.expires_at is null or gl.expires_at > $3)
      and (
-       gl.id in (select fp.id from public.guest_links_for_phone(d.recipient_id) fp)
+       m.by_phone
        or (
          gl.notify_phone is null
          and $4::boolean
@@ -81,14 +88,14 @@ export async function linksBetween(
   b: UserId,
   now: number,
   friends: boolean,
-): Promise<string[]> {
-  const rows = await db.query<{ id: string }>(CANDIDATES, [
+): Promise<{ id: string; byPhone: boolean }[]> {
+  const rows = await db.query<{ id: string; by_phone: boolean }>(CANDIDATES, [
     a,
     b,
     new Date(now).toISOString(),
     friends,
   ]);
-  return rows.map((r) => r.id);
+  return rows.map((r) => ({ id: r.id, byPhone: r.by_phone }));
 }
 
 export async function resolveLinksBetween(
@@ -96,20 +103,27 @@ export async function resolveLinksBetween(
   a: UserId,
   b: UserId,
   now: number,
-  within?: readonly string[],
+  owned?: readonly Candidate[],
 ): Promise<Resolved[]> {
   const friendship = await friendshipBetween(db, a, b);
   if (friendship?.status === "blocked") return [];
   const nowIso = new Date(now).toISOString();
 
-  const found = await linksBetween(
-    db,
-    a,
-    b,
-    now,
-    friendship?.status === "accepted",
-  );
-  const ids = within ? found.filter((id) => within.includes(id)) : found;
+  const fresh = (
+    await linksBetween(db, a, b, now, friendship?.status === "accepted")
+  ).map((l) => l.id);
+  // A phone match was validated before the locks and stays pinned even if
+  // landing clears notify_phone meanwhile. A name match must still be
+  // unambiguous after the locks.
+  const ids = owned
+    ? owned
+        .filter(
+          (c) =>
+            (c.other === a || c.other === b) &&
+            (c.byPhone || fresh.includes(c.id)),
+        )
+        .map((c) => c.id)
+    : fresh;
   if (ids.length === 0) return [];
 
   await db.query(
@@ -120,8 +134,9 @@ export async function resolveLinksBetween(
   const locked = await db.query<{ id: string; sender_id: UserId }>(
     `select id, sender_id from guest_links
      where id = any($1) and status = 'active' and claimed_by is null
+       and (expires_at is null or expires_at > $2) and sender_id = any($3)
      order by id for update`,
-    [ids],
+    [ids, nowIso, [a, b]],
   );
 
   const resolved: Resolved[] = [];
@@ -139,15 +154,12 @@ export async function resolveLinksBetween(
   return resolved;
 }
 
-export async function linksToMyPhone(
-  db: Db,
-  me: UserId,
-): Promise<{ id: string; senderId: UserId }[]> {
+export async function linksToMyPhone(db: Db, me: UserId): Promise<Candidate[]> {
   const rows = await db.query<{ id: string; sender_id: UserId }>(
     "select id, sender_id from public.guest_links_for_phone($1)",
     [me],
   );
-  return rows.map((r) => ({ id: r.id, senderId: r.sender_id }));
+  return rows.map((r) => ({ id: r.id, other: r.sender_id, byPhone: true }));
 }
 
 // Flights before profiles, the order landing takes them. Any link that
@@ -157,30 +169,36 @@ export async function lockPeopleAndLinks(
   me: UserId,
   others: readonly UserId[],
   now: number,
-  also: readonly string[] = [],
-): Promise<{ people: Person[]; owned: string[] }> {
+  also: readonly Candidate[] = [],
+): Promise<{ people: Person[]; owned: Candidate[] }> {
   const open: UserId[] = [];
   for (const other of others)
     if ((await friendshipBetween(db, me, other))?.status !== "blocked")
       open.push(other);
   const scan = async () => {
-    const ids: string[] = [];
+    const found: Candidate[] = [];
     for (const other of open)
-      ids.push(...(await linksBetween(db, me, other, now, true)));
-    return ids;
+      for (const link of await linksBetween(db, me, other, now, true))
+        found.push({ ...link, other });
+    return found;
   };
 
-  const owned = [...new Set([...also, ...(await scan())])];
+  const byId = new Map<string, Candidate>();
+  for (const c of [...also, ...(await scan())]) {
+    const seen = byId.get(c.id);
+    byId.set(c.id, { ...c, byPhone: c.byPhone || !!seen?.byPhone });
+  }
+  const owned = [...byId.values()];
   await db.query(
     `select 1 from flights where guest_link_id = any($1::uuid[]) and kind = 'delivery'
      order by id for update`,
-    [owned],
+    [[...byId.keys()]],
   );
   const people = await db.query<Person>(
     "select id, name from profiles where id = any($1::uuid[]) order by id for update",
     [[me, ...others]],
   );
-  if ((await scan()).some((id) => !owned.includes(id))) throw LINKS_GREW;
+  if ((await scan()).some((c) => !byId.has(c.id))) throw LINKS_GREW;
   return { people, owned };
 }
 

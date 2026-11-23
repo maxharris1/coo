@@ -3,6 +3,7 @@ import type { UserId } from "@/server/ports/auth";
 import { pair } from "@/server/rows";
 import { onboard } from "@/server/services/onboarding";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
+import { landingAtFirstFlightLock } from "@/test/guestFlight";
 import { seedWorld, type World } from "@/test/seedWorld";
 import { asRole } from "@/test/testDb";
 import type { GuestSendResult } from "./flights/guestSend";
@@ -248,6 +249,21 @@ describe("joinByCode resolves leftover guest sends", () => {
       "seed-max",
     );
 
+    expect(await attribution(linkId)).toMatchObject(claimedBy(rosa));
+  });
+
+  it("claims the send when it lands between finding the phone and locking the flight (ac-2)", async () => {
+    const { linkId, arriveAt } = await guestSendTo(
+      max,
+      world.max.birds[0].id,
+      rosa,
+    );
+    deps.clock.set(arriveAt - 1);
+    const landing = landingAtFirstFlightLock(deps, arriveAt + 1);
+
+    await joinByCode(landing.deps, rosa, "seed-max");
+
+    expect(landing.landings).toEqual([{ count: 1, failed: 0 }]);
     expect(await attribution(linkId)).toMatchObject(claimedBy(rosa));
   });
 

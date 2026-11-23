@@ -217,9 +217,15 @@ async function claimSendsToMyPhone(
   now: number,
 ): Promise<string[]> {
   const links = await linksToMyPhone(db, me);
-  const senders = [...new Set(links.map((l) => l.senderId))];
+  const senders = [...new Set(links.map((l) => l.other))];
   if (senders.length === 0) return [];
-  const { people, owned } = await lockPeopleAndLinks(db, me, senders, now);
+  const { people, owned } = await lockPeopleAndLinks(
+    db,
+    me,
+    senders,
+    now,
+    links,
+  );
   const joiner = people.find((p) => p.id === me);
   if (!joiner) throw new AppError("not_found", "No profile");
   const nowIso = new Date(now).toISOString();

@@ -165,11 +165,9 @@ describe("resolveLinksBetween", () => {
     await addressTo(linkId, rosa);
 
     expect(await linksToMyPhone(deps.db, rosa)).toEqual([
-      { id: linkId, senderId: max },
+      { id: linkId, other: max, byPhone: true },
     ]);
-    expect(await linksToMyPhone(deps.db, world.priya.id as UserId)).toEqual(
-      [],
-    );
+    expect(await linksToMyPhone(deps.db, world.priya.id as UserId)).toEqual([]);
   });
 
   describe("unique-name fallback (ac-4)", () => {

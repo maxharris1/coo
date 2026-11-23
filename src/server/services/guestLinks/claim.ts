@@ -14,6 +14,7 @@ import {
   lockPeopleAndLinks,
   resolveLinksBetween,
   txLockingLinks,
+  type Candidate,
   type Person,
 } from "./resolve";
 
@@ -107,7 +108,7 @@ async function lockClaim(
     me,
     [found.sender_id],
     before,
-    [found.id],
+    [{ id: found.id, other: found.sender_id, byPhone: false }],
   );
   const [link] = await db.query<LockedLink>(
     `select id, status, sender_id, claimed_by, expires_at from guest_links
@@ -122,7 +123,7 @@ async function claim(
   db: Db,
   link: LockedLink,
   people: Person[],
-  owned: string[],
+  owned: Candidate[],
   me: UserId,
   now: number,
 ): Promise<string | null> {

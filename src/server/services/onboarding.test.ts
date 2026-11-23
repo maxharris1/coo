@@ -4,7 +4,7 @@ import { config } from "@/lib/config";
 import type { UserId } from "@/server/ports/auth";
 import { pair } from "@/server/rows";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
-import { sendGuestFlight } from "@/test/guestFlight";
+import { landingAtFirstFlightLock, sendGuestFlight } from "@/test/guestFlight";
 import { seedWorld, type World } from "@/test/seedWorld";
 import { asRole } from "@/test/testDb";
 import { listFriends } from "./friends";
@@ -468,6 +468,23 @@ describe("onboard claims a guest send addressed to the new phone (ac-1)", () => 
         max,
       ]),
     ).toHaveLength(1);
+  });
+
+  it("claims the send when it lands between finding the phone and locking the flight", async () => {
+    const { linkId, arriveAt } = await addressedSend();
+    const user = await userWithPhone(PHONE);
+    deps.clock.set(arriveAt - 1);
+    const landing = landingAtFirstFlightLock(deps, arriveAt + 1);
+
+    await onboard(landing.deps, user, { ...BODY, name: "Bea" });
+
+    expect(landing.landings).toEqual([{ count: 1, failed: 0 }]);
+    expect(await attribution(linkId)).toMatchObject({
+      status: "claimed",
+      claimed_by: user,
+      counterpart_id: user,
+      recipient_id: user,
+    });
   });
 
   it("leaves the link alone for a different phone", async () => {
