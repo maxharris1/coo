@@ -103,6 +103,8 @@ Colours for each look and breed are in `assets/data/birds.json`. All birds face 
 Overlays are in `assets/svg/gear/overlays/` in the bird's own coordinates, and as parts in
 `rig.py`. Layer order: bird, neck item, head item, leg item. Goggles replace the eye highlight.
 Closet and store icons are in `assets/svg/gear/icons/`.
+Night-vision goggles are an olive helmet with one monocular tube, not a lens tint on the aviators;
+the tube flips up off the eye on the sleep pose.
 
 ## Motion
 

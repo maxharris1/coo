@@ -70,27 +70,27 @@ const T = Math.round(SW * 0.56 * 10) / 10;
 const S = `stroke="${INK}" stroke-width="${SW}"`;
 const J = `${S} stroke-linejoin="round"`;
 
-const GOGGLE_LENS = {
-  goggles: "#DFF3FC",
-  nightgoggles: "#86D9A0",
-} satisfies Partial<Record<GearId, string>>;
+const NVG_MOUNT =
+  '<path d="M68 26 Q62 36 69 46" fill="none" stroke="#2A2140" stroke-width="5" stroke-linecap="round"/><path d="M68 26 Q62 36 69 46" fill="none" stroke="#3E4A24" stroke-width="2.6" stroke-linecap="round"/><path d="M68 25 Q67 8.5 86 7.5 Q105 8.5 104 25 Q86 15.5 68 25 Z" fill="#5C6B38" stroke="#2A2140" stroke-width="2.4" stroke-linejoin="round"/><path d="M74 16 Q86 11 98 16" fill="none" stroke="#7A8A4C" stroke-width="2" stroke-linecap="round"/><path d="M67.4 25.2 Q86 16.2 104.6 25.2" fill="none" stroke="#2A2140" stroke-width="8" stroke-linecap="round"/><path d="M67.4 25.2 Q86 16.2 104.6 25.2" fill="none" stroke="#3E4A24" stroke-width="4.8" stroke-linecap="round"/><circle cx="70.4" cy="22.2" r="2.1" fill="#FFC93C" stroke="#2A2140" stroke-width="1.3"/><rect x="88.2" y="14.2" width="8.2" height="7.2" rx="1.8" fill="#3E4A24" stroke="#2A2140" stroke-width="1.8"/><circle cx="92.3" cy="17.8" r="1.7" fill="#FFC93C" stroke="#2A2140" stroke-width="1.2"/>';
 
-type Goggles = keyof typeof GOGGLE_LENS;
+const NVG_TUBE =
+  '<path d="M92.3 19.6 L96.2 26.4" fill="none" stroke="#2A2140" stroke-width="4.6" stroke-linecap="round"/><path d="M92.3 19.6 L96.2 26.4" fill="none" stroke="#5C6B38" stroke-width="2.6" stroke-linecap="round"/><g transform="rotate(-12 98 30)"><rect x="86.2" y="24.2" width="21.6" height="12.2" rx="6.1" fill="#5C6B38" stroke="#2A2140" stroke-width="2.2"/><rect x="96.4" y="24.2" width="4.2" height="12.2" fill="#3E4A24"/><ellipse cx="87.2" cy="30.3" rx="3.2" ry="6.2" fill="#3E4A24" stroke="#2A2140" stroke-width="1.6"/><circle cx="107.4" cy="30.3" r="7.1" fill="#3E4A24" stroke="#2A2140" stroke-width="2.2"/><circle cx="107.4" cy="30.3" r="5.2" fill="#16321C"/><circle cx="107.4" cy="30.3" r="3.5" fill="#5FD98A"/><circle cx="107.4" cy="30.3" r="1.5" fill="#C8F8D4"/><path d="M103.8 27.2 Q105.2 25.6 107.2 25.4" fill="none" stroke="#FFFBF0" stroke-width="1.6" stroke-linecap="round"/><circle cx="94.2" cy="23.4" r="2.2" fill="#3E4A24" stroke="#2A2140" stroke-width="1.4"/></g>';
 
-const goggleLens = (gear: readonly GearId[]) => {
-  const worn = gear.find((id): id is Goggles => id in GOGGLE_LENS);
-  return worn && GOGGLE_LENS[worn];
+const PRE: Partial<Record<GearId, string>> = {
+  goggles:
+    '<path d="M68.5 30 Q74 21.5 83 25" fill="none" stroke="#2A2140" stroke-width="6.6" stroke-linecap="round"/><path d="M68.5 30 Q74 21.5 83 25" fill="none" stroke="#D99A6C" stroke-width="3.6" stroke-linecap="round"/><rect x="71.5" y="22.6" width="4.6" height="5.6" rx="1.2" fill="#FFC93C" stroke="#2A2140" stroke-width="1.6" transform="rotate(-28 73.8 25.4)"/><circle cx="92" cy="30" r="11.2" fill="#FFC93C" stroke="#2A2140" stroke-width="2.6"/><circle cx="92" cy="30" r="8.6" fill="#DFF3FC" stroke="#2A2140" stroke-width="2"/>',
+  nightgoggles: NVG_MOUNT,
 };
 
-const preGoggles = (lens: string) =>
-  `<path d="M68.5 30 Q74 21.5 83 25" fill="none" stroke="#2A2140" stroke-width="6.6" stroke-linecap="round"/><path d="M68.5 30 Q74 21.5 83 25" fill="none" stroke="#D99A6C" stroke-width="3.6" stroke-linecap="round"/><rect x="71.5" y="22.6" width="4.6" height="5.6" rx="1.2" fill="#FFC93C" stroke="#2A2140" stroke-width="1.6" transform="rotate(-28 73.8 25.4)"/><circle cx="92" cy="30" r="11.2" fill="#FFC93C" stroke="#2A2140" stroke-width="2.6"/><circle cx="92" cy="30" r="8.6" fill="${lens}" stroke="#2A2140" stroke-width="2"/>`;
+const pre = (gear: readonly GearId[]) =>
+  gear.map((id) => PRE[id] ?? "").join("");
 
 const GLINT =
   '<path d="M85.6 25.4 Q88 22.4 91.6 22" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#FFFBF0" stroke-width="2.2"/>';
 
 const ON: Record<GearId, string> = {
   goggles: GLINT,
-  nightgoggles: GLINT,
+  nightgoggles: NVG_TUBE,
   scarf:
     '<g§scarf§><path d="M79 59 L78 84 L87.5 83 L86 61 Z" fill="#D24F2E" stroke="#2A2140" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/><path d="M78.3 76 H86.8 M78.2 80 H87" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#FFFBF0" stroke-width="2"/><path d="M79.5 84 v4 M83 83.8 v4 M86.4 83.4 v4" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#2A2140" stroke-width="1.6"/><path d="M73 57 L66 80 L76 83 L80.5 61 Z" fill="#F4623F" stroke="#2A2140" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/><path d="M68.6 72 L77.6 74.6 M67.4 76.4 L76.8 79" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#FFFBF0" stroke-width="2"/><path d="M66.4 80.4 l-1 4 M69.8 81.4 l-.7 4 M73.2 82.3 l-.3 4" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#2A2140" stroke-width="1.6"/></g><ellipse cx="83" cy="53" rx="17.5" ry="9" fill="#F4623F" stroke="#2A2140" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/><path d="M67.5 51 Q83 60.5 98.5 51" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#D24F2E" stroke-width="2.4"/><path d="M71 49.5 Q83 55 95 49.5" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#FFFBF0" stroke-width="2.2"/>',
   bow: '<path d="M99 53 C94 45.5 88 44.5 87 47 V59 C88 61.5 94 60.5 99 53 Z" fill="#A98BE8" stroke="#2A2140" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/><path d="M99 53 C104 45.5 110 44.5 111 47 V59 C110 61.5 104 60.5 99 53 Z" fill="#A98BE8" stroke="#2A2140" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/><path d="M90.5 49.5 L94.5 53 L90.5 56.5 M107.5 49.5 L103.5 53 L107.5 56.5" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#7E63C9" stroke-width="1.8"/><g fill="#FFFBF0"><circle cx="89.6" cy="48.4" r="1.1"/><circle cx="89.6" cy="57.6" r="1.1"/><circle cx="108.4" cy="48.4" r="1.1"/><circle cx="108.4" cy="57.6" r="1.1"/></g><rect x="96" y="49.4" width="6" height="7.2" rx="2.4" fill="#7E63C9" stroke="#2A2140" stroke-width="2"/>',
@@ -278,14 +278,13 @@ function bird(
       `<circle cx="86" cy="34" r="18" fill="${body}" ${S}/><path d="M73.6 27.4 Q77.6 19.4 86.6 18.6" fill="none" stroke="${CARD}" stroke-width="${T}" stroke-linecap="round" opacity=".55"/>`,
     );
   }
-  const lens = goggleLens(gear);
-  if (lens) hd.push(preGoggles(lens));
+  hd.push(pre(gear));
   hd.push(eyeSvg(eye, body));
   if (anim?.blink && (eye === "open" || eye === "wide"))
     hd.push(
       `<circle cx="92" cy="30" r="7.6" fill="${body}" stroke="${INK}" stroke-width="${W}" style="transform-box: fill-box; transform-origin: 50% 0%; transform: scaleY(0); animation: coo-blink 4.6s ease-in-out infinite"/>`,
     );
-  hd.push(g("goggles"), g("nightgoggles"));
+  hd.push(g("goggles"));
   hd.push(
     `<path d="M104 31 L118 36 L104 41 Z" fill="${SUN}" stroke="${INK}" stroke-width="${W}" stroke-linejoin="round"/><path d="M104.6 36 H114.6" stroke="${INK}" stroke-width="${T}" stroke-linecap="round"/>`,
   );
@@ -295,6 +294,12 @@ function bird(
   if (eye !== "lid")
     hd.push(`<circle cx="84" cy="43" r="3.2" fill="${ROSE}"/>`);
   hd.push(...HEAD.map(g));
+  const tube = g("nightgoggles");
+  hd.push(
+    eye === "closed" && tube
+      ? `<g transform="rotate(-118 92.3 17.8)">${tube}</g>`
+      : tube,
+  );
   const head = part("head", "36% 100%", hd.join(""));
 
   let neck = "";
@@ -338,12 +343,12 @@ function fly(p: Palette, gear: readonly GearId[], anim: Motion | undefined) {
   const hd = `<circle cx="96" cy="44" r="15" fill="${body}" ${S}/><path d="M85.6 38.4 Q89 31.6 96.6 31" fill="none" stroke="${CARD}" stroke-width="${T}" stroke-linecap="round" opacity=".55"/>`;
   const onHead = (inner: string) =>
     `<g transform="translate(96 44) scale(.84) translate(-86 -34)">${inner}</g>`;
-  const lens = goggleLens(gear);
-  const hgPre = lens ? onHead(preGoggles(lens)) : "";
+  const worn = pre(gear);
+  const hgPre = worn && onHead(worn);
   let eye = `<circle cx="101" cy="41" r="5.5" fill="#FFB03A" stroke="${INK}" stroke-width="${W}"/><circle cx="102.4" cy="41" r="2.2" fill="${INK}"/><circle cx="103.2" cy="40" r=".8" fill="${CARD}"/>`;
   if (anim?.blink)
     eye += `<circle cx="101" cy="41" r="6.4" fill="${body}" stroke="${INK}" stroke-width="${W}" style="transform-box: fill-box; transform-origin: 50% 0%; transform: scaleY(0); animation: coo-blink 3.8s ease-in-out infinite"/>`;
-  const onTop: GearId[] = ["goggles", "nightgoggles", ...HEAD];
+  const onTop: GearId[] = ["goggles", ...HEAD, "nightgoggles"];
   const hg = onTop
     .filter((x) => gear.includes(x))
     .map((x) => onHead(tokens(ON[x], anim)))
@@ -475,7 +480,9 @@ export function drawPose(
 ) {
   const palette: Palette = birds[look];
   const shape = breed ?? palette.breed ?? "city";
-  const worn = [...gear, ...(OWN[look] ?? [])];
+  const worn = gear.includes("nightgoggles")
+    ? gear
+    : [...gear, ...(OWN[look] ?? [])];
   return DRAW[pose](
     (o) => bird(palette, shape, { ...o, gear: worn }),
     animated,

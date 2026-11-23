@@ -27,6 +27,52 @@ const fixtures: Fixture[] = JSON.parse(
   readFileSync(join(REF, "index.json"), "utf8"),
 ).files;
 
+type Point = { x: number; y: number };
+
+function applyTransform(list: string, pt: Point): Point {
+  const ops = [...list.matchAll(/(\w+)\(([^)]*)\)/g)].map(([, op, args]) => ({
+    op,
+    n: args
+      .trim()
+      .split(/[\s,]+/)
+      .map(Number),
+  }));
+  return ops.reduceRight(({ x, y }, { op, n }) => {
+    if (op === "translate") return { x: x + n[0], y: y + (n[1] ?? 0) };
+    if (op === "scale") return { x: x * n[0], y: y * (n[1] ?? n[0]) };
+    if (op === "rotate") {
+      const [a, cx = 0, cy = 0] = n;
+      const r = (a * Math.PI) / 180;
+      const dx = x - cx,
+        dy = y - cy;
+      return {
+        x: cx + dx * Math.cos(r) - dy * Math.sin(r),
+        y: cy + dx * Math.sin(r) + dy * Math.cos(r),
+      };
+    }
+    throw new Error(`unsupported transform ${op}`);
+  }, pt);
+}
+
+const CAP_CROWN = 'd="M69 21 Q68 5.5 86 5';
+
+function objective(html: string): Point {
+  const core = html.match(/<circle[^>]*fill="#C8F8D4"[^>]*>/);
+  if (!core) throw new Error("no night-vision objective drawn");
+  const at = core.index!;
+  const attr = (name: string) =>
+    Number(core[0].match(new RegExp(` ${name}="([^"]+)"`))![1]);
+  const stack: string[] = [];
+  for (const tag of html.slice(0, at).matchAll(/<(\/?)g\b([^>]*)>/g)) {
+    if (tag[1]) stack.pop();
+    else stack.push(tag[2].match(/ transform="([^"]+)"/)?.[1] ?? "");
+  }
+  return stack.reduceRight((pt, t) => applyTransform(t, pt), {
+    x: attr("cx"),
+    y: attr("cy"),
+  });
+}
+
 const ROOTLESS = { skipRootPresentation: true };
 
 function render(f: Fixture, size: number) {
@@ -138,19 +184,71 @@ describe("Bird props", () => {
     }
   });
 
-  it("draws mint lenses on the night-vision goggles and sky lenses on the aviators", () => {
+  it("draws the night-vision goggles as an olive helmet and one glowing tube, and leaves the aviators alone", () => {
     for (const pose of ["perched", "fly"] as const) {
+      const admiral = renderToStaticMarkup(
+        <Bird look="admiral" pose={pose} gear={["nightgoggles"]} />,
+      );
+      expect(admiral).toContain('fill="#5C6B38"');
+      expect(admiral).not.toContain(CAP_CROWN);
+      expect(
+        renderToStaticMarkup(<Bird look="admiral" pose={pose} />),
+      ).toContain(CAP_CROWN);
       const night = renderToStaticMarkup(
         <Bird look="gerald" pose={pose} gear={["nightgoggles"]} />,
       );
-      expect(night).toContain('fill="#86D9A0"');
-      expect(night).toContain('stroke="#D99A6C"');
+      expect(night).toContain('fill="#5C6B38"');
+      expect(night).toContain('fill="#5FD98A"');
+      expect(night).toContain('fill="#C8F8D4"');
+      expect(night).not.toContain("#D99A6C");
+      expect(night).not.toContain("#86D9A0");
+      expect(night).not.toContain('r="11.2"');
       expect(night).not.toContain("#DFF3FC");
       const day = renderToStaticMarkup(
         <Bird look="gerald" pose={pose} gear={["goggles"]} />,
       );
       expect(day).toContain('fill="#DFF3FC"');
-      expect(day).not.toContain("#86D9A0");
+      expect(day).toContain('stroke="#D99A6C"');
+      expect(day).not.toContain("#5C6B38");
+      expect(day).not.toContain("#5FD98A");
+    }
+  });
+
+  it("flips the night-vision tube up above the crown on sleep so the closed eye shows", () => {
+    for (const look of ["gerald", "admiral"] as const) {
+      for (const animated of [false, true]) {
+        const html = renderToStaticMarkup(
+          <Bird
+            look={look}
+            pose="sleep"
+            gear={["nightgoggles"]}
+            animated={animated}
+          />,
+        );
+        expect(html).toContain('fill="#5C6B38"');
+        expect(html).not.toContain(CAP_CROWN);
+        expect(html).toContain('d="M87 31 q5 4 10 0"');
+        expect(objective(html).y).toBeLessThan(16);
+      }
+    }
+  });
+
+  it("keeps the night-vision tube down over the eye on every other pose", () => {
+    for (const pose of POSES.filter((p) => p !== "sleep")) {
+      for (const animated of [false, true]) {
+        const html = renderToStaticMarkup(
+          <Bird
+            look="gerald"
+            pose={pose}
+            gear={["nightgoggles"]}
+            animated={animated}
+          />,
+        );
+        expect(
+          objective(html).y,
+          `${pose} animated=${animated}`,
+        ).toBeGreaterThan(16);
+      }
     }
   });
 
