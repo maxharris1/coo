@@ -21,6 +21,7 @@ const OWNED_BY = {
   seed_ledger: "user_id = $1",
   eggs: "user_id = $1",
   events: "user_id = $1",
+  bug_reports: "user_id = $1",
 };
 
 let deps: TestDeps;
@@ -129,6 +130,12 @@ describe("deleteAccount", () => {
       "select seeds as n from profiles where id = $1",
       [world.priya.id],
     );
+    for (const reporter of [world.max, world.priya]) {
+      await deps.db.query(
+        "insert into bug_reports (user_id, client_key, body) values ($1, gen_random_uuid(), 'the map froze')",
+        [reporter.id],
+      );
+    }
 
     await deleteMax();
 
@@ -155,6 +162,12 @@ describe("deleteAccount", () => {
         world.priya.id,
       ]),
     ).toBe(world.priya.birds.length);
+    expect(
+      await count(
+        "select count(*)::int as n from bug_reports where user_id = $1",
+        [world.priya.id],
+      ),
+    ).toBe(1);
     const [note] = await deps.db.query<{ recipient_id: string | null }>(
       "select recipient_id from notes where id = $1",
       [fromPriya.noteId],
