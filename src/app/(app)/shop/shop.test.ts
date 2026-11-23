@@ -269,8 +269,13 @@ describe("buyItem", () => {
     action: { kind: "buy", price: 250 },
   };
 
-  it("posts the item id and its confirmed price to /api/shop/buy and returns me and the closet", async () => {
-    const fetchImpl = vi.fn(async () => json(200, bought));
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+  const sentBodies = (fetchImpl: ReturnType<typeof vi.fn<typeof fetch>>) =>
+    fetchImpl.mock.calls.map(([, init]) => JSON.parse(String(init?.body)));
+
+  it("posts the item id, its confirmed price and an actionId to /api/shop/buy and returns me and the closet", async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => json(200, bought));
     await expect(buyItem(fourthPerch, fetchImpl)).resolves.toEqual({
       ok: true,
       data: bought,
@@ -278,8 +283,19 @@ describe("buyItem", () => {
     expect(fetchImpl).toHaveBeenCalledWith("/api/shop/buy", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ itemId: "perch", price: 250 }),
+      body: expect.any(String),
     });
+    expect(sentBodies(fetchImpl)).toEqual([
+      { itemId: "perch", price: 250, actionId: expect.stringMatching(UUID) },
+    ]);
+  });
+
+  it("sends a fresh actionId with each buy", async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => json(200, bought));
+    await buyItem(fourthPerch, fetchImpl);
+    await buyItem(fourthPerch, fetchImpl);
+    const [first, second] = sentBodies(fetchImpl);
+    expect(first.actionId).not.toBe(second.actionId);
   });
 
   it("returns the API's message and code when the purchase is refused", async () => {

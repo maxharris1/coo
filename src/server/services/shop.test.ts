@@ -100,6 +100,7 @@ const LISTED = new Map<string, number>(
 const item = (itemId: string, price = LISTED.get(itemId) ?? 0) => ({
   itemId,
   price,
+  actionId: crypto.randomUUID(),
 });
 
 async function refusal(promise: Promise<unknown>) {
@@ -291,7 +292,7 @@ describe("buy", () => {
   ])("refuses %s as conflict and charges nothing", async (_, itemId, price) => {
     await grant(max, 1000);
     const before = await wallet(max);
-    const err = await buy(deps, max, { itemId, price }).catch(
+    const err = await buy(deps, max, item(itemId, price)).catch(
       (e: { code?: string; message?: string }) => e,
     );
     expect(err).toMatchObject({
@@ -474,24 +475,30 @@ describe("buy espresso", () => {
     if (seeds !== current) await grant(user, seeds - current);
   }
 
-  const espresso = (price = 25) => ({ itemId: "espresso", price });
+  const espresso = (price = 25) => ({
+    itemId: "espresso",
+    price,
+    actionId: crypto.randomUUID(),
+  });
 
   it("sells a shot as often as asked, 25 seeds each, through the ledger", async () => {
     await setSeeds(max, 60);
-    await buy(deps, max, espresso());
-    const result = await buy(deps, max, espresso());
+    const shotA = espresso();
+    const shotB = espresso();
+    await buy(deps, max, shotA);
+    const result = await buy(deps, max, shotB);
     expect(result.me).toMatchObject({ seeds: 10 });
     expect(await shots(max)).toBe(2);
     const after = await wallet(max);
     expect(after.seeds).toBe(10);
     expect(after.ledgerSum).toBe(after.seeds);
-    const ledger = await deps.db.query<{ delta: number; ref_id: null }>(
+    const ledger = await deps.db.query<{ delta: number; ref_id: string }>(
       "select delta, ref_id from seed_ledger where user_id = $1 and reason = 'shop' order by id",
       [max],
     );
     expect(ledger).toEqual([
-      { delta: -25, ref_id: null },
-      { delta: -25, ref_id: null },
+      { delta: -25, ref_id: shotA.actionId },
+      { delta: -25, ref_id: shotB.actionId },
     ]);
   });
 

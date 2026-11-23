@@ -49,7 +49,7 @@ const CONSUMABLES = new Map(
 const PERCHES = config.game.perches;
 const PERCH_PRICES: Partial<Record<string, number>> = PERCHES.prices;
 
-type BuyInput = { itemId: string; price: number };
+type BuyInput = { itemId: string; price: number; actionId: string };
 
 function resolvePurchase(input: BuyInput, owner: Owner): Purchase {
   const purchase = choose(input.itemId, owner);
@@ -191,6 +191,11 @@ export async function buy(
       [caller],
     );
     if (!profile) throw new AppError("not_found", "No such account.");
+    const [done] = await db.query(
+      "select 1 from seed_ledger where user_id = $1 and reason = 'shop' and ref_id = $2",
+      [caller, input.actionId],
+    );
+    if (done) return { me: toMe(profile), closet: await closetOf(db, caller) };
     const purchase = resolvePurchase(input, {
       seeds: profile.seeds,
       hasBirdbath: profile.has_birdbath,
@@ -226,9 +231,10 @@ export async function buy(
         break;
       }
     }
-    await db.query("select apply_seeds($1, $2, 'shop', null)", [
+    await db.query("select apply_seeds($1, $2, 'shop', $3)", [
       caller,
       -purchase.price,
+      input.actionId,
     ]);
     const [updated] = await db.query<Profile>(
       "select * from profiles where id = $1",

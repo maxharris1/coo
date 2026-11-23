@@ -158,7 +158,11 @@ export const buyItem = ({ itemId, action }: BuyRow, fetchImpl: Fetch = fetch) =>
   call<{ me: Me; closet: GearId[] }>(fetchImpl, "/api/shop/buy", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ itemId, price: action.price }),
+    body: JSON.stringify({
+      itemId,
+      price: action.price,
+      actionId: crypto.randomUUID(),
+    }),
   });
 
 export async function openShop(

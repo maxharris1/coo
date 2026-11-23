@@ -402,6 +402,7 @@ describe("landing a return", () => {
     await buy(deps, world.max.id as UserId, {
       itemId: "birdbath",
       price: config.game.loftItems.find((i) => i.id === "birdbath")!.price,
+      actionId: crypto.randomUUID(),
     });
     await tick(deps);
 

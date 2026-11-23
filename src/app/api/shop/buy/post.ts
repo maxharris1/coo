@@ -6,6 +6,7 @@ const BODY = z
   .object({
     itemId: z.string().min(1).max(40),
     price: z.number().int().nonnegative(),
+    actionId: z.uuid(),
   })
   .strict();
 
