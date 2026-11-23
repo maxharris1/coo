@@ -14,8 +14,8 @@ const POSE_STATE: Record<RowState, BirdState> = {
 };
 
 function birdAt(flight: Flight, state: RowState, nowMs: number) {
-  if (state === "landed") return flight.to;
   if (!flight.plan) return flight.from;
+  if (state === "landed") return flight.to;
   return positionAt(flight.plan, flight.from, flight.to, nowMs);
 }
 

@@ -18,7 +18,7 @@ import {
 } from "@/test/fakeMapLibre";
 import { jobView } from "../jobs/[id]/JobTracker";
 import { FlightMapPreview, JobMapPreview } from "./FlightMapPreview";
-import type { RowState } from "./flightsViewModel";
+import { earlierRows, type RowState } from "./flightsViewModel";
 
 vi.mock(
   "maplibre-gl",
@@ -132,6 +132,32 @@ describe("FlightMapPreview (#901 ac-2)", () => {
       }),
     );
     expect(p.plan).toBeNull();
+    expect(pose(p)).toBe("perched");
+    await vi.waitFor(() => expect(maps).toHaveLength(1));
+    nextFrame();
+    expect(markers[2].lngLat).toEqual([f.from.lon, f.from.lat]);
+  });
+
+  it("perches a cancelled flight with no plan on the origin in the earlier list", async () => {
+    const nowMs = Date.parse("2026-11-22T03:00:00.000Z");
+    vi.setSystemTime(nowMs);
+    const f = flight({
+      status: "cancelled",
+      plan: undefined,
+      from: { lat: 35.68, lon: 139.69, label: "Tokyo" },
+      to: { lat: 40.73, lon: -73.99, label: "New York" },
+    });
+    const [row] = earlierRows([f], nowMs, "America/New_York", "mi");
+    const p = mapProps(
+      FlightMapPreview({
+        flight: row.flight,
+        state: row.state,
+        nowMs,
+        offsetMs: 0,
+      }),
+    );
+    expect(p.plan).toBeNull();
+    expect(p.night, "shaded by the origin's noon").toBe(false);
     expect(pose(p)).toBe("perched");
     await vi.waitFor(() => expect(maps).toHaveLength(1));
     nextFrame();

@@ -9,15 +9,18 @@ export const frames: FrameRequestCallback[] = [];
 
 const hooks = {
   refs: [] as { current: unknown }[],
+  states: [] as unknown[],
   effects: [] as Effect[],
   pending: [] as (() => void)[],
   ref: 0,
+  state: 0,
   effect: 0,
 };
 
 export class FakeMap {
   handlers: Record<string, Handler[]> = {};
   layers: string[] = [];
+  sources: Record<string, { data: unknown }> = {};
   eased = 0;
   removed = false;
   keyboard = { disableRotation() {} };
@@ -35,7 +38,8 @@ export class FakeMap {
   setStyle() {
     return this;
   }
-  addSource() {
+  addSource(id: string, source: { data: unknown }) {
+    this.sources[id] = source;
     return this;
   }
   addLayer(layer: { id: string }) {
@@ -96,10 +100,20 @@ export function fakeReact(react: typeof import("react")) {
       (hooks.refs[hooks.ref++] ??= { current: initial ?? {} }) as {
         current: T;
       },
-    useState: <T>(initial: T | (() => T)) => [
-      typeof initial === "function" ? (initial as () => T)() : initial,
-      () => {},
-    ],
+    useState: <T>(initial: T | (() => T)) => {
+      const k = hooks.state++;
+      if (!(k in hooks.states)) {
+        hooks.states[k] =
+          typeof initial === "function" ? (initial as () => T)() : initial;
+      }
+      const set = (next: T | ((prev: T) => T)) => {
+        hooks.states[k] =
+          typeof next === "function"
+            ? (next as (prev: T) => T)(hooks.states[k] as T)
+            : next;
+      };
+      return [hooks.states[k] as T, set] as const;
+    },
     useEffect: (fn: () => (() => void) | void, deps?: unknown[]) => {
       const k = hooks.effect++;
       const prev = hooks.effects[k];
@@ -119,6 +133,7 @@ export function renderWithEffects<P>(
   props: P,
 ): ReactNode {
   hooks.ref = 0;
+  hooks.state = 0;
   hooks.effect = 0;
   hooks.pending = [];
   const tree = component(props);
@@ -129,6 +144,7 @@ export function renderWithEffects<P>(
 export function resetFakes() {
   for (const e of hooks.effects) if (e?.cleanup) e.cleanup();
   hooks.refs = [];
+  hooks.states = [];
   hooks.effects = [];
   maps.length = 0;
   markers.length = 0;

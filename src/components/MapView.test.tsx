@@ -242,6 +242,30 @@ describe("the map preview variant (#901 ac-1)", () => {
     expect(find(tree, Bird)?.props).toMatchObject({ pose: "perched" });
     expect(markers[2].lngLat).toEqual([p.from.lon, p.from.lat]);
   });
+
+  it.each<BirdState>(["scheduled", "flying", "roosting", "delayed", "landed"])(
+    "perches a %s bird with no plan at the origin with nothing flown",
+    async (state) => {
+      const p = props({ preview: true, plan: null, state });
+      const { tree, map } = await mounted(p);
+      map.fire("style.load");
+      const origin = [p.from.lon, p.from.lat];
+      expect(find(tree, Bird)?.props).toMatchObject({ pose: "perched" });
+      expect(markers[2].lngLat).toEqual(origin);
+      expect(map.sources["route-flown"].data).toMatchObject({
+        geometry: { coordinates: [origin] },
+      });
+    },
+  );
+
+  it("drops the Find button when a dragged tracker becomes a preview", async () => {
+    const { map } = await mounted(props());
+    map.handlers.dragstart[0]({ originalEvent: {} });
+    const tracker = renderWithEffects(MapView, props());
+    expect(find(tracker, "button"), "Find shows on the tracker").toBeDefined();
+    const preview = renderWithEffects(MapView, props({ preview: true }));
+    expect(find(preview, "button")).toBeUndefined();
+  });
 });
 
 describe("the tracker map without preview stays as it was (#901 ac-1)", () => {

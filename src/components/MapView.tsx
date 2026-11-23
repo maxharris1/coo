@@ -185,11 +185,11 @@ export function MapView({
     const now = () => Date.now() + offsetMs;
     const bearing = bearingDeg(from, to) * (Math.PI / 180);
     const where = () =>
-      stateRef.current === "landed"
-        ? { ...to, frac: 1 }
-        : plan
-          ? positionAt(plan, from, to, now())
-          : { ...from, frac: 0 };
+      !plan
+        ? { ...from, frac: 0 }
+        : stateRef.current === "landed"
+          ? { ...to, frac: 1 }
+          : positionAt(plan, from, to, now());
 
     void import("maplibre-gl").then((lib) => {
       const { Marker, LngLatBounds } = lib;
@@ -382,7 +382,7 @@ export function MapView({
           />
         </div>
       </div>
-      {!following && (
+      {!preview && !following && (
         <button
           type="button"
           onClick={findBird}
