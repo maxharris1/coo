@@ -1,11 +1,11 @@
 import { z } from "zod";
 import type { Env } from "@/env";
+import { ROUTE_MAX, VIEWPORT_MAX } from "@/lib/bugReportLimits";
 import type { Deps } from "@/server/deps";
 import { log } from "@/server/log";
 import type { UserId } from "@/server/ports/auth";
 import { rateLimit } from "@/server/rateLimit";
 
-const ROUTE_MAX = 200;
 const USER_AGENT_MAX = 300;
 const BUILD_LENGTH = 12;
 const HOUR_SECONDS = 3600;
@@ -29,8 +29,8 @@ export const bugReportInput = z
         standalone: z.boolean(),
         viewport: z
           .object({
-            w: z.int().min(1).max(10000),
-            h: z.int().min(1).max(10000),
+            w: z.int().min(1).max(VIEWPORT_MAX),
+            h: z.int().min(1).max(VIEWPORT_MAX),
           })
           .strict(),
         timeZone: z
