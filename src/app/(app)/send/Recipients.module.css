@@ -282,7 +282,7 @@
 
 .bar {
   position: sticky;
-  bottom: calc(96px + var(--coo-safe-bottom));
+  bottom: var(--coo-tabs-pad);
   margin-top: auto;
   display: flex;
   align-items: center;
