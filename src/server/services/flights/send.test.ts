@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   computeFlightPlan,
@@ -19,7 +20,14 @@ import { block, setShows, unfriend } from "@/server/services/friends";
 import { espressoUntil } from "./espresso";
 import { send } from "./send";
 
+vi.mock("node:crypto", async (load) => {
+  const actual = await load<typeof import("node:crypto")>();
+  return { ...actual, randomUUID: vi.fn(actual.randomUUID) };
+});
+
 const BODY = "Bring the good bagels on Sunday";
+const ON_TIME_FLIGHT = "00000000-0000-4000-8000-000000000001";
+const OVERNIGHT_FLIGHT = "00000000-0000-4000-8000-000000000034";
 
 let deps: TestDeps;
 let world: World;
@@ -208,17 +216,30 @@ describe("send", () => {
     expect(rows[0].title + rows[0].body).not.toContain(BODY);
   });
 
-  it("tells the recipient the time of day the pigeon lands, not a clock time", async () => {
-    deps.clock.set(Date.UTC(2026, 10, 19, 17, 30));
-    await sendGerald();
+  it.each([
+    [ON_TIME_FLIGHT, "Lands this afternoon."],
+    [OVERNIGHT_FLIGHT, "Lands early tomorrow morning."],
+  ] as const)(
+    "tells the recipient the time of day the pigeon lands, not a clock time, when the flight is %s",
+    async (id, lands) => {
+      deps.clock.set(Date.UTC(2026, 10, 19, 17, 30));
+      vi.mocked(randomUUID).mockReturnValueOnce(id);
+      await sendGerald();
 
-    const [incoming] = await deps.db.query<{ body: string }>(
-      "select body from notifications where user_id = $1 and kind = 'incoming'",
-      [priya],
-    );
-    expect(incoming.body).toContain("Lands this afternoon.");
-    expect(incoming.body).not.toMatch(/\d{1,2}:\d{2}\s?[ap]m/i);
-  });
+      const [incoming] = await deps.db.query<{
+        ref_id: string;
+        body: string;
+      }>(
+        "select ref_id, body from notifications where user_id = $1 and kind = 'incoming'",
+        [priya],
+      );
+      expect(incoming).toMatchObject({
+        ref_id: id,
+        body: expect.stringContaining(lands),
+      });
+      expect(incoming.body).not.toMatch(/\d{1,2}:\d{2}\s?[ap]m/i);
+    },
+  );
 
   it("refuses a send to someone who is not a friend as forbidden and creates nothing", async () => {
     const before = await counts();
