@@ -5,9 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { config } from "@/lib/config";
 import { detectPlatform, type Platform } from "@/lib/platform";
+import { welcomeStep } from "../steps";
 import styles from "./page.module.css";
 
-const NEXT_STEP = "/welcome/bird";
+const STEP = welcomeStep("/welcome/install");
+const NEXT_STEP = STEP.next;
 const PROMPT_WAIT_MS = 3000;
 const HOP = { animation: "coo-hop 2.6s ease-in-out infinite" };
 const POINT = { animation: "coo-point 0.6s ease-in-out infinite alternate" };
@@ -237,7 +239,7 @@ export function InstallView({
 }) {
   return (
     <main className={styles.page}>
-      <p className={styles.pill}>Step 1 of 3</p>
+      <p className={styles.pill}>{`Step ${STEP.number} of ${STEP.total}`}</p>
       <div className={styles.intro}>
         <h1 className={styles.title}>
           Put {config.app.name} on your home screen

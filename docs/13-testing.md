@@ -55,7 +55,7 @@ These are the heart of the product. Each is a service-level test using the fake 
 
 ## End-to-end journeys
 
-1. Sign up (fake code), install step skipped, name a bird, set a loft, land on Main.
+1. Sign up (fake code), name a bird, install step skipped, set a loft, land on Main.
 2. Two browsers: add a friend by invite link.
 3. Send a note, watch the tracker, skip time, see it land in the other browser, reply, skip time,
    see the reply at home.

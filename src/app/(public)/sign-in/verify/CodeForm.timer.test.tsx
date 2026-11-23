@@ -205,7 +205,7 @@ describe("CodeForm after a correct code", () => {
   it("sends a new user to onboarding and keeps the invite", async () => {
     postAuth.mockResolvedValue({ ok: true, next: "/welcome/install" });
     await type(0, "123456");
-    expect(push).toHaveBeenCalledWith("/welcome/install");
+    expect(push).toHaveBeenCalledWith("/welcome/bird");
     expect(document.cookie).toBe(`coo_return=${CODE}`);
   });
 });

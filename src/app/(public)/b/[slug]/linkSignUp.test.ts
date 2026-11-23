@@ -55,7 +55,7 @@ describe("signing up from a guest link", () => {
     expect(pendingLink(0)).toBeNull();
   });
 
-  it("sends a new user straight to the first bird, past install", () => {
+  it("sends a new user to the first bird and keeps the link", () => {
     rememberLink(LINK);
     expect(afterSignIn("/welcome/install")).toBe("/welcome/bird");
     expect(pendingLink()).toEqual(LINK);

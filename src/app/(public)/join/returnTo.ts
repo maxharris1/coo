@@ -1,3 +1,4 @@
+import { WELCOME_STEPS } from "@/app/(app)/welcome/steps";
 import { forgetLink, pendingLink } from "../b/[slug]/linkSignUp";
 
 export const INVITE_CODE = /^[a-z0-9_]{2,20}-[\w-]{12}$/;
@@ -26,11 +27,11 @@ export function forgetReturn(): void {
 }
 
 export function afterSignIn(next: string): string {
+  if (next !== "/") return WELCOME_STEPS[0];
   const link = pendingLink();
-  if (link && next !== "/") return "/welcome/bird";
   if (link) {
     forgetLink();
     return `/b/${link.token}`;
   }
-  return next === "/" ? (takeReturn() ?? "/") : next;
+  return takeReturn() ?? "/";
 }

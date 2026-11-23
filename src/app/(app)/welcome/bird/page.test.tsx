@@ -15,7 +15,7 @@ describe("/welcome/bird", () => {
     for (const text of [
       ">coo<",
       "Messages, eventually.",
-      "Step 2 of 3",
+      "Step 1 of 3",
       "Meet your first bird",
       "City pigeon, 1 of 3",
       ">45 mph<",

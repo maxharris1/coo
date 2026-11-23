@@ -10,7 +10,9 @@ import { InstallView, installStep, type InstallScreen } from "./Install";
 
 const { requireUser, redirect } = vi.hoisted(() => ({
   requireUser: vi.fn(),
-  redirect: vi.fn(),
+  redirect: vi.fn((to: string) => {
+    throw new Error(`NEXT_REDIRECT ${to}`);
+  }),
 }));
 vi.mock("@/server/auth", () => ({ requireUser }));
 vi.mock("next/navigation", () => ({ redirect, useRouter: () => ({}) }));
@@ -32,7 +34,7 @@ describe("/welcome/install on iOS Safari (ac-4)", () => {
   const html = render({ kind: "ios" });
 
   it("shows the Install mock's heading and subline", () => {
-    expect(html).toContain(">Step 1 of 3<");
+    expect(html).toContain(">Step 2 of 3<");
     expect(html).toMatch(
       new RegExp(`<h1[^>]*>Put ${config.app.name} on your home screen</h1>`),
     );
@@ -65,7 +67,7 @@ describe("/welcome/install on iOS Safari (ac-4)", () => {
 
   it("offers the skip link to the next step", () => {
     expect(html).toMatch(
-      /<a[^>]*href="\/welcome\/bird"[^>]*>Not now. Text me when birds land instead.<\/a>/,
+      /<a[^>]*href="\/welcome\/loft"[^>]*>Not now. Text me when birds land instead.<\/a>/,
     );
   });
 
@@ -115,7 +117,7 @@ describe("/welcome/install on other platforms", () => {
 
 describe("'Not now. Text me when birds land instead.' (ac-3)", () => {
   const SKIP =
-    /<a[^>]*href="\/welcome\/bird"[^>]*>Not now. Text me when birds land instead.<\/a>/;
+    /<a[^>]*href="\/welcome\/loft"[^>]*>Not now. Text me when birds land instead.<\/a>/;
   const screens: InstallScreen[] = [
     { kind: "detecting" },
     { kind: "ios" },
@@ -177,13 +179,17 @@ describe("installStep", () => {
 describe("/welcome/install page", () => {
   beforeEach(() => {
     requireUser.mockReset();
-    redirect.mockReset();
+    redirect.mockClear();
   });
 
   const show = async (profile: object | null) => {
     requireUser.mockResolvedValue({ userId: "u1", profile });
     const { default: InstallPage } = await import("./page");
     return renderToStaticMarkup(await InstallPage());
+  };
+  const redirectsTo = async (profile: object | null, to: string) => {
+    await expect(show(profile)).rejects.toThrow(`NEXT_REDIRECT ${to}`);
+    expect(redirect).toHaveBeenCalledExactlyOnceWith(to);
   };
 
   it("shows the screen to an onboarded person who has not installed (ac-1)", async () => {
@@ -193,13 +199,11 @@ describe("/welcome/install page", () => {
   });
 
   it("sends an onboarded person who has installed home (ac-2)", async () => {
-    await show({ onboarded_at: new Date(0), installed: true });
-    expect(redirect).toHaveBeenCalledWith("/");
+    await redirectsTo({ onboarded_at: new Date(0), installed: true }, "/");
   });
 
-  it("skips to First bird for a new person who has installed (ac-2)", async () => {
-    await show({ onboarded_at: null, installed: true });
-    expect(redirect).toHaveBeenCalledWith("/welcome/bird");
+  it("skips to the loft for a new person who has installed (ac-2)", async () => {
+    await redirectsTo({ onboarded_at: null, installed: true }, "/welcome/loft");
   });
 
   it("shows the screen to a new person who has not installed (ac-3)", async () => {
@@ -208,10 +212,8 @@ describe("/welcome/install page", () => {
     expect(html).toContain(`Put ${config.app.name} on your home screen`);
   });
 
-  it("shows the screen to a person with no profile yet (ac-3)", async () => {
-    const html = await show(null);
-    expect(redirect).not.toHaveBeenCalled();
-    expect(html).toContain(`Put ${config.app.name} on your home screen`);
+  it("sends a person with no profile yet to First bird first", async () => {
+    await redirectsTo(null, "/welcome/bird");
   });
 });
 
