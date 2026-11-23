@@ -10,7 +10,7 @@ import { onJob } from "../earn/JobsPanel";
 import { call } from "../friends/friendsApi";
 import { loadJob } from "../jobs/[id]/jobApi";
 import { FlightsView, type List } from "./FlightsView";
-import type { GroupKey } from "./flightsViewModel";
+import { ALL_PAST, type GroupKey, type PastFilter } from "./flightsViewModel";
 
 const TICK_MS = 10_000;
 
@@ -29,6 +29,7 @@ export default function FlightsPage() {
     {},
   );
   const [hops, setHops] = useState<Partial<Record<GroupKey, boolean>>>({});
+  const [filter, setFilter] = useState<PastFilter>(ALL_PAST);
   const [clock, setClock] = useState(() => Date.now());
   const synced = useMemo(() => JSON.stringify(data?.flights ?? null), [data]);
   const [jobs, setJobs] = useState<ReadonlyMap<string, JobView>>(new Map());
@@ -127,6 +128,8 @@ export default function FlightsPage() {
       onToggle={(key, open) => setToggled((prev) => ({ ...prev, [key]: open }))}
       hops={hops}
       onHops={(key, open) => setHops((prev) => ({ ...prev, [key]: open }))}
+      filter={filter}
+      onFilter={setFilter}
       onMore={onMore}
       onRetry={onRetry}
     />
