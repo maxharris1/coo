@@ -106,10 +106,8 @@ async function signUpFromLink(
     type: "yourName",
     name: pendingLink()?.name ?? "",
   });
-  const onboarded = await submitOnboarding(
-    onboardingBody(bird, "America/New_York"),
-    fetchImpl,
-  );
+  const body = onboardingBody(bird, "America/New_York");
+  const onboarded = await submitOnboarding(body, fetchImpl);
 
   const roost = await linkRoost(token, fetchImpl);
   if (!roost) throw new Error("no roost from the link");
@@ -118,7 +116,7 @@ async function signUpFromLink(
     fetchImpl,
   );
   const next = await claim(fetchImpl);
-  return { userId, afterCode, onboarded, roost, saved, next, fetchImpl };
+  return { userId, afterCode, body, onboarded, roost, saved, next, fetchImpl };
 }
 
 describe("short onboarding from a guest link (ac-3)", () => {
@@ -144,6 +142,13 @@ describe("short onboarding from a guest link (ac-3)", () => {
     expect(run.afterCode).toBe("/welcome/bird");
     expect(run.onboarded).toEqual({ ok: true });
     expect(profile.name).toBe("Priya");
+    const birds = await deps.db.query<{ name: string; look: string }>(
+      "select name, look from birds where owner_id = $1",
+      [run.userId],
+    );
+    expect(birds).toEqual([
+      { name: run.body.bird.name, look: run.body.bird.look },
+    ]);
     expect(run.roost).toMatchObject({ lat: flight.to_lat, lon: flight.to_lon });
     expect(run.saved.ok).toBe(true);
     expect(visit.host_id).toBe(run.userId);

@@ -57,7 +57,7 @@ async function rows(user: string) {
 }
 
 describe("onboard: a new person gets a working account (ac-1)", () => {
-  it("creates one profile, two starter birds, bell and bow, three outfits, one egg at 5, and 60 welcome seeds", async () => {
+  it("creates one profile, one starter bird, bell and bow, three outfits, one egg at 5, and 60 welcome seeds", async () => {
     const user = await newUser();
     const result = await onboard(deps, user, BODY);
     const r = await rows(user);
@@ -72,29 +72,28 @@ describe("onboard: a new person gets a working account (ac-1)", () => {
     });
     expect(r.profiles[0].invite_code).toMatch(/^max.+/);
 
-    const stats = r.birds
-      .map((b) => [b.speed_mph, b.focus, b.navigation])
-      .sort((a, b) => Number(a[0]) - Number(b[0]));
-    expect(stats).toEqual([
-      [45, 2, 4],
-      [54, 1, 3],
-    ]);
-    for (const b of r.birds) {
-      expect(b).toMatchObject({ belly: 80, feathers: 80, energy: 100 });
-      const quirks = b.quirks as string[];
-      expect(quirks).toHaveLength(2);
-      expect(
-        quirks.filter((q) => config.quirks.fears.includes(q)),
-      ).toHaveLength(1);
-      expect(
-        quirks.filter((q) => config.quirks.loves.includes(q)),
-      ).toHaveLength(1);
-    }
-    expect(r.birds.find((b) => b.speed_mph === 45)).toMatchObject({
+    const [first] = config.game.start.birds;
+    expect(r.birds).toHaveLength(1);
+    expect(r.birds[0]).toMatchObject({
       name: "Gerald",
       look: "gerald",
       pronoun: "he",
+      speed_mph: first.speedMph,
+      focus: first.focus,
+      navigation: first.navigation,
+      belly: 80,
+      feathers: 80,
+      energy: 100,
     });
+    expect([first.speedMph, first.focus, first.navigation]).toEqual([45, 2, 4]);
+    const quirks = r.birds[0].quirks as string[];
+    expect(quirks).toHaveLength(2);
+    expect(quirks.filter((q) => config.quirks.fears.includes(q))).toHaveLength(
+      1,
+    );
+    expect(quirks.filter((q) => config.quirks.loves.includes(q))).toHaveLength(
+      1,
+    );
 
     expect(r.gear.map((g) => g.gear_id)).toEqual(["bell", "bow"]);
     expect(r.outfits.map((o) => o.name).sort()).toEqual([
@@ -110,20 +109,27 @@ describe("onboard: a new person gets a working account (ac-1)", () => {
     ]);
 
     expect(result.me).toMatchObject({ id: user, handle: "max", seeds: 60 });
-    expect(result.birds).toHaveLength(2);
+    expect(result.birds).toHaveLength(1);
   });
 
-  it("names the second bird from secondBird when given", async () => {
+  it.each([
+    ["a valid secondBird", { name: "Pip", pronoun: "she" }],
+    ["a string secondBird", "x"],
+    ["a wrong-typed secondBird", { name: 7 }],
+    ["a blocklisted secondBird", { name: BLOCKED_NAMES[0], pronoun: "he" }],
+  ])("ignores %s and creates exactly one bird", async (_, secondBird) => {
     const user = await newUser();
-    await onboard(deps, user, {
-      ...BODY,
-      secondBird: { name: "Pip", pronoun: "she" },
-    });
-    const [second] = await deps.db.query<{ name: string; pronoun: string }>(
-      "select name, pronoun from birds where owner_id = $1 and speed_mph = 54",
-      [user],
-    );
-    expect(second).toEqual({ name: "Pip", pronoun: "she" });
+    const result = await onboard(deps, user, { ...BODY, secondBird });
+    const r = await rows(user);
+
+    expect(r.birds).toHaveLength(1);
+    expect(r.birds[0]).toMatchObject({ name: "Gerald", speed_mph: 45 });
+    expect(result.birds.map((b) => b.name)).toEqual(["Gerald"]);
+    expect(r.outfits).toHaveLength(3);
+    expect(r.eggs).toHaveLength(1);
+    expect(r.ledger).toEqual([
+      expect.objectContaining({ delta: 60, reason: "welcome" }),
+    ]);
   });
 });
 
@@ -199,11 +205,6 @@ describe("onboard: bad input is invalid and writes nothing (ac-4)", () => {
       "bird.name",
     ],
     [
-      "a blocklisted second bird name",
-      { ...BODY, secondBird: { name: blocked, pronoun: "he" } },
-      "secondBird.name",
-    ],
-    [
       "a name with a symbol inside a slur",
       { ...BODY, name: "xn\u2a74iggerx" },
       "name",
@@ -212,11 +213,6 @@ describe("onboard: bad input is invalid and writes nothing (ac-4)", () => {
       "a bird name with a symbol inside a slur",
       { ...BODY, bird: { ...BODY.bird, name: "xn\u2a74iggerx" } },
       "bird.name",
-    ],
-    [
-      "a second bird name with a symbol inside a slur",
-      { ...BODY, secondBird: { name: "xn\u2a74iggerx", pronoun: "he" } },
-      "secondBird.name",
     ],
     [
       "a 25-character bird name",
@@ -236,11 +232,6 @@ describe("onboard: bad input is invalid and writes nothing (ac-4)", () => {
       "a bird name with a NUL",
       { ...BODY, bird: { ...BODY.bird, name: "\u0000" } },
       "bird.name",
-    ],
-    [
-      "a second bird name with a NUL",
-      { ...BODY, secondBird: { name: "Pea\u0000", pronoun: "he" } },
-      "secondBird.name",
     ],
   ])("rejects %s", async (_, body, field) => {
     const user = await newUser();
@@ -313,7 +304,7 @@ describe("onboard as the coo_app server role", () => {
     );
 
     expect(result.me.phoneLast4).toBe("4567");
-    expect(result.birds).toHaveLength(2);
+    expect(result.birds).toHaveLength(1);
     expect(await phoneLast4(user)).toBe("4567");
   });
 });
@@ -365,47 +356,5 @@ describe("syncPhoneLast4 as coo_app", () => {
 
     expect(await phoneLast4(a)).toBe("4567");
     expect(await phoneLast4(b)).toBe("0000");
-  });
-});
-
-describe("onboard: the two starter birds never share a name (#695)", () => {
-  it("rejects a roommate with the first bird's name, ignoring case and spaces, and writes nothing", async () => {
-    const user = await newUser();
-
-    await expect(
-      onboard(deps, user, {
-        ...BODY,
-        secondBird: { name: " gerald ", pronoun: "they" },
-      }),
-    ).rejects.toMatchObject({
-      code: "conflict",
-      status: 409,
-      message: "You already have a bird called Gerald.",
-    });
-
-    const r = await rows(user);
-    expect(r.profiles).toHaveLength(0);
-    expect(r.birds).toHaveLength(0);
-    expect(r.ledger).toHaveLength(0);
-
-    await onboard(deps, user, {
-      ...BODY,
-      secondBird: { name: "Pip", pronoun: "they" },
-    });
-    expect((await rows(user)).birds).toHaveLength(2);
-  });
-
-  it("gives an unnamed roommate a different name when the first bird on Kevin is called Gerald", async () => {
-    const user = await newUser();
-
-    const { birds } = await onboard(deps, user, {
-      ...BODY,
-      bird: { name: "Gerald", look: "kevin", pronoun: "he" },
-    });
-
-    const kevin = birds.find((b) => b.look === "kevin")!;
-    const roommate = birds.find((b) => b.look === "gerald")!;
-    expect(kevin.name).toBe("Gerald");
-    expect(roommate.name.trim().toLowerCase()).not.toBe("gerald");
   });
 });

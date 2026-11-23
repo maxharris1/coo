@@ -54,7 +54,7 @@ async function deliverFive(userId: string) {
 async function fillPerches(userId: string) {
   await deps.db.query(
     `insert into birds (owner_id, name, breed, speed_mph, focus, navigation)
-     values ($1, 'Extra', 'city', 45, 3, 3)`,
+     values ($1, 'Extra', 'city', 45, 3, 3), ($1, 'Spare', 'city', 45, 3, 3)`,
     [userId],
   );
 }
@@ -103,7 +103,7 @@ describe("POST /api/eggs/hatch", () => {
     const { status, json } = await client.post(body, jar);
     expect(status).toBe(400);
     expect(json.error.code).toBe("invalid");
-    expect(await birdCount(id)).toBe(2);
+    expect(await birdCount(id)).toBe(1);
     expect((await eggsOf(id)).map((e) => e.status)).toEqual(["ready"]);
   });
 
@@ -112,7 +112,7 @@ describe("POST /api/eggs/hatch", () => {
     const { status, json } = await client.post(PRETZEL, jar);
     expect(status).toBe(409);
     expect(json.error.code).toBe("conflict");
-    expect(await birdCount(id)).toBe(2);
+    expect(await birdCount(id)).toBe(1);
   });
 
   it("walks scenario 11: no perch refused, buy a perch, hatch, next egg 25 deliveries on", async () => {
@@ -158,8 +158,8 @@ describe("POST /api/eggs/hatch", () => {
     const { status, json } = await client.post(PRETZEL, jar);
     expect(status).toBe(409);
     expect(json.error.code).toBe("conflict");
-    expect(await birdCount(id)).toBe(2);
-    expect(await birdCount(other.id)).toBe(2);
+    expect(await birdCount(id)).toBe(1);
+    expect(await birdCount(other.id)).toBe(1);
     expect((await eggsOf(other.id)).map((e) => e.status)).toEqual(["ready"]);
   });
 });

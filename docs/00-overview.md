@@ -33,7 +33,7 @@ Build for tens of users. Do not build anything that stops it reaching thousands.
 Everything below is in scope. Nothing here is "later".
 
 - Phone number sign-in with a text code.
-- A flock: two starter birds, up to five perches, eggs that hatch six fancy breeds.
+- A flock: one starter bird, a free roommate from the Loft, up to five perches, eggs that hatch six fancy breeds.
 - Notes: text only, 140 characters, 280 with the roomy leg tube.
 - Real-time flights on a styled real map with one continuous zoom, day and night.
 - Live weather at release and a forecast screen to pick a better hour or schedule a send.

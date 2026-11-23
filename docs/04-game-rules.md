@@ -9,10 +9,10 @@ A new account gets:
 
 - 60 seeds (ledger reason `welcome`, reference the user id).
 - 3 perches.
-- 2 city pigeons. The user picks a look and a name for the first; the second arrives named by
-  default and can be renamed. First: 45 mph, focus 2, navigation 4. Second: 54 mph, focus 1,
-  navigation 3. Both start at belly 80, feathers 80, energy 100, with one fear and one love from
-  `config/quirks.json`.
+- 1 city pigeon. The user picks its look and name: 45 mph, focus 2, navigation 4, belly 80,
+  feathers 80, energy 100, with one fear and one love from `config/quirks.json`.
+- A second starter, a roommate the user adopts free from the Loft's roommate slot: 54 mph,
+  focus 1, navigation 3, with the same care and quirks.
 - The ankle bell and the bow tie in the closet.
 - An egg that hatches after 5 deliveries.
 

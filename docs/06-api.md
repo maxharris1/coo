@@ -79,7 +79,7 @@ Also updates `profiles.timezone` if the request header `X-Timezone` differs.
 
 | Endpoint | Body | Does |
 |---|---|---|
-| `POST /api/onboarding` | `{ name, handle?, timezone, bird: { name, look, pronoun }, secondBird?: { name, pronoun } }` | Creates the profile (handle generated from the name if missing, made unique), the two birds, starter gear, three default outfits, the first egg, and pays the welcome seeds. Safe to repeat |
+| `POST /api/onboarding` | `{ name, handle?, timezone, bird: { name, look, pronoun } }` | Creates the profile (handle generated from the name if missing, made unique), the first bird, starter gear, three default outfits, the first egg, and pays the welcome seeds. Safe to repeat |
 | `POST /api/loft` | `{ lat, lon }` or `{ placeId }`, optional `centre: true` | Snaps, looks up the neighbourhood and city, saves the home loft, sets `onboarded_at`. With `centre: true` it saves that place's city centre as the roost ("Use my town centre instead") |
 | `POST /api/loft/travel` | `{ on: true, lat, lon }` or `{ on: false }` | Travel switch. `conflict` if changed in the last 12 hours |
 | `PATCH /api/settings` | Any of: `name`, `units`, notification switches, quiet hours, `smsFallback`, `installed`. Optional `account`: the user id the client checked | Updates the profile. `conflict` with no write if `account` is not the signed-in user |

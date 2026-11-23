@@ -51,7 +51,8 @@ describe("GET /api/aviary", () => {
     const { status, json } = await client.get({}, jar);
 
     expect(status).toBe(200);
-    expect(json.perches).toMatchObject({ total: 3, free: 1 });
+    expect(json.perches).toMatchObject({ total: 3, free: 2 });
+    expect(json.perches.birds).toHaveLength(1);
     expect(json.perches.birds.map((b: { id: string }) => b.id)).toEqual(
       await birdIdsOf(id),
     );
