@@ -9,7 +9,7 @@ import { notificationText, recordNotification } from "../notify";
 import { deliver } from "../notify/deliver";
 import { hashToken } from "./create";
 import { guestIpLimit, NO_SUCH_LINK } from "./get";
-import { attributeLink, resolveLinksBetween } from "./resolve";
+import { attributeLink, linksBetween, resolveLinksBetween } from "./resolve";
 
 export type ClaimResult = { friendId: UserId; visitId?: string };
 
@@ -52,7 +52,12 @@ export async function claimGuestLink(
   if (!shape.test(token)) throw new AppError("not_found", NO_SUCH_LINK);
 
   const { result, linkId, notificationId } = await deps.db.tx(async (db) => {
-    const { link, people } = await lockClaim(db, hashToken(pepper, token), me);
+    const { link, people } = await lockClaim(
+      db,
+      hashToken(pepper, token),
+      me,
+      deps.clock.now(),
+    );
     const now = deps.clock.now();
     const outcome = verdict(link, me, now);
     if (outcome === "gone" || outcome === "conflict") throw REFUSALS[outcome];
@@ -72,15 +77,26 @@ export async function claimGuestLink(
   return result;
 }
 
-async function lockClaim(db: Db, tokenHash: string, me: UserId) {
+async function lockClaim(
+  db: Db,
+  tokenHash: string,
+  me: UserId,
+  before: number,
+) {
   const [found] = await db.query<{ id: string; sender_id: UserId }>(
     "select id, sender_id from guest_links where token_hash = $1",
     [tokenHash],
   );
   if (!found) throw new AppError("not_found", NO_SUCH_LINK);
+  const friendship = await friendshipBetween(db, me, found.sender_id);
+  const crossed =
+    friendship?.status === "blocked"
+      ? []
+      : await linksBetween(db, me, found.sender_id, before, true);
   await db.query(
-    "select 1 from flights where guest_link_id = $1 and kind = 'delivery' for update",
-    [found.id],
+    `select 1 from flights where guest_link_id = any($1::uuid[]) and kind = 'delivery'
+     order by id for update`,
+    [[found.id, ...crossed]],
   );
   const people = await db.query<Person>(
     "select id, name from profiles where id = any($1::uuid[]) order by id for update",

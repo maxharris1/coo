@@ -63,6 +63,22 @@ const CANDIDATES = `
        )
      )`;
 
+export async function linksBetween(
+  db: Db,
+  a: UserId,
+  b: UserId,
+  now: number,
+  friends: boolean,
+): Promise<string[]> {
+  const rows = await db.query<{ id: string }>(CANDIDATES, [
+    a,
+    b,
+    new Date(now).toISOString(),
+    friends,
+  ]);
+  return rows.map((r) => r.id);
+}
+
 export async function resolveLinksBetween(
   db: Db,
   a: UserId,
@@ -73,23 +89,25 @@ export async function resolveLinksBetween(
   if (friendship?.status === "blocked") return [];
   const nowIso = new Date(now).toISOString();
 
-  const candidates = await db.query<{ id: string }>(
-    CANDIDATES,
-    [a, b, nowIso, friendship?.status === "accepted"],
+  const ids = await linksBetween(
+    db,
+    a,
+    b,
+    now,
+    friendship?.status === "accepted",
   );
-  if (candidates.length === 0) return [];
-  const ids = candidates.map((c) => c.id);
+  if (ids.length === 0) return [];
 
-  await db.query(
-    `select 1 from flights where guest_link_id = any($1) and kind = 'delivery'
-     order by id for update`,
+  const held = await db.query<{ guest_link_id: string }>(
+    `select guest_link_id from flights where guest_link_id = any($1) and kind = 'delivery'
+     order by id for update skip locked`,
     [ids],
   );
   const locked = await db.query<{ id: string; sender_id: UserId }>(
     `select id, sender_id from guest_links
      where id = any($1) and status = 'active' and claimed_by is null
      order by id for update`,
-    [ids],
+    [held.map((f) => f.guest_link_id)],
   );
 
   const resolved: Resolved[] = [];
