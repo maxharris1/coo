@@ -64,7 +64,8 @@ const STATES: Record<
   },
   delayed: {
     chip: { text: "Delayed", tone: "tomato" },
-    line: (c) => sentences(c.place && `Last seen near ${c.place}.`),
+    line: (c) =>
+      sentences(c.place && `Last seen near ${c.place}.`, `Lands ${c.lands}.`),
   },
   landed: { line: (c) => c.trip },
 };

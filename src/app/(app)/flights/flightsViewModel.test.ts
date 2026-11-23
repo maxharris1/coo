@@ -350,7 +350,7 @@ describe("flightsView status lines", () => {
       "In the air": [
         {
           title: "Gerald to Priya",
-          line: "Last seen near Elizabeth, NJ.",
+          line: "Last seen near Elizabeth, NJ. Lands this afternoon.",
           chip: { text: "Delayed", tone: "tomato" },
         },
       ],
@@ -361,7 +361,8 @@ describe("flightsView status lines", () => {
         bird: "Gerald",
         other: "Priya",
         direction: "sent",
-        label: "Gerald, Delayed, to Priya. Last seen near Elizabeth, NJ.",
+        label:
+          "Gerald, Delayed, to Priya. Last seen near Elizabeth, NJ. Lands this afternoon.",
       },
     ]);
 
@@ -518,7 +519,9 @@ describe("flightsView status lines", () => {
 
       const delayed = vectorFlight("delay-major", { placeNames });
       const delay = delayed.plan!.segments[1];
-      expect(lineAt(delayed, delay.startMs + 60_000)).toBe("");
+      expect(lineAt(delayed, delay.startMs + 60_000)).toBe(
+        "Lands this afternoon.",
+      );
     },
   );
 });

@@ -309,9 +309,35 @@ describe("/flights ready", () => {
     expect(accessibleName(html, "g1")).toBe(
       "Gerald, Flying, to Priya. Lands this afternoon.",
     );
-    expect(accessibleName(html, "k1")).toBe("Kevin, Delayed, to Theo.");
+    expect(accessibleName(html, "k1")).toBe(
+      "Kevin, Delayed, to Theo. Lands this afternoon.",
+    );
     expect(accessibleName(html, "d1")).toBe(
       "Dumpling, Almost here, from Priya. Lands on your sill any minute now.",
+    );
+  });
+
+  it("keeps the fuzzy arrival on a delayed card with no last-seen place", async () => {
+    await mount();
+    await answer(page());
+    const html = shown();
+    expect(accessibleName(html, "k1")).toMatch(/Lands /);
+    expect(card(html, "k1")).toContain("Lands this afternoon.");
+  });
+
+  it("keeps the fuzzy arrival after the last-seen place on a delayed card", async () => {
+    const seen = {
+      ...kevin,
+      placeNames: { deciles: Array(11).fill("Newark") },
+    };
+    await mount();
+    await answer(page({ yours: [gerald, seen] }));
+    const html = shown();
+    expect(accessibleName(html, "k1")).toBe(
+      "Kevin, Delayed, to Theo. Last seen near Newark. Lands this afternoon.",
+    );
+    expect(card(html, "k1")).toContain(
+      "Last seen near Newark. Lands this afternoon.",
     );
   });
 
