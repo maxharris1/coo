@@ -139,6 +139,7 @@ const legFor = (birdIds: string[], friendId = "u2") => ({
     arriveAt: RELEASE + 108 * 60_000,
     odds: birdId === "b1" ? 0.94 : 0.81,
     roostsOvernight: false,
+    fliesInDark: false,
     factors: [
       { kind: "clear", text: "Clear skies over Jersey", effect: "none" },
     ],

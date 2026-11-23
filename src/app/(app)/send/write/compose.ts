@@ -130,9 +130,10 @@ function factorText(factor: Factor, units: Units): string {
 }
 
 type BirdQuote = RecipientQuote["quotes"][number];
-type Trip = "waits" | "roosts" | "direct";
+type Trip = "night" | "waits" | "roosts" | "direct";
 
 function tripOf(quote: BirdQuote): Trip {
+  if (quote.fliesInDark) return "night";
   if (quote.leavesAt > quote.releaseAt) return "waits";
   return quote.roostsOvernight ? "roosts" : "direct";
 }
@@ -144,6 +145,11 @@ const TRIPS: Record<
     forecast: (lands: string, leaves: string) => string;
   }
 > = {
+  night: {
+    flightMs: (q) => q.airTimeMs,
+    forecast: (lands) =>
+      `Flies through the night (goggles). Lands around ${lands}.`,
+  },
   waits: {
     flightMs: (q) => q.airTimeMs,
     forecast: (lands, leaves) =>
@@ -171,7 +177,7 @@ export function stats(
   const trip = TRIPS[tripOf(quote)];
   const at = (ms: number) => clockTime(new Date(ms), timezone);
   const said = trip.forecast(at(quote.arriveAt), at(quote.leavesAt));
-  const lead = quote.factors[0];
+  const lead = quote.factors.find((f) => f.kind !== "night");
   return {
     distance: shortDistance(leg.distanceMi, units),
     flightTime: duration(trip.flightMs(quote)),

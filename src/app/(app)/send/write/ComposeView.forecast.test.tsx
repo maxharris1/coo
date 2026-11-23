@@ -38,6 +38,7 @@ function forecastFor(units: Units): string {
         arriveAt: plan.arriveAtMs,
         odds: plan.onTimeOdds,
         roostsOvernight: true,
+        fliesInDark: false,
         factors,
         sunsetAt: plan.segments[0].startMs,
       },

@@ -120,13 +120,15 @@ refused with `unavailable`. The held place's label is never used for a pin. See 
 
 For each recipient returns distance, the endpoints' labels, and for each requested time
 (default: now) a quote for the given bird, or for each ready bird if none is given:
-`{ birdId, releaseAt, leavesAt, airTimeMs, durationMs, arriveAt, odds, roostsOvernight, factors:
-[{ kind: 'headwind'|'tailwind'|'rain'|'downpour'|'cold'|'snow'|'hawk'|'fair'|'hungry'|'scruffy'|
-'tired'|'distance', text, effect }] , sunsetAt }`.
+`{ birdId, releaseAt, leavesAt, airTimeMs, durationMs, arriveAt, odds, roostsOvernight,
+fliesInDark, factors: [{ kind: 'headwind'|'tailwind'|'rain'|'downpour'|'cold'|'snow'|'hawk'|
+'fair'|'hungry'|'scruffy'|'tired'|'night'|'distance', text, effect }] , sunsetAt }`.
 
 `durationMs` runs from release to arrival, roosts included. `airTimeMs` is the time in the air,
 the sum of the flight's fly segments. `leavesAt` is takeoff, the start of the first fly segment;
 it is later than `releaseAt` when a bird released after dark waits at the loft for sunrise.
+`fliesInDark` is true when the bird wears night-vision goggles and its route meets the dark, so
+it flies on instead of roosting.
 
 `effect` is found by running the engine with and without that one factor: a time difference
 ("+18 min") for speed factors, an odds difference ("6% off") for odds factors. Weather for

@@ -32,6 +32,7 @@ function hourQuote(
     arriveAt: releaseAt + durationMs,
     odds,
     roostsOvernight: false,
+    fliesInDark: false,
     factors: [],
     sunsetAt: SUNSET,
     ...over,
@@ -246,6 +247,45 @@ describe("forecastModel for a bird that waits at the loft for sunrise", () => {
     expect(model.sunset).toBe(
       "Sunset is 4:34 pm. Birds still out at dusk roost for the night and finish the trip at sunrise.",
     );
+  });
+});
+
+describe("forecastModel for a bird in night-vision goggles after dark", () => {
+  const now = friday(16, 40);
+  const airTimeMs = 6_700;
+  const model = forecastModel(
+    leg([
+      hourQuote(16, 0.88, {
+        releaseAt: now,
+        leavesAt: now,
+        airTimeMs,
+        durationMs: airTimeMs,
+        arriveAt: now + airTimeMs,
+        fliesInDark: true,
+        factors: [
+          { kind: "night", text: "Flying in the dark", effect: "3% off" },
+        ],
+      }),
+    ]),
+    GERALD,
+    now,
+    now,
+    TZ,
+    "mi",
+  );
+
+  it("says it flies through the night and quotes the time in the air", () => {
+    expect(model.selected.detail).toBe(
+      "Flies through the night. About 7 sec. Lands near 4:40 pm.",
+    );
+    expect(model.selected.detail).not.toMatch(/sunrise/);
+  });
+
+  it("says the goggles carry it on past sunset", () => {
+    expect(model.sunset).toBe(
+      "Sunset is 4:34 pm. With goggles on, Gerald flies on through the dark.",
+    );
+    expect(model.sunset).not.toMatch(/roost|sunrise/);
   });
 });
 

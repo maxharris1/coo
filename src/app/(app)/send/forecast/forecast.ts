@@ -123,6 +123,8 @@ function landingDay(q: BirdQuote, tz: string): string {
 }
 
 function howLong(q: BirdQuote): string {
+  if (q.fliesInDark)
+    return `Flies through the night. About ${duration(q.airTimeMs)}`;
   return q.leavesAt > q.releaseAt
     ? `Waits for sunrise, then about ${duration(q.airTimeMs)} in the air`
     : `About ${duration(q.durationMs)}`;
@@ -170,7 +172,11 @@ export function forecastModel(
       text: factorText(f, units),
       effect: f.effect,
     })),
-    sunset: `Sunset is ${clockTime(new Date(selected.sunsetAt), tz)}. Birds still out at dusk roost for the night and finish the trip at sunrise.`,
+    sunset: `Sunset is ${clockTime(new Date(selected.sunsetAt), tz)}. ${
+      selected.fliesInDark
+        ? `With goggles on, ${bird.name} flies on through the dark.`
+        : "Birds still out at dusk roost for the night and finish the trip at sunrise."
+    }`,
     best: best && {
       at: best.releaseAt,
       label: `Schedule for ${hourLabel(best.releaseAt, tz)}${switchable ? " instead" : ""}`,
