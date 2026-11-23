@@ -22,6 +22,25 @@ export function tripOf(
   return positionAt(flight.plan, flight.from, flight.to, data.serverNow).state;
 }
 
+export type Tracker = { kind: "flight" | "job"; href: string };
+
+export function trackerOf(
+  bird: PigeonBird,
+  flights: SyncPayload["flights"],
+): Tracker | null {
+  if (bird.status === "flying" || bird.status === "scheduled") {
+    const flight = flights.find(
+      (f) =>
+        f.role === "mine" && f.bird.id === bird.id && f.status === bird.status,
+    );
+    return flight ? { kind: "flight", href: `/flights/${flight.id}` } : null;
+  }
+  if (bird.status === "busy" && bird.busyKind === "job" && bird.jobId) {
+    return { kind: "job", href: `/jobs/${bird.jobId}` };
+  }
+  return null;
+}
+
 type Mood =
   | "fine"
   | "hungry"

@@ -90,6 +90,28 @@
   box-shadow: var(--coo-shadow-1);
 }
 
+.tracker {
+  display: flex;
+  align-self: flex-start;
+  align-items: center;
+  box-sizing: border-box;
+  min-height: var(--coo-touch);
+  padding: 0 14px;
+  color: var(--coo-ink);
+  font-size: 14px;
+  font-weight: 900;
+  text-decoration: none;
+  background: var(--coo-card);
+  border: var(--coo-line);
+  border-radius: var(--coo-radius-pill);
+  box-shadow: var(--coo-shadow-1);
+}
+
+.tracker:active {
+  transform: translateY(3px);
+  box-shadow: none;
+}
+
 .portrait {
   flex-shrink: 1;
   width: 168px;

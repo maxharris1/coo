@@ -159,6 +159,9 @@ As drawn: portrait in the current outfit and mood pose (see the pose table in `d
 line, mood sentence, "Open closet", three care meters with Feed, Bath and Nap, the sulk
 explanation, abilities (speed, range, navigation dots, focus dots), two quirk chips, the record
 line. Renaming is a tap on the name. A bird that is away shows where it is and disables care.
+A bird in flight, or scheduled with a known flight, shows "Watch this flight", which opens its
+flight tracker. A bird on an odd job with a known job id shows "Watch this odd job", which opens
+its job tracker. Visiting, naps, baths and jobs without an id stay as text.
 A napping bird shows "Napping until {time}" and its Energy row offers Wake instead of Nap.
 Feed and Bath stay disabled. After waking, the mood and meters follow its energy.
 
