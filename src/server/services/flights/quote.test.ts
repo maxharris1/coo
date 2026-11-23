@@ -402,13 +402,24 @@ describe("quote", () => {
     const DAY = Date.parse("2026-11-22T19:00:00Z");
     const SUNRISE = Date.parse("2026-11-23T11:52:00Z");
 
-    async function hop(clockMs: number, at?: number[]) {
+    async function hop(
+      clockMs: number,
+      at?: number[],
+      gear: { owned?: string[]; worn?: string[] } = {},
+    ) {
       deps = await makeTestDeps({ clock: new FakeClock(clockMs) });
       world = await seedWorld(deps.db, clockMs);
       deps.weather.set(CALM);
-      await deps.db.query("update birds set speed_mph = 54 where id = $1", [
-        world.max.birds[0].id,
-      ]);
+      await deps.db.query(
+        "update birds set speed_mph = 54, gear = coalesce($2, gear) where id = $1",
+        [world.max.birds[0].id, gear.worn ?? null],
+      );
+      for (const gearId of gear.owned ?? []) {
+        await deps.db.query(
+          "insert into gear_owned (user_id, gear_id, acquired_at) values ($1, $2, to_timestamp($3 / 1000.0))",
+          [world.max.id, gearId, clockMs],
+        );
+      }
       await deps.db.query(
         "update profiles set home_lat = $1, home_lon = $2 where id = $3",
         [MAX_ROOST.lat + 0.0015, MAX_ROOST.lon, world.rosa.id],
@@ -432,6 +443,26 @@ describe("quote", () => {
       expect(q.airTimeMs).toBeLessThan(9_000);
       expect(q.arriveAt).toBe(q.leavesAt + q.airTimeMs);
       expect(q.durationMs).toBe(q.arriveAt - q.releaseAt);
+    });
+
+    it("flies through the dark at release in night-vision goggles", async () => {
+      const q = await hop(NIGHT, undefined, {
+        owned: ["nightgoggles"],
+        worn: ["nightgoggles"],
+      });
+
+      expect(q.roostsOvernight).toBe(false);
+      expect(q.leavesAt).toBe(q.releaseAt);
+      expect(q.airTimeMs).toBeGreaterThan(5_000);
+      expect(q.airTimeMs).toBeLessThan(9_000);
+      expect(q.arriveAt).toBe(q.leavesAt + q.airTimeMs);
+    });
+
+    it("still waits for sunrise when the goggles are owned but not worn", async () => {
+      const q = await hop(NIGHT, undefined, { owned: ["nightgoggles"] });
+
+      expect(q.roostsOvernight).toBe(true);
+      expect(Math.abs(q.leavesAt - SUNRISE)).toBeLessThan(5 * MINUTE_MS);
     });
 
     it("leaves at release after a 2:00 pm release", async () => {
