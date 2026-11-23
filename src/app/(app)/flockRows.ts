@@ -1,4 +1,5 @@
 import type { SyncPayload } from "@/components/sync";
+import { config } from "@/lib/config";
 import { capitalise, fuzzyWhen, inWords, isAway } from "@/lib/format";
 import { roommateOwed } from "@/lib/starter";
 import type { CannotFly } from "@/server/services/sync";
@@ -171,6 +172,14 @@ function birdRoom(bird: FlockBird): Room {
   return { kind: "home", bird, asleep: bird.tired || napping };
 }
 
+const { perFloor, topFloorMinRooms } = config.loft.rooms;
+
+function roomsBuilt(perches: number): number {
+  const top = perches % perFloor;
+  if (perches <= perFloor || top === 0) return perches;
+  return perches - top + Math.max(top, topFloorMinRooms);
+}
+
 export function loftRooms(
   birds: readonly FlockBird[],
   perches: number,
@@ -179,7 +188,10 @@ export function loftRooms(
   return [
     ...birds.map(birdRoom),
     ...perchSlots(birds.length, perches, egg).map((slot) => SLOT_ROOM[slot]),
-    ...(perches === 4 ? [{ kind: "tolet" } as const] : []),
+    ...Array.from(
+      { length: roomsBuilt(perches) - perches },
+      () => ({ kind: "tolet" }) as const,
+    ),
   ];
 }
 
