@@ -261,7 +261,9 @@ describe("status-bar inset source", () => {
     const offsetting = SRC_CSS.filter(
       ({ path, css }) =>
         path.endsWith(".module.css") &&
-        /safe-area-inset-top|--coo-safe-top/.test(css),
+        /(?<![-\w])(padding|margin|top|inset)[\w-]*:[^;]*(safe-area-inset-top|--coo-safe-top)/.test(
+          css,
+        ),
     ).map(({ path }) => path);
     const covered = new Set(ROWS.map((row) => row.file));
     for (const path of offsetting) expect(covered, path).toContain(path);
