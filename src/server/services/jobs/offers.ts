@@ -33,23 +33,27 @@ export async function jobOffers(
 ): Promise<JobOffers> {
   const { userId, profile } = caller;
   const now = deps.clock.now();
-  const started = await jobsStartedToday(
-    deps.db,
-    userId,
-    profile.timezone,
-    now,
-  );
+  const [started, runningRows] = await Promise.all([
+    jobsStartedToday(deps.db, userId, profile.timezone, now),
+    deps.db.query<{ job_id: string }>(
+      `select job_id from jobs where user_id = $1 and status = 'running'`,
+      [userId],
+    ),
+  ]);
+  const running = new Set(runningRows.map((row) => row.job_id));
   const pay = (job: { pay: number }) => {
     const next = jobPay(job, started);
     return next.ok ? next.seeds : 0;
   };
   return {
-    offers: offersFor(userId, localDate(now, profile.timezone)).map((job) => ({
-      id: job.id,
-      text: job.text,
-      minutes: job.minutes,
-      pay: pay(job),
-    })),
+    offers: offersFor(userId, localDate(now, profile.timezone))
+      .filter((job) => !running.has(job.id))
+      .map((job) => ({
+        id: job.id,
+        text: job.text,
+        minutes: job.minutes,
+        pay: pay(job),
+      })),
     leftToday: Math.max(0, deps.config.game.jobs.maxPerDay - started),
   };
 }

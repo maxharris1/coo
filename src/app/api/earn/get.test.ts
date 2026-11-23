@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { config } from "@/lib/config";
 import { offersFor } from "@/lib/game/jobs";
+import { jobPay } from "@/lib/game/seeds";
 import type { LocalDate } from "@/lib/game/time";
+import type { OnboardedCaller, Profile } from "@/server/auth";
 import type { UserId } from "@/server/ports/auth";
+import { startJob } from "@/server/services/jobs/start";
 import { onboard } from "@/server/services/onboarding";
 import { tick } from "@/server/services/tick";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
@@ -429,5 +432,102 @@ describe("GET /api/earn jobs", () => {
     expect(pair(json)).toEqual(
       offersFor(id, "2026-11-21" as LocalDate).map((j) => j.id),
     );
+  });
+
+  describe("with a running job", () => {
+    const DATE = "2026-11-21" as LocalDate;
+    const NOW = Date.UTC(2026, 10, 21, 15, 0);
+    let world: World;
+    let jar: Awaited<ReturnType<typeof client.signIn>>["jar"];
+
+    beforeEach(async () => {
+      world = await seedWorld(deps.db, deps.clock.now());
+      await deps.db.query("update profiles set timezone = $2 where id = $1", [
+        world.max.id,
+        TZ,
+      ]);
+      deps.clock.set(NOW);
+      ({ jar } = await client.signIn("(555) 000-0001"));
+    });
+
+    async function start(jobId: string, birdIndex: number) {
+      const [profile] = await deps.db.query<Profile & { onboarded_at: Date }>(
+        "select * from profiles where id = $1",
+        [world.max.id],
+      );
+      const caller: OnboardedCaller = {
+        userId: world.max.id as UserId,
+        profile,
+      };
+      return startJob(deps, caller, {
+        jobId,
+        birdId: world.max.birds[birdIndex].id,
+      });
+    }
+
+    it("offers only the other job of today's pair, priced after the start (ac-1)", async () => {
+      const [a, b] = offersFor(world.max.id, DATE);
+      const earlier = config.game.jobs.fullPayPerDay - 1;
+      for (let i = 0; i < earlier; i++) {
+        await startedJob(world.max.id, NOW - (i + 1) * MINUTE);
+      }
+
+      await start(a.id, 0);
+      const { status, json } = await client.get({}, jar);
+
+      expect(status).toBe(200);
+      const pay = Math.floor(b.pay * config.game.jobs.reducedPayFactor);
+      expect(jobPay(b, earlier + 1)).toEqual({ ok: true, seeds: pay });
+      expect(json.jobs).toEqual({
+        offers: [{ id: b.id, text: b.text, minutes: b.minutes, pay }],
+        leftToday: config.game.jobs.maxPerDay - earlier - 1,
+      });
+    });
+
+    it("offers the job again once it is done, and it starts again (ac-2)", async () => {
+      const [a, b] = offersFor(world.max.id, DATE);
+      const { job } = await start(a.id, 0);
+
+      deps.clock.set(Date.parse(job.endsAt) + MINUTE);
+      await tick(deps);
+      const [{ status }] = await deps.db.query<{ status: string }>(
+        "select status from jobs where id = $1",
+        [job.id],
+      );
+      expect(status).toBe("done");
+
+      const { json } = await client.get({}, jar);
+      expect(pair(json)).toEqual([a.id, b.id]);
+      expect(json.jobs.leftToday).toBe(config.game.jobs.maxPerDay - 1);
+
+      const again = await start(a.id, 0);
+      expect(again.job.jobId).toBe(a.id);
+      expect(again.job.id).not.toBe(job.id);
+    });
+
+    it("offers nothing while both of today's jobs run, with jobs still left (ac-3)", async () => {
+      const [a, b] = offersFor(world.max.id, DATE);
+      await start(a.id, 0);
+      await start(b.id, 1);
+
+      const { json } = await client.get({}, jar);
+      expect(json.jobs).toEqual({
+        offers: [],
+        leftToday: config.game.jobs.maxPerDay - 2,
+      });
+    });
+
+    it("keeps an offer that only someone else has running", async () => {
+      const [a, b] = offersFor(world.max.id, DATE);
+      await deps.db.query(
+        `insert into jobs (user_id, bird_id, job_id, pay, started_at, ends_at)
+         values ($1, $2, $3, 1, to_timestamp($4 / 1000.0), to_timestamp($5 / 1000.0))`,
+        [world.priya.id, world.priya.birds[0].id, a.id, NOW, NOW + HOUR],
+      );
+
+      const { json } = await client.get({ userId: world.priya.id }, jar);
+      expect(pair(json)).toEqual([a.id, b.id]);
+      expect(json.jobs.leftToday).toBe(config.game.jobs.maxPerDay);
+    });
   });
 });
