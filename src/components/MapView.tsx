@@ -264,13 +264,13 @@ export function MapView({
       const clampLabels = () => {
         const mapWidth = m.getContainer().clientWidth;
         for (const [pin, label] of [
-          [loftPin, loftLabelEl.current],
-          [sillPin, sillLabelEl.current],
+          [loft, loftLabelEl.current],
+          [sill, sillLabelEl.current],
         ] as const) {
           if (!label) continue;
           label.style.maxWidth = `${mapWidth - 2 * LABEL_PAD}px`;
           const shift = pinLabelShift({
-            pinX: m.project([pin.lon, pin.lat]).x,
+            pinX: m.project(pin.getLngLat()).x,
             labelWidth: label.offsetWidth,
             mapWidth,
             pad: LABEL_PAD,

@@ -50,11 +50,19 @@ export class FakeMap {
     return { setData() {} };
   }
   point = { x: 0, y: 0 };
-  project() {
-    return this.point;
+  camera: { lng: number; zoom: number } | undefined;
+  width = 400;
+  project(at: [number, number] | { lng: number }) {
+    if (!this.camera) return this.point;
+    const lng = Array.isArray(at) ? at[0] : at.lng;
+    const worldPx = 512 * 2 ** this.camera.zoom;
+    return {
+      x: this.width / 2 + ((lng - this.camera.lng) / 360) * worldPx,
+      y: 0,
+    };
   }
   getContainer() {
-    return { clientWidth: 400, clientHeight: 800 };
+    return { clientWidth: this.width, clientHeight: 800 };
   }
   easeTo() {
     this.eased++;
@@ -73,8 +81,20 @@ export class FakeMarker {
     this.lngLat = lngLat;
     return this;
   }
-  addTo() {
+  getLngLat() {
+    const [lng, lat] = this.lngLat ?? [0, 0];
+    return { lng, lat };
+  }
+  addTo(map: FakeMap) {
+    map.on("move", () => this.wrapToward(map.camera));
     return this;
+  }
+  private wrapToward(camera: FakeMap["camera"]) {
+    if (!camera || !this.lngLat) return;
+    let [lng] = this.lngLat;
+    while (lng - camera.lng > 180) lng -= 360;
+    while (camera.lng - lng > 180) lng += 360;
+    this.lngLat = [lng, this.lngLat[1]];
   }
   remove() {
     return this;

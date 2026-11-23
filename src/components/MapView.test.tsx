@@ -387,25 +387,30 @@ describe("pin labels stay inside the map (#924 ac-1)", () => {
       vi.useRealTimers();
     });
 
+    type Label = { style: Record<string, string>; offsetWidth: number };
+    const labelsIn = (tree: unknown) => {
+      const spans: Label[] = [];
+      const walk = (node: unknown) => {
+        if (!node || typeof node !== "object") return;
+        if (Array.isArray(node)) return node.forEach(walk);
+        const el = node as {
+          type?: unknown;
+          props?: { children?: unknown; ref?: { current: Label } };
+        };
+        if (el.type === "span" && el.props?.ref) {
+          spans.push(el.props.ref.current);
+        }
+        walk(el.props?.children);
+      };
+      walk(tree);
+      return spans;
+    };
+
     it.each(["load", "move", "resize"])(
       "re-clamps both labels on %s",
       async (event) => {
         const { tree, map } = await mounted(props());
-        type Label = { style: Record<string, string>; offsetWidth: number };
-        const spans: Label[] = [];
-        const walk = (node: unknown) => {
-          if (!node || typeof node !== "object") return;
-          if (Array.isArray(node)) return node.forEach(walk);
-          const el = node as {
-            type?: unknown;
-            props?: { children?: unknown; ref?: { current: Label } };
-          };
-          if (el.type === "span" && el.props?.ref) {
-            spans.push(el.props.ref.current);
-          }
-          walk(el.props?.children);
-        };
-        walk(tree);
+        const spans = labelsIn(tree);
         expect(spans).toHaveLength(2);
         for (const s of spans) s.offsetWidth = 168;
         map.point = { x: 395, y: 0 };
@@ -414,6 +419,56 @@ describe("pin labels stay inside the map (#924 ac-1)", () => {
           expect(s.style.maxWidth).toBe("368px");
           expect(s.style.transform).toBe("translateX(calc(-50% + -95px))");
         }
+      },
+    );
+
+    describe.each([390, 320])(
+      "panned into the next world copy at zoom 3 on a %ipx tracker",
+      (mapWidth) => {
+        it.each([
+          "Enrico Palazzo, Tudor City",
+          "Bartholomew Featherstonehaugh, Upper East Side",
+        ] as const)(
+          "keeps the %s pill and the loft pill whole",
+          async (label) => {
+            const p = props({ sillLabel: label });
+            const { tree, map } = await mounted(p);
+            const [loftLabel, sillLabel] = labelsIn(tree);
+            loftLabel.offsetWidth = pill("Your loft", mapWidth);
+            sillLabel.offsetWidth = pill(label, mapWidth);
+            const [loftPin, sillPin] = [markers[0], markers[1]];
+            const zoom = 3;
+            const worldPx = 512 * 2 ** zoom;
+            const pinX = mapWidth - 10;
+            map.width = mapWidth;
+            map.camera = {
+              lng: p.to.lon + 360 - ((pinX - mapWidth / 2) / worldPx) * 360,
+              zoom,
+            };
+
+            map.fire("move");
+
+            expect(sillPin.getLngLat().lng).toBeCloseTo(p.to.lon + 360);
+            for (const [pin, el] of [
+              [loftPin, loftLabel],
+              [sillPin, sillLabel],
+            ] as const) {
+              const x = map.project([pin.getLngLat().lng, 0]).x;
+              const shift = Number(
+                el.style.transform.match(/calc\(-50% \+ (-?[\d.]+)px\)/)?.[1],
+              );
+              expect(x - el.offsetWidth / 2 + shift).toBeGreaterThanOrEqual(
+                PAD,
+              );
+              expect(x + el.offsetWidth / 2 + shift).toBeLessThanOrEqual(
+                mapWidth - PAD,
+              );
+            }
+            expect(map.project([sillPin.getLngLat().lng, 0]).x).toBeCloseTo(
+              pinX,
+            );
+          },
+        );
       },
     );
   });
