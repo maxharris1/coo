@@ -12,9 +12,12 @@ explains it. If the two disagree, the SQL wins; fix this document.
   including notes they sent. Notes they received stay with their senders. See "Deleting an account".
 - Row level security is on for every table with no policies, except read-your-own on `events` and
   the server role `coo_app` on `tick_health`.
-- `coo_app` has no access to schema `auth`. Its only path to `auth.users` is the security definer
-  function `sync_phone_last4(p_user)`, which copies the last four digits of the Auth phone to
-  `profiles.phone_last4`. Only `coo_app` may execute it.
+- `coo_app` has no access to schema `auth`. Its only paths to `auth.users` are security definer
+  functions only `coo_app` may execute: `sync_phone_last4(p_user)` copies the last four digits of
+  the Auth phone to `profiles.phone_last4`, `guest_links_for_phone(p_user)` lists the active guest
+  links sent to that phone, and `lock_auth_user(p_user)` takes a key-share lock on the user row
+  for the rest of the transaction and returns whether the user still exists, so a place search
+  can never write a held place for a deleted account.
 
 ## Tables
 

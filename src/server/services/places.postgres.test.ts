@@ -143,7 +143,7 @@ describe.skipIf(!url)(
     });
 
     it("removes places a search held before the delete reached the user row", async () => {
-      const hold = pausedAfter("for key share");
+      const hold = pausedAfter("lock_auth_user");
       await onPostgres(hold, async ({ admin, database, db, deps, caller }) => {
         const search = searchPlaces(
           { ...deps, db: hold.paused(db) },

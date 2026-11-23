@@ -187,6 +187,48 @@ describe("schema", () => {
     expect(rows).toEqual([{ id: link, sender_id: max }]);
   });
 
+  it("lock_auth_user is a definer function only coo_app may run, and it says whether the user exists", async () => {
+    const fn = "public.lock_auth_user(uuid)";
+    const privileges = await one(
+      `select has_function_privilege('coo_app', $1, 'execute') as app,
+              has_function_privilege('anon', $1, 'execute') as anon,
+              has_function_privilege('authenticated', $1, 'execute') as authenticated,
+              exists (
+                select from pg_proc p, aclexplode(p.proacl) a
+                 where p.oid = $1::regprocedure and a.grantee = 0
+              ) as public`,
+      [fn],
+    );
+    expect(privileges).toEqual({
+      app: true,
+      anon: false,
+      authenticated: false,
+      public: false,
+    });
+    expect(
+      await one(
+        "select prosecdef, proconfig from pg_proc where oid = $1::regprocedure",
+        [fn],
+      ),
+    ).toEqual({ prosecdef: true, proconfig: ['search_path=""'] });
+    for (const role of ["anon", "authenticated"])
+      await expect(
+        db.tx(async (t) => {
+          await t.query(`set local role ${role}`);
+          await t.query("select public.lock_auth_user($1)", [max]);
+        }),
+      ).rejects.toThrow(/permission denied/);
+
+    const app = asRole(db, "coo_app");
+    expect(
+      await app.query("select public.lock_auth_user($1) as live", [max]),
+    ).toEqual([{ live: true }]);
+    await db.query("delete from auth.users where id = $1", [priya]);
+    expect(
+      await app.query("select public.lock_auth_user($1) as live", [priya]),
+    ).toEqual([{ live: false }]);
+  });
+
   it("seeds: earn, spend, never below zero, never twice", async () => {
     const ref = await uuid();
     expect(await seeds(max, 60, "welcome")).toBe(60);
