@@ -316,8 +316,8 @@ describe("GET /api/earn jobs", () => {
       [userId],
     );
     await deps.db.query(
-      `insert into jobs (user_id, bird_id, job_id, pay, started_at, ends_at)
-       values ($1, $2, 'x', 1, to_timestamp($3 / 1000.0), to_timestamp($3 / 1000.0))`,
+      `insert into jobs (user_id, bird_id, job_id, pay, started_at, ends_at, status)
+       values ($1, $2, 'x', 1, to_timestamp($3 / 1000.0), to_timestamp($3 / 1000.0), 'done')`,
       [userId, bird.id, startedAtMs],
     );
   }

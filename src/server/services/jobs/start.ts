@@ -49,6 +49,14 @@ export async function startJob(
     if (bird.status !== "home") {
       throw new AppError("conflict", `${bird.name} is not home right now.`);
     }
+    const [onJob] = await db.query<{ name: string }>(
+      `select b.name from jobs j join birds b on b.id = j.bird_id
+       where j.user_id = $1 and j.job_id = $2 and j.status = 'running'`,
+      [userId, job.id],
+    );
+    if (onJob) {
+      throw new AppError("conflict", `${onJob.name} is already on that job.`);
+    }
     const pay = jobPay(
       job,
       await jobsStartedToday(db, userId, profile.timezone, now),

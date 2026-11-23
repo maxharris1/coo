@@ -118,12 +118,21 @@ async function insertRunningJob(
   birdId: string,
   pay: number,
   minutes = 30,
+  jobId = "deli-slip",
 ) {
   const endsAt = new Date(deps.clock.now() + minutes * MINUTE_MS).toISOString();
   await deps.db.query(
     `insert into jobs (id, user_id, bird_id, job_id, pay, started_at, ends_at)
-     values ($1, $2, $3, 'deli-slip', $4, $5, $6)`,
-    [id, userId, birdId, pay, new Date(deps.clock.now()).toISOString(), endsAt],
+     values ($1, $2, $3, $4, $5, $6, $7)`,
+    [
+      id,
+      userId,
+      birdId,
+      jobId,
+      pay,
+      new Date(deps.clock.now()).toISOString(),
+      endsAt,
+    ],
   );
   await deps.db.query(
     "update birds set status = 'busy', busy_kind = 'job', busy_until = $2 where id = $1",
@@ -231,7 +240,14 @@ describe("finishJobs", () => {
       world.max.birds[0].id,
       10,
     );
-    await insertRunningJob(plain, max, world.max.birds[1].id, 10);
+    await insertRunningJob(
+      plain,
+      max,
+      world.max.birds[1].id,
+      10,
+      30,
+      "bodega-cat",
+    );
 
     deps.clock.set(endsAt);
     expect((await tick(deps)).counts.finishJobs).toBe(2);
@@ -259,7 +275,14 @@ describe("finishJobs", () => {
     const maxBefore = await seedsOf(max);
     const priyaBefore = await seedsOf(priya);
     await insertRunningJob(first, max, world.max.birds[0].id, 10, 30);
-    await insertRunningJob(middle, max, world.max.birds[1].id, 11, 31);
+    await insertRunningJob(
+      middle,
+      max,
+      world.max.birds[1].id,
+      11,
+      31,
+      "bodega-cat",
+    );
     const endsAt = await insertRunningJob(
       last,
       priya,
