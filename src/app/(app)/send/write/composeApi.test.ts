@@ -163,6 +163,22 @@ describe("release", () => {
     );
   });
 
+  it("posts the espresso flag only on the send that carries it", async () => {
+    const { fetchImpl, seen } = fakeFetch(201, {
+      flights: [{ id: "fl1" }, { id: "fl2" }],
+    });
+    const sends = [
+      { friendId: "f1", birdId: "b1", espresso: true as const },
+      { friendId: "f2", birdId: "b2" },
+    ];
+
+    await release(fetchImpl, { body: "Dinner Saturday?", doodle: null, sends });
+
+    const posted = JSON.parse(seen[0].init.body as string).sends;
+    expect(posted).toEqual(sends);
+    expect(posted[1]).not.toHaveProperty("espresso");
+  });
+
   it("posts every send and returns every flight id", async () => {
     const { fetchImpl, seen } = fakeFetch(201, {
       flights: [

@@ -55,6 +55,7 @@ function forecastFor(units: Units): string {
           tooLong: false,
           stats: stats(leg, "b1", "America/New_York", units),
           forecastHref: "/send/forecast?to=f1",
+          espresso: null,
         },
       ]}
       note="Hi"
@@ -79,6 +80,7 @@ function forecastFor(units: Units): string {
       onPick={() => {}}
       onRelease={() => {}}
       onWake={() => {}}
+      onEspresso={() => {}}
     />,
   );
 }

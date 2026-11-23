@@ -13,6 +13,12 @@ import styles from "./Compose.module.css";
 
 export type Recipient = { name: string; line: string };
 
+export type EspressoOffer = {
+  label: string;
+  ticked: boolean;
+  disabled: boolean;
+};
+
 export type ComposeRow = {
   id: string;
   recipient: Recipient;
@@ -20,6 +26,7 @@ export type ComposeRow = {
   tooLong: boolean;
   stats: ComposeStats | null;
   forecastHref: string | null;
+  espresso: EspressoOffer | null;
 };
 
 export type ComposeViewProps = {
@@ -34,6 +41,7 @@ export type ComposeViewProps = {
   onPick: (rowId: string, birdId: string) => void;
   onRelease: () => void;
   onWake: (birdId: string) => void;
+  onEspresso: (rowId: string, on: boolean) => void;
 };
 
 const NO_RESTED_BIRDS =
@@ -209,6 +217,7 @@ export function ComposeView({
   onPick,
   onRelease,
   onWake,
+  onEspresso,
 }: ComposeViewProps) {
   const single = rows.length === 1 ? rows[0] : null;
   const pickedName = (row: ComposeRow) =>
@@ -233,6 +242,17 @@ export function ComposeView({
         onWake={onWake}
       />
       <Stats stats={row.stats} forecastHref={row.forecastHref} />
+      {row.espresso && (
+        <label className={styles.espresso}>
+          <input
+            type="checkbox"
+            checked={row.espresso.ticked}
+            disabled={row.espresso.disabled}
+            onChange={(e) => onEspresso(row.id, e.target.checked)}
+          />
+          <span>{row.espresso.label}</span>
+        </label>
+      )}
     </>
   );
   return (

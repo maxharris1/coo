@@ -78,6 +78,7 @@ const PRIYA_ROW: ComposeRow = {
   tooLong: false,
   stats: STATS,
   forecastHref: "/send/forecast?to=u2",
+  espresso: null,
 };
 
 const props = (over: Partial<Props> = {}): Props => ({
@@ -92,6 +93,7 @@ const props = (over: Partial<Props> = {}): Props => ({
   onPick: () => {},
   onRelease: () => {},
   onWake: () => {},
+  onEspresso: () => {},
   ...over,
 });
 
@@ -324,7 +326,7 @@ type Handlers = {
   "aria-pressed"?: boolean;
   "aria-label"?: string;
   children?: ReactNode;
-  onChange?: (e: { target: { value: string } }) => void;
+  onChange?: (e: { target: { value?: string; checked?: boolean } }) => void;
   onClick?: () => void;
 };
 
@@ -387,6 +389,63 @@ describe("ComposeView events (ac-2)", () => {
   });
 });
 
+const SHOT = {
+  label: "Espresso shot · keep Gerald up tonight",
+  ticked: false,
+  disabled: false,
+};
+
+const checkbox = (html: string) =>
+  html.match(/<input[^>]*type="checkbox"[^>]*>/)?.[0] ?? null;
+
+describe("ComposeView espresso (ac-2)", () => {
+  it("offers no shot when the quote has no espresso variant", () => {
+    const html = render();
+    expect(checkbox(html)).toBeNull();
+    expect(html).not.toContain("Espresso shot");
+  });
+
+  it("offers the shot as a labelled checkbox under the stats", () => {
+    const html = one({ espresso: SHOT });
+    expect(html).toMatch(
+      /<label[^>]*><input[^>]*type="checkbox"[^>]*\/?>(<span[^>]*>)?Espresso shot · keep Gerald up tonight/,
+    );
+    expect(html.indexOf("Espresso shot")).toBeGreaterThan(
+      html.indexOf("Arrival odds"),
+    );
+    expect(checkbox(html)).not.toContain("checked");
+    expect(checkbox(html)).not.toContain("disabled");
+  });
+
+  it("disables the shot when none are left", () => {
+    expect(checkbox(one({ espresso: { ...SHOT, disabled: true } }))).toContain(
+      'disabled=""',
+    );
+  });
+
+  it("shows a ticked shot as checked", () => {
+    expect(checkbox(one({ espresso: { ...SHOT, ticked: true } }))).toContain(
+      'checked=""',
+    );
+  });
+
+  it("passes a tick and an untick to onEspresso with the row", () => {
+    const onEspresso = vi.fn();
+    const box = () =>
+      elements(
+        ComposeView(
+          props({ rows: [{ ...PRIYA_ROW, espresso: SHOT }], onEspresso }),
+        ),
+      ).find((e) => e.props.type === "checkbox");
+    box()?.props.onChange?.({ target: { checked: true } });
+    box()?.props.onChange?.({ target: { checked: false } });
+    expect(onEspresso.mock.calls).toEqual([
+      ["u2", true],
+      ["u2", false],
+    ]);
+  });
+});
+
 const ALEX_ROW: ComposeRow = {
   id: "u3",
   recipient: { name: "Alex", line: "Boston, 215 miles as the pigeon flies" },
@@ -394,6 +453,7 @@ const ALEX_ROW: ComposeRow = {
   tooLong: false,
   stats: { ...STATS, distance: "215 mi" },
   forecastHref: "/send/forecast?to=u3",
+  espresso: null,
 };
 
 const SAM_ROW: ComposeRow = {
@@ -403,6 +463,7 @@ const SAM_ROW: ComposeRow = {
   tooLong: false,
   stats: { ...STATS, distance: "136 mi" },
   forecastHref: "/send/forecast?to=u4",
+  espresso: null,
 };
 
 const PIP: PickerOption = { ...GERALD, id: "b4", name: "Pip", speed: "30 mph" };

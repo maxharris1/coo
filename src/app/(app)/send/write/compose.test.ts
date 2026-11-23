@@ -468,6 +468,61 @@ describe("stats", () => {
         "Lands around 5:32 am. Roosts for the night and finishes after sunrise.",
     });
   });
+
+  describe("with an espresso shot (ac-3)", () => {
+    const NIGHT_RUN = 11 * 60 * 60_000;
+    const roosting = quote({
+      roostsOvernight: true,
+      airTimeMs: 6 * 60 * 60_000,
+      durationMs: 20 * 60 * 60_000,
+      arriveAt: RELEASE + 20 * 60 * 60_000,
+      factors: [
+        { kind: "rain", text: "Light rain along the route", effect: "4% off" },
+      ],
+      espresso: {
+        leavesAt: RELEASE,
+        airTimeMs: NIGHT_RUN,
+        durationMs: NIGHT_RUN,
+        arriveAt: RELEASE + NIGHT_RUN,
+        odds: 0.91,
+        roostsOvernight: false,
+        fliesInDark: true,
+        factors: [
+          { kind: "night", text: "Flying in the dark", effect: "3% off" },
+          { kind: "headwind", text: "12 mph from the west", effect: "+9 min" },
+        ],
+      },
+    });
+
+    it("flies through the night on the variant's time and odds", () => {
+      expect(stats(roosting, "b1", NY, "mi", true)).toEqual({
+        distance: "81 mi",
+        flightTime: "11h 00m",
+        odds: "91%",
+        forecast:
+          "Flies through the night (espresso). Lands around 8:32 pm. 12 mph from the west.",
+      });
+    });
+
+    it("keeps the roosting line when the shot is not used", () => {
+      expect(stats(roosting, "b1", NY, "mi")).toEqual({
+        distance: "81 mi",
+        flightTime: "20h 00m",
+        odds: "94%",
+        forecast:
+          "Lands around 5:32 am. Roosts for the night and finishes after sunrise. Light rain along the route.",
+      });
+    });
+
+    it("keeps the plain line when the quote offers no shot", () => {
+      expect(stats(quote(), "b1", NY, "mi", true)).toEqual({
+        distance: "81 mi",
+        flightTime: "1h 48m",
+        odds: "94%",
+        forecast: "Lands around 11:20 am.",
+      });
+    });
+  });
 });
 
 describe("recipientLine", () => {
