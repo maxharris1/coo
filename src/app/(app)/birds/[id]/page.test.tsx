@@ -561,7 +561,8 @@ describe("Pigeon away (ac-1)", () => {
         ],
       }),
     );
-    expect(html).toContain("To Maya in Newark, lands 7:30 pm");
+    expect(html).toContain("To Maya in Newark, lands this evening");
+    expect(html).not.toMatch(/\d{1,2}:\d{2}\s?[ap]m/);
     for (const label of ["Feed", "Bath", "Nap"]) {
       expect(html).toMatch(
         new RegExp(`<button[^>]*disabled=""[^>]*>${label}<`),
@@ -580,7 +581,8 @@ describe("Pigeon away (ac-1)", () => {
         }),
       ]),
     );
-    expect(html).toContain("Napping until 7:20 pm");
+    expect(html).toContain("Napping until this evening");
+    expect(html).not.toMatch(/\d{1,2}:\d{2}\s?[ap]m/);
     expect(html).toMatch(/<button[^>]*>Wake<\/button>/);
     expect(html).not.toMatch(/<button[^>]*>Nap<\/button>/);
     expect(button("Wake")?.props.disabled).toBe(false);
