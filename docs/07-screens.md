@@ -105,6 +105,8 @@ to make a new one." and a button to the tracker.
 One screen. `Flight`, `FlightBlock` and `FlightLong` are the same screen at different distances.
 - Map fills the top (`docs/09-map.md`): route, origin and destination pins, the bird sprite at
   `positionAt`, a thought bubble from `config/copy/flight-log.json` every so often.
+- The map bird's pose matches the state chip: flying, asleep while roosting, surprised while
+  delayed, perched at the origin while scheduled, and landed on the destination pin once landed.
 - Card: avatars of bird and recipient, a state chip (In the air, Roosting, Delayed, Landed,
   Scheduled), the headline "{bird} is over {place}" / "Asleep near {place}" / "Last seen near
   {place}", a sub line, a progress bar with from-label, "{x} of {y} mi", to-label.
