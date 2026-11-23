@@ -47,6 +47,12 @@ Self-hosted from `assets/fonts/` (woff2, Latin). Declare with `font-display: swa
 Sizes are on the Tokens sheet. Note bodies are always Caveat on card colour with a 6 px radius,
 slightly rotated (about −1°).
 
+**Long strings.** Names, places and other user-generated strings must wrap or ellipsize, never
+overflow. Use `.coo-wrap` (wraps, breaking a long word if it must) or `.coo-truncate` (one line
+with an ellipsis) from `globals.css`. A flex or grid child that holds such a string gets
+`min-width: 0`. Map pin labels stay inside the map: they cap at the map width less 16 px a side,
+ellipsize, and shift sideways near an edge.
+
 ## Components
 
 The Components sheet draws the main ones with their states; the screen mocks show the rest in

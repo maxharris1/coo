@@ -104,6 +104,18 @@ body {
   outline-offset: 2px;
 }
 
+.coo-wrap {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.coo-truncate {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .srOnly {
   position: absolute;
   width: 1px;

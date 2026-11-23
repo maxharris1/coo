@@ -18,6 +18,7 @@ import {
   MapView,
   ZOOM_BANDS,
   headsWest,
+  pinLabelShift,
   routeFractions,
   zoomForDistance,
   type BirdState,
@@ -305,5 +306,115 @@ describe("the tracker map without preview stays as it was (#901 ac-1)", () => {
     const { tree } = await mounted(p);
     expect(find(tree, Bird)?.props).toMatchObject({ pose: "fly" });
     expect(markers[2].lngLat).not.toEqual([p.from.lon, p.from.lat]);
+  });
+});
+
+describe("pin labels stay inside the map (#924 ac-1)", () => {
+  const PAD = 16;
+  const PILL_CHROME = 2 * 8 + 2 * 2;
+  const MEASURED = {
+    "Enrico Palazzo, Tudor City": 147.6,
+    "Bartholomew Featherstonehaugh, Upper East Side": 289.5,
+    "Your sill": 46.1,
+    "Your loft": 49,
+  };
+  const pill = (label: keyof typeof MEASURED, mapWidth: number) =>
+    Math.min(MEASURED[label] + PILL_CHROME, mapWidth - 2 * PAD);
+  const box = (pinX: number, labelWidth: number, mapWidth: number) => {
+    const shift = pinLabelShift({ pinX, labelWidth, mapWidth, pad: PAD });
+    return {
+      left: pinX - labelWidth / 2 + shift,
+      right: pinX + labelWidth / 2 + shift,
+    };
+  };
+
+  describe.each([390, 320])("on a %ipx tracker", (mapWidth) => {
+    it.each([
+      "Enrico Palazzo, Tudor City",
+      "Bartholomew Featherstonehaugh, Upper East Side",
+    ] as const)("keeps the %s pill whole by the right edge", (label) => {
+      const { left, right } = box(
+        mapWidth - 10,
+        pill(label, mapWidth),
+        mapWidth,
+      );
+      expect(left).toBeGreaterThanOrEqual(PAD);
+      expect(right).toBeLessThanOrEqual(mapWidth - PAD);
+    });
+
+    it.each(["Your sill", "Your loft"] as const)(
+      "keeps the %s pill whole by the left edge",
+      (label) => {
+        const { left, right } = box(4, pill(label, mapWidth), mapWidth);
+        expect(left).toBeGreaterThanOrEqual(PAD);
+        expect(right).toBeLessThanOrEqual(mapWidth - PAD);
+      },
+    );
+  });
+
+  it("leaves a pill centred on a pin away from the edges", () => {
+    expect(
+      pinLabelShift({ pinX: 195, labelWidth: 168, mapWidth: 390, pad: PAD }),
+    ).toBe(0);
+  });
+
+  it("caps the pill at the map width less the padding and ellipsizes the text", () => {
+    const html = renderToStaticMarkup(
+      <MapView
+        {...props({
+          sillLabel: "Bartholomew Featherstonehaugh, Upper East Side",
+        })}
+      />,
+    );
+    const span = html.match(
+      /<span style="[^"]*">Bartholomew[^<]*<\/span>/,
+    )?.[0];
+    expect(span).toContain("overflow:hidden");
+    expect(span).toContain("text-overflow:ellipsis");
+    expect(span).toContain("white-space:nowrap");
+  });
+
+  describe("on the live map", () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"] });
+      vi.setSystemTime(midFlight());
+      stubBrowser(vi);
+    });
+
+    afterEach(() => {
+      resetFakes();
+      vi.unstubAllGlobals();
+      vi.useRealTimers();
+    });
+
+    it.each(["load", "move", "resize"])(
+      "re-clamps both labels on %s",
+      async (event) => {
+        const { tree, map } = await mounted(props());
+        type Label = { style: Record<string, string>; offsetWidth: number };
+        const spans: Label[] = [];
+        const walk = (node: unknown) => {
+          if (!node || typeof node !== "object") return;
+          if (Array.isArray(node)) return node.forEach(walk);
+          const el = node as {
+            type?: unknown;
+            props?: { children?: unknown; ref?: { current: Label } };
+          };
+          if (el.type === "span" && el.props?.ref) {
+            spans.push(el.props.ref.current);
+          }
+          walk(el.props?.children);
+        };
+        walk(tree);
+        expect(spans).toHaveLength(2);
+        for (const s of spans) s.offsetWidth = 168;
+        map.point = { x: 395, y: 0 };
+        map.fire(event);
+        for (const s of spans) {
+          expect(s.style.maxWidth).toBe("368px");
+          expect(s.style.transform).toBe("translateX(calc(-50% + -95px))");
+        }
+      },
+    );
   });
 });

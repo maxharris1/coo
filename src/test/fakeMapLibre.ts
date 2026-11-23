@@ -49,8 +49,9 @@ export class FakeMap {
   getSource() {
     return { setData() {} };
   }
+  point = { x: 0, y: 0 };
   project() {
-    return { x: 0, y: 0 };
+    return this.point;
   }
   getContainer() {
     return { clientWidth: 400, clientHeight: 800 };
@@ -97,7 +98,9 @@ export function fakeReact(react: typeof import("react")) {
   return {
     ...react,
     useRef: <T>(initial: T) =>
-      (hooks.refs[hooks.ref++] ??= { current: initial ?? {} }) as {
+      (hooks.refs[hooks.ref++] ??= {
+        current: initial ?? { style: {}, offsetWidth: 0 },
+      }) as {
         current: T;
       },
     useState: <T>(initial: T | (() => T)) => {

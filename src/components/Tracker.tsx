@@ -381,8 +381,8 @@ export function Tracker({
             />
           </span>
           <div className={styles.words}>
-            <h1 className={styles.headline}>{view.headline}</h1>
-            <p className={styles.sub}>{view.sub}</p>
+            <h1 className={`${styles.headline} coo-wrap`}>{view.headline}</h1>
+            <p className={`${styles.sub} coo-wrap`}>{view.sub}</p>
           </div>
         </div>
         <div className={styles.progress}>
@@ -398,15 +398,17 @@ export function Tracker({
             <div className={styles.fill} style={{ width: `${percent}%` }} />
           </div>
           <div className={styles.ends}>
-            <span>{view.fromLabel}</span>
+            <span className="coo-truncate">{view.fromLabel}</span>
             <span className={styles.miles}>{view.progress.text}</span>
-            <span>{view.toLabel}</span>
+            <span className={`${styles.to} coo-truncate`}>
+              {view.toLabel}
+            </span>
           </div>
         </div>
         <div className={styles.stats}>
           {view.stats.map((s) => (
             <p key={s.label} className={styles.stat}>
-              <strong className={styles.value}>{s.value}</strong>
+              <strong className={`${styles.value} coo-wrap`}>{s.value}</strong>
               <span className={styles.label}>{s.label}</span>
             </p>
           ))}

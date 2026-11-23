@@ -76,6 +76,7 @@ const EDGE_MARGIN = 0.2;
 const LEAD_PX = 60;
 const BIRD_PX = 56;
 const PREVIEW_PADDING = { top: 16, left: 16, right: 16, bottom: 16 };
+const LABEL_PAD = 16;
 const PIN_LABEL = {
   position: "absolute",
   top: "100%",
@@ -89,7 +90,27 @@ const PIN_LABEL = {
   color: "var(--coo-ink)",
   font: "800 12px var(--coo-font-body)",
   whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
 } as const;
+
+export function pinLabelShift({
+  pinX,
+  labelWidth,
+  mapWidth,
+  pad,
+}: {
+  pinX: number;
+  labelWidth: number;
+  mapWidth: number;
+  pad: number;
+}): number {
+  const left = pinX - labelWidth / 2;
+  const right = pinX + labelWidth / 2;
+  if (left < pad) return pad - left;
+  if (right > mapWidth - pad) return mapWidth - pad - right;
+  return 0;
+}
 
 export function zoomForDistance(milesLeft: number): number {
   return ZOOM_BANDS.find((b) => milesLeft < b.underMi)?.zoom ?? FAR_ZOOM;
@@ -155,6 +176,8 @@ export function MapView({
   const birdEl = useRef<HTMLDivElement>(null);
   const loftEl = useRef<HTMLDivElement>(null);
   const sillEl = useRef<HTMLDivElement>(null);
+  const loftLabelEl = useRef<HTMLSpanElement>(null);
+  const sillLabelEl = useRef<HTMLSpanElement>(null);
   const followRef = useRef(true);
   const recentre = useRef<() => void>(() => {});
   const [following, setFollowing] = useState(true);
@@ -237,6 +260,29 @@ export function MapView({
         .setLngLat([start.lon, start.lat])
         .addTo(m);
       markers = [loft, sill, marker];
+
+      const clampLabels = () => {
+        const mapWidth = m.getContainer().clientWidth;
+        for (const [pin, label] of [
+          [loftPin, loftLabelEl.current],
+          [sillPin, sillLabelEl.current],
+        ] as const) {
+          if (!label) continue;
+          label.style.maxWidth = `${mapWidth - 2 * LABEL_PAD}px`;
+          const shift = pinLabelShift({
+            pinX: m.project([pin.lon, pin.lat]).x,
+            labelWidth: label.offsetWidth,
+            mapWidth,
+            pad: LABEL_PAD,
+          });
+          label.style.transform = `translateX(calc(-50% + ${shift}px))`;
+        }
+      };
+      if (!preview) {
+        for (const e of ["load", "move", "resize"] as const) {
+          m.on(e, clampLabels);
+        }
+      }
 
       const drawRoute = (frac: number) => {
         const { flown, left } = splitRoute(from, to, fracs, frac);
@@ -354,7 +400,11 @@ export function MapView({
               height={40}
               style={{ display: "block" }}
             />
-            {!preview && <span style={PIN_LABEL}>{loftLabel}</span>}
+            {!preview && (
+              <span ref={loftLabelEl} style={PIN_LABEL}>
+                {loftLabel}
+              </span>
+            )}
           </div>
         </div>
         <div ref={sillEl}>
@@ -367,7 +417,11 @@ export function MapView({
               height={40}
               style={{ display: "block" }}
             />
-            {!preview && <span style={PIN_LABEL}>{sillLabel}</span>}
+            {!preview && (
+              <span ref={sillLabelEl} style={PIN_LABEL}>
+                {sillLabel}
+              </span>
+            )}
           </div>
         </div>
         <div ref={birdEl}>
