@@ -36,6 +36,7 @@ export const envSchema = z
     GEOCODER_URL: z.url().default("https://photon.komoot.io"),
     WEATHER_URL: z.url().default("https://api.open-meteo.com"),
     TEST_AUTH_SECRET: required.optional(),
+    VERCEL_GIT_COMMIT_SHA: required.optional(),
   })
   .extend(deployment.shape)
   .superRefine(refuseTestOnVercelProduction);

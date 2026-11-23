@@ -212,6 +212,25 @@ with `invalid` ("Espresso is for sending now.").
 | `POST /api/push/subscribe` | Body: the browser's `PushSubscription` JSON. Upsert by endpoint |
 | `POST /api/push/unsubscribe` | `{ endpoint }` |
 
+## Bug reports
+
+| Endpoint | Body | Does |
+|---|---|---|
+| `POST /api/bug-reports` | `{ clientKey, body, context: { route, standalone, viewport: { w, h }, timeZone } }` | Stores one private report for triage and returns `{ id }`. Sends nothing out |
+
+- `clientKey` is a UUID the app makes per report. Sending the same `clientKey` again returns the
+  same `id`, stores nothing new and uses no slot of the limit.
+- `body` is 1 to 2,000 characters after trimming. NUL characters are removed first.
+- `route` is at most 200 characters. The server drops the query and fragment and replaces the
+  guest link slug (`/b/[slug]`) and invite code (`/join/[code]`). `standalone` is a boolean,
+  `viewport.w` and `viewport.h` are whole numbers from 1 to 10,000, and `timeZone` is at most 64
+  characters with no control characters.
+- The server sets the sender, `status`, the time, and the `userAgent`, `build` and `appEnv`
+  fields of `context`. Any other key, at the top level or in `context`, is `invalid`.
+- Limit: `limits.bugReportsPerHour` (5) new reports per person per clock hour.
+- Errors: `unauthenticated` 401, `not_onboarded` 409, `forbidden` 403 (another site's
+  `Origin`), `invalid` 400 (bad body or a content type other than JSON), `rate_limited` 429.
+
 ## Guest links (public, rate limited by IP)
 
 | Endpoint | Does |
