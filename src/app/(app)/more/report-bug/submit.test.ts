@@ -128,14 +128,14 @@ describe("createReportSender", () => {
     expect(bugReportInput.safeParse(sent()[0]).success).toBe(true);
   });
 
-  it.each<[string, Reply, SendFailure]>([
-    ["a 429", failure(429, "rate_limited"), "rate_limited"],
-    ["a 429 with no body", { status: 429 }, "rate_limited"],
-    ["invalid", failure(400, "invalid"), "invalid"],
-    ["a network failure", "throw", "offline"],
-    ["an internal error", failure(500, "internal"), "unknown"],
-    ["an unreadable body", { status: 502 }, "unknown"],
-  ])("maps %s to %s", async (_, reply, reason) => {
+  it.each<[string, SendFailure, Reply]>([
+    ["a 429", "rate_limited", failure(429, "rate_limited")],
+    ["a 429 with no body", "rate_limited", { status: 429 }],
+    ["invalid", "invalid", failure(400, "invalid")],
+    ["a network failure", "offline", "throw"],
+    ["an internal error", "unknown", failure(500, "internal")],
+    ["an unreadable body", "unknown", { status: 502 }],
+  ])("maps %s to %s", async (_, reason, reply) => {
     const { fetchImpl } = fakeFetch(reply);
     const result = await createReportSender(fetchImpl, keys()).send(
       "x",
