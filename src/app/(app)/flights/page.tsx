@@ -5,7 +5,10 @@ import { useSync } from "@/components/SyncProvider";
 import { useToast } from "@/components/Toasts";
 import { asUnits } from "@/lib/format";
 import type { FlightsPage as Page } from "@/server/services/flights/list";
+import type { JobView } from "@/server/services/jobs/get";
+import { onJob } from "../earn/JobsPanel";
 import { call } from "../friends/friendsApi";
+import { loadJob } from "../jobs/[id]/jobApi";
 import { FlightsView, type List } from "./FlightsView";
 
 const TICK_MS = 10_000;
@@ -23,6 +26,23 @@ export default function FlightsPage() {
   const [attempt, setAttempt] = useState(0);
   const [clock, setClock] = useState(() => Date.now());
   const synced = useMemo(() => JSON.stringify(data?.flights ?? null), [data]);
+  const [jobs, setJobs] = useState<ReadonlyMap<string, JobView>>(new Map());
+  const jobIds = (data?.birds ?? [])
+    .filter(onJob)
+    .flatMap((b) => (b.jobId ? [b.jobId] : []))
+    .join(" ");
+
+  useEffect(() => {
+    let live = true;
+    for (const id of jobIds.split(" ").filter(Boolean)) {
+      void loadJob(fetch, id).then((r) => {
+        if (live && r.ok) setJobs((prev) => new Map(prev).set(id, r.job));
+      });
+    }
+    return () => {
+      live = false;
+    };
+  }, [jobIds]);
 
   useEffect(() => {
     const timer = setInterval(() => setClock(Date.now()), TICK_MS);
@@ -91,6 +111,7 @@ export default function FlightsPage() {
     <FlightsView
       list={list}
       birds={data?.birds ?? []}
+      jobs={jobs}
       nowMs={clock + offsetMs}
       offsetMs={offsetMs}
       timeZone={

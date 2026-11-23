@@ -186,7 +186,10 @@ export function flightsView(
   };
   const keys = Object.keys(TITLES) as SectionKey[];
   return {
-    pill: `${yours.length} out, ${incoming.length} coming in`,
+    pill:
+      yours.length + incoming.length === 0
+        ? "All home"
+        : `${yours.length} out, ${incoming.length} coming in`,
     sections: keys.map((key) => ({
       key,
       title: TITLES[key],

@@ -170,10 +170,14 @@ On a trip home the sub line is about the trip home ("{bird} is running late on t
 plus the reply from the host when one is attached) and there is no Resend button.
 
 ### Flights (`/flights`)
-Sections: Your birds (scheduled, flying and delayed), Coming to you, Landed today, then a
+Sections: In the air (your flights, then incoming ones), Landed today, then an
 "Earlier" list that pages. Each row taps to the tracker. Odd jobs in progress appear under
-Your birds with "Home {phrase}". The "On odd jobs" cards tap to the job tracker
-(`/jobs/[id]`). A card whose job id is not known stays as text with no link.
+"In the air" with "Home {phrase}", after the flight cards and with no heading of their own. A
+card whose job has a stored destination shows a map preview and taps to the job tracker
+(`/jobs/[id]`). A card with no job id or no destination stays as text with no link. With no
+flight in the air and no odd job, "In the air" shows the card "No birds in the air. Suspiciously
+quiet." and past flights still list below it. The header pill reads "All home" when nothing is
+out or coming in, otherwise "{N} out, {M} coming in".
 
 ### Job (`/jobs/[id]`) — the odd-job tracker
 Owner only. Another user's job id shows "We could not find this job." with a link back to Earn.

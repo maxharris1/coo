@@ -234,7 +234,7 @@ describe("flightsView", () => {
       "In the air": [],
       "Landed today": [],
     });
-    expect(view.pill).toBe("0 out, 0 coming in");
+    expect(view.pill).toBe("All home");
   });
 
   it("drops landings from Landed today once the viewer's local day rolls over after the fetch", async () => {
