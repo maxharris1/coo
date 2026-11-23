@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { randomUUID } from "node:crypto";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { flightsPost } from "@/app/api/flights/post";
 import { config } from "@/lib/config";
 import type { UserId } from "@/server/ports/auth";
@@ -12,9 +13,16 @@ import { geoClient } from "@/test/geoRoute";
 import { seedWorld, type World } from "@/test/seedWorld";
 import { send } from "./send";
 
+vi.mock("node:crypto", async (load) => {
+  const actual = await load<typeof import("node:crypto")>();
+  return { ...actual, randomUUID: vi.fn(actual.randomUUID) };
+});
+
 const BODY = "Bring the good bagels on Sunday";
 const ZED = "00000000-0000-4000-a000-0000000000ed" as UserId;
 const MABEL = "00000000-0000-4000-b000-000000000013";
+const ON_TIME_FLIGHT = "00000000-0000-4000-8000-000000000001";
+const OVERNIGHT_FLIGHT = "00000000-0000-4000-8000-000000000034";
 
 let deps: TestDeps;
 let world: World;
@@ -171,21 +179,33 @@ describe("sendMany through send", () => {
     );
   });
 
-  it("tells each recipient the time of day the pigeon lands, not a clock time", async () => {
-    deps.clock.set(Date.UTC(2026, 10, 19, 17, 30));
-    await send(deps, max, { body: BODY, sends: threeSends() });
+  it.each([
+    [ON_TIME_FLIGHT, "Lands this afternoon."],
+    [OVERNIGHT_FLIGHT, "Lands early tomorrow morning."],
+  ] as const)(
+    "tells each recipient the time of day the pigeon lands, not a clock time, when Priya's flight is %s",
+    async (id, lands) => {
+      deps.clock.set(Date.UTC(2026, 10, 19, 17, 30));
+      vi.mocked(randomUUID).mockReturnValueOnce(id);
+      await send(deps, max, { body: BODY, sends: threeSends() });
 
-    const incoming = await deps.db.query<{ user_id: string; body: string }>(
-      "select user_id, body from notifications where kind = 'incoming'",
-    );
-    expect(incoming).toHaveLength(3);
-    expect(incoming.find((n) => n.user_id === priya)?.body).toContain(
-      "Lands this afternoon.",
-    );
-    for (const { body } of incoming) {
-      expect(body).not.toMatch(/\d{1,2}:\d{2}\s?[ap]m/i);
-    }
-  });
+      const incoming = await deps.db.query<{
+        user_id: string;
+        ref_id: string;
+        body: string;
+      }>(
+        "select user_id, ref_id, body from notifications where kind = 'incoming'",
+      );
+      expect(incoming).toHaveLength(3);
+      expect(incoming.find((n) => n.user_id === priya)).toMatchObject({
+        ref_id: id,
+        body: expect.stringContaining(lands),
+      });
+      for (const { body } of incoming) {
+        expect(body).not.toMatch(/\d{1,2}:\d{2}\s?[ap]m/i);
+      }
+    },
+  );
 
   describe("refuses the whole batch when one bird cannot fly, naming the bird", () => {
     it.each([

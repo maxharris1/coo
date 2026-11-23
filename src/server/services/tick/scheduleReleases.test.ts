@@ -17,6 +17,8 @@ import { block, setShows } from "../friends";
 import { tick } from "../tick";
 
 const HOUR_MS = 3_600_000;
+const ON_TIME_FLIGHT = "00000000-0000-4000-8000-000000000001";
+const OVERNIGHT_FLIGHT = "00000000-0000-4000-8000-000000000034";
 const SEVEN_AM_TOMORROW = Date.UTC(2026, 10, 20, 12);
 const STORMY: WeatherSample = {
   windMph: 31,
@@ -52,6 +54,11 @@ async function scheduleGerald(
     releaseAt,
   });
   return flights[0].id;
+}
+
+async function pinFlightId(from: string, to: string) {
+  await deps.db.query("update flights set id = $2 where id = $1", [from, to]);
+  return to;
 }
 
 async function flightRow(id: string) {
@@ -142,20 +149,26 @@ describe("scheduleReleases", () => {
     expect(await everything()).toEqual(before);
   });
 
-  it("tells the recipient the time of day the released pigeon lands, not a clock time", async () => {
-    const releaseAt = Date.UTC(2026, 10, 19, 17, 30);
-    const flightId = await scheduleGerald(releaseAt);
-    deps.clock.set(releaseAt);
+  it.each([
+    [ON_TIME_FLIGHT, "Lands this afternoon."],
+    [OVERNIGHT_FLIGHT, "Lands early tomorrow morning."],
+  ])(
+    "tells the recipient of flight %s the time of day it lands, not a clock time",
+    async (id, lands) => {
+      const releaseAt = Date.UTC(2026, 10, 19, 17, 30);
+      const flightId = await pinFlightId(await scheduleGerald(releaseAt), id);
+      deps.clock.set(releaseAt);
 
-    await tick(deps);
+      await tick(deps);
 
-    const [incoming] = await deps.db.query<{ body: string }>(
-      "select body from notifications where kind = 'incoming' and ref_id = $1",
-      [flightId],
-    );
-    expect(incoming.body).toContain("Lands this afternoon.");
-    expect(incoming.body).not.toMatch(/\d{1,2}:\d{2}\s?[ap]m/i);
-  });
+      const [incoming] = await deps.db.query<{ body: string }>(
+        "select body from notifications where kind = 'incoming' and ref_id = $1",
+        [flightId],
+      );
+      expect(incoming.body).toContain(lands);
+      expect(incoming.body).not.toMatch(/\d{1,2}:\d{2}\s?[ap]m/i);
+    },
+  );
 
   it("departs at the scheduled time even when the tick runs late", async () => {
     const flightId = await scheduleGerald();
