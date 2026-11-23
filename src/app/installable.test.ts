@@ -80,15 +80,17 @@ describe("safe areas", () => {
   });
 
   it.each(["right", "bottom", "left"])(
-    "exposes the %s inset as a variable and pads the body with it",
+    "exposes the %s inset as a variable on body and pads the body with it directly",
     (side) => {
       expect(css).toMatch(
         new RegExp(
-          `--coo-safe-${side}:\\s*env\\(safe-area-inset-${side},\\s*0px\\)`,
+          `\\nbody\\s*\\{[^}]*--coo-safe-${side}:\\s*env\\(safe-area-inset-${side},\\s*0px\\)`,
         ),
       );
       expect(css).toMatch(
-        new RegExp(`body\\s*\\{[^}]*var\\(--coo-safe-${side}\\)`),
+        new RegExp(
+          `\\nbody\\s*\\{[^}]*padding:[^;]*env\\(safe-area-inset-${side},\\s*0px\\)`,
+        ),
       );
     },
   );

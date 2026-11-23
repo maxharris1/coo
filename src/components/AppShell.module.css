@@ -5,5 +5,5 @@
 
 .withTabs {
   composes: column;
-  padding-bottom: 96px;
+  padding-bottom: var(--coo-tabs-pad);
 }
