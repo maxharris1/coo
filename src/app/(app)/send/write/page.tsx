@@ -81,8 +81,7 @@ function guestTarget(guest: Guest): Target {
 function Compose() {
   const params = useSearchParams();
   const friendIds = [...new Set(params.getAll("to"))];
-  const guest =
-    friendIds.length === 0 ? readGuest(params, sessionPins) : null;
+  const guest = friendIds.length === 0 ? readGuest(params, sessionPins) : null;
   const forGuest = guest !== null;
   const router = useRouter();
   const toast = useToast();
@@ -239,8 +238,14 @@ function Compose() {
       onNote={setNote}
       onDoodle={setDoodle}
       onPick={(rowId, birdId) => {
-        if (pickable(birdId))
-          setSwaps({ key, rows: swapBird(rows, rowId, birdId) });
+        if (!pickable(birdId)) return;
+        const next = swapBird(rows, rowId, birdId);
+        setSwaps({ key, rows: next });
+        setShots(
+          Object.fromEntries(
+            next.map((r) => [r.id, shots[r.id] === r.birdId ? r.birdId : null]),
+          ),
+        );
       }}
       onRelease={() => void onRelease()}
       onEspresso={(rowId, on) =>

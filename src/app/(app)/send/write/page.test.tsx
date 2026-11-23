@@ -999,6 +999,16 @@ describe("Compose page espresso (ac-2, ac-3)", () => {
     expect(await releaseNow()).toEqual([{ friendId: "u2", birdId: "b1" }]);
   });
 
+  it("keeps the shot cleared when the first bird is picked again", async () => {
+    variants = { b1: NIGHT_RUN, b2: NIGHT_RUN };
+    await show();
+    await tick("u2");
+    await pick("b1");
+    await pick("b2");
+    expect(row().espresso?.ticked).toBe(false);
+    expect(await releaseNow()).toEqual([{ friendId: "u2", birdId: "b2" }]);
+  });
+
   it("switches the stats to the espresso line when ticked", async () => {
     variants = { b2: NIGHT_RUN };
     await show();
@@ -1195,10 +1205,7 @@ describe("Compose page for a guest (ac-1, ac-2)", () => {
     ]);
   });
 
-  const visit = (params: {
-    to?: string;
-    guest?: Record<string, string>;
-  }) => {
+  const visit = (params: { to?: string; guest?: Record<string, string> }) => {
     seen.to = params.to ?? null;
     seen.guest = params.guest ?? {};
     return act(async () => root?.render(page()));
