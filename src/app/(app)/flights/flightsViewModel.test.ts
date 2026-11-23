@@ -326,7 +326,7 @@ describe("flightsView status lines", () => {
       "Your birds": [
         {
           title: "Gerald to Priya",
-          line: "Over Bayonne, NJ. Lands 3:10 pm.",
+          line: "Over Bayonne, NJ. Lands this afternoon.",
           chip: { text: "Flying", tone: "sun" },
         },
       ],
@@ -357,7 +357,7 @@ describe("flightsView status lines", () => {
     });
   });
 
-  it("an incoming bird counts down to your sill and reads Almost here in the last tenth", () => {
+  it("an incoming bird says when it lands on your sill and reads Almost here in the last tenth", () => {
     const flight = vectorFlight("calm-short", {
       role: "incoming",
       owner: { id: "u2", name: "Priya", handle: "priya" },
@@ -371,7 +371,7 @@ describe("flightsView status lines", () => {
     expect(rowsAt(page, clock)["Coming to you"]).toEqual([
       {
         title: "Dumpling from Priya",
-        line: "Lands on your sill in 1h 00m.",
+        line: "Lands on your sill around midday.",
         chip: { text: "Flying", tone: "sun" },
       },
     ]);
@@ -380,7 +380,7 @@ describe("flightsView status lines", () => {
     expect(rowsAt(page, clock)["Coming to you"]).toEqual([
       {
         title: "Dumpling from Priya",
-        line: "Lands on your sill in 5 min.",
+        line: "Lands on your sill any minute now.",
         chip: { text: "Almost here", tone: "mint" },
       },
     ]);
@@ -402,7 +402,7 @@ describe("flightsView status lines", () => {
       "Your birds": [
         {
           title: "Gerald from Priya",
-          line: "Over New Brunswick, NJ. Lands 11:49 am.",
+          line: "Over New Brunswick, NJ. Lands around midday.",
           chip: { text: "Flying", tone: "sun" },
         },
       ],
@@ -414,7 +414,7 @@ describe("flightsView status lines", () => {
     expect(rowsAt(page, clock)["Your birds"]).toEqual([
       {
         title: "Gerald from Priya",
-        line: "Over Brooklyn, NY. Lands 11:49 am.",
+        line: "Over Brooklyn, NY. Lands any minute now.",
         chip: { text: "Flying", tone: "sun" },
       },
     ]);
@@ -436,7 +436,7 @@ describe("flightsView status lines", () => {
     expect(rowsAt(page, clock)["Coming to you"]).toEqual([
       {
         title: "Gerald to Max",
-        line: "Over New Brunswick, NJ. Lands 11:49 am.",
+        line: "Over New Brunswick, NJ. Lands around midday.",
         chip: { text: "Flying", tone: "sun" },
       },
     ]);
@@ -445,7 +445,7 @@ describe("flightsView status lines", () => {
     expect(rowsAt(page, clock)["Coming to you"]).toEqual([
       {
         title: "Gerald to Max",
-        line: "Over Brooklyn, NY. Lands 11:49 am.",
+        line: "Over Brooklyn, NY. Lands any minute now.",
         chip: { text: "Flying", tone: "sun" },
       },
     ]);
@@ -464,16 +464,58 @@ describe("flightsView status lines", () => {
       const flying = vectorFlight("calm-short", { placeNames });
       expect(
         lineAt(flying, (flying.releaseAt + flying.plan!.arriveAtMs) / 2),
-      ).toBe("Lands 11:49 am.");
+      ).toBe("Lands around midday.");
 
       const overnight = vectorFlight("chicago-overnight", { placeNames });
       const roost = overnight.plan!.segments[1];
       expect(roost.kind).toBe("roost");
-      expect(lineAt(overnight, roost.startMs + HOUR_MS)).toBe("Lands 4:06 pm.");
+      expect(lineAt(overnight, roost.startMs + HOUR_MS)).toBe(
+        "Lands tomorrow afternoon.",
+      );
 
       const delayed = vectorFlight("delay-major", { placeNames });
       const delay = delayed.plan!.segments[1];
       expect(lineAt(delayed, delay.startMs + 60_000)).toBe("");
     },
   );
+});
+
+describe("flightsView live rows print no clock or countdown", () => {
+  const CLOCK = /\d{1,2}:\d{2}\s?(am|pm)/i;
+  const COUNTDOWN = /\d+h \d+m|\d+ min|\d+ sec|Lands in|Leaves in/;
+  const linesAt = (flight: Flight, at: number) =>
+    flightsView(pageOf(flight), at, NY, "mi").sections.flatMap((s) =>
+      s.rows.map((r) => r.line),
+    );
+
+  it("says when a scheduled bird takes off as a time of day", () => {
+    const flight = vectorFlight("calm-short");
+    expect(linesAt(flight, flight.releaseAt - 3 * HOUR_MS)).toEqual([
+      "Takes off this morning.",
+    ]);
+  });
+
+  it.each(["calm-short", "chicago-overnight", "delay-major", "block"])(
+    "keeps every in-progress line of the %s vector free of clocks and countdowns",
+    (name) => {
+      for (const role of ["mine", "incoming"] as const) {
+        const flight = vectorFlight(name, { role });
+        const { arriveAtMs } = flight.plan!;
+        for (let frac = 0; frac < 1; frac += 0.05) {
+          const at = flight.releaseAt + (arriveAtMs - flight.releaseAt) * frac;
+          for (const line of linesAt(flight, at)) {
+            expect(line).not.toMatch(CLOCK);
+            expect(line).not.toMatch(COUNTDOWN);
+          }
+        }
+      }
+    },
+  );
+
+  it("keeps the landed row's trip length", () => {
+    const flight = vectorFlight("calm-short");
+    expect(linesAt(flight, flight.plan!.arriveAtMs + 60_000)).toEqual([
+      "1h 49m",
+    ]);
+  });
 });

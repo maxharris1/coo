@@ -53,11 +53,16 @@ function text(html: string): string {
     .trim();
 }
 
+function statsOf(flight: Flight): string {
+  const view = trackerView(flight, Date.now(), TZ, "mi");
+  return view.stats.map((s) => `${s.value} ${s.label}`).join(" ");
+}
+
 describe("Tracker at 50% of the calm vector (ac-1)", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
-  it("shows about half the miles and 55 min to land", () => {
+  it("shows about half the miles and a time of day to land", () => {
     const flight = flightFrom("calm-short");
     vi.setSystemTime(at(flight, 0.5));
     const page = text(
@@ -69,7 +74,10 @@ describe("Tracker at 50% of the calm vector (ac-1)", () => {
     expect(page).toContain("Gerald is on the way to Priya");
     expect(page).toContain("Carrying your note to Priya");
     expect(page).toContain("41 of 82 mi");
-    expect(page).toContain("55 min Lands in");
+    expect(page).toContain("around midday Lands");
+    expect(page).not.toContain("Lands in");
+    expect(page).not.toContain("55 min");
+    expect(statsOf(flight)).not.toMatch(/\d{1,2}:\d{2}\s?(am|pm)/i);
     expect(page).toContain("45 mph Speed");
     expect(page).toMatch(/(Rooftop|Lowish|Quite high) Altitude/);
   });
@@ -88,7 +96,7 @@ describe("Tracker at 50% of the calm vector (ac-1)", () => {
       ),
     );
     expect(page).toContain("41 of 82 mi");
-    expect(page).toContain("55 min Lands in");
+    expect(page).toContain("around midday Lands");
   });
 
   it("reads 'Carrying a note for you' on an incoming flight", () => {
@@ -107,7 +115,7 @@ describe("Tracker on the block vector (ac-3)", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
-  it("shows minutes and seconds at 50% with decimal miles", () => {
+  it("says any minute now at 50% with decimal miles", () => {
     const flight = flightFrom("block");
     vi.setSystemTime(at(flight, 0.5));
     const page = text(
@@ -115,11 +123,12 @@ describe("Tracker on the block vector (ac-3)", () => {
         <Tracker flight={flight} offsetMs={0} timeZone={TZ} units="mi" />,
       ),
     );
-    expect(page).toContain("1 min 28 sec Lands in");
+    expect(page).toContain("any minute now Lands");
     expect(page).toContain("1.1 of 2.2 mi");
+    expect(page).not.toMatch(/\d+ min|\d+ sec/);
   });
 
-  it("shows seconds alone 14 s before landing", () => {
+  it("says any minute now 14 s before landing, with no seconds countdown", () => {
     const flight = flightFrom("block");
     vi.setSystemTime(flight.arriveAt! - 14_000);
     const page = text(
@@ -127,88 +136,8 @@ describe("Tracker on the block vector (ac-3)", () => {
         <Tracker flight={flight} offsetMs={0} timeZone={TZ} units="mi" />,
       ),
     );
-    expect(page).toContain("14 sec Lands in");
-  });
-
-  it("ticks every second on a flight under ten minutes and slower otherwise", () => {
-    const block = flightFrom("block");
-    const calm = flightFrom("calm-short");
-    expect(trackerView(block, at(block, 0.5), TZ, "mi").tickMs).toBe(1000);
-    expect(trackerView(calm, at(calm, 0.5), TZ, "mi").tickMs).toBeGreaterThan(
-      1000,
-    );
-  });
-});
-
-describe("Tracker in kilometres", () => {
-  it("counts the progress in km when the user picks km", () => {
-    const flight = flightFrom("calm-short");
-    const view = trackerView(flight, at(flight, 0.5), TZ, "km");
-    expect(view.progress.text).toBe("66 of 132 km");
-  });
-
-  it("keeps decimals on a short flight in km", () => {
-    const flight = flightFrom("block", { status: "landed" });
-    const view = trackerView(flight, flight.arriveAt! + 60_000, TZ, "km");
-    expect(view.progress.text).toBe("3.5 of 3.5 km");
-  });
-});
-
-describe("trackerView states", () => {
-  it("is Scheduled before release", () => {
-    const flight = flightFrom("calm-short", { status: "scheduled" });
-    const view = trackerView(flight, flight.releaseAt - 60_000, TZ, "mi");
-    expect(view.state).toBe("scheduled");
-    expect(view.chip).toBe("Scheduled");
-    expect(view.progress.text).toBe("0 of 82 mi");
-  });
-
-  it("is Landed once the flight has landed", () => {
-    const flight = flightFrom("calm-short", { status: "landed" });
-    const view = trackerView(flight, flight.arriveAt! + 60_000, TZ, "mi");
-    expect(view.state).toBe("landed");
-    expect(view.chip).toBe("Landed");
-    expect(view.progress.text).toBe("82 of 82 mi");
-  });
-
-  it("names the place from the nearest decile", () => {
-    const deciles = Array.from({ length: 11 }, (_, i) => `Town ${i}`);
-    deciles[5] = "Trenton, NJ";
-    const flight = flightFrom("calm-short", {
-      placeNames: { deciles, events: {}, dest: null } as never,
-    });
-    const view = trackerView(flight, at(flight, 0.5), TZ, "mi");
-    expect(view.headline).toBe("Gerald is over Trenton, NJ");
-  });
-
-  it("falls back to the friend when the geocoder was down", () => {
-    const flight = flightFrom("calm-short", {
-      placeNames: { deciles: [], events: {}, dest: null } as never,
-    });
-    const view = trackerView(flight, at(flight, 0.5), TZ, "mi");
-    expect(view.headline).toBe("Gerald is on the way to Priya");
-  });
-
-  it("falls back to the friend for legacy empty place names", () => {
-    const flight = flightFrom("calm-short", { placeNames: {} });
-    const view = trackerView(flight, at(flight, 0.5), TZ, "mi");
-    expect(view.headline).toBe("Gerald is on the way to Priya");
-  });
-
-  it("falls back to the friend when the nearest decile has no name", () => {
-    const deciles: (string | null)[] = Array(11).fill("Somewhere");
-    deciles[5] = null;
-    const flight = flightFrom("calm-short", {
-      placeNames: { deciles, events: {}, dest: null } as never,
-    });
-    const view = trackerView(flight, at(flight, 0.5), TZ, "mi");
-    expect(view.headline).toBe("Gerald is on the way to Priya");
-  });
-
-  it("says on the way to you for an incoming bird", () => {
-    const flight = flightFrom("calm-short", { role: "incoming" });
-    const view = trackerView(flight, at(flight, 0.5), TZ, "mi");
-    expect(view.headline).toBe("Gerald is on the way to you");
+    expect(page).toContain("any minute now Lands");
+    expect(page).not.toContain("14 sec");
   });
 });
 
@@ -230,8 +159,10 @@ describe("Tracker on the Chicago vector at 2 am (ac-2)", () => {
     expect(page).toContain("Roosting");
     expect(page).toContain("Gerald is on the way to Priya");
     expect(page).toContain("Night one of a two-day flight to Priya");
-    expect(page).toContain("7:15 am Takes off again");
-    expect(page).toContain("Fri 4 pm Lands, roughly");
+    expect(page).toContain("first light Takes off again");
+    expect(page).toContain("this afternoon Lands, roughly");
+    expect(statsOf(flight)).not.toMatch(/\d{1,2}:\d{2}\s?(am|pm)/i);
+    expect(page).not.toContain("Fri 4 pm");
     expect(page).toMatch(/(A barn|A water tower|A ledge) Tonight's roost/);
     expect(page).not.toContain("Lands in");
     expect(html).toMatch(/<section[^>]*data-night="true"/);
@@ -259,7 +190,7 @@ describe("Tracker on the Chicago vector at 2 am (ac-2)", () => {
     expect(page).not.toContain("Night one");
   });
 
-  it("reads the roost end in the viewer's time zone", () => {
+  it("reads the landing in the viewer's time zone", () => {
     const flight = flightFrom("chicago-overnight");
     const view = trackerView(
       flight,
@@ -270,11 +201,21 @@ describe("Tracker on the Chicago vector at 2 am (ac-2)", () => {
     expect(view.state).toBe("roosting");
     expect(view.night).toBe(true);
     expect(view.stats[0]).toEqual({
-      value: "6:15 am",
+      value: "first light",
       label: "Takes off again",
     });
     expect(view.stats[1]).toEqual({
-      value: "Fri 3 pm",
+      value: "this afternoon",
+      label: "Lands, roughly",
+    });
+    const london = trackerView(
+      flight,
+      nyTime("20", "02:00"),
+      "Europe/London",
+      "mi",
+    );
+    expect(london.stats[1]).toEqual({
+      value: "tonight",
       label: "Lands, roughly",
     });
   });

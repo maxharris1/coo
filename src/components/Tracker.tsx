@@ -7,7 +7,7 @@ import {
   isDaylight,
   positionAt,
 } from "@/lib/flight/engine";
-import { clockTime, duration, inUnits, type Units } from "@/lib/format";
+import { fuzzyWhen, inUnits, type Units } from "@/lib/format";
 import Link from "next/link";
 import type { Flight } from "@/server/services/flights/shape";
 import { Bird, type GearId, type Look } from "./Bird";
@@ -29,7 +29,6 @@ export type TrackerView = {
   progress: { frac: number; text: string };
   stats: [Stat, Stat, Stat];
   night: boolean;
-  tickMs: number;
   toName: string;
   loftLabel: string;
   sillLabel: string;
@@ -71,7 +70,7 @@ const STATES: Record<
 const ALTITUDES = ["Rooftop", "Lowish", "Quite high"];
 const ROOSTS = ["A barn", "A water tower", "A ledge"];
 const COUNTS = ["one", "two", "three", "four", "five", "six", "seven"];
-const SHORT_FLIGHT_MS = 10 * 60_000;
+const TICK_MS = 10_000;
 const CARD_PX = 260;
 
 function position(
@@ -104,24 +103,6 @@ function roostAt(plan: FlightPlan | undefined, nowMs: number) {
     : { index, count: roosts.length, segment: roosts[index] };
 }
 
-const roughDay = new Map<string, Intl.DateTimeFormat>();
-
-function roughly(at: number, timeZone: string): string {
-  let f = roughDay.get(timeZone);
-  if (!f) {
-    f = new Intl.DateTimeFormat("en-US", {
-      timeZone,
-      weekday: "short",
-      hour: "numeric",
-      hour12: true,
-    });
-    roughDay.set(timeZone, f);
-  }
-  const p: Record<string, string> = {};
-  for (const { type, value } of f.formatToParts(at)) p[type] = value;
-  return `${p.weekday} ${p.hour} ${p.dayPeriod.toLowerCase()}`;
-}
-
 function totalMi(flight: Flight): number {
   return flight.distanceMi ?? flight.plan?.distanceMi ?? 0;
 }
@@ -129,13 +110,6 @@ function totalMi(flight: Flight): number {
 function rounded(n: number, total: number): string {
   const digits = total < 1 ? 2 : total < 10 ? 1 : 0;
   return String(Number(n.toFixed(digits)));
-}
-
-function seconds(ms: number): string {
-  const s = Math.round(ms / 1000);
-  const m = Math.floor(s / 60);
-  if (!m) return `${s} sec`;
-  return s % 60 ? `${m} min ${s % 60} sec` : `${m} min`;
 }
 
 function recipient(flight: Flight): string | undefined {
@@ -177,16 +151,9 @@ function subLine(flight: Flight, roost: ReturnType<typeof roostAt>): string {
   return to ? `Carrying your note to ${to}` : "Carrying your note";
 }
 
-function flyingStats(
-  flight: Flight,
-  left: number | undefined,
-  short: boolean,
-): [Stat, Stat, Stat] {
+function flyingStats(flight: Flight, lands: string): [Stat, Stat, Stat] {
   return [
-    {
-      value: left === undefined ? "–" : short ? seconds(left) : duration(left),
-      label: "Lands in",
-    },
+    { value: lands, label: "Lands" },
     {
       value: flight.input ? `${flight.input.bird.speedMph} mph` : "–",
       label: "Speed",
@@ -201,18 +168,11 @@ function flyingStats(
 function roostingStats(
   flight: Flight,
   roost: NonNullable<ReturnType<typeof roostAt>>,
-  arrive: number | undefined,
-  timeZone: string,
+  lands: string,
 ): [Stat, Stat, Stat] {
   return [
-    {
-      value: clockTime(new Date(roost.segment.endMs), timeZone),
-      label: "Takes off again",
-    },
-    {
-      value: arrive === undefined ? "–" : roughly(arrive, timeZone),
-      label: "Lands, roughly",
-    },
+    { value: "first light", label: "Takes off again" },
+    { value: lands, label: "Lands, roughly" },
     {
       value: ROOSTS[hash32(`${flight.id}${roost.index}`) % ROOSTS.length],
       label: "Tonight's roost",
@@ -230,9 +190,7 @@ export function trackerView(
   const roost = state === "roosting" ? roostAt(flight.plan, nowMs) : undefined;
   const total = inUnits(totalMi(flight), units);
   const arrive = flight.arriveAt ?? flight.plan?.arriveAtMs;
-  const short =
-    arrive !== undefined && arrive - flight.releaseAt < SHORT_FLIGHT_MS;
-  const left = arrive === undefined ? undefined : Math.max(0, arrive - nowMs);
+  const lands = arrive === undefined ? "–" : fuzzyWhen(arrive, nowMs, timeZone);
   const copy = {
     bird: flight.bird.name,
     place: placeNear(flight, frac),
@@ -252,10 +210,9 @@ export function trackerView(
       text: `${rounded(total * frac, total)} of ${rounded(total, total)} ${units}`,
     },
     stats: roost
-      ? roostingStats(flight, roost, arrive, timeZone)
-      : flyingStats(flight, left, short),
+      ? roostingStats(flight, roost, lands)
+      : flyingStats(flight, lands),
     night,
-    tickMs: short ? 1000 : 10_000,
     ...pins(flight),
   };
 }
@@ -275,12 +232,9 @@ export function Tracker({
   const view = trackerView(flight, nowMs, timeZone, units);
 
   useEffect(() => {
-    const timer = setInterval(
-      () => setNowMs(Date.now() + offsetMs),
-      view.tickMs,
-    );
+    const timer = setInterval(() => setNowMs(Date.now() + offsetMs), TICK_MS);
     return () => clearInterval(timer);
-  }, [offsetMs, view.tickMs]);
+  }, [offsetMs]);
 
   const percent = Math.round(view.progress.frac * 100);
 

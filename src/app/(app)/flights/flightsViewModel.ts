@@ -1,5 +1,5 @@
 import { positionAt } from "@/lib/flight/engine";
-import { clockTime, distance, duration, type Units } from "@/lib/format";
+import { distance, duration, fuzzyWhen, type Units } from "@/lib/format";
 import { startOfLocalDayMs } from "@/lib/game/time";
 import type { FlightSections } from "@/server/services/flights/list";
 import type { Flight } from "@/server/services/flights/shape";
@@ -26,12 +26,11 @@ export type FlightsView = { pill: string; sections: FlightsSection[] };
 type Copy = {
   place?: string;
   lands: string;
-  left: string;
   leaves: string;
   trip: string;
 };
 
-const sill = (c: Copy) => `Lands on your sill in ${c.left}.`;
+const sill = (c: Copy) => `Lands on your sill ${c.lands}.`;
 const sentences = (...parts: (string | false | undefined)[]) =>
   parts.filter(Boolean).join(" ");
 
@@ -120,9 +119,8 @@ function copyOf(
   const arrive = landedAtMs(f);
   return {
     place: f.placeNames.deciles?.[Math.round(frac * 10)] ?? undefined,
-    lands: clockTime(new Date(arrive), timezone),
-    left: duration(Math.max(0, arrive - nowMs)),
-    leaves: clockTime(new Date(f.releaseAt), timezone),
+    lands: fuzzyWhen(arrive, nowMs, timezone),
+    leaves: fuzzyWhen(f.releaseAt, nowMs, timezone),
     trip: duration(arrive - f.releaseAt),
   };
 }
