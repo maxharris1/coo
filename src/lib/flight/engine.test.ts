@@ -248,6 +248,22 @@ describe("night flight", () => {
     expect(E.fliesInDark(input)).toBe(true);
   });
 
+  it("the la-first-night vector flies through the first night only", () => {
+    const v = vector("la-first-night");
+    const many = vector("la-many-nights");
+    const cutoff = E.sunTimes(
+      v.input.departAtMs + 86_400_000,
+      v.input.from,
+    ).sunriseMs;
+
+    expect(v.input.to).toEqual(many.input.to);
+    expect(v.input.gear).toEqual([]);
+    expect(v.input.nightFlightUntilMs).toBe(cutoff);
+    expect(roosts(v.plan).filter((s) => s.startMs < cutoff)).toEqual([]);
+    expect(roosts(v.plan).length).toBeGreaterThan(0);
+    expect(roosts(v.plan).length).toBeLessThan(roosts(many.plan).length);
+  });
+
   it("dark flight ends at a cutoff that falls inside a minute", () => {
     for (const offsetMs of [1, 30_000, 59_999, 90_500, 3 * 60_000 + 17_250]) {
       const cutoff = nightRelease.departAtMs + offsetMs;
@@ -298,15 +314,14 @@ describe("night flight", () => {
     );
   });
 
-  it("only the goggled vector inputs fly in the dark", () => {
-    const goggledVectors = [
+  it("only the goggled and hooked vector inputs fly in the dark", () => {
+    const darkVectors = [
       "night-release-nightgoggles",
       "chicago-nightgoggles",
+      "la-first-night",
     ];
     for (const v of data.vectors) {
-      expect(E.fliesInDark(v.input), v.name).toBe(
-        goggledVectors.includes(v.name),
-      );
+      expect(E.fliesInDark(v.input), v.name).toBe(darkVectors.includes(v.name));
     }
   });
 
