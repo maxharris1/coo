@@ -10,9 +10,32 @@ const INK = "#2A2140";
 const ILLUSTRATIONS = "/assets/svg/illustrations";
 const VIEW_W = 390;
 const VIEW_H = 230;
-const LEDGE_SPOTS = [
-  { x: 192, y: 112, scale: 0.82 },
-  { x: 288, y: 116, scale: 0.78 },
+type Spot = { x: number; y: number; scale: number };
+const LEDGE_LAYOUTS: readonly (readonly Spot[])[] = [
+  [],
+  [{ x: 192, y: 112, scale: 0.82 }],
+  [
+    { x: 192, y: 112, scale: 0.82 },
+    { x: 288, y: 116, scale: 0.78 },
+  ],
+  [
+    { x: 152, y: 117, scale: 0.7 },
+    { x: 229, y: 121, scale: 0.7 },
+    { x: 305, y: 117, scale: 0.7 },
+  ],
+  [
+    { x: 152, y: 126, scale: 0.62 },
+    { x: 207, y: 130, scale: 0.62 },
+    { x: 262, y: 126, scale: 0.62 },
+    { x: 315, y: 130, scale: 0.62 },
+  ],
+  [
+    { x: 150, y: 132, scale: 0.56 },
+    { x: 193, y: 136, scale: 0.56 },
+    { x: 236, y: 132, scale: 0.56 },
+    { x: 279, y: 136, scale: 0.56 },
+    { x: 322, y: 132, scale: 0.56 },
+  ],
 ];
 const LEDGE_BIRD_SIZE = 120;
 
@@ -50,13 +73,16 @@ function describeScene(
 function LoftScene({ birds }: { birds: FlockBird[] }) {
   const home = birds.filter((b) => !isAway(b.status));
   const sleeper = home.find((b) => b.tired);
-  const ledge = home.filter((b) => b !== sleeper).slice(0, LEDGE_SPOTS.length);
+  const ledge = home
+    .filter((b) => b !== sleeper)
+    .slice(0, LEDGE_LAYOUTS.length - 1);
+  const spots = LEDGE_LAYOUTS[ledge.length];
   const away = birds.find((b) => isAway(b.status));
   const targets: { bird: FlockBird; box: Box }[] = [
     ...(sleeper ? [{ bird: sleeper, box: SLEEPER_BOX }] : []),
     ...(away ? [{ bird: away, box: OUT_TAG_BOX }] : []),
     ...ledge.map((bird, i) => {
-      const { x, y, scale } = LEDGE_SPOTS[i];
+      const { x, y, scale } = spots[i];
       return {
         bird,
         box: {
@@ -186,7 +212,7 @@ function LoftScene({ birds }: { birds: FlockBird[] }) {
           </g>
         )}
         {ledge.map((b, i) => {
-          const spot = LEDGE_SPOTS[i];
+          const spot = spots[i];
           return (
             <g
               key={b.id}

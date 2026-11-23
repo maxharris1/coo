@@ -107,12 +107,6 @@ describe("the top of Main (ac-1)", () => {
     );
   });
 
-  it("puts the awake home birds on the ledge, at most two", () => {
-    const five = render([...mock, bird("Pip"), bird("Dot")]);
-    expect(five.match(/data-ledge-bird/g)).toHaveLength(2);
-    expect(html.match(/data-ledge-bird/g)).toHaveLength(2);
-  });
-
   it("hangs the OUT tag only when a bird is away and the sleeper only when one is tired", () => {
     const calm = render([bird("Gerald")]);
     expect(html).toContain(">OUT</text>");
@@ -209,21 +203,27 @@ describe("tapping a bird in the loft scene (ac-4)", () => {
     ]);
   });
 
-  it("targets only the birds drawn, with two on the ledge at most", () => {
-    const five = render([
+  it("targets only the birds drawn: no tired or away bird on the ledge", () => {
+    const loft = render([
       bird("Gerald"),
-      bird("Pip"),
-      bird("Dot"),
+      bird("Benjamin", { look: "tumbler", breed: "tumbler" }),
       bird("Kevin", { look: "kevin", tired: true }),
       bird("Brenda", { look: "brenda", status: "flying" }),
     ]);
-    const hrefs = sceneLinks(five).map((a) => a.match(/href="([^"]+)"/)?.[1]);
+    expect(loft.match(/data-ledge-bird/g)).toHaveLength(2);
+    expect(loft.match(/data-sleeper/g)).toHaveLength(1);
+    expect(loft.match(/>OUT<\/text>/g)).toHaveLength(1);
+    const hrefs = sceneLinks(loft).map((a) => a.match(/href="([^"]+)"/)?.[1]);
     expect(hrefs.sort()).toEqual(
-      ["/birds/brenda", "/birds/gerald", "/birds/kevin", "/birds/pip"].sort(),
+      [
+        "/birds/benjamin",
+        "/birds/brenda",
+        "/birds/gerald",
+        "/birds/kevin",
+      ].sort(),
     );
     expect(sceneLinks(render([bird("Gerald")]))).toHaveLength(1);
   });
-
   it("gives each scene target 44 px, a focus ring and a pressed state", () => {
     const css = readFileSync(
       new URL("./MainTop.module.css", import.meta.url),
@@ -233,5 +233,119 @@ describe("tapping a bird in the loft scene (ac-4)", () => {
     expect(css).toMatch(/\.birdLink \{[^}]*min-height: var\(--coo-touch\)/);
     expect(css).toMatch(/\.birdLink:focus-visible \{[^}]*outline: 3px solid/);
     expect(css).toMatch(/\.birdLink:active \{/);
+  });
+});
+
+describe("every home bird on the ledge, up to five (#884)", () => {
+  const W = 390;
+  const H = 230;
+  const SIZE = 120;
+  const PERCHED = 113;
+  const SLEEPER_CENTRE = { x: 71, y: 176 };
+  const OUT_CENTRE = { x: 132, y: 147 };
+
+  type Box = { x: number; y: number; w: number; h: number };
+
+  const ledgeBoxes = (markup: string): Box[] =>
+    [
+      ...markup.matchAll(
+        /data-ledge-bird="" transform="translate\(([\d.]+) ([\d.]+)\) scale\(([\d.]+)\)"/g,
+      ),
+    ].map(([, x, y, s]) => ({
+      x: Number(x),
+      y: Number(y),
+      w: SIZE * Number(s),
+      h: PERCHED * Number(s),
+    }));
+
+  const covers = (b: Box, p: { x: number; y: number }) =>
+    p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h;
+
+  const centre = (b: Box) => ({ x: b.x + b.w / 2, y: b.y + b.h / 2 });
+
+  const sceneLinks = (markup: string) =>
+    [...markup.matchAll(/<a[^>]*data-scene-bird=""[^>]*>/g)].map((m) => m[0]);
+
+  const label = (markup: string) =>
+    markup.match(/<svg[^>]*role="img"[^>]*aria-label="([^"]*)"/)?.[1] ?? "";
+
+  const starters = [
+    bird("Gerald"),
+    bird("Brenda", { look: "brenda" }),
+    bird("Benjamin", { look: "tumbler", breed: "tumbler" }),
+    bird("Pip", { look: "kevin" }),
+    bird("Dot", { look: "admiral" }),
+  ];
+
+  const expectAllDrawnAndLinked = (birds: Bird[]) => {
+    const html = render(birds);
+    expect(html.match(/data-ledge-bird/g)).toHaveLength(birds.length);
+    for (const b of birds) {
+      expect(label(html)).toContain(b.name);
+      expect(
+        sceneLinks(html).filter(
+          (a) =>
+            a.includes(`href="/birds/${b.id}"`) &&
+            a.includes(`aria-label="Open ${b.name}"`),
+        ),
+      ).toHaveLength(1);
+    }
+    expect(sceneLinks(html)).toHaveLength(birds.length);
+  };
+
+  it("draws a hatched tumbler as the third bird on the ledge, named and linked", () => {
+    const three = [
+      bird("Gerald"),
+      bird("Brenda", { look: "brenda" }),
+      starters[2],
+    ];
+    expectAllDrawnAndLinked(three);
+    expect(label(render(three))).toBe(
+      "Your rooftop loft. Gerald, Brenda and Benjamin stand on the ledge.",
+    );
+  });
+
+  it("draws all five home birds, the perch maximum, named and linked", () => {
+    expectAllDrawnAndLinked(starters);
+  });
+
+  it("fits every ledge layout in the scene, each bird on top at its own centre", () => {
+    for (let n = 1; n <= 5; n++) {
+      const boxes = ledgeBoxes(render(starters.slice(0, n)));
+      expect(boxes).toHaveLength(n);
+      boxes.forEach((b, i) => {
+        expect(b.x).toBeGreaterThanOrEqual(0);
+        expect(b.y).toBeGreaterThanOrEqual(0);
+        expect(b.x + b.w).toBeLessThanOrEqual(W);
+        expect(b.y + b.h).toBeLessThanOrEqual(H);
+        expect(b.y + b.h).toBeGreaterThanOrEqual(190);
+        for (const later of boxes.slice(i + 1)) {
+          expect(covers(later, centre(b))).toBe(false);
+        }
+      });
+    }
+  });
+
+  it("keeps a two-bird loft at today's spots", () => {
+    const html = render(starters.slice(0, 2));
+    expect(html).toContain('transform="translate(192 112) scale(0.82)"');
+    expect(html).toContain('transform="translate(288 116) scale(0.78)"');
+  });
+
+  it("leaves the sleeper and the OUT tag tappable beside a full ledge", () => {
+    const tired = bird("Kevin", { look: "kevin", tired: true });
+    const flying = bird("Sid", { look: "brenda", status: "flying" });
+    for (const birds of [
+      [...starters.slice(0, 2), tired, flying],
+      [...starters.slice(0, 3), tired, flying],
+      [...starters.slice(0, 4), tired],
+      [...starters.slice(0, 4), flying],
+    ]) {
+      const html = render(birds);
+      for (const b of ledgeBoxes(html)) {
+        expect(covers(b, SLEEPER_CENTRE)).toBe(false);
+        expect(covers(b, OUT_CENTRE)).toBe(false);
+      }
+    }
   });
 });

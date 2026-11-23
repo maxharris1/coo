@@ -29,8 +29,9 @@ flying."; the seed balance; an
 "Incoming" card for each bird headed to me (tap → tracker); "Your flock" with one row per bird:
 avatar, name, one status line, a status chip (Ready, Flying, Resting, Scheduled, On a sill, On a
 job) or a "Feed me" button when hungry; "n of m perches"; a link to the post office (More).
-Rows tap to the bird's page. A bird drawn in the loft (on the ledge, asleep in the coop, or behind
-the OUT tag) also taps to that bird's page. "Feed me" feeds in place. Empty perches show as dashed
+Rows tap to the bird's page. The loft scene draws every bird that is home, up to five: awake
+birds stand on the ledge and a tired one sleeps in the coop; a bird away shows as the OUT tag. Each
+bird drawn in the loft also taps to that bird's page. "Feed me" feeds in place. Empty perches show as dashed
 slots. While a roommate is owed, the first says "A roommate is waiting" (tap → `/aviary/roommate`).
 A ready egg takes the next empty slot: "An egg is ready" (tap → `/aviary`).
 
