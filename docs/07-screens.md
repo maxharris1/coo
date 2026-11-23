@@ -73,8 +73,10 @@ forecast. The night factor is left out there, since the night line already says 
 When the picked bird's quote has an `espresso` variant (it would roost and wears no goggles),
 the row shows a checkbox under the stats: "Espresso shot · keep {bird} up tonight". It starts
 unticked. It is disabled when unticked and the rows already ticked use every shot the player
-holds (`me.espressoShots`), so at 0 shots it is always disabled. Picking another bird for the
-row clears the tick, and picking the first bird again does not bring it back. While ticked, the
+holds (`me.espressoShots`), so at 0 shots it is always disabled. Any change of the row's bird
+clears the tick, whether the player picks another bird, a sync makes the bird unable to fly or
+a change of recipients reassigns the birds, and getting the first bird back does not bring the
+tick back. While ticked, the
 row's stats come from the variant: the forecast says "Flies through the night (espresso). Lands
 around {arriveAt}.", the flight time is the variant's time in the air and the odds are the
 variant's odds. Release sends `espresso: true` on that row's send only when it is ticked. The

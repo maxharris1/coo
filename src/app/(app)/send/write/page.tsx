@@ -94,7 +94,7 @@ function Compose() {
   const [doodle, setDoodle] = useState<Doodle | null>(null);
   const [sending, setSending] = useState(false);
   const [swaps, setSwaps] = useState<Swaps | null>(null);
-  const [shots, setShots] = useState<Record<string, string | null>>({});
+  const [shots, setShots] = useState<Record<string, string>>({});
   const [legs, setLegs] = useState<RecipientQuote[]>([]);
 
   useEffect(() => {
@@ -135,6 +135,12 @@ function Compose() {
             assignBirds(targets, flock),
           )
   ).map((r) => ({ ...r, birdId: pickable(r.birdId) ? r.birdId : null }));
+  const kept = Object.fromEntries(
+    Object.entries(shots).filter(
+      ([id, birdId]) => rows.find((r) => r.id === id)?.birdId === birdId,
+    ),
+  );
+  if (Object.keys(kept).length !== Object.keys(shots).length) setShots(kept);
   const birdOf = (id: string | null) => flock.find((b) => b.id === id);
   const sends: Send[] = rows.flatMap(({ birdId }, i) =>
     birdId ? [targets[i].send(birdId)] : [],
@@ -239,23 +245,18 @@ function Compose() {
       onDoodle={setDoodle}
       onPick={(rowId, birdId) => {
         if (!pickable(birdId)) return;
-        const next = swapBird(rows, rowId, birdId);
-        setSwaps({ key, rows: next });
-        setShots(
-          Object.fromEntries(
-            next.map((r) => [r.id, shots[r.id] === r.birdId ? r.birdId : null]),
-          ),
-        );
+        setSwaps({ key, rows: swapBird(rows, rowId, birdId) });
       }}
       onRelease={() => void onRelease()}
-      onEspresso={(rowId, on) =>
-        setShots({
-          ...shots,
-          [rowId]: on
-            ? (rows.find((r) => r.id === rowId)?.birdId ?? null)
-            : null,
-        })
-      }
+      onEspresso={(rowId, on) => {
+        const birdId = rows.find((r) => r.id === rowId)?.birdId;
+        setShots(
+          Object.fromEntries([
+            ...Object.entries(shots).filter(([id]) => id !== rowId),
+            ...(on && birdId ? [[rowId, birdId]] : []),
+          ]),
+        );
+      }}
       onWake={(birdId) =>
         void feedThenRefresh(
           birdId,

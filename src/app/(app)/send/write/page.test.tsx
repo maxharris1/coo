@@ -208,7 +208,7 @@ async function show() {
   await act(async () => r.render(page()));
 }
 
-const sendTo = (friendId: string) => {
+const sendTo = (friendId: string | string[]) => {
   seen.to = friendId;
   return act(async () => root?.render(page()));
 };
@@ -1005,6 +1005,36 @@ describe("Compose page espresso (ac-2, ac-3)", () => {
     await tick("u2");
     await pick("b1");
     await pick("b2");
+    expect(row().espresso?.ticked).toBe(false);
+    expect(await releaseNow()).toEqual([{ friendId: "u2", birdId: "b2" }]);
+  });
+
+  it("keeps the shot cleared when a sync change moves the row off its bird and back", async () => {
+    variants = { b1: NIGHT_RUN, b2: NIGHT_RUN };
+    await show();
+    await tick("u2");
+    birds = BIRDS.map((b) => (b.id === "b2" ? { ...b, canFly: false } : b));
+    await act(async () => root?.render(page()));
+    expect(row().pickedId).toBe("b1");
+    expect(row().espresso?.ticked).toBe(false);
+    birds = BIRDS;
+    await act(async () => root?.render(page()));
+    expect(row().pickedId).toBe("b2");
+    expect(row().espresso?.ticked).toBe(false);
+    expect(await releaseNow()).toEqual([{ friendId: "u2", birdId: "b2" }]);
+  });
+
+  it("keeps the shot cleared when new recipients move the row off its bird and back", async () => {
+    friends = { status: 200, body: FOUR_FRIENDS };
+    variants = { b1: NIGHT_RUN, b2: NIGHT_RUN };
+    await show();
+    expect(row().pickedId).toBe("b2");
+    await tick("u2");
+    await sendTo(["u2", "u3"]);
+    expect(row().pickedId).toBe("b1");
+    expect(row().espresso?.ticked).toBe(false);
+    await sendTo("u2");
+    expect(row().pickedId).toBe("b2");
     expect(row().espresso?.ticked).toBe(false);
     expect(await releaseNow()).toEqual([{ friendId: "u2", birdId: "b2" }]);
   });
