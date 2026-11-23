@@ -260,6 +260,21 @@ const header = (title: string) => {
   return found;
 };
 
+const hops = (text: string) => {
+  const found = buttonsIn(FlightsView(props())).find(
+    (b) => b.props.children === text,
+  );
+  if (!found) throw new Error(`no ${text} button`);
+  return found;
+};
+
+const hopsButton = (html: string, text: string) =>
+  html.match(new RegExp(`<button\\b[^>]*>${text}</button>`))?.[0] ?? "";
+
+const regionOf = (html: string, id: string) =>
+  html.match(new RegExp(`<div[^>]*id="${id}"[^>]*>[\\s\\S]*?</div>`))?.[0] ??
+  "";
+
 const air = (html: string) =>
   html.match(/<h2[^>]*>In the air<\/h2>[\s\S]*?<\/section>/)?.[0] ?? "";
 
@@ -324,8 +339,8 @@ describe("/flights ready", () => {
     expect(headings).toEqual(["In the air"]);
     expect(groupsOf(html)).toEqual([["Today, 1 flight", "true"]]);
     for (const text of [
-      "Admiral Crumbs to Rosa, 3 blocks",
-      "31 sec",
+      "Admiral Crumbs · Rosa",
+      "3 blocks · 31 sec",
       ">Flying<",
       ">Delayed<",
       ">Almost here<",
@@ -577,6 +592,70 @@ describe("/flights earlier", () => {
     expect(air(html)).not.toContain("/flights/x1");
   });
 
+  it("shows a landed row as an avatar, a direction badge, bird · other and distance · trip", async () => {
+    const received = landed("r1", "Brenda", NOW - 2 * HOUR, {
+      role: "incoming",
+      owner: person("Tracy"),
+      distanceMi: 82,
+      releaseAt: NOW - 2 * HOUR - (5 * HOUR + 10 * 60_000),
+    });
+    await mount();
+    await answer({ ...EMPTY, landedToday: [admiral, received] });
+    const html = shown();
+    const sent = card(html, "a1");
+    expect(sent).toMatch(
+      /<svg xmlns="http:\/\/www.w3.org\/2000\/svg"[^>]*aria-hidden="true"/,
+    );
+    expect(sent).toMatch(
+      /aria-hidden="true"[^>]*data-direction="sent"|data-direction="sent"[^>]*aria-hidden="true"/,
+    );
+    expect(sent).toContain('class="srOnly">Sent<');
+    expect(sent).toContain(">Admiral Crumbs · Rosa<");
+    expect(sent).toContain(">3 blocks · 31 sec<");
+    const got = card(html, "r1");
+    expect(got).toContain('data-direction="received"');
+    expect(got).toContain('class="srOnly">Received<');
+    expect(got).toContain(">Brenda · Tracy<");
+    expect(got).toContain(">82 miles · 5h 10m<");
+    for (const row of [sent, got]) {
+      expect(row).not.toMatch(/\bto\b|\bfrom\b/);
+    }
+  });
+
+  it("folds zero-distance flights into a collapsed test hops disclosure at the bottom of their group", async () => {
+    const hop = (id: string, at: number) =>
+      landed(id, "Brenda", at, { distanceMi: 0 });
+    await mount();
+    await answer({
+      ...EMPTY,
+      landedToday: [
+        hop("h1", NOW - 2 * HOUR),
+        admiral,
+        hop("h2", NOW - 3 * HOUR),
+      ],
+      earlier: [hop("h3", NOW - 24 * HOUR)],
+    });
+    let html = shown();
+    expect(groupsOf(html)[0]).toEqual(["Today, 1 flight", "true"]);
+    expect(html).toMatch(/aria-label="Yesterday"[^>]*>Yesterday<\/button>/);
+    expect(hopsButton(html, "1 test hop")).toContain('aria-expanded="false"');
+    const today = hopsButton(html, "2 test hops");
+    expect(today).toContain('aria-expanded="false"');
+    const region = today.match(/aria-controls="([^"]*)"/)![1];
+    expect(regionOf(html, region)).toMatch(/^<div[^>]*hidden=""/);
+    const todayRows = groupBody(html, "Today");
+    expect(todayRows.indexOf("/flights/a1")).toBeLessThan(
+      todayRows.indexOf("2 test hops"),
+    );
+    await act(async () => hops("2 test hops").props.onClick?.());
+    html = shown();
+    expect(hopsButton(html, "2 test hops")).toContain('aria-expanded="true"');
+    const open = regionOf(html, region);
+    expect(open).not.toMatch(/^<div[^>]*hidden/);
+    for (const id of ["h1", "h2"]) expect(linkTo(open, id)).toHaveLength(1);
+    expect(linkTo(open, "a1")).toHaveLength(0);
+  });
+
   it("a failed page keeps the list and toasts the API's message", async () => {
     await mount();
     await answer(page({ earlier: [yesterday("e1")], nextCursor: "c1" }));
@@ -767,6 +846,8 @@ describe("/flights layout", () => {
     expect(rule("done")).toMatch(/min-height:\s*var\(--coo-touch\)/);
     expect(rule("more")).toMatch(/min-height:\s*var\(--coo-touch\)/);
     expect(rule("groupHeader")).toMatch(/min-height:\s*var\(--coo-touch\)/);
+    expect(rule("hops")).toMatch(/min-height:\s*var\(--coo-touch\)/);
+    expect(css).toMatch(/\.hops:focus-visible[,\s]/);
     const tokens = readFileSync(
       new URL("../../../../assets/tokens.css", import.meta.url),
       "utf8",

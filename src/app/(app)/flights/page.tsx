@@ -28,6 +28,7 @@ export default function FlightsPage() {
   const [toggled, setToggled] = useState<Partial<Record<GroupKey, boolean>>>(
     {},
   );
+  const [hops, setHops] = useState<Partial<Record<GroupKey, boolean>>>({});
   const [clock, setClock] = useState(() => Date.now());
   const synced = useMemo(() => JSON.stringify(data?.flights ?? null), [data]);
   const [jobs, setJobs] = useState<ReadonlyMap<string, JobView>>(new Map());
@@ -124,6 +125,8 @@ export default function FlightsPage() {
       units={asUnits(data?.me.units)}
       toggled={toggled}
       onToggle={(key, open) => setToggled((prev) => ({ ...prev, [key]: open }))}
+      hops={hops}
+      onHops={(key, open) => setHops((prev) => ({ ...prev, [key]: open }))}
       onMore={onMore}
       onRetry={onRetry}
     />

@@ -191,6 +191,7 @@
 .airCard:focus-visible,
 .done:focus-visible,
 .groupHeader:focus-visible,
+.hops:focus-visible,
 .more:focus-visible {
   outline: 3px solid var(--coo-ink);
   outline-offset: 3px;
@@ -273,28 +274,26 @@
 .done {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 10px;
   min-height: var(--coo-touch);
-  padding: 0 4px;
+  padding: 4px;
   border-bottom: 2px dashed
     color-mix(in srgb, var(--coo-lilac) 75%, var(--coo-muted));
   color: inherit;
   text-decoration: none;
 }
 
-.doneTitle {
-  min-width: 0;
+.hops {
+  min-height: var(--coo-touch);
+  padding: 0 4px;
+  background: none;
+  border: none;
+  font-family: inherit;
   font-weight: 800;
   font-size: 13.5px;
-  overflow-wrap: anywhere;
-}
-
-.doneWhen {
-  flex-shrink: 0;
-  font-weight: 900;
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
+  color: var(--coo-muted);
+  text-align: left;
+  cursor: pointer;
 }
 
 .more {
