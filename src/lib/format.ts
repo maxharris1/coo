@@ -316,11 +316,11 @@ function timeOfDay(hour: number): string {
   return "Night";
 }
 
-function inWords(n: number): string {
+export function inWords(n: number): string {
   return NUMBER_WORDS[n] ?? String(n);
 }
 
-function capitalise(text: string): string {
+export function capitalise(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
