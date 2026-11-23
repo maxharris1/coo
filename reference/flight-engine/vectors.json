@@ -5017,6 +5017,264 @@
      "state": "landed"
     }
    ]
+  },
+  {
+   "name": "la-first-night",
+   "about": "New York to Los Angeles, may fly in the dark until the first sunrise: flies through the first night only",
+   "input": {
+    "flightId": "vector-30-la-first-night",
+    "from": {
+     "lat": 40.7306,
+     "lon": -73.9866
+    },
+    "to": {
+     "lat": 34.0522,
+     "lon": -118.2437
+    },
+    "departAtMs": 1795100400000,
+    "bird": {
+     "speedMph": 45,
+     "focus": 2,
+     "navigation": 4,
+     "level": 1,
+     "belly": 80,
+     "feathers": 80,
+     "energy": 80,
+     "sulking": false,
+     "breed": "city"
+    },
+    "gear": [],
+    "weather": [
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     },
+     {
+      "windMph": 0,
+      "windFromDeg": 0,
+      "tempF": 55,
+      "precipMmH": 0,
+      "snow": false
+     }
+    ],
+    "nightFlightUntilMs": 1795175397325
+   },
+   "plan": {
+    "distanceMi": 2446.497542263226,
+    "bearingDeg": 273.67346695142555,
+    "onTimeOdds": 0.78,
+    "delayed": false,
+    "delayKind": "none",
+    "arriveAtMs": 1795451099804,
+    "segments": [
+     {
+      "kind": "fly",
+      "startMs": 1795100400000,
+      "endMs": 1795175397325,
+      "fromFrac": 0,
+      "toFrac": 0.3831872079596583
+     },
+     {
+      "kind": "roost",
+      "startMs": 1795175397325,
+      "endMs": 1795179537325,
+      "fromFrac": 0.3831872079596583,
+      "toFrac": 0.3831872079596583
+     },
+     {
+      "kind": "fly",
+      "startMs": 1795179537325,
+      "endMs": 1795217157325,
+      "fromFrac": 0.3831872079596583,
+      "toFrac": 0.5754007670891743
+     },
+     {
+      "kind": "roost",
+      "startMs": 1795217157325,
+      "endMs": 1795267917325,
+      "fromFrac": 0.5754007670891743,
+      "toFrac": 0.5754007670891743
+     },
+     {
+      "kind": "fly",
+      "startMs": 1795267917325,
+      "endMs": 1795305777325,
+      "fromFrac": 0.5754007670891743,
+      "toFrac": 0.7688405690201545
+     },
+     {
+      "kind": "roost",
+      "startMs": 1795305777325,
+      "endMs": 1795356117325,
+      "fromFrac": 0.7688405690201545,
+      "toFrac": 0.7688405690201545
+     },
+     {
+      "kind": "fly",
+      "startMs": 1795356117325,
+      "endMs": 1795394397325,
+      "fromFrac": 0.7688405690201545,
+      "toFrac": 0.9644262958536971
+     },
+     {
+      "kind": "roost",
+      "startMs": 1795394397325,
+      "endMs": 1795444137325,
+      "fromFrac": 0.9644262958536971,
+      "toFrac": 0.9644262958536971
+     },
+     {
+      "kind": "fly",
+      "startMs": 1795444137325,
+      "endMs": 1795451099804,
+      "fromFrac": 0.9644262958536971,
+      "toFrac": 1
+     }
+    ],
+    "events": [
+     {
+      "atMs": 1795100400000,
+      "kind": "takeoff",
+      "pick": 378
+     },
+     {
+      "atMs": 1795109127278,
+      "kind": "food",
+      "pick": 492
+     },
+     {
+      "atMs": 1795156494131,
+      "kind": "landmark",
+      "pick": 819
+     },
+     {
+      "atMs": 1795175397325,
+      "kind": "dusk",
+      "pick": 383
+     },
+     {
+      "atMs": 1795179537325,
+      "kind": "sunrise",
+      "pick": 383
+     },
+     {
+      "atMs": 1795195319203,
+      "kind": "landmark",
+      "pick": 900
+     },
+     {
+      "atMs": 1795217157325,
+      "kind": "dusk",
+      "pick": 575
+     },
+     {
+      "atMs": 1795267917325,
+      "kind": "sunrise",
+      "pick": 575
+     },
+     {
+      "atMs": 1795270758699,
+      "kind": "landmark",
+      "pick": 604
+     },
+     {
+      "atMs": 1795296040330,
+      "kind": "cruising",
+      "pick": 540
+     },
+     {
+      "atMs": 1795305777325,
+      "kind": "dusk",
+      "pick": 768
+     },
+     {
+      "atMs": 1795356117325,
+      "kind": "sunrise",
+      "pick": 768
+     },
+     {
+      "atMs": 1795394163508,
+      "kind": "cruising",
+      "pick": 687
+     },
+     {
+      "atMs": 1795394397325,
+      "kind": "dusk",
+      "pick": 964
+     },
+     {
+      "atMs": 1795444137325,
+      "kind": "sunrise",
+      "pick": 964
+     },
+     {
+      "atMs": 1795451099804,
+      "kind": "landing",
+      "pick": 668
+     }
+    ]
+   },
+   "samples": [
+    {
+     "atMs": 1795100400000,
+     "lat": 40.7306,
+     "lon": -73.9866,
+     "frac": 0,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795135469980,
+     "lat": 40.83418019506259,
+     "lon": -82.36784143256546,
+     "frac": 0.17918462717705008,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795216130935,
+     "lat": 38.988970244040544,
+     "lon": -100.28781121834207,
+     "frac": 0.5701565864683624,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795275749902,
+     "lat": 38.60156634288607,
+     "lon": -102.28325613321418,
+     "frac": 0.6154201052690251,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795363424853,
+     "lat": 36.611349667103134,
+     "lon": -110.43438963510587,
+     "frac": 0.806177250713897,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795447592806,
+     "lat": 34.30941970257076,
+     "lon": -117.54260959274973,
+     "frac": 0.9820815388752087,
+     "state": "flying"
+    },
+    {
+     "atMs": 1795451099804,
+     "lat": 34.0522,
+     "lon": -118.2437,
+     "frac": 1,
+     "state": "landed"
+    }
+   ]
   }
  ]
 }

@@ -50,6 +50,7 @@ const cases = [
   ['delay-major-search-party', 'Same major delay ended early by a search party', { flightId: majorId, delayEndOverrideMs: majorDelay.startMs + 20 * 60_000 }],
   ['night-release-nightgoggles', 'Released at 10 pm wearing night goggles: flies through the dark at once', { departAtMs: Date.UTC(2026, 10, 20, 3, 0, 0), gear: ['nightgoggles'] }],
   ['chicago-nightgoggles', 'New York to Chicago wearing night goggles: no barn, flies through the night', { to: P.chicago, gear: ['nightgoggles'] }],
+  ['la-first-night', 'New York to Los Angeles, may fly in the dark until the first sunrise: flies through the first night only', { to: P.losAngeles, nightFlightUntilMs: E.sunTimes(t10am + 86_400_000, P.eastVillage).sunriseMs }],
 ];
 
 const vectors = cases.map(([name, about, over], i) => {

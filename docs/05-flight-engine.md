@@ -170,6 +170,7 @@ Full inputs and outputs are in `reference/flight-engine/vectors.json`.
 | `delay-major-search-party` | Same major delay ended early by a search party | 82.1 | 2h 09m | 0.91 | major |
 | `night-release-nightgoggles` | Released at 10 pm wearing night goggles: flies through the dark at once | 82.1 | 1h 49m | 0.88 | none |
 | `chicago-nightgoggles` | New York to Chicago wearing night goggles: no barn, flies through the night | 711.8 | 16h 04m | 0.82 | minor |
+| `la-first-night` | New York to Los Angeles, may fly in the dark until the first sunrise: flies through the first night only | 2446.5 | 97h 25m | 0.78 | none |
 
 Things worth noticing:
 
@@ -180,6 +181,7 @@ Things worth noticing:
 - Released at 10 pm: 9 hours asleep on the note, then a normal flight.
 - Released at 10 pm wearing night goggles: no wait at the loft, he lands 1 h 49.5 min later. Flying in the dark costs 0.03, so odds are 0.91 − 0.03 = 0.88.
 - Chicago wearing night goggles: no barn, he flies through the night and lands 16 h 04 min after takeoff instead of 30 h 06 min. That includes a 15 minute minor delay this flight id rolls. Odds are 0.85 − 0.03 = 0.82.
+- Los Angeles with `nightFlightUntilMs` at the loft's first sunrise, the hook for the future Espresso item: he flies through the first night only and roosts on later nights. 4 roosts instead of 5, and he lands 97 h 25 min after takeoff instead of 124 h 56 min. Odds are 0.81 − 0.03 = 0.78. At the cutoff he is over northern Missouri, where the sun is not up yet, so he roosts 69 minutes until it rises there.
 - The same major delay is 3 h 21 min for a good navigator, 4 h 28 min for a poor one, and 20 minutes after a search party.
 
 ## Changing the engine
