@@ -141,10 +141,6 @@
   background: color-mix(in srgb, var(--coo-ink) 12%, transparent);
 }
 
-.drift {
-  animation: coo-drift 6s ease-in-out infinite alternate;
-}
-
 .snooze {
   font-family: var(--coo-font-body);
   font-size: 13px;
@@ -166,19 +162,14 @@
   fill: var(--coo-ink);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .drift,
-  .snooze {
-    animation: none;
-  }
+.loft[data-paused] * {
+  animation-play-state: paused !important;
 }
 
-@keyframes coo-drift {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(18px);
+@media (prefers-reduced-motion: reduce) {
+  .loft *,
+  .snooze {
+    animation: none;
   }
 }
 
