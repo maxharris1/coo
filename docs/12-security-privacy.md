@@ -11,12 +11,19 @@ notes. The rules below are requirements, each with a test in some ticket.
    home and travel, are always snapped.
 
    A destination pin the sender places by hand on a send to someone new (`pin` on
-   `POST /api/flights/quote` and `POST /api/flights`) is that person's provisional sill, so it
-   is snapped like any roost before it is stored in `flights.to_lat/to_lon` and
-   `guest_links.dest_lat/dest_lon`. The drop point travels only in request bodies, never in a
-   URL, a log line, a database row or a `geo_cache` key. Its label comes from reverse-geocoding
-   the snapped pin, so the geocoder only ever sees grid points. `GET /api/geo/place` returns a
+   `POST /api/flights/quote` and `POST /api/flights`) is that person's provisional sill, not an
+   exact destination. `/send/new` snaps it in the browser and the server snaps it again before
+   it is stored in `flights.to_lat/to_lon` and `guest_links.dest_lat/dest_lon`. The pin travels
+   only in request bodies and, between `/send/new` and Compose, in `sessionStorage` keyed by
+   `placeId`. It is never in a URL, a log line or a `geo_cache` key, and no row holds it unsnapped.
+   Its label comes from reverse-geocoding the snapped pin, so the geocoder only ever sees grid
+   points. It is never a street, a house number or typed text. `GET /api/geo/place` returns a
    held place's snapped starting point to the user who holds its `placeId`, and nothing else.
+
+   The guess does not become the recipient's home unless they keep it. If they sign up from
+   the link and set a roost of their own, `profiles.home_*` holds their snapped roost, not the
+   sender's pin. A delivery already in the air keeps the destination it was sent with
+   (`docs/11-guest-links.md`).
 2. **Addresses are never stored.** If someone searches an address, we keep the snapped point
    and a neighbourhood label. The search text is not saved against the user.
 3. **Friends see a roost or a city.** Per friend, `block` (the roost and its neighbourhood
