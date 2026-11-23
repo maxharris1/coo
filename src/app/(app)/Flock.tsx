@@ -143,7 +143,11 @@ export function Flock({
                 tone={row.tone}
                 napping={bird.busyKind === "nap"}
               />
-              <Link href={`/birds/${bird.id}`} className={styles.rowLink}>
+              <Link
+                href={`/birds/${bird.id}`}
+                className={styles.rowLink}
+                aria-label={`Open ${bird.name}`}
+              >
                 <span className={styles.name}>{bird.name}</span>
                 <span className={styles.line}>{row.line}</span>
               </Link>

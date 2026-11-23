@@ -107,11 +107,34 @@
   text-wrap: balance;
 }
 
+.loft {
+  position: relative;
+  flex-shrink: 0;
+}
+
 .scene {
   display: block;
-  flex-shrink: 0;
   width: 100%;
   height: auto;
+}
+
+.birdLink {
+  position: absolute;
+  min-width: var(--coo-touch);
+  min-height: var(--coo-touch);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.birdLink:focus-visible {
+  outline: 3px solid var(--coo-ink);
+  outline-offset: 2px;
+}
+
+.birdLink:active {
+  transform: translate(-50%, calc(-50% + 2px));
+  background: color-mix(in srgb, var(--coo-ink) 12%, transparent);
 }
 
 .drift {
