@@ -186,4 +186,32 @@ describe("POST /api/shop/buy", () => {
     expect(json.me.id).toBe(id);
     expect(await balance(other.id)).toEqual(theirs);
   });
+
+  it("sells espresso shots again and again, stocking only the caller", async () => {
+    const other = await onboarded("(555) 765-4321", "Brenda", 1000);
+    const { id, jar } = await onboarded("(555) 123-4567", "Max", 1000);
+    const before = await balance(id);
+    const theirs = await balance(other.id);
+    const first = await client.post({ itemId: "espresso", price: 25 }, jar);
+    expect(first.status).toBe(200);
+    const second = await client.post(
+      { itemId: "espresso", price: 25, userId: other.id },
+      jar,
+    );
+    expect(second.status).toBe(400);
+    const third = await client.post({ itemId: "espresso", price: 25 }, jar);
+    expect(third.status).toBe(200);
+    expect(third.json.me).toMatchObject({ id, seeds: before.seeds - 50 });
+    const shots = await deps.db.query<{ id: string; espresso_shots: number }>(
+      "select id, espresso_shots from profiles where id = any($1) order by id",
+      [[id, other.id]],
+    );
+    expect(
+      Object.fromEntries(shots.map((r) => [r.id, r.espresso_shots])),
+    ).toEqual({
+      [id]: 2,
+      [other.id]: 0,
+    });
+    expect(await balance(other.id)).toEqual(theirs);
+  });
 });

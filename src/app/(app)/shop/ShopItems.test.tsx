@@ -326,3 +326,32 @@ describe("/shop seed burst (part 4 ac-2)", () => {
     );
   });
 });
+
+describe("/shop espresso shot", () => {
+  const shot: ShopRow = {
+    itemId: "espresso",
+    name: "Espresso shot",
+    effect: "One night of flying",
+    held: 2,
+    action: { kind: "buy", price: 25 },
+  };
+  const card = (row: ShopRow) =>
+    cards(render({ gear: [], loft: [row] }))[0] ?? "";
+
+  it("draws the shot in the loft with its effect, price and how many are owned", () => {
+    const html = card(shot);
+    expect(html).toContain(">Espresso shot<");
+    expect(html).toContain("One night of flying");
+    expect(html).toContain(">2 owned<");
+    expect(html).toMatch(
+      /<button[^>]*aria-label="Buy Espresso shot for 25 seeds"[^>]*>.*<span>25<\/span><\/button>/,
+    );
+    expect(html).toMatch(
+      /<div aria-hidden="true" class="[^"]*tile[^"]*"[^>]*><svg/,
+    );
+  });
+
+  it("says nothing about owned shots when none are held", () => {
+    expect(card({ ...shot, held: 0 })).not.toContain("owned");
+  });
+});

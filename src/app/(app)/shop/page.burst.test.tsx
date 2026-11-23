@@ -49,6 +49,7 @@ const shop = (): Shop => ({
   gear: [],
   loftItems: [],
   nextPerch: { number: perch, price: 250, affordable: true, toGo: 0 },
+  consumables: [],
 });
 
 function fakeFetch(url: RequestInfo | URL) {

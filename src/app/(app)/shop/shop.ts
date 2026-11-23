@@ -11,6 +11,7 @@ export type ShopRow<A extends RowAction = RowAction> = {
   itemId: string;
   name: string;
   effect: string;
+  held?: number;
   action: A;
 };
 
@@ -104,6 +105,15 @@ export function shopRows(shop: Shop): ShopRows {
     loft: [
       ...shop.loftItems.map((item) => row(item, seeds, "In the loft")),
       ...perch,
+      ...shop.consumables.map(
+        ({ id, name, effect, price, held, affordable }): ShopRow => ({
+          itemId: id,
+          name,
+          effect,
+          held,
+          action: priced(price, affordable, price - seeds),
+        }),
+      ),
     ],
   };
 }
@@ -166,13 +176,18 @@ export function settle(rows: ShopRows, bought: BuyRow): ShopRows {
   const reprice =
     (label: "In the closet" | "In the loft") =>
     (row: ShopRow): ShopRow[] => {
-      if (row.itemId === bought.itemId)
+      const isBought = row.itemId === bought.itemId;
+      if (isBought && row.held === undefined)
         return row.itemId === "perch"
           ? []
           : [{ ...row, action: { kind: "owned", label } }];
       if (row.action.kind === "owned") return [row];
       const { price } = row.action;
-      return [{ ...row, action: priced(price, seeds >= price, price - seeds) }];
+      const repriced = {
+        ...row,
+        action: priced(price, seeds >= price, price - seeds),
+      };
+      return [isBought ? { ...repriced, held: (row.held ?? 0) + 1 } : repriced];
     };
   return {
     seeds,

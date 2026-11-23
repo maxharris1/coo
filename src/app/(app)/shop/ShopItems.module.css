@@ -85,6 +85,13 @@
   line-height: 1.3;
 }
 
+.held {
+  margin-left: 6px;
+  color: var(--coo-ink);
+  font-weight: 900;
+  white-space: nowrap;
+}
+
 .chip {
   flex-shrink: 0;
   padding: 4px 10px;

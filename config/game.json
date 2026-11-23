@@ -178,6 +178,14 @@
       "price": 220
     }
   ],
+  "consumables": [
+    {
+      "id": "espresso",
+      "name": "Espresso shot",
+      "effect": "One night of flying",
+      "price": 25
+    }
+  ],
   "jobs": {
     "offered": 2,
     "fullPayPerDay": 3,

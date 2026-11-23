@@ -460,3 +460,64 @@ describe("buy", () => {
     );
   });
 });
+
+describe("buy espresso", () => {
+  async function shots(user: string) {
+    const [{ espresso_shots }] = await deps.db.query<{
+      espresso_shots: number;
+    }>("select espresso_shots from profiles where id = $1", [user]);
+    return espresso_shots;
+  }
+
+  async function setSeeds(user: string, seeds: number) {
+    const { seeds: current } = await wallet(user);
+    if (seeds !== current) await grant(user, seeds - current);
+  }
+
+  const espresso = (price = 25) => ({ itemId: "espresso", price });
+
+  it("sells a shot as often as asked, 25 seeds each, through the ledger", async () => {
+    await setSeeds(max, 60);
+    await buy(deps, max, espresso());
+    const result = await buy(deps, max, espresso());
+    expect(result.me).toMatchObject({ seeds: 10 });
+    expect(await shots(max)).toBe(2);
+    const after = await wallet(max);
+    expect(after.seeds).toBe(10);
+    expect(after.ledgerSum).toBe(after.seeds);
+    const ledger = await deps.db.query<{ delta: number; ref_id: null }>(
+      "select delta, ref_id from seed_ledger where user_id = $1 and reason = 'shop' order by id",
+      [max],
+    );
+    expect(ledger).toEqual([
+      { delta: -25, ref_id: null },
+      { delta: -25, ref_id: null },
+    ]);
+  });
+
+  it("refuses a shot at 24 seeds as insufficient_seeds and changes nothing", async () => {
+    await setSeeds(max, 24);
+    const before = await wallet(max);
+    await expect(buy(deps, max, espresso())).rejects.toMatchObject({
+      code: "insufficient_seeds",
+      message: "Not enough seeds for that.",
+    });
+    expect(await wallet(max)).toEqual(before);
+    expect(await shots(max)).toBe(0);
+  });
+
+  it("refuses a shot at the wrong price as conflict and charges nothing", async () => {
+    await setSeeds(max, 100);
+    const before = await wallet(max);
+    expect(await refusal(buy(deps, max, espresso(20)))).toBe("conflict");
+    expect(await wallet(max)).toEqual(before);
+    expect(await shots(max)).toBe(0);
+  });
+
+  it("stocks only the caller's shots", async () => {
+    await setSeeds(max, 100);
+    const other = world.priya.id;
+    await buy(deps, max, espresso());
+    expect(await shots(other)).toBe(0);
+  });
+});

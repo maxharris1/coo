@@ -152,6 +152,7 @@ const SHOP: Shop = {
   gear: [],
   loftItems: [],
   nextPerch: { number: 5, price: 400, toGo: 0, affordable: true },
+  consumables: [],
 };
 
 describe("f-2: the bought item's burst outlives its offer row (ac-2)", () => {
