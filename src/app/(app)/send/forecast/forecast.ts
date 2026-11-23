@@ -1,5 +1,5 @@
-import { clockTime, duration, shortDistance, type Units } from "@/lib/format";
-import { localDate, localHour } from "@/lib/game/time";
+import { clockTime, fuzzyWhen, shortDistance, type Units } from "@/lib/format";
+import { localHour } from "@/lib/game/time";
 import type { Factor, FactorKind } from "@/server/services/flights/factors";
 import type {
   BirdQuote,
@@ -105,29 +105,12 @@ function bestQuote(quotes: BirdQuote[], now: number): BirdQuote | null {
   return best;
 }
 
-const DAY_MS = 86_400_000;
-
-function landingDay(q: BirdQuote, tz: string): string {
-  const days =
-    (Date.parse(localDate(q.arriveAt, tz)) -
-      Date.parse(localDate(q.releaseAt, tz))) /
-    DAY_MS;
-  if (days === 0) return "";
-  if (days === 1) return " tomorrow";
-  return ` ${new Intl.DateTimeFormat("en-US", {
-    weekday: "long",
-    month: "short",
-    day: "numeric",
-    timeZone: tz,
-  }).format(q.arriveAt)}`;
-}
-
-function howLong(q: BirdQuote): string {
-  if (q.fliesInDark)
-    return `Flies through the night. About ${duration(q.airTimeMs)}`;
+function landing(q: BirdQuote, tz: string): string {
+  const lands = `Lands ${fuzzyWhen(q.arriveAt, q.releaseAt, tz, "quote")}.`;
+  if (q.fliesInDark) return `Flies through the night. ${lands}`;
   return q.leavesAt > q.releaseAt
-    ? `Waits for sunrise, then about ${duration(q.airTimeMs)} in the air`
-    : `About ${duration(q.durationMs)}`;
+    ? `Waits for sunrise. Leaves at first light. ${lands}`
+    : lands;
 }
 
 export function forecastModel(
@@ -164,7 +147,7 @@ export function forecastModel(
       heading: selectedNow
         ? "Arrival odds leaving now"
         : `Arrival odds leaving at ${clockTime(new Date(selected.releaseAt), tz)}`,
-      detail: `${howLong(selected)}. Lands near ${clockTime(new Date(selected.arriveAt), tz)}${landingDay(selected, tz)}.`,
+      detail: landing(selected, tz),
     },
     factors: selected.factors.map((f) => ({
       kind: f.kind,

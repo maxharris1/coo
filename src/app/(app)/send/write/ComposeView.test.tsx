@@ -65,7 +65,7 @@ const STATS = {
   distance: "81 mi",
   flightTime: "1h 48m",
   odds: "94%",
-  forecast: "Lands around 11:20 am. Clear skies over Jersey.",
+  forecast: "Lands this morning. Clear skies over Jersey.",
 };
 
 const PRIYA_ROW: ComposeRow = {
@@ -281,7 +281,7 @@ describe("ComposeView stats (ac-2)", () => {
       expect(html).toMatch(
         new RegExp(`>${value}</span><span[^>]*>${label}</span>`),
       );
-    expect(html).toContain("Lands around 11:20 am. Clear skies over Jersey.");
+    expect(html).toContain("Lands this morning. Clear skies over Jersey.");
   });
 
   it("links to the Forecast", () => {
@@ -292,14 +292,14 @@ describe("ComposeView stats (ac-2)", () => {
 
   it("shows the forecast line without a link when there is no forecast page", () => {
     const html = one({ forecastHref: null });
-    expect(html).toContain("Lands around 11:20 am. Clear skies over Jersey.");
+    expect(html).toContain("Lands this morning. Clear skies over Jersey.");
     expect(html).not.toContain(">Forecast<");
   });
 
   it("holds the stats back until the quote arrives", () => {
     const html = one({ stats: null });
     expect(html).not.toContain("Arrival odds");
-    expect(html).not.toContain("Lands around");
+    expect(html).not.toContain("Lands this morning");
   });
 
   it("lays the screen out in the mock's order", () => {

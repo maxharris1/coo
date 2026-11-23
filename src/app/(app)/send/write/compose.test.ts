@@ -238,6 +238,7 @@ describe("stats", () => {
     ],
   });
   const NY = "America/New_York";
+  const CLOCK = /\d{1,2}:\d{2}\s?(am|pm)/i;
 
   it.each([
     [
@@ -248,7 +249,7 @@ describe("stats", () => {
         distance: "81 mi",
         flightTime: "1h 48m",
         odds: "94%",
-        forecast: "Lands around 11:20 am.",
+        forecast: "Lands this morning.",
       },
     ],
     [
@@ -269,7 +270,7 @@ describe("stats", () => {
         distance: "81 mi",
         flightTime: "1h 48m",
         odds: "72%",
-        forecast: "Lands around 11:20 am. 12 mph from the west.",
+        forecast: "Lands this morning. 12 mph from the west.",
       },
     ],
     [
@@ -280,7 +281,7 @@ describe("stats", () => {
         distance: "131 km",
         flightTime: "1h 48m",
         odds: "94%",
-        forecast: "Lands around 11:20 am.",
+        forecast: "Lands this morning.",
       },
     ],
     [
@@ -293,7 +294,7 @@ describe("stats", () => {
         distance: "131 km",
         flightTime: "1h 48m",
         odds: "94%",
-        forecast: "Lands around 11:20 am. 1146 km is a long way.",
+        forecast: "Lands this morning. 1146 km is a long way.",
       },
     ],
     [
@@ -306,7 +307,7 @@ describe("stats", () => {
         distance: "81 mi",
         flightTime: "1h 48m",
         odds: "94%",
-        forecast: "Lands around 11:20 am. 712 mi is a long way.",
+        forecast: "Lands this morning. 712 mi is a long way.",
       },
     ],
     [
@@ -320,11 +321,13 @@ describe("stats", () => {
         distance: "4 blocks",
         flightTime: "14 sec",
         odds: "94%",
-        forecast: "Lands around 9:32 am.",
+        forecast: "Lands shortly.",
       },
     ],
   ] as const)("%s", (_, q, units, expected) => {
-    expect(stats(q, "b1", NY, units)).toEqual(expected);
+    const said = stats(q, "b1", NY, units);
+    expect(said).toEqual(expected);
+    expect(said?.forecast).not.toMatch(CLOCK);
   });
 
   it("has no stats for a bird the quote does not cover", () => {
@@ -352,12 +355,16 @@ describe("stats", () => {
       );
 
     it("waits for sunrise after a 4:40 pm release", () => {
-      expect(stats(overnight(), "b1", NY, "mi")).toEqual({
+      const said = stats(overnight(), "b1", NY, "mi");
+
+      expect(said).toEqual({
         distance: "2 blocks",
         flightTime: "7 sec",
         odds: "88%",
-        forecast: "Waits for sunrise. Leaves at 6:52 am. Lands around 6:52 am.",
+        forecast:
+          "Waits for sunrise. Leaves at first light. Lands early tomorrow morning.",
       });
+      expect(said?.forecast).not.toMatch(CLOCK);
     });
 
     it("puts the leading factor after the wait", () => {
@@ -366,7 +373,7 @@ describe("stats", () => {
       ]);
 
       expect(stats(q, "b1", NY, "mi")?.forecast).toBe(
-        "Waits for sunrise. Leaves at 6:52 am. Lands around 6:52 am. 12 mph from the west.",
+        "Waits for sunrise. Leaves at first light. Lands early tomorrow morning. 12 mph from the west.",
       );
     });
 
@@ -397,9 +404,10 @@ describe("stats", () => {
         distance: "2 blocks",
         flightTime: "7 sec",
         odds: "88%",
-        forecast: "Flies through the night (goggles). Lands around 4:40 pm.",
+        forecast: "Flies through the night (goggles). Lands shortly.",
       });
       expect(said?.forecast).not.toMatch(/sunrise/);
+      expect(said?.forecast).not.toMatch(CLOCK);
     });
 
     it("puts the weather after the night line", () => {
@@ -409,7 +417,7 @@ describe("stats", () => {
       ]);
 
       expect(stats(q, "b1", NY, "mi")?.forecast).toBe(
-        "Flies through the night (goggles). Lands around 4:40 pm. 12 mph from the west.",
+        "Flies through the night (goggles). Lands shortly. 12 mph from the west.",
       );
     });
 
@@ -427,7 +435,7 @@ describe("stats", () => {
         0.1,
       );
 
-      expect(stats(q, "b1", NY, "mi")?.forecast).toBe("Lands around 2:00 pm.");
+      expect(stats(q, "b1", NY, "mi")?.forecast).toBe("Lands shortly.");
     });
 
     it("flies straight over after a 2:00 pm release", () => {
@@ -447,7 +455,7 @@ describe("stats", () => {
         distance: "2 blocks",
         flightTime: "7 sec",
         odds: "88%",
-        forecast: "Lands around 2:00 pm.",
+        forecast: "Lands shortly.",
       });
     });
   });
@@ -460,12 +468,13 @@ describe("stats", () => {
       arriveAt: RELEASE + 20 * 60 * 60_000,
     });
 
+    expect(stats(q, "b1", NY, "mi")?.forecast).not.toMatch(CLOCK);
     expect(stats(q, "b1", NY, "mi")).toEqual({
       distance: "81 mi",
       flightTime: "20h 00m",
       odds: "94%",
       forecast:
-        "Lands around 5:32 am. Roosts for the night and finishes after sunrise.",
+        "Lands early tomorrow morning. Roosts for the night and finishes after sunrise.",
     });
   });
 
@@ -495,12 +504,15 @@ describe("stats", () => {
     });
 
     it("flies through the night on the variant's time and odds", () => {
+      expect(stats(roosting, "b1", NY, "mi", true)?.forecast).not.toMatch(
+        CLOCK,
+      );
       expect(stats(roosting, "b1", NY, "mi", true)).toEqual({
         distance: "81 mi",
         flightTime: "11h 00m",
         odds: "91%",
         forecast:
-          "Flies through the night (espresso). Lands around 8:32 pm. 12 mph from the west.",
+          "Flies through the night (espresso). Lands tonight. 12 mph from the west.",
       });
     });
 
@@ -510,7 +522,7 @@ describe("stats", () => {
         flightTime: "20h 00m",
         odds: "94%",
         forecast:
-          "Lands around 5:32 am. Roosts for the night and finishes after sunrise. Light rain along the route.",
+          "Lands early tomorrow morning. Roosts for the night and finishes after sunrise. Light rain along the route.",
       });
     });
 
@@ -519,7 +531,7 @@ describe("stats", () => {
         distance: "81 mi",
         flightTime: "1h 48m",
         odds: "94%",
-        forecast: "Lands around 11:20 am.",
+        forecast: "Lands this morning.",
       });
     });
   });

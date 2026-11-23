@@ -9,13 +9,13 @@ const cards: Card[] = [
     kind: "friend",
     id: "theo",
     name: "Theo",
-    line: "Boston, 190 mi. About 4h 13m.",
+    line: "Boston, 190 mi. Lands around midday.",
   },
   {
     kind: "friend",
     id: "rosa",
     name: "Rosa",
-    line: "3 blocks over. About 30 seconds.",
+    line: "3 blocks over. Lands shortly.",
   },
   { kind: "unreachable", id: "sam", name: "Sam", reason: "No loft yet." },
 ];
@@ -78,8 +78,8 @@ describe("RecipientsView (ac-1)", () => {
     expect(html).toContain('aria-label="Search friends and contacts"');
     expect(html).toContain(">Friends<");
     expect(html).toContain("Flight time from your loft");
-    expect(html).toContain("Boston, 190 mi. About 4h 13m.");
-    expect(html).toContain("3 blocks over. About 30 seconds.");
+    expect(html).toContain("Boston, 190 mi. Lands around midday.");
+    expect(html).toContain("3 blocks over. Lands shortly.");
   });
 
   it("marks a picked friend pressed and leaves the others unpressed", () => {

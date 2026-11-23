@@ -15,6 +15,7 @@ const friday = (hour: number, minute = 0) =>
 const SUNSET = friday(16, 34);
 const NOW = friday(6, 30);
 const GERALD = { id: "b1", name: "Gerald" };
+const CLOCK = /\d{1,2}:\d{2}\s?(am|pm)/i;
 
 function hourQuote(
   hour: number,
@@ -131,8 +132,9 @@ describe("forecastModel on the mock's data", () => {
     expect(model.selected).toEqual({
       odds: "81%",
       heading: "Arrival odds leaving at 1:00 pm",
-      detail: "About 2h 06m. Lands near 3:06 pm.",
+      detail: "Lands this afternoon.",
     });
+    expect(model.selected.detail).not.toMatch(CLOCK);
   });
 
   it("lists the factors along the route", () => {
@@ -210,9 +212,8 @@ describe("forecastModel on roosting hours (ac-1)", () => {
 
   it("says a roosting flight lands the next morning", () => {
     const model = forecastModel(mockLeg, GERALD, friday(15), NOW, TZ, "mi");
-    expect(model.selected.detail).toBe(
-      "About 17h 00m. Lands near 8:00 am tomorrow.",
-    );
+    expect(model.selected.detail).toBe("Lands tomorrow morning.");
+    expect(model.selected.detail).not.toMatch(CLOCK);
   });
 });
 
@@ -238,10 +239,11 @@ describe("forecastModel for a bird that waits at the loft for sunrise", () => {
     "mi",
   );
 
-  it("says it waits for sunrise and quotes the time in the air", () => {
+  it("says it waits for sunrise and leaves at first light", () => {
     expect(model.selected.detail).toBe(
-      "Waits for sunrise, then about 2h 06m in the air. Lands near 8:56 am tomorrow.",
+      "Waits for sunrise. Leaves at first light. Lands tomorrow morning.",
     );
+    expect(model.selected.detail).not.toMatch(CLOCK);
   });
 
   it("keeps the sunset line", () => {
@@ -275,10 +277,11 @@ describe("forecastModel for a bird in night-vision goggles after dark", () => {
     "mi",
   );
 
-  it("says it flies through the night and quotes the time in the air", () => {
+  it("says it flies through the night and lands shortly", () => {
     expect(model.selected.detail).toBe(
-      "Flies through the night. About 7 sec. Lands near 4:40 pm.",
+      "Flies through the night. Lands shortly.",
     );
+    expect(model.selected.detail).not.toMatch(CLOCK);
     expect(model.selected.detail).not.toMatch(/sunrise/);
   });
 

@@ -21,6 +21,9 @@ const NYC = { lat: 40.71, lon: -74.0 };
 const MORNING = Date.parse("2026-11-20T14:00:00Z");
 const NIGHT = Date.parse("2026-11-20T04:00:00Z");
 const DUSK = Date.parse("2026-11-20T21:45:00Z");
+const LATE_MORNING = Date.parse("2026-11-20T15:00:00Z");
+const TZ = "America/New_York";
+const CLOCK = /\d{1,2}:\d{2}\s?(am|pm)/i;
 
 const bird = (over: Partial<FlockBird> = {}): FlockBird => ({
   canFly: true,
@@ -57,21 +60,28 @@ const lineFor = (
   nowMs = MORNING,
   units: "mi" | "km" = "mi",
 ) => {
-  const card = friendCard(f, { loft: NYC, bird: b, nowMs, units });
+  const card = friendCard(f, {
+    loft: NYC,
+    bird: b,
+    nowMs,
+    timezone: TZ,
+    units,
+  });
   if (card.kind !== "friend") throw new Error(`expected a friend card`);
+  expect(card.line).not.toMatch(CLOCK);
   return card.line;
 };
 
 describe("friendCard estimate (ac-1)", () => {
-  it("gives a calm-weather flight time for a 190 mile friend", () => {
+  it("says when a calm-weather flight lands for a 190 mile friend", () => {
     expect(lineFor(friend("theo", "Boston", 190), bird())).toBe(
-      "Boston, 190 mi. About 4h 13m.",
+      "Boston, 190 mi. Lands around midday.",
     );
   });
 
-  it("gives seconds for a friend a few blocks over", () => {
+  it("says a hop to a friend a few blocks over lands shortly", () => {
     expect(lineFor(friend("rosa", null, 0.2), bird())).toMatch(
-      /^\d+ blocks? over\. About \d+ seconds?\.$/,
+      /^\d+ blocks? over\. Lands shortly\.$/,
     );
   });
 
@@ -86,18 +96,20 @@ describe("friendCard estimate (ac-1)", () => {
     const lines = Array.from({ length: 20 }, (_, i) =>
       lineFor(friend(`f${i}`, "Boston", 190), shaky),
     );
-    expect(new Set(lines)).toEqual(new Set(["Boston, 190 mi. About 4h 13m."]));
+    expect(new Set(lines)).toEqual(
+      new Set(["Boston, 190 mi. Lands around midday."]),
+    );
   });
 
   it("does not call waiting for sunrise at home a barn", () => {
     expect(lineFor(friend("rosa", null, 0.2), bird(), NIGHT)).toMatch(
-      /^\d+ blocks? over\. About \d+ seconds? after sunrise\.$/,
+      /^\d+ blocks? over\. Waits for sunrise\. Leaves at first light\. Lands early tomorrow morning\.$/,
     );
   });
 
-  it("times a loft wait from sunrise for a longer trip", () => {
+  it("says a loft wait leaves at first light for a longer trip", () => {
     expect(lineFor(friend("theo", "Boston", 190), bird(), NIGHT)).toBe(
-      "Boston, 190 mi. About 4h 13m after sunrise.",
+      "Boston, 190 mi. Waits for sunrise. Leaves at first light. Lands tomorrow morning.",
     );
   });
 
@@ -105,7 +117,7 @@ describe("friendCard estimate (ac-1)", () => {
     const goggled = bird({ gear: ["nightgoggles"] });
 
     expect(lineFor(friend("rosa", null, 0.2), goggled, DUSK)).toMatch(
-      /^\d+ blocks? over\. Flies through the night\. About \d+ seconds?\.$/,
+      /^\d+ blocks? over\. Flies through the night\. Lands shortly\.$/,
     );
   });
 
@@ -116,10 +128,10 @@ describe("friendCard estimate (ac-1)", () => {
       DUSK,
     );
 
-    expect(line).toMatch(
-      /^Chicago, 713 mi\. Flies through the night\. About \d+h \d{2}m\.$/,
+    expect(line).toBe(
+      "Chicago, 713 mi. Flies through the night. Lands tomorrow morning.",
     );
-    expect(line).not.toMatch(/barn|after sunrise/);
+    expect(line).not.toMatch(/barn|sunrise/);
   });
 
   it("shows only the distance when no bird is ready", () => {
@@ -140,6 +152,7 @@ describe("friendCard estimate (ac-1)", () => {
         loft: NYC,
         bird: bird(),
         nowMs: MORNING,
+        timezone: TZ,
         units: "mi",
       }),
     ).toEqual({
@@ -156,6 +169,7 @@ describe("friendCard estimate (ac-1)", () => {
         loft: null,
         bird: bird(),
         nowMs: MORNING,
+        timezone: TZ,
         units: "mi",
       }),
     ).toEqual({
@@ -184,8 +198,12 @@ describe("fastest ready bird", () => {
     const level10 = bird({ speedMph: 52, level: 10 });
     expect(fastestReady([base54, level10])).toBe(level10);
     expect(
-      lineFor(friend("theo", "Boston", 190), fastestReady([base54, level10])),
-    ).toBe("Boston, 190 mi. About 3h 21m.");
+      lineFor(
+        friend("theo", "Boston", 190),
+        fastestReady([base54, level10]),
+        LATE_MORNING,
+      ),
+    ).toBe("Boston, 190 mi. Lands around midday.");
   });
 
   it("passes over a sulking bird for a slower fed one", () => {
@@ -193,8 +211,12 @@ describe("fastest ready bird", () => {
     const fed52 = bird({ speedMph: 52 });
     expect(fastestReady([sulking54, fed52])).toBe(fed52);
     expect(
-      lineFor(friend("theo", "Boston", 190), fastestReady([sulking54, fed52])),
-    ).toBe("Boston, 190 mi. About 3h 39m.");
+      lineFor(
+        friend("theo", "Boston", 190),
+        fastestReady([sulking54, fed52]),
+        LATE_MORNING,
+      ),
+    ).toBe("Boston, 190 mi. Lands this afternoon.");
   });
 
   it("changes the estimate when the fast bird cannot fly", () => {

@@ -512,8 +512,9 @@ describe("Compose page stats (ac-2)", () => {
       distance: "81 mi",
       flightTime: "1h 48m",
       odds: "81%",
-      forecast: "Lands around 11:20 am. Clear skies over Jersey.",
+      forecast: "Lands this morning. Clear skies over Jersey.",
     });
+    expect(row().stats?.forecast).not.toMatch(/\d{1,2}:\d{2}\s?(am|pm)/i);
   });
 
   it("drops the old bird's stats while the new quote is on its way", async () => {
@@ -1043,15 +1044,16 @@ describe("Compose page espresso (ac-2, ac-3)", () => {
     variants = { b2: NIGHT_RUN };
     await show();
     expect(row().stats?.forecast).toBe(
-      "Lands around 11:20 am. Clear skies over Jersey.",
+      "Lands this morning. Clear skies over Jersey.",
     );
     await tick("u2");
     expect(row().stats).toEqual({
       distance: "81 mi",
       flightTime: "9h 00m",
       odds: "77%",
-      forecast: "Flies through the night (espresso). Lands around 6:32 pm.",
+      forecast: "Flies through the night (espresso). Lands this evening.",
     });
+    expect(row().stats?.forecast).not.toMatch(/\d{1,2}:\d{2}\s?(am|pm)/i);
   });
 
   it("spends the last shot on one row and disables it on the others", async () => {

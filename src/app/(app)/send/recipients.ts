@@ -8,7 +8,7 @@ import {
   type FlightInput,
   type LatLon,
 } from "@/lib/flight/engine";
-import { duration, type Units } from "@/lib/format";
+import { fuzzyWhen, type Units } from "@/lib/format";
 import type { FriendRow } from "@/server/services/friends";
 import type { SyncVisit } from "@/server/services/visits/syncRead";
 import { friendLine } from "../friends/friendsApi";
@@ -45,6 +45,7 @@ type From = {
   loft: LatLon | null;
   bird: FlockBird | null;
   nowMs: number;
+  timezone: string;
   units: Units;
 };
 
@@ -130,7 +131,12 @@ function eastOf(from: LatLon, miles: number): LatLon {
 function estimate(
   id: string,
   miles: number,
-  { loft, bird, nowMs }: { loft: LatLon; bird: FlockBird; nowMs: number },
+  {
+    loft,
+    bird,
+    nowMs,
+    timezone,
+  }: { loft: LatLon; bird: FlockBird; nowMs: number; timezone: string },
 ): string {
   const input = calmFlight(id, loft, eastOf(loft, miles), bird, nowMs);
   const plan = computeFlightPlan(input);
@@ -141,21 +147,18 @@ function estimate(
     const days = word(barns + 1);
     return `${days[0].toUpperCase()}${days.slice(1)} days, ${word(barns)} ${plural(barns, "barn", "barns")}.`;
   }
+  const lands = `Lands ${fuzzyWhen(plan.arriveAtMs, nowMs, timezone, "quote")}.`;
+  if (fliesInDark(input)) return `Flies through the night. ${lands}`;
   const takeoffMs =
     plan.segments.find((s) => s.kind === "fly")?.startMs ?? nowMs;
-  const suffix = takeoffMs > nowMs ? " after sunrise" : "";
-  const elapsed = plan.arriveAtMs - takeoffMs;
-  const night = fliesInDark(input) ? "Flies through the night. " : "";
-  if (elapsed < 60_000) {
-    const seconds = Math.round(elapsed / 1000);
-    return `${night}About ${seconds} ${plural(seconds, "second", "seconds")}${suffix}.`;
-  }
-  return `${night}About ${duration(elapsed)}${suffix}.`;
+  return takeoffMs > nowMs
+    ? `Waits for sunrise. Leaves at first light. ${lands}`
+    : lands;
 }
 
 export function friendCard(
   friend: FriendRow,
-  { loft, bird, nowMs, units }: From,
+  { loft, bird, nowMs, timezone, units }: From,
 ): Card {
   const { id, name, distanceMi } = friend;
   if (!loft) {
@@ -166,7 +169,7 @@ export function friendCard(
   }
   const where = `${friendLine(friend, units)}.`;
   const line = bird
-    ? `${where} ${estimate(id, distanceMi, { loft, bird, nowMs })}`
+    ? `${where} ${estimate(id, distanceMi, { loft, bird, nowMs, timezone })}`
     : where;
   return { kind: "friend", id, name, line };
 }

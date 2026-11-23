@@ -61,7 +61,9 @@ describe("an hour whose flight would not arrive before sunset (ac-1)", () => {
       ["3 pm", true],
     ]);
     expect(model.best?.at).toBe(early.releaseAt);
-    expect(model.selected.detail).toMatch(/ tomorrow\.$/);
+    expect(model.selected.detail).toMatch(
+      /^Lands (early )?tomorrow morning\.$/,
+    );
   });
 });
 
@@ -94,7 +96,9 @@ describe("a flight that roosts more than one night", () => {
       "mi",
     );
 
-    expect(model.selected.detail).toMatch(/ Saturday, Nov 21\.$/);
+    expect(model.selected.detail).toMatch(
+      /^Lands (early )?Saturday morning\.$/,
+    );
     expect(model.selected.detail).not.toContain("tomorrow");
   });
 });
