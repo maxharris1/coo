@@ -1,5 +1,5 @@
 import type { SyncPayload } from "@/components/sync";
-import { clockTime, duration } from "@/lib/format";
+import { fuzzyWhen } from "@/lib/format";
 import { roommateOwed } from "@/lib/starter";
 import type { CannotFly } from "@/server/services/sync";
 
@@ -61,7 +61,7 @@ const CANNOT_FLY: Record<CannotFly, string> = {
 };
 
 export function flockRow(bird: FlockBird, ctx: RowContext): FlockRow {
-  const at = (ms: number) => clockTime(new Date(ms), ctx.timezone);
+  const at = (ms: number) => fuzzyWhen(ms, ctx.nowMs, ctx.timezone);
   const flight = ctx.flights.find(
     (f) =>
       f.role === "mine" && f.bird.id === bird.id && f.status === bird.status,
@@ -86,7 +86,7 @@ export function flockRow(bird: FlockBird, ctx: RowContext): FlockRow {
       return chip(
         "Scheduled",
         flight
-          ? `Leaves at ${at(flight.releaseAt)}${recipient ? ` for ${recipient}` : ""}`
+          ? `Leaves ${at(flight.releaseAt)}${recipient ? ` for ${recipient}` : ""}`
           : "Waiting to leave",
         "sand",
       );
@@ -149,6 +149,7 @@ export type IncomingCard = { id: string; title: string; line: string };
 export function incomingCards(
   flights: readonly FlightLite[],
   nowMs: number,
+  timeZone: string,
 ): IncomingCard[] {
   return flights
     .filter(
@@ -159,7 +160,7 @@ export function incomingCards(
       id: f.id,
       title: `Incoming from ${f.owner.name}`,
       line: f.arriveAt
-        ? `${f.bird.name} lands on your sill in ${duration(f.arriveAt - nowMs)}`
+        ? `${f.bird.name} lands on your sill ${fuzzyWhen(f.arriveAt, nowMs, timeZone)}`
         : `${f.bird.name} is on the way`,
     }));
 }

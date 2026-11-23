@@ -34,6 +34,7 @@ test("full sync must not produce a false incoming card at the departure loft", a
   const cards = incomingCards(
     JSON.parse(JSON.stringify(payload.flights)),
     deps.clock.now(),
+    payload.me.timezone,
   );
   expect(cards).toEqual([]);
 });
@@ -68,7 +69,9 @@ test("the owner sees their returning bird in the flock, not as an incoming card"
   });
 
   const flights = JSON.parse(JSON.stringify(payload.flights));
-  expect(incomingCards(flights, deps.clock.now())).toEqual([]);
+  expect(incomingCards(flights, deps.clock.now(), payload.me.timezone)).toEqual(
+    [],
+  );
 
   const bird = payload.birds.find((b) => b.id === birdId);
   expect(bird?.status).toBe("flying");

@@ -71,7 +71,7 @@ describe("Flock on Main", () => {
       expect(html).toContain(`href="/birds/${id}"`);
     }
     expect(html).toContain("Home, fed, smug");
-    expect(html).toContain("Napping until 2:40 pm");
+    expect(html).toContain("Napping until this afternoon");
     expect(html).toMatch(/>Ready</);
     expect(html).toMatch(/>Flying</);
     expect(html).toMatch(/>Resting</);
@@ -90,10 +90,10 @@ describe("Flock on Main", () => {
     );
     const rows = html.match(/<li[^>]*>.*?<\/li>/g) ?? [];
     const row = (name: string) => rows.find((r) => r.includes(`>${name}<`));
-    expect(row("Gerald")).toContain("On an odd job until 11:46 am");
+    expect(row("Gerald")).toContain("On an odd job until around midday");
     expect(row("Gerald")).toMatch(/class="[^"]*sun[^"]*">On a job</);
     expect(row("Gerald")).not.toContain("Resting");
-    expect(row("Kevin")).toContain("Napping until 11:46 am");
+    expect(row("Kevin")).toContain("Napping until around midday");
     expect(row("Kevin")).toMatch(/class="[^"]*lilac[^"]*">Resting</);
   });
 
@@ -188,7 +188,8 @@ describe("Flock on Main", () => {
       }),
     );
     expect(html).toContain("Incoming from Priya");
-    expect(html).toContain("Dumpling lands on your sill in 12 min");
+    expect(html).toContain("Dumpling lands on your sill this morning");
+    expect(html).not.toContain("in 12 min");
     expect(html).toContain("Incoming from Theo");
     expect(html).toContain('href="/flights/f1"');
     expect(html).toContain('href="/flights/f2"');

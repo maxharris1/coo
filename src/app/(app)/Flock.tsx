@@ -113,7 +113,7 @@ export function Flock({
 
   return (
     <main className={styles.flock}>
-      {incomingCards(flights, data.serverNow).map((card) => (
+      {incomingCards(flights, data.serverNow, data.me.timezone).map((card) => (
         <Link
           key={card.id}
           href={`/flights/${card.id}`}

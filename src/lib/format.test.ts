@@ -8,6 +8,7 @@ import {
   distance,
   duration,
   fill,
+  fuzzyWhen,
   greeting,
   pronounTokens,
 } from "./format";
@@ -336,5 +337,97 @@ describe("greeting", () => {
 
   it("counts napping and bathing birds as home", () => {
     expect(greeting(morning, NY, [nap, bath])).toBe("Morning. Two birds home.");
+  });
+});
+
+describe("fuzzyWhen", () => {
+  const ny = "America/New_York";
+  const nyAt = (local: string) => Date.parse(`${local}-05:00`);
+  const CLOCK = /\d{1,2}:\d{2}\s?(am|pm)/i;
+
+  it.each([
+    ["2026-11-23T04:59", "overnight"],
+    ["2026-11-23T05:00", "early this morning"],
+    ["2026-11-23T07:59", "early this morning"],
+    ["2026-11-23T08:00", "this morning"],
+    ["2026-11-23T11:29", "this morning"],
+    ["2026-11-23T11:30", "around midday"],
+    ["2026-11-23T13:29", "around midday"],
+    ["2026-11-23T13:30", "this afternoon"],
+    ["2026-11-23T16:59", "this afternoon"],
+    ["2026-11-23T17:00", "this evening"],
+    ["2026-11-23T19:59", "this evening"],
+    ["2026-11-23T20:00", "tonight"],
+    ["2026-11-23T23:59", "tonight"],
+    ["2026-11-24T00:00", "overnight"],
+  ])("puts %s, seen just after Monday midnight, %j", (local, phrase) => {
+    const text = fuzzyWhen(nyAt(local), nyAt("2026-11-23T00:00"), ny);
+    expect(text).toBe(phrase);
+    expect(text).not.toMatch(CLOCK);
+  });
+
+  it.each([
+    ["2026-11-22T21:00", "2026-11-23T02:00", "overnight"],
+    ["2026-11-22T21:00", "2026-11-23T06:30", "early tomorrow morning"],
+    ["2026-11-23T01:00", "2026-11-23T03:00", "overnight"],
+    ["2026-11-23T01:00", "2026-11-23T06:30", "early this morning"],
+  ])("calls the coming night overnight: %s to %s is %j", (now, at, phrase) => {
+    expect(fuzzyWhen(nyAt(at), nyAt(now), ny)).toBe(phrase);
+  });
+
+  it.each([
+    ["2026-11-23T14:00", "this afternoon"],
+    ["2026-11-24T05:30", "early tomorrow morning"],
+    ["2026-11-24T09:00", "tomorrow morning"],
+    ["2026-11-24T12:00", "around midday tomorrow"],
+    ["2026-11-24T15:00", "tomorrow afternoon"],
+    ["2026-11-24T18:00", "tomorrow evening"],
+    ["2026-11-24T22:00", "tomorrow night"],
+    ["2026-11-25T03:00", "overnight Wednesday"],
+    ["2026-11-25T06:00", "early Wednesday morning"],
+    ["2026-11-25T09:00", "Wednesday morning"],
+    ["2026-11-25T12:00", "around midday Wednesday"],
+    ["2026-11-25T14:00", "Wednesday afternoon"],
+    ["2026-11-25T18:00", "Wednesday evening"],
+    ["2026-11-29T21:00", "Sunday night"],
+    ["2026-11-30T09:00", "Monday, November 30, in the morning"],
+    ["2026-12-01T14:00", "Tuesday, December 1, in the afternoon"],
+  ])("names the day of %s, seen Monday 9 am, %j", (local, phrase) => {
+    expect(fuzzyWhen(nyAt(local), nyAt("2026-11-23T09:00"), ny)).toBe(phrase);
+  });
+
+  it.each([
+    [0, "any minute now"],
+    [9 * 60_000 + 59_000, "any minute now"],
+    [10 * 60_000, "any minute now"],
+    [10 * 60_000 + 1_000, "this morning"],
+  ])("says %d ms ahead is %j", (ahead, phrase) => {
+    const now = nyAt("2026-11-23T09:00");
+    expect(fuzzyWhen(now + ahead, now, ny)).toBe(phrase);
+  });
+
+  it("says shortly for a short hop in the quote voice", () => {
+    const now = nyAt("2026-11-23T09:00");
+    expect(fuzzyWhen(now + 7_000, now, ny, "quote")).toBe("shortly");
+    expect(fuzzyWhen(now + 10 * 60_000 + 1_000, now, ny, "quote")).toBe(
+      "this morning",
+    );
+  });
+
+  it("reads one UTC instant in the viewer's time zone", () => {
+    const now = Date.parse("2026-11-23T12:00:00Z");
+    const at = Date.parse("2026-11-23T15:00:00Z");
+    expect(fuzzyWhen(at, now, "America/New_York")).toBe("this morning");
+    expect(fuzzyWhen(at, now, "Europe/London")).toBe("this afternoon");
+  });
+
+  it("keeps the local wall clock across a daylight saving change", () => {
+    const now = Date.parse("2026-03-08T00:30:00-05:00");
+    expect(fuzzyWhen(Date.parse("2026-03-08T07:30:00-04:00"), now, ny)).toBe(
+      "early this morning",
+    );
+    expect(fuzzyWhen(Date.parse("2026-03-09T08:00:00-04:00"), now, ny)).toBe(
+      "tomorrow morning",
+    );
   });
 });

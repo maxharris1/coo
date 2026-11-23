@@ -78,6 +78,11 @@ export function localHour(ms: number, tz: string): number {
   return partsAt(ms, tz).hour;
 }
 
+export function minuteOfDay(ms: number, tz: string): number {
+  const { hour, minute } = partsAt(ms, tz);
+  return hour * 60 + minute;
+}
+
 export function weekday(ms: number, tz: string): IsoWeekday {
   return partsAt(ms, tz).weekday;
 }
