@@ -664,7 +664,9 @@ describe("Pigeon tracker link (#843)", () => {
     expect(link[0]).not.toContain("tabindex");
     expect(link[1]).toBe("Watch this flight");
     expect(trackerHrefs(html)).toEqual(["/flights/f1"]);
-    expect(html).toMatch(/<p class="[^"]*away[^"]*">To Maya in Newark[^<]*<\/p><a /);
+    expect(html).toMatch(
+      /<p class="[^"]*away[^"]*">To Maya in Newark[^<]*<\/p><a /,
+    );
     for (const label of ["Feed", "Bath", "Nap"]) {
       expect(button(label)?.props.disabled).toBe(true);
     }
@@ -705,7 +707,11 @@ describe("Pigeon tracker link (#843)", () => {
     const cases: [string, unknown[], string][] = [
       ["flying", [], "Out on a delivery"],
       ["scheduled", [], "Waiting to leave"],
-      ["flying", [mineFlight({ bird: { id: "x", name: "Xavier" } })], "Out on a delivery"],
+      [
+        "flying",
+        [mineFlight({ bird: { id: "x", name: "Xavier" } })],
+        "Out on a delivery",
+      ],
       ["flying", [mineFlight({ role: "theirs" })], "Out on a delivery"],
       ["flying", [mineFlight({ status: "scheduled" })], "Out on a delivery"],
     ];
@@ -721,7 +727,8 @@ describe("Pigeon tracker link (#843)", () => {
     const html = render(
       payload([gerald({ status: "busy", busyKind: "job", jobId: "j-77" })]),
     );
-    const link = /<a [^>]*href="\/jobs\/j-77"[^>]*>([^<]*)<\/a>/.exec(html) ?? [];
+    const link =
+      /<a [^>]*href="\/jobs\/j-77"[^>]*>([^<]*)<\/a>/.exec(html) ?? [];
     expect(link[0]).toContain(`aria-label="Watch Gerald&#x27;s odd job"`);
     expect(link[1]).toBe("Watch this odd job");
     expect(trackerHrefs(html)).toEqual(["/jobs/j-77"]);
@@ -746,9 +753,7 @@ describe("Pigeon tracker link (#843)", () => {
       { status: "busy", busyKind: "bath", busyUntil: later, jobId: "j-77" },
       { status: "visiting" },
     ]) {
-      const html = render(
-        payload([gerald(over)], { flights: [mineFlight()] }),
-      );
+      const html = render(payload([gerald(over)], { flights: [mineFlight()] }));
       expect(html, over.status).toMatch(/<p class="[^"]*away[^"]*">/);
       expect(trackerHrefs(html), JSON.stringify(over)).toEqual([]);
       expect(html, JSON.stringify(over)).not.toContain("Watch ");
