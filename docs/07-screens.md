@@ -13,6 +13,7 @@ General rules for every screen are in `AGENTS.md` under "Definition of done for 
   Loft `/`, Flights `/flights`, the round Send button `/send`, Sill `/sill`, Seeds `/shop`.
   The Sill tab shows a dot when a bird is waiting. The tab bar is hidden on full-screen flows:
   Compose, Forecast, Takeoff, Reply, TakeoffHome, Landed, incident report, onboarding.
+- The tab bar is 84 px plus the home-indicator inset (`env(safe-area-inset-bottom)`), and it paints over that band. The shell pads every tab page at the bottom by 96 px plus the same inset (`--coo-tabs-pad`), so the last row scrolls clear of the bar, and pages add no spacer of their own. The shell's minimum height is the screen less the top and bottom insets, so a short page fills the screen without a scrollbar.
 - On a wide screen (600 px and up, tablets and desktop) the app is a centred 430 px column on the paper colour. Below that it fills the screen width.
 - Headers: a back arrow where the mock shows one, the title in the display font, the seed
   balance pill where the mock shows it.
