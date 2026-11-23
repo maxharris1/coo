@@ -216,6 +216,26 @@ const card = (html: string, id: string) =>
     new RegExp(`<a\\b[^>]*href="/flights/${id}"[^>]*>[\\s\\S]*?</a>`),
   )?.[0] ?? "";
 
+const headingsOf = (html: string) =>
+  [...html.matchAll(/<h2[^>]*>([^<]*)<\/h2>/g)].map((m) => m[1]);
+
+const air = (html: string) =>
+  html.match(/<h2[^>]*>In the air<\/h2>[\s\S]*?<\/section>/)?.[0] ?? "";
+
+const jobRequests = () =>
+  calls
+    .filter((c) => c.url.pathname.startsWith("/api/jobs/"))
+    .map((c) => c.url.pathname);
+
+async function answerJob(id: string, body: unknown) {
+  const call = calls.find(
+    (c) => c.url.pathname === `/api/jobs/${id}` && !c.done,
+  );
+  if (!call) throw new Error(`no open request to /api/jobs/${id}`);
+  call.done = true;
+  await act(async () => call.resolve(Response.json(body)));
+}
+
 const accessibleName = (html: string, id: string) =>
   linkTo(html, id)[0]?.match(/aria-label="([^"]*)"/)?.[1];
 
@@ -375,13 +395,37 @@ describe("/flights ready", () => {
     expect(html).not.toContain("Find ");
   });
 
-  it("shows the empty line and no sections when nothing is out or landed", async () => {
+  it("shows the empty card under In the air and reads All home when nothing is out or landed", async () => {
     await mount();
     await answer(EMPTY);
     const html = shown();
-    expect(html).toContain("No birds in the air. Suspiciously quiet.");
-    expect(html).not.toContain("<h2");
+    expect(headingsOf(html)).toEqual(["In the air"]);
+    expect(air(html)).toContain("No birds in the air. Suspiciously quiet.");
+    expect(html.split("Suspiciously quiet")).toHaveLength(2);
+    expect(html).toContain("All home");
     expect(html).not.toContain("<a ");
+  });
+
+  it("keeps listing past flights below the empty card", async () => {
+    await mount();
+    await answer({
+      ...EMPTY,
+      landedToday: [admiral],
+      earlier: [yesterday("e1")],
+    });
+    const html = shown();
+    expect(headingsOf(html)).toEqual(["In the air", "Landed today", "Earlier"]);
+    expect(air(html)).toContain("No birds in the air. Suspiciously quiet.");
+    expect(linkTo(html, "a1")).toHaveLength(1);
+    expect(linkTo(html, "e1")).toHaveLength(1);
+    expect(html).toContain("All home");
+  });
+
+  it("counts out and coming in on the pill once anything is in the air", async () => {
+    await mount();
+    await answer({ ...EMPTY, incoming: [dumpling] });
+    expect(shown()).toContain("0 out, 1 coming in");
+    expect(shown()).not.toContain("All home");
   });
 
   it("omits empty sections", async () => {
@@ -443,7 +487,8 @@ describe("/flights earlier", () => {
     });
     const html = shown();
     expect(html).toContain("Cancelled");
-    expect(html).not.toContain("Suspiciously quiet");
+    expect(air(html)).toContain("Suspiciously quiet");
+    expect(air(html)).not.toContain("/flights/x1");
   });
 
   it("a failed page keeps the list and toasts the API's message", async () => {
@@ -494,10 +539,57 @@ describe("/flights live", () => {
     ]);
     await answer(EMPTY);
     const html = shown();
-    expect(html).toMatch(/<h2[^>]*>On odd jobs<\/h2>/);
-    expect(html).toContain("Gerald, on an odd job");
-    expect(html).toContain("Home this afternoon");
+    expect(headingsOf(html)).toEqual(["In the air"]);
+    expect(html).not.toContain("On odd jobs");
+    expect(air(html)).toContain("Gerald, on an odd job");
+    expect(air(html)).toContain("Home this afternoon");
     expect(html).not.toContain("Suspiciously quiet");
+    expect(jobRequests()).toEqual([]);
+  });
+
+  it("loads a working bird's job and shows its card under In the air, after the flights, with a preview linking to the job", async () => {
+    await mount();
+    await publish(undefined, [
+      {
+        id: "b-gerald",
+        name: "Gerald",
+        look: "gerald",
+        gear: [],
+        status: "busy",
+        busyKind: "job",
+        busyUntil: NOW + HOUR,
+        jobId: "j-77",
+      },
+    ]);
+    await answer({ ...EMPTY, incoming: [dumpling] });
+    expect(jobRequests()).toEqual(["/api/jobs/j-77"]);
+    expect(shown()).not.toContain('href="/jobs/j-77"');
+    await answerJob("j-77", {
+      job: {
+        id: "j-77",
+        jobId: "deli-slip",
+        text: "Rush an order slip to the deli on 4th",
+        short: "odd job for the deli",
+        startedAt: new Date(NOW - 10 * 60_000).toISOString(),
+        endsAt: new Date(NOW + HOUR).toISOString(),
+        status: "running",
+        bird: { id: "b-gerald", name: "Gerald", look: "gerald", gear: [] },
+        map: {
+          loft: { lat: 40.68, lon: -73.97, label: "Prospect Heights" },
+          dest: { lat: 40.72, lon: -73.99, label: "the deli on 4th" },
+        },
+      },
+    });
+    const section = air(shown());
+    const job = section.match(
+      /<a\b[^>]*href="\/jobs\/j-77"[^>]*>[\s\S]*?<\/a>/,
+    );
+    expect(job?.[0]).toContain("Gerald, on an odd job");
+    expect(job?.[0]).toContain("pin-sill.svg");
+    expect(section.indexOf("/flights/d1")).toBeLessThan(
+      section.indexOf("/jobs/j-77"),
+    );
+    expect(jobRequests()).toEqual(["/api/jobs/j-77"]);
   });
 
   it("shows a newly incoming flight after a successful sync", async () => {

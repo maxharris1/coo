@@ -1,8 +1,6 @@
 import Link from "next/link";
-import type { ComponentProps } from "react";
 import emptyStates from "../../../../assets/copy/empty-states.json";
 import { Loader } from "@/components/Loader";
-import { onJob } from "../earn/JobsPanel";
 import type { Units } from "@/lib/format";
 import type { FlightsPage } from "@/server/services/flights/list";
 import {
@@ -13,7 +11,7 @@ import {
   type FlightsRow,
 } from "./flightsViewModel";
 import { FlightMapPreview } from "./FlightMapPreview";
-import { JobsSection } from "./JobsSection";
+import { jobCards, type JobBird, type Jobs } from "./JobCards";
 import styles from "./Flights.module.css";
 
 export type List =
@@ -23,7 +21,8 @@ export type List =
 
 export type FlightsViewProps = {
   list: List;
-  birds: ComponentProps<typeof JobsSection>["birds"];
+  birds: JobBird[];
+  jobs: Jobs;
   nowMs: number;
   offsetMs: number;
   timeZone: string;
@@ -117,6 +116,7 @@ function DoneRow({ row }: { row: FlightsRow }) {
 export function FlightsView({
   list,
   birds,
+  jobs,
   nowMs,
   offsetMs,
   timeZone,
@@ -139,7 +139,8 @@ export function FlightsView({
     );
   }
   const view = flightsView(list, nowMs, timeZone, units);
-  const sections = view.sections.filter((s) => s.rows.length > 0);
+  const [air, landed] = view.sections;
+  const working = jobCards({ birds, jobs, timeZone, nowMs, offsetMs });
   const earlier = earlierRows(list.earlier, nowMs, timeZone, units);
   return (
     <div className={styles.screen}>
@@ -147,30 +148,24 @@ export function FlightsView({
         <h1 className={styles.title}>Flights</h1>
         <span className={styles.pill}>{view.pill}</span>
       </header>
-      {sections.length === 0 && earlier.length === 0 && !birds.some(onJob) && (
-        <p className={styles.empty}>{EMPTY_LINE}</p>
-      )}
-      {sections.map((s) => (
-        <section
-          key={s.key}
-          className={s.key === "landedToday" ? styles.doneList : styles.section}
-        >
-          <h2 className={styles.heading}>{s.title}</h2>
-          {s.rows.map((row) =>
-            s.key === "landedToday" ? (
-              <DoneRow key={row.id} row={row} />
-            ) : (
-              <AirCard
-                key={row.id}
-                row={row}
-                nowMs={nowMs}
-                offsetMs={offsetMs}
-              />
-            ),
-          )}
+      <section className={styles.section}>
+        <h2 className={styles.heading}>{air.title}</h2>
+        {air.rows.map((row) => (
+          <AirCard key={row.id} row={row} nowMs={nowMs} offsetMs={offsetMs} />
+        ))}
+        {working}
+        {air.rows.length === 0 && working.length === 0 && (
+          <p className={styles.emptyCard}>{EMPTY_LINE}</p>
+        )}
+      </section>
+      {landed.rows.length > 0 && (
+        <section className={styles.doneList}>
+          <h2 className={styles.heading}>{landed.title}</h2>
+          {landed.rows.map((row) => (
+            <DoneRow key={row.id} row={row} />
+          ))}
         </section>
-      ))}
-      <JobsSection birds={birds} timeZone={timeZone} nowMs={nowMs} />
+      )}
       {earlier.length > 0 && (
         <section className={styles.doneList}>
           <h2 className={styles.heading}>Earlier</h2>
