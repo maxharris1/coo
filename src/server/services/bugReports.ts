@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { Env } from "@/env";
-import { ROUTE_MAX, VIEWPORT_MAX } from "@/lib/bugReportLimits";
+import { BODY_MAX, ROUTE_MAX, VIEWPORT_MAX } from "@/lib/bugReportLimits";
 import type { Deps } from "@/server/deps";
 import { log } from "@/server/log";
 import type { UserId } from "@/server/ports/auth";
@@ -22,7 +22,7 @@ export const bugReportInput = z
     body: z
       .string()
       .transform(stripNul)
-      .pipe(z.string().trim().min(1).max(2000)),
+      .pipe(z.string().trim().min(1).max(BODY_MAX)),
     context: z
       .object({
         route: z.string().max(ROUTE_MAX),
