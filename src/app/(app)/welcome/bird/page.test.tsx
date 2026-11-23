@@ -127,3 +127,61 @@ describe("/welcome/bird adopts from one panel (ac-1)", () => {
     expect(css).not.toMatch(/\.back\b/);
   });
 });
+
+describe("/welcome/bird fits a 390x844 phone (ac-2)", () => {
+  const SCREEN = 844;
+  const SAFE_TOP = 47;
+  const SAFE_BOTTOM = 34;
+  const TAGLINE = 26;
+  const TITLE = 36;
+  const LABEL = 20;
+  const ABOUT = 55;
+  const PRONOUNS = 70;
+
+  const body = (name: string) => {
+    const found = css.match(
+      new RegExp(`(?:^|\\n)\\.${name} \\{([^}]*)\\}`),
+    )?.[1];
+    if (found === undefined) throw new Error(`no .${name} rule`);
+    return found;
+  };
+  const px = (name: string, prop: string, at = 0) => {
+    const decl = body(name).match(
+      new RegExp(`(?:^|\\s)${prop}: ([^;]+);`),
+    )?.[1];
+    const all = [...(decl ?? "").matchAll(/(\d+(?:\.\d+)?)px/g)];
+    if (all[at] === undefined) throw new Error(`no px in .${name} ${prop}`);
+    return Number(all[at][1]);
+  };
+  const number = (name: string, prop: string) =>
+    Number(body(name).match(new RegExp(`(?:^|\\s)${prop}: ([\\d.]+);`))![1]);
+
+  const topPad = px("page", "padding");
+  const bottomPad = px("page", "padding", 1);
+  const header =
+    px("logo", "font-size") * number("logo", "line-height") + TAGLINE;
+  const field = LABEL + px("field", "gap") + px("name", "height");
+  const stage = px("stage", "flex", 0);
+  const rows = [
+    header,
+    TITLE,
+    field,
+    stage,
+    ABOUT,
+    field,
+    PRONOUNS,
+    px("adopt", "min-height"),
+  ];
+  const gaps = 2 * px("page", "gap") + 5 * px("form", "gap");
+  const throughAdopt =
+    SAFE_TOP + topPad + rows.reduce((sum, row) => sum + row, 0) + gaps;
+
+  it("keeps the page padding that safeTop.test.ts pins", () => {
+    expect(topPad).toBe(28);
+    expect(bottomPad).toBe(20);
+  });
+
+  it("fits Your name, Name your pigeon, the pronoun chips and Adopt above the fold", () => {
+    expect(throughAdopt).toBeLessThanOrEqual(SCREEN - SAFE_BOTTOM - bottomPad);
+  });
+});
