@@ -841,12 +841,126 @@ describe("/flights live", () => {
   });
 });
 
+describe("/flights filters", () => {
+  const got = landed("r1", "Brenda", NOW - 2 * HOUR, {
+    role: "incoming",
+    owner: person("Tracy"),
+  });
+  const chip = (html: string, text: string) =>
+    html.match(new RegExp(`<button\\b[^>]*>${text}</button>`))?.[0] ?? "";
+  const press = async (text: string) => {
+    const found = buttonsIn(FlightsView(props())).find(
+      (b) => b.props.children === text,
+    );
+    if (!found) throw new Error(`no ${text} chip`);
+    await act(async () => found.props.onClick?.());
+  };
+  const pressed = (html: string, text: string) =>
+    chip(html, text).match(/aria-pressed="(true|false)"/)?.[1];
+
+  it("starts on All and filters only the past list by Sent or Received", async () => {
+    await mount();
+    await answer(page({ landedToday: [admiral, got] }));
+    let html = shown();
+    expect(["All", "Sent", "Received"].map((t) => pressed(html, t))).toEqual([
+      "true",
+      "false",
+      "false",
+    ]);
+    await press("Received");
+    html = shown();
+    expect(["All", "Sent", "Received"].map((t) => pressed(html, t))).toEqual([
+      "false",
+      "false",
+      "true",
+    ]);
+    expect(linkTo(html, "a1")).toHaveLength(0);
+    expect(linkTo(html, "r1")).toHaveLength(1);
+    for (const id of ["g1", "k1", "d1"]) {
+      expect(linkTo(air(html), id)).toHaveLength(1);
+    }
+    await press("Sent");
+    html = shown();
+    expect(linkTo(html, "a1")).toHaveLength(1);
+    expect(linkTo(html, "r1")).toHaveLength(0);
+    expect(linkTo(air(html), "d1")).toHaveLength(1);
+    await press("All");
+    html = shown();
+    for (const id of ["a1", "r1"]) expect(linkTo(html, id)).toHaveLength(1);
+  });
+
+  it("opens the newest group left after filtering", async () => {
+    await mount();
+    await answer({
+      ...EMPTY,
+      landedToday: [admiral],
+      earlier: [
+        landed("r2", "Brenda", NOW - 24 * HOUR, {
+          role: "incoming",
+          owner: person("Tracy"),
+        }),
+      ],
+    });
+    await press("Received");
+    expect(groupsOf(shown())).toEqual([["Yesterday, 1 flight", "true"]]);
+  });
+
+  it("shows a short line when no past flight matches, and keeps In the air", async () => {
+    await mount();
+    await answer(page({ landedToday: [admiral] }));
+    expect(shown()).not.toContain("No flights match these filters.");
+    await press("Received");
+    const html = shown();
+    expect(html).toContain("No flights match these filters.");
+    expect(groupsOf(html)).toEqual([]);
+    expect(linkTo(air(html), "g1")).toHaveLength(1);
+  });
+
+  it("hides the chips when no past flight is loaded", async () => {
+    await mount();
+    await answer(page({ landedToday: [] }));
+    const html = shown();
+    expect(chip(html, "All")).toBe("");
+    expect(html).not.toContain("No flights match these filters.");
+  });
+
+  it("offers bird chips only once two or more birds are loaded, and filters by the picked ones", async () => {
+    await mount();
+    await answer(page({ landedToday: [admiral] }));
+    expect(chip(shown(), "Admiral Crumbs")).toBe("");
+    await publish([got]);
+    await answer(page({ landedToday: [admiral, got] }));
+    let html = shown();
+    expect(pressed(html, "Admiral Crumbs")).toBe("false");
+    expect(pressed(html, "Brenda")).toBe("false");
+    await press("Brenda");
+    html = shown();
+    expect(pressed(html, "Brenda")).toBe("true");
+    expect(linkTo(html, "r1")).toHaveLength(1);
+    expect(linkTo(html, "a1")).toHaveLength(0);
+    expect(linkTo(air(html), "g1")).toHaveLength(1);
+    await press("Admiral Crumbs");
+    html = shown();
+    for (const id of ["a1", "r1"]) expect(linkTo(html, id)).toHaveLength(1);
+    await press("Brenda");
+    html = shown();
+    expect(pressed(html, "Brenda")).toBe("false");
+    expect(linkTo(html, "r1")).toHaveLength(0);
+  });
+});
+
 describe("/flights layout", () => {
   it("gives done rows and buttons a full tap target", () => {
     expect(rule("done")).toMatch(/min-height:\s*var\(--coo-touch\)/);
     expect(rule("more")).toMatch(/min-height:\s*var\(--coo-touch\)/);
     expect(rule("groupHeader")).toMatch(/min-height:\s*var\(--coo-touch\)/);
     expect(rule("hops")).toMatch(/min-height:\s*var\(--coo-touch\)/);
+    expect(rule("filter")).toMatch(/min-height:\s*var\(--coo-touch\)/);
+    expect(css).toMatch(/\.filter:focus-visible[,\s]/);
+    expect(css).toMatch(
+      /\.filter\[aria-pressed="true"\]\s*{[^}]*background:\s*var\(--coo-sun\)/,
+    );
+    expect(css).toMatch(/\.filter:active\s*{[^}]*transform:\s*translateY/);
     expect(css).toMatch(/\.hops:focus-visible[,\s]/);
     const tokens = readFileSync(
       new URL("../../../../assets/tokens.css", import.meta.url),
@@ -854,6 +968,15 @@ describe("/flights layout", () => {
     );
     expect(tokens).toMatch(/--coo-touch:\s*44px/);
     expect(css).toMatch(/\.doneRows\[hidden\]\s*{[^}]*display:\s*none/);
+  });
+
+  it("keeps every chip at least 44 px wide and wraps a long bird name inside the row", () => {
+    const filter = rule("filter");
+    expect(filter).toMatch(/min-width:\s*var\(--coo-touch\)/);
+    expect(filter).toMatch(/max-width:\s*100%/);
+    expect(filter).toMatch(/overflow-wrap:\s*anywhere/);
+    expect(filter).not.toMatch(/white-space:\s*nowrap|overflow:\s*hidden/);
+    expect(rule("filters")).toMatch(/flex-wrap:\s*wrap/);
   });
 
   it("sizes avatars to the mock's outside edge under the global border-box", () => {
@@ -880,6 +1003,14 @@ describe("/flights layout", () => {
     expect(avatar).toMatch(new RegExp(`width:\\s*${outside}px`));
     expect(avatar).toMatch(new RegExp(`height:\\s*${outside}px`));
     expect(avatar).toMatch(/border:\s*var\(--coo-line-thin\)/);
+  });
+
+  it("keeps the title and chips in normal flow under the body's own inset", () => {
+    for (const selector of ["screen", "header", "title", "filters", "filter"]) {
+      expect(rule(selector), selector).not.toMatch(/position:\s*(fixed|sticky)/);
+    }
+    expect(css).not.toContain("safe-area-inset-top");
+    expect(css).not.toMatch(/--coo-safe-top|--coo-header-top/);
   });
 
   it("frames cards like the mock", () => {

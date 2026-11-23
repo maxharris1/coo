@@ -21,7 +21,10 @@ import {
 } from "@/test/fixtures/plannedFlight";
 import { seedWorld, type Person, type World } from "@/test/seedWorld";
 import {
+  ALL_PAST,
+  birdChips,
   earlierRows,
+  filterPast,
   flightsView,
   pastGroups,
   type FlightsView,
@@ -736,5 +739,95 @@ describe("pastGroups", () => {
       ["Yesterday", ["mon"]],
       ["Earlier", ["sun"]],
     ]);
+  });
+});
+
+describe("past filters", () => {
+  const AT = Date.UTC(2026, 10, 20, 18, 0);
+  const bird = (id: string, name: string) => ({
+    id,
+    name,
+    look: "gerald",
+    gear: [],
+  });
+  const past = (id: string, over: Partial<Flight>): Flight => ({
+    ...vectorFlight("calm-short"),
+    id,
+    status: "landed",
+    plan: undefined,
+    releaseAt: AT - HOUR_MS,
+    arriveAt: AT,
+    ...over,
+  });
+  const tracy = { id: "u2", name: "Tracy", handle: "tracy" };
+  const rows = earlierRows(
+    [
+      past("sent-gerald", { bird: bird("b1", "Gerald") }),
+      past("got-brenda", {
+        role: "incoming",
+        owner: tracy,
+        bird: bird("b2", "Brenda"),
+      }),
+      past("sent-kevin", { bird: bird("b3", "Kevin") }),
+      past("sent-gerald-hop", { bird: bird("b1", "Gerald"), distanceMi: 0 }),
+    ],
+    AT,
+    NY,
+    "mi",
+  );
+  const ids = (filter: Parameters<typeof filterPast>[1]) =>
+    filterPast(rows, filter).map((r) => r.id);
+
+  it("keeps every row under All with no bird picked", () => {
+    expect(ALL_PAST.dir).toBe("all");
+    expect(ALL_PAST.birds.size).toBe(0);
+    expect(ids(ALL_PAST)).toEqual([
+      "sent-gerald",
+      "got-brenda",
+      "sent-kevin",
+      "sent-gerald-hop",
+    ]);
+  });
+
+  it("keeps only sent or only received rows, test hops included", () => {
+    expect(ids({ ...ALL_PAST, dir: "sent" })).toEqual([
+      "sent-gerald",
+      "sent-kevin",
+      "sent-gerald-hop",
+    ]);
+    expect(ids({ ...ALL_PAST, dir: "received" })).toEqual(["got-brenda"]);
+  });
+
+  it("keeps the picked birds and combines them with the direction", () => {
+    expect(ids({ dir: "all", birds: new Set(["b1", "b2"]) })).toEqual([
+      "sent-gerald",
+      "got-brenda",
+      "sent-gerald-hop",
+    ]);
+    expect(ids({ dir: "received", birds: new Set(["b1"]) })).toEqual([]);
+  });
+
+  it("ignores a picked bird once it has no chip, so the list never strands", () => {
+    const gerald = rows.filter((r) => r.flight.bird.id === "b1");
+    expect(
+      filterPast(gerald, { dir: "all", birds: new Set(["b2"]) }).map(
+        (r) => r.id,
+      ),
+    ).toEqual(["sent-gerald", "sent-gerald-hop"]);
+    expect(ids({ dir: "all", birds: new Set(["gone", "b3"]) })).toEqual([
+      "sent-kevin",
+    ]);
+  });
+
+  it("offers one chip per loaded bird only once two or more birds are loaded", () => {
+    expect(birdChips(rows)).toEqual([
+      { id: "b2", name: "Brenda" },
+      { id: "b1", name: "Gerald" },
+      { id: "b3", name: "Kevin" },
+    ]);
+    expect(
+      birdChips(rows.filter((r) => r.flight.bird.id === "b1")),
+    ).toEqual([]);
+    expect(birdChips([])).toEqual([]);
   });
 });

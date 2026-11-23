@@ -170,14 +170,39 @@ On a trip home the sub line is about the trip home ("{bird} is running late on t
 plus the reply from the host when one is attached) and there is no Resend button.
 
 ### Flights (`/flights`)
-Sections: In the air (your flights, then incoming ones), Landed today, then an
-"Earlier" list that pages. Each row taps to the tracker. Odd jobs in progress appear under
-"In the air" with "Home {phrase}", after the flight cards and with no heading of their own. A
-card whose job has a stored destination shows a map preview and taps to the job tracker
-(`/jobs/[id]`). A card with no job id or no destination stays as text with no link. With no
-flight in the air and no odd job, "In the air" shows the card "No birds in the air. Suspiciously
-quiet." and past flights still list below it. The header pill reads "All home" when nothing is
-out or coming in, otherwise "{N} out, {M} coming in".
+The title "Flights" and the header pill sit at the top in normal flow, below the body's
+`env(safe-area-inset-top, 0px)` padding. The pill reads "All home" when nothing is out or
+coming in, otherwise "{N} out, {M} coming in".
+
+**In the air** lists your flights, then incoming ones, as cards. Each card shows a map preview
+that cannot be dragged or zoomed, the bird's name, a status chip, a sent or received badge with
+the other person, and the fuzzy arrival or leave line. The whole card taps to the tracker
+(`/flights/[id]`). Odd jobs in progress follow the flight cards with "Home {phrase}" and no
+heading of their own. A job card with a stored destination shows a map preview and taps to the
+job tracker (`/jobs/[id]`). A job card with no job id or no destination stays as text with no
+link. With no flight in the air and no odd job, "In the air" shows the card "No birds in the
+air. Suspiciously quiet." and past flights still list below it. Filters never hide this section.
+
+**Filters.** Under "In the air", once any past flight is loaded, chips read All, Sent and
+Received. All is pressed by default. With two or more birds in the loaded past flights, a
+second row has one chip per bird. Picking birds keeps only their flights, and picking none
+means every bird. The chips filter only the past list. Each chip is a 44 px button with
+`aria-pressed`, a sun fill when pressed and a focus ring. When nothing matches, the past list is
+replaced by the line "No flights match these filters."
+
+**Day groups.** Past flights (landed today and the loaded earlier pages) fall into Today,
+Yesterday, This week (from Monday) and Earlier, by the viewer's local midnights. Empty groups
+are left out. Each group header is a 44 px button with the group's name and its flight count. The
+newest group shown starts open and the others start collapsed. A landed row shows the bird's
+avatar, a sent or received badge, "{bird} · {other}" and "{distance} · {trip time}", or
+"Cancelled". Each row taps to its tracker.
+
+**Test hops.** Flights with a distance of exactly 0 are left out of the group's rows and
+count. They fold into a collapsed "{N} test hops" button at the bottom of their group, which
+opens to the same rows.
+
+**Show more.** While the API has more history, a "Show more" button at the bottom loads the
+next page by cursor. The new flights join their day groups.
 
 ### Job (`/jobs/[id]`) — the odd-job tracker
 Owner only. Another user's job id shows "We could not find this job." with a link back to Earn.

@@ -79,6 +79,36 @@
   cursor: pointer;
 }
 
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.filter {
+  min-width: var(--coo-touch);
+  max-width: 100%;
+  min-height: var(--coo-touch);
+  padding: 0 14px;
+  overflow-wrap: anywhere;
+  background: var(--coo-card);
+  border: var(--coo-line-thin);
+  border-radius: var(--coo-radius-pill);
+  font-family: inherit;
+  font-weight: 900;
+  font-size: 13.5px;
+  color: var(--coo-ink);
+  cursor: pointer;
+}
+
+.filter[aria-pressed="true"] {
+  background: var(--coo-sun);
+}
+
+.filter:active {
+  transform: translateY(2px);
+}
+
 .count {
   flex-shrink: 0;
   padding: 2px 8px;
@@ -192,6 +222,7 @@
 .done:focus-visible,
 .groupHeader:focus-visible,
 .hops:focus-visible,
+.filter:focus-visible,
 .more:focus-visible {
   outline: 3px solid var(--coo-ink);
   outline-offset: 3px;

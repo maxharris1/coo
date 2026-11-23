@@ -5,13 +5,16 @@ import { Loader } from "@/components/Loader";
 import type { Units } from "@/lib/format";
 import type { FlightsPage } from "@/server/services/flights/list";
 import {
+  birdChips,
   earlierRows,
+  filterPast,
   flightsView,
   pastGroups,
   type ChipTone,
   type Direction,
   type FlightsRow,
   type GroupKey,
+  type PastFilter,
 } from "./flightsViewModel";
 import { FlightMapPreview } from "./FlightMapPreview";
 import { jobCards, type JobBird, type Jobs } from "./JobCards";
@@ -34,6 +37,8 @@ export type FlightsViewProps = {
   onToggle: (key: GroupKey, open: boolean) => void;
   hops: Partial<Record<GroupKey, boolean>>;
   onHops: (key: GroupKey, open: boolean) => void;
+  filter: PastFilter;
+  onFilter: (filter: PastFilter) => void;
   onMore: () => void;
   onRetry: () => void;
 };
@@ -57,6 +62,8 @@ const SAID: Record<Direction, string> = {
   sent: "Sent",
   received: "Received",
 };
+
+const DIRS: Record<PastFilter["dir"], string> = { all: "All", ...SAID };
 
 function Badge({ direction }: { direction: Direction }) {
   return (
@@ -159,6 +166,8 @@ export function FlightsView({
   onToggle,
   hops,
   onHops,
+  filter,
+  onFilter,
   onMore,
   onRetry,
 }: FlightsViewProps) {
@@ -179,11 +188,17 @@ export function FlightsView({
   const view = flightsView(list, nowMs, timeZone, units);
   const [air, landed] = view.sections;
   const working = jobCards({ birds, jobs, timeZone, nowMs, offsetMs });
-  const groups = pastGroups(
-    [...landed.rows, ...earlierRows(list.earlier, nowMs, timeZone, units)],
-    nowMs,
-    timeZone,
-  );
+  const past = [
+    ...landed.rows,
+    ...earlierRows(list.earlier, nowMs, timeZone, units),
+  ];
+  const groups = pastGroups(filterPast(past, filter), nowMs, timeZone);
+  const pastBirds = birdChips(past);
+  const toggleBird = (id: string) => {
+    const birds = new Set(filter.birds);
+    if (!birds.delete(id)) birds.add(id);
+    onFilter({ ...filter, birds });
+  };
   return (
     <div className={styles.screen}>
       <header className={styles.header}>
@@ -200,6 +215,47 @@ export function FlightsView({
           <p className={styles.emptyCard}>{EMPTY_LINE}</p>
         )}
       </section>
+      {past.length > 0 && (
+        <div
+          className={styles.filters}
+          role="group"
+          aria-label="Filter past flights"
+        >
+          {(Object.keys(DIRS) as PastFilter["dir"][]).map((dir) => (
+            <button
+              key={dir}
+              type="button"
+              className={styles.filter}
+              aria-pressed={filter.dir === dir}
+              onClick={() => onFilter({ ...filter, dir })}
+            >
+              {DIRS[dir]}
+            </button>
+          ))}
+        </div>
+      )}
+      {pastBirds.length > 0 && (
+        <div
+          className={styles.filters}
+          role="group"
+          aria-label="Filter by bird"
+        >
+          {pastBirds.map(({ id, name }) => (
+            <button
+              key={id}
+              type="button"
+              className={styles.filter}
+              aria-pressed={filter.birds.has(id)}
+              onClick={() => toggleBird(id)}
+            >
+              {name}
+            </button>
+          ))}
+        </div>
+      )}
+      {past.length > 0 && groups.length === 0 && (
+        <p className={styles.empty}>No flights match these filters.</p>
+      )}
       {groups.map(({ key, title, rows, testHops }) => {
         const open = toggled[key] ?? key === groups[0].key;
         const hopsOpen = hops[key] ?? false;

@@ -268,3 +268,33 @@ export function pastGroups(
     })
     .filter((group) => group.rows.length + group.testHops.length > 0);
 }
+
+export type PastFilter = { dir: "all" | Direction; birds: ReadonlySet<string> };
+
+export const ALL_PAST: PastFilter = { dir: "all", birds: new Set() };
+
+export function filterPast(
+  rows: FlightsRow[],
+  { dir, birds }: PastFilter,
+): FlightsRow[] {
+  const picked = new Set(
+    birdChips(rows)
+      .map(({ id }) => id)
+      .filter((id) => birds.has(id)),
+  );
+  return rows.filter(
+    (row) =>
+      (dir === "all" || row.direction === dir) &&
+      (picked.size === 0 || picked.has(row.flight.bird.id)),
+  );
+}
+
+export function birdChips(rows: FlightsRow[]): { id: string; name: string }[] {
+  const byId = new Map(
+    rows.map((row) => [row.flight.bird.id, row.flight.bird.name]),
+  );
+  if (byId.size < 2) return [];
+  return [...byId]
+    .map(([id, name]) => ({ id, name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
