@@ -277,6 +277,7 @@ Build these from the components on the Components sheet, in the same style. Copy
 | Scheduled state | tracker | The tracker for a scheduled flight: map at the loft, "Leaves at 7:00 am", a Cancel button |
 | Travel sheet | Settings | Search or use location, the 12 hour note, "Your flock comes with you. Birds already flying land where they were sent." |
 | Link expired | `/b/[slug]` | "That link has expired. The bird went home with the note." |
+| Report a bug | `/more/report-bug` | Full screen, back arrow to `/more` labelled "Back to the post office". "Report a bug", "Something's off? Tell us what happened.", a text box "What happened, and what did you expect?" (up to 2000 characters, "1850 of 2000" from 1800), "We'll include: the page you came from ({route}), your app version, your device and screen size, and your time zone.", "Please don't put passwords, addresses or note text in here." Button "Send the report" ("Sending"). Posts to `/api/bug-reports`. On success the form gives way in place to "Report sent.", "A pigeon has it. Thank you for the details." and "Back to the post office". Copy lives in `src/app/(app)/more/report-bug/copy.ts` |
 | Dev panel | `/dev` | Not in production. Buttons: +10 min, +1 hour, +1 day, jump to next landing, reset clock, +500 seeds, run tick |
 
 ## Empty, loading and error states
@@ -297,5 +298,6 @@ Build these from the components on the Components sheet, in the same style. Copy
 /flights/[id] → /flights/[id]/incident
 / → /birds/[id] → /birds/[id]/closet → /shop
 / → /more → /friends | /shoebox | /collection | /aviary | /earn | /settings
+/ → /more → /more/report-bug
 /b/[slug]  (public)      /join/[code]  (public)
 ```
