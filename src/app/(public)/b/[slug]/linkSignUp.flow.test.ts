@@ -12,8 +12,16 @@ import { guestGet } from "@/app/api/guest/[token]/get";
 import { loftPost } from "@/app/api/loft/post";
 import { onboardingPost } from "@/app/api/onboarding/post";
 import { config } from "@/lib/config";
+import { snap, type Point } from "@/lib/game/privacy";
 import { toE164, type E164 } from "@/lib/phone";
 import { createJsonRoute } from "@/server/http";
+import type { UserId } from "@/server/ports/auth";
+import { endpointOf, legFor } from "@/server/services/flights/quote";
+import {
+  LOFT_COLUMNS,
+  loftsOf,
+  type LoftColumns,
+} from "@/server/services/friends";
 import { tick } from "@/server/services/tick";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
 import { FakeJar } from "@/test/fakes/jar";
@@ -62,6 +70,7 @@ async function newUserFetch() {
   ];
   const jar = new FakeJar();
   const userId = await deps.auth(jar).verifyCode(PRIYA, "000000");
+  if (!userId) throw new Error("sign-in failed");
   const cookie = jar
     .getAll()
     .map(({ name, value }) => `${name}=${value}`)
@@ -87,6 +96,7 @@ async function signUpFromLink(
   claim: (
     fetchImpl: typeof fetch,
   ) => ReturnType<typeof finishLinkSignUp> = finishLinkSignUp,
+  home: (guess: Point) => Point = (guess) => guess,
 ) {
   rememberLink({ token, name: "Priya", phone: PRIYA });
   const { userId, fetchImpl } = await newUserFetch();
@@ -103,9 +113,12 @@ async function signUpFromLink(
 
   const roost = await linkRoost(token, fetchImpl);
   if (!roost) throw new Error("no roost from the link");
-  const saved = await saveLoft({ lat: roost.lat, lon: roost.lon }, fetchImpl);
+  const saved = await saveLoft(
+    home({ lat: roost.lat, lon: roost.lon }),
+    fetchImpl,
+  );
   const next = await claim(fetchImpl);
-  return { userId, afterCode, onboarded, roost, saved, next };
+  return { userId, afterCode, onboarded, roost, saved, next, fetchImpl };
 }
 
 describe("short onboarding from a guest link (ac-3)", () => {
@@ -217,5 +230,122 @@ describe("short onboarding from a guest link (ac-3)", () => {
         [flightId],
       ),
     ).toEqual([{ recipient_id: run.userId }]);
+  });
+});
+
+const OWN_SPOT = { lat: 39.97131, lon: -75.13377 };
+const ownSpot = () => OWN_SPOT;
+
+async function homeOf(userId: string) {
+  const [row] = await deps.db.query<{ home_lat: number; home_lon: number }>(
+    "select home_lat, home_lon from profiles where id = $1",
+    [userId],
+  );
+  return { lat: row.home_lat, lon: row.home_lon };
+}
+
+async function deliveryOf(flightId: string) {
+  const [row] = await deps.db.query<{ status: string }>(
+    `select f.status, f.to_lat, f.to_lon, f.to_label, f.arrive_at, f.plan, f.input,
+       g.dest_lat, g.dest_lon, g.dest_label
+     from flights f join guest_links g on g.id = f.guest_link_id
+     where f.id = $1`,
+    [flightId],
+  );
+  return row;
+}
+
+async function guessOf(flightId: string) {
+  const [row] = await deps.db.query<{ to_lat: number; to_lon: number }>(
+    "select to_lat, to_lon from flights where id = $1",
+    [flightId],
+  );
+  return { lat: row.to_lat, lon: row.to_lon };
+}
+
+describe("the recipient's own roost replaces the sender's guess", () => {
+  it("saves the spot they picked in onboarding, snapped, as their loft", async () => {
+    const { token, flightId } = await sendGuestFlight(deps, world);
+
+    const run = await signUpFromLink(token, finishLinkSignUp, ownSpot);
+
+    const home = await homeOf(run.userId);
+    expect(home).toEqual(snap(OWN_SPOT.lat, OWN_SPOT.lon));
+    expect(home).not.toEqual(await guessOf(flightId));
+  });
+
+  it("saves the sender's guess when they confirm the prefill unchanged", async () => {
+    const { token, flightId } = await sendGuestFlight(deps, world);
+
+    const run = await signUpFromLink(token);
+
+    expect(await homeOf(run.userId)).toEqual(await guessOf(flightId));
+  });
+
+  it("replaces the guess when they change their loft later through POST /api/loft", async () => {
+    const { token } = await sendGuestFlight(deps, world);
+    const run = await signUpFromLink(token);
+
+    const moved = await saveLoft(OWN_SPOT, run.fetchImpl);
+
+    expect(moved.ok).toBe(true);
+    expect(await homeOf(run.userId)).toEqual(snap(OWN_SPOT.lat, OWN_SPOT.lon));
+  });
+});
+
+describe("a guest delivery already in the air keeps its destination", () => {
+  it("leaves the flying row and the link's dest alone through claim and a later loft change", async () => {
+    const { token, flightId } = await sendGuestFlight(deps, world);
+    const sent = await deliveryOf(flightId);
+
+    const run = await signUpFromLink(token, finishLinkSignUp, ownSpot);
+    await saveLoft({ lat: 40.7306, lon: -73.9866 }, run.fetchImpl);
+
+    expect(run.next).toMatchObject({ kind: "go" });
+    expect(sent.status).toBe("flying");
+    expect(await deliveryOf(flightId)).toEqual(sent);
+  });
+
+  it("starts the return flight from the baked guess, not the new loft", async () => {
+    const { token, flightId, arriveAt } = await sendGuestFlight(deps, world);
+    const guess = await guessOf(flightId);
+    const run = await signUpFromLink(token, finishLinkSignUp, ownSpot);
+    await saveLoft({ lat: 40.7306, lon: -73.9866 }, run.fetchImpl);
+
+    deps.clock.set(arriveAt + MINUTE);
+    await tick(deps);
+    deps.clock.set(arriveAt + (config.game.visits.waitMinutes + 1) * MINUTE);
+    await tick(deps);
+
+    const [back] = await deps.db.query<{ from_lat: number; from_lon: number }>(
+      `select r.from_lat, r.from_lon from flights r
+       join flights f on f.guest_link_id = r.guest_link_id
+       where f.id = $1 and r.kind = 'return'`,
+      [flightId],
+    );
+    expect(back).toEqual({ from_lat: guess.lat, from_lon: guess.lon });
+  });
+
+  it("sends the next friend-to-friend note to the recipient's own loft", async () => {
+    const { token } = await sendGuestFlight(deps, world);
+    const run = await signUpFromLink(token, finishLinkSignUp, ownSpot);
+    const max = world.max.id as UserId;
+    const [mine] = await deps.db.query<LoftColumns>(
+      `select ${LOFT_COLUMNS.join(", ")} from profiles where id = $1`,
+      [max],
+    );
+    const myLofts = loftsOf(mine);
+
+    const { to } = await legFor(
+      deps,
+      max,
+      myLofts,
+      endpointOf("block", myLofts)!,
+      {
+        friendId: run.userId,
+      },
+    );
+
+    expect(to.point).toEqual(snap(OWN_SPOT.lat, OWN_SPOT.lon));
   });
 });
