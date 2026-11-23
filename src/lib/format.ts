@@ -1,3 +1,4 @@
+import { localDate, minuteOfDay } from "./game/time";
 import type { BirdStatus } from "./game/types";
 
 export type Pronoun = "he" | "she" | "they";
@@ -105,6 +106,120 @@ export function clockTime(at: Date, timeZone: string): string {
     p[type] = value;
   }
   return `${p.hour}:${p.minute} ${p.dayPeriod.toLowerCase()}`;
+}
+
+export type WhenVoice = "live" | "quote";
+
+type Bucket = {
+  fromMinute: number;
+  today: string;
+  tomorrow: string;
+  onDay: (day: string) => string;
+  dated: string;
+};
+
+const WHEN_BUCKETS: readonly Bucket[] = [
+  {
+    fromMinute: 0,
+    today: "overnight",
+    tomorrow: "overnight",
+    onDay: (day) => `overnight ${day}`,
+    dated: "overnight",
+  },
+  {
+    fromMinute: 5 * 60,
+    today: "early this morning",
+    tomorrow: "early tomorrow morning",
+    onDay: (day) => `early ${day} morning`,
+    dated: "early in the morning",
+  },
+  {
+    fromMinute: 8 * 60,
+    today: "this morning",
+    tomorrow: "tomorrow morning",
+    onDay: (day) => `${day} morning`,
+    dated: "in the morning",
+  },
+  {
+    fromMinute: 11 * 60 + 30,
+    today: "around midday",
+    tomorrow: "around midday tomorrow",
+    onDay: (day) => `around midday ${day}`,
+    dated: "around midday",
+  },
+  {
+    fromMinute: 13 * 60 + 30,
+    today: "this afternoon",
+    tomorrow: "tomorrow afternoon",
+    onDay: (day) => `${day} afternoon`,
+    dated: "in the afternoon",
+  },
+  {
+    fromMinute: 17 * 60,
+    today: "this evening",
+    tomorrow: "tomorrow evening",
+    onDay: (day) => `${day} evening`,
+    dated: "in the evening",
+  },
+  {
+    fromMinute: 20 * 60,
+    today: "tonight",
+    tomorrow: "tomorrow night",
+    onDay: (day) => `${day} night`,
+    dated: "at night",
+  },
+];
+
+const IMMINENT_MS = 10 * 60_000;
+const IMMINENT: Record<WhenVoice, string> = {
+  live: "any minute now",
+  quote: "shortly",
+};
+
+const DAY_MS = 86_400_000;
+const WEEK_DAYS = 7;
+
+const dayFormatters = new Map<string, Intl.DateTimeFormat>();
+const dateFormatters = new Map<string, Intl.DateTimeFormat>();
+
+function cached(
+  cache: Map<string, Intl.DateTimeFormat>,
+  timeZone: string,
+  options: Intl.DateTimeFormatOptions,
+): Intl.DateTimeFormat {
+  let f = cache.get(timeZone);
+  if (!f) {
+    f = new Intl.DateTimeFormat("en-US", { timeZone, ...options });
+    cache.set(timeZone, f);
+  }
+  return f;
+}
+
+export function fuzzyWhen(
+  atMs: number,
+  nowMs: number,
+  timeZone: string,
+  voice: WhenVoice = "live",
+): string {
+  if (atMs - nowMs <= IMMINENT_MS) return IMMINENT[voice];
+  const minute = minuteOfDay(atMs, timeZone);
+  const bucket = WHEN_BUCKETS.findLast((b) => b.fromMinute <= minute)!;
+  const days =
+    (Date.parse(localDate(atMs, timeZone)) -
+      Date.parse(localDate(nowMs, timeZone))) /
+    DAY_MS;
+  if (days === 0) return bucket.today;
+  if (days === 1) return bucket.tomorrow;
+  if (days < WEEK_DAYS) {
+    const day = cached(dayFormatters, timeZone, { weekday: "long" });
+    return bucket.onDay(day.format(atMs));
+  }
+  const date = cached(dateFormatters, timeZone, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
+  return `${date.format(atMs)}, ${bucket.dated}`;
 }
 
 export function pronounTokens(p: Pronoun): PronounForms {

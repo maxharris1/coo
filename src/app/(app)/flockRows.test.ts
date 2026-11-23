@@ -43,9 +43,16 @@ const flight = (over: Partial<FlightLite> = {}): FlightLite => ({
   ...over,
 });
 
-const ctx = (flights: FlightLite[] = [], myVisiting: unknown[] = []) => ({
+const CLOCK = /\d{1,2}:\d{2}\s?(am|pm)/i;
+const COUNTDOWN = /\d+ (min|sec)|\d+h \d{2}m/;
+
+const ctx = (
+  flights: FlightLite[] = [],
+  myVisiting: unknown[] = [],
+  nowMs = now,
+) => ({
   timezone: tz,
-  nowMs: now,
+  nowMs,
   flights,
   myVisiting: myVisiting as {
     birdId: string;
@@ -71,12 +78,47 @@ describe("flockRow (ac-2)", () => {
     });
   });
 
-  it("names the recipient, place and landing time of a flying bird", () => {
-    expect(flockRow(bird({ status: "flying" }), ctx([flight()]))).toEqual({
+  it("names the recipient, place and time of day a flying bird lands", () => {
+    const row = flockRow(bird({ status: "flying" }), ctx([flight()]));
+    expect(row).toEqual({
       action: { kind: "chip", chip: "Flying" },
-      line: "To Theo in Boston, lands 3:05 pm",
+      line: "To Theo in Boston, lands this afternoon",
       tone: "sun",
     });
+    expect(row.line).not.toMatch(CLOCK);
+    expect(row.line).not.toContain("3:05 pm");
+  });
+
+  it.each([
+    [
+      "2026-11-20T06:00:00-05:00",
+      "2026-11-20T07:11:00-05:00",
+      "early this morning",
+    ],
+    ["2026-11-20T06:00:00-05:00", "2026-11-20T09:00:00-05:00", "this morning"],
+    [
+      "2026-11-20T07:05:00-05:00",
+      "2026-11-20T07:11:00-05:00",
+      "any minute now",
+    ],
+  ])("seen at %s, a bird landing at %s lands %j", (seen, lands, phrase) => {
+    const row = flockRow(
+      bird({ status: "flying" }),
+      ctx(
+        [
+          flight({
+            counterpart: { id: "ethan", name: "Ethan" },
+            to: { label: "Tudor City" },
+            arriveAt: at(lands),
+          }),
+        ],
+        [],
+        at(seen),
+      ),
+    );
+    expect(row.line).toBe(`To Ethan in Tudor City, lands ${phrase}`);
+    expect(row.line).not.toMatch(CLOCK);
+    expect(row.line).not.toMatch(COUNTDOWN);
   });
 
   it("says a flying bird on its way back is heading home", () => {
@@ -84,7 +126,7 @@ describe("flockRow (ac-2)", () => {
       bird({ status: "flying" }),
       ctx([flight({ kind: "return" })]),
     );
-    expect(row.line).toBe("Heading home, lands 3:05 pm");
+    expect(row.line).toBe("Heading home, lands this afternoon");
   });
 
   it("keeps a flying bird with no flight row on Flying", () => {
@@ -107,7 +149,7 @@ describe("flockRow (ac-2)", () => {
     );
     expect(row).toMatchObject({
       action: { kind: "chip", chip: "Scheduled" },
-      line: "Leaves at 2:30 pm for Theo",
+      line: "Leaves this afternoon for Theo",
     });
   });
 
@@ -127,14 +169,14 @@ describe("flockRow (ac-2)", () => {
     );
     expect(row).toMatchObject({
       action: { kind: "chip", chip: "On a sill" },
-      line: "On Priya's sill until 4:00 pm",
+      line: "On Priya's sill until this afternoon",
       tone: "mint",
     });
   });
 
   it.each([
-    ["nap", "Napping until 2:40 pm"],
-    ["bath", "Bathing until 2:40 pm"],
+    ["nap", "Napping until this afternoon"],
+    ["bath", "Bathing until this afternoon"],
   ])("rests a bird busy with a %s", (busyKind, line) => {
     const row = flockRow(
       bird({ status: "busy", busyKind, busyUntil: at("2026-11-20T19:40:00Z") }),
@@ -148,7 +190,7 @@ describe("flockRow (ac-2)", () => {
   });
 
   it.each([
-    ["with", at("2026-11-20T19:40:00Z"), "On an odd job until 2:40 pm"],
+    ["with", at("2026-11-20T19:40:00Z"), "On an odd job until this afternoon"],
     ["without", null, "On an odd job"],
   ])(
     "chips a bird on an odd job %s an end time On a job",
@@ -244,31 +286,42 @@ describe("incomingCards (ac-3)", () => {
         flight({ id: "mine" }),
       ],
       now,
+      tz,
     );
     expect(cards).toEqual([
       {
         id: "in1",
         title: "Incoming from Priya",
-        line: "Dumpling lands on your sill in 12 min",
+        line: "Dumpling lands on your sill this morning",
       },
     ]);
+    expect(cards[0].line).not.toMatch(COUNTDOWN);
+  });
+
+  it("says a bird ten minutes out lands any minute now", () => {
+    const [card] = incomingCards(
+      [flight({ role: "incoming", arriveAt: now + 10 * 60_000 })],
+      now,
+      tz,
+    );
+    expect(card.line).toBe("Brenda lands on your sill any minute now");
   });
 
   it("makes a card for a delivery flying to me", () => {
     expect(
-      incomingCards([flight({ role: "incoming", kind: "delivery" })], now),
+      incomingCards([flight({ role: "incoming", kind: "delivery" })], now, tz),
     ).toHaveLength(1);
   });
 
   it("makes no card for a return leaving my sill", () => {
     expect(
-      incomingCards([flight({ role: "incoming", kind: "return" })], now),
+      incomingCards([flight({ role: "incoming", kind: "return" })], now, tz),
     ).toEqual([]);
   });
 
   it("makes no card for my own bird heading home", () => {
     expect(
-      incomingCards([flight({ role: "mine", kind: "return" })], now),
+      incomingCards([flight({ role: "mine", kind: "return" })], now, tz),
     ).toEqual([]);
   });
 });
