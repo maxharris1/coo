@@ -149,7 +149,11 @@ describe("/welcome/bird fits a 390x844 phone (ac-2)", () => {
     const decl = body(name).match(
       new RegExp(`(?:^|\\s)${prop}: ([^;]+);`),
     )?.[1];
-    const all = [...(decl ?? "").matchAll(/(\d+(?:\.\d+)?)px/g)];
+    const all = [
+      ...(decl ?? "")
+        .replace(/env\([^)]*\)/g, "")
+        .matchAll(/(\d+(?:\.\d+)?)px/g),
+    ];
     if (all[at] === undefined) throw new Error(`no px in .${name} ${prop}`);
     return Number(all[at][1]);
   };
