@@ -1,6 +1,6 @@
 import { positionAt } from "@/lib/flight/engine";
 import { distance, duration, fuzzyWhen, type Units } from "@/lib/format";
-import { startOfLocalDayMs } from "@/lib/game/time";
+import { localDate, startOfLocalDayMs, weekStart } from "@/lib/game/time";
 import type { FlightSections } from "@/server/services/flights/list";
 import type { Flight } from "@/server/services/flights/shape";
 
@@ -27,6 +27,8 @@ export type FlightsSection = {
   rows: FlightsRow[];
 };
 export type FlightsView = { pill: string; sections: FlightsSection[] };
+export type GroupKey = "today" | "yesterday" | "week" | "earlier";
+export type PastGroup = { key: GroupKey; title: string; rows: FlightsRow[] };
 
 type Copy = {
   place?: string;
@@ -73,6 +75,13 @@ const STATES: Record<
 const TITLES: Record<SectionKey, string> = {
   inTheAir: "In the air",
   landedToday: "Landed today",
+};
+
+const GROUP_TITLES: Record<GroupKey, string> = {
+  today: "Today",
+  yesterday: "Yesterday",
+  week: "This week",
+  earlier: "Earlier",
 };
 
 const DIRECTION: Record<Flight["role"], Direction> = {
@@ -210,4 +219,37 @@ export function earlierRows(
     const row = toRow(f, true, nowMs, timezone, units);
     return f.status === "cancelled" ? { ...row, line: "Cancelled" } : row;
   });
+}
+
+function startOfWeekMs(today: number, nowMs: number, timezone: string): number {
+  const monday = weekStart(nowMs, timezone);
+  let midnight = today;
+  while (localDate(midnight, timezone) !== monday) {
+    midnight = startOfLocalDayMs(midnight - 1, timezone);
+  }
+  return midnight;
+}
+
+export function pastGroups(
+  rows: FlightsRow[],
+  nowMs: number,
+  timezone: string,
+): PastGroup[] {
+  const today = startOfLocalDayMs(nowMs, timezone);
+  const starts: [GroupKey, number][] = [
+    ["today", today],
+    ["yesterday", startOfLocalDayMs(today - 1, timezone)],
+    ["week", startOfWeekMs(today, nowMs, timezone)],
+  ];
+  const groupOf = (row: FlightsRow): GroupKey =>
+    starts.find(([, start]) => landedAtMs(row.flight) >= start)?.[0] ??
+    "earlier";
+  const keys = Object.keys(GROUP_TITLES) as GroupKey[];
+  return keys
+    .map((key) => ({
+      key,
+      title: GROUP_TITLES[key],
+      rows: rows.filter((row) => groupOf(row) === key),
+    }))
+    .filter((group) => group.rows.length > 0);
 }

@@ -10,6 +10,7 @@ import { onJob } from "../earn/JobsPanel";
 import { call } from "../friends/friendsApi";
 import { loadJob } from "../jobs/[id]/jobApi";
 import { FlightsView, type List } from "./FlightsView";
+import type { GroupKey } from "./flightsViewModel";
 
 const TICK_MS = 10_000;
 
@@ -24,6 +25,9 @@ export default function FlightsPage() {
   const toast = useToast();
   const [list, setList] = useState<List>({ kind: "loading" });
   const [attempt, setAttempt] = useState(0);
+  const [toggled, setToggled] = useState<Partial<Record<GroupKey, boolean>>>(
+    {},
+  );
   const [clock, setClock] = useState(() => Date.now());
   const synced = useMemo(() => JSON.stringify(data?.flights ?? null), [data]);
   const [jobs, setJobs] = useState<ReadonlyMap<string, JobView>>(new Map());
@@ -118,6 +122,8 @@ export default function FlightsPage() {
         data?.me.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone
       }
       units={asUnits(data?.me.units)}
+      toggled={toggled}
+      onToggle={(key, open) => setToggled((prev) => ({ ...prev, [key]: open }))}
       onMore={onMore}
       onRetry={onRetry}
     />

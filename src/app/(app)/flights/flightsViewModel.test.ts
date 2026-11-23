@@ -20,7 +20,12 @@ import {
   type PlannedDelivery,
 } from "@/test/fixtures/plannedFlight";
 import { seedWorld, type Person, type World } from "@/test/seedWorld";
-import { flightsView, type FlightsView } from "./flightsViewModel";
+import {
+  earlierRows,
+  flightsView,
+  pastGroups,
+  type FlightsView,
+} from "./flightsViewModel";
 
 const NY = "America/New_York";
 const ONE_PM_NY = Date.UTC(2026, 10, 20, 18, 0);
@@ -562,6 +567,86 @@ describe("flightsView live rows print no clock or countdown", () => {
     const flight = vectorFlight("calm-short");
     expect(linesAt(flight, flight.plan!.arriveAtMs + 60_000)).toEqual([
       "1h 49m",
+    ]);
+  });
+});
+
+describe("pastGroups", () => {
+  const WEDNESDAY_1PM_NY = Date.UTC(2026, 10, 4, 18, 0);
+  const SUNDAY_1PM_NY = Date.UTC(2026, 10, 1, 18, 0);
+  const landedAt = (id: string, arriveAt: number): Flight => ({
+    ...vectorFlight("calm-short"),
+    id,
+    status: "landed",
+    plan: undefined,
+    releaseAt: arriveAt - HOUR_MS,
+    arriveAt,
+  });
+  const groupsAt = (nowMs: number, flights: Flight[]) =>
+    pastGroups(earlierRows(flights, nowMs, NY, "mi"), nowMs, NY).map((g) => [
+      g.title,
+      g.rows.map((r) => r.id),
+    ]);
+
+  it("sorts rows into Today, Yesterday, This week and Earlier by the viewer's local midnights", () => {
+    expect(
+      groupsAt(WEDNESDAY_1PM_NY, [
+        landedAt("wed-9am", Date.UTC(2026, 10, 4, 14, 0)),
+        landedAt("wed-midnight", Date.UTC(2026, 10, 4, 5, 0)),
+        landedAt("tue-1159pm", Date.UTC(2026, 10, 4, 4, 59)),
+        landedAt("tue-midnight", Date.UTC(2026, 10, 3, 5, 0)),
+        landedAt("mon-1159pm", Date.UTC(2026, 10, 3, 4, 59)),
+        landedAt("mon-midnight", Date.UTC(2026, 10, 2, 5, 0)),
+        landedAt("sun-1159pm", Date.UTC(2026, 10, 2, 4, 59)),
+        landedAt("last-week", Date.UTC(2026, 9, 28, 16, 0)),
+      ]),
+    ).toEqual([
+      ["Today", ["wed-9am", "wed-midnight"]],
+      ["Yesterday", ["tue-1159pm", "tue-midnight"]],
+      ["This week", ["mon-1159pm", "mon-midnight"]],
+      ["Earlier", ["sun-1159pm", "last-week"]],
+    ]);
+  });
+
+  it("starts This week on Monday across the autumn clock change", () => {
+    expect(
+      groupsAt(SUNDAY_1PM_NY, [
+        landedAt("sun-1am-edt", Date.UTC(2026, 10, 1, 5, 0)),
+        landedAt("sat", Date.UTC(2026, 9, 31, 16, 0)),
+        landedAt("mon-midnight-edt", Date.UTC(2026, 9, 26, 4, 0)),
+        landedAt("sun-before", Date.UTC(2026, 9, 26, 3, 59)),
+      ]),
+    ).toEqual([
+      ["Today", ["sun-1am-edt"]],
+      ["Yesterday", ["sat"]],
+      ["This week", ["mon-midnight-edt"]],
+      ["Earlier", ["sun-before"]],
+    ]);
+  });
+
+  it("omits empty groups and leaves the newest non-empty group first", () => {
+    expect(
+      groupsAt(WEDNESDAY_1PM_NY, [
+        landedAt("mon", Date.UTC(2026, 10, 2, 16, 0)),
+        landedAt("last-week", Date.UTC(2026, 9, 28, 16, 0)),
+      ]),
+    ).toEqual([
+      ["This week", ["mon"]],
+      ["Earlier", ["last-week"]],
+    ]);
+    expect(groupsAt(WEDNESDAY_1PM_NY, [])).toEqual([]);
+  });
+
+  it("files a Tuesday landing under Yesterday when the week started yesterday", () => {
+    const tuesday1pm = Date.UTC(2026, 10, 3, 18, 0);
+    expect(
+      groupsAt(tuesday1pm, [
+        landedAt("mon", Date.UTC(2026, 10, 2, 16, 0)),
+        landedAt("sun", Date.UTC(2026, 10, 1, 16, 0)),
+      ]),
+    ).toEqual([
+      ["Yesterday", ["mon"]],
+      ["Earlier", ["sun"]],
     ]);
   });
 });

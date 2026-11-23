@@ -6,9 +6,11 @@ import type { FlightsPage } from "@/server/services/flights/list";
 import {
   earlierRows,
   flightsView,
+  pastGroups,
   type ChipTone,
   type Direction,
   type FlightsRow,
+  type GroupKey,
 } from "./flightsViewModel";
 import { FlightMapPreview } from "./FlightMapPreview";
 import { jobCards, type JobBird, type Jobs } from "./JobCards";
@@ -27,6 +29,8 @@ export type FlightsViewProps = {
   offsetMs: number;
   timeZone: string;
   units: Units;
+  toggled: Partial<Record<GroupKey, boolean>>;
+  onToggle: (key: GroupKey, open: boolean) => void;
   onMore: () => void;
   onRetry: () => void;
 };
@@ -121,6 +125,8 @@ export function FlightsView({
   offsetMs,
   timeZone,
   units,
+  toggled,
+  onToggle,
   onMore,
   onRetry,
 }: FlightsViewProps) {
@@ -141,7 +147,11 @@ export function FlightsView({
   const view = flightsView(list, nowMs, timeZone, units);
   const [air, landed] = view.sections;
   const working = jobCards({ birds, jobs, timeZone, nowMs, offsetMs });
-  const earlier = earlierRows(list.earlier, nowMs, timeZone, units);
+  const groups = pastGroups(
+    [...landed.rows, ...earlierRows(list.earlier, nowMs, timeZone, units)],
+    nowMs,
+    timeZone,
+  );
   return (
     <div className={styles.screen}>
       <header className={styles.header}>
@@ -158,22 +168,32 @@ export function FlightsView({
           <p className={styles.emptyCard}>{EMPTY_LINE}</p>
         )}
       </section>
-      {landed.rows.length > 0 && (
-        <section className={styles.doneList}>
-          <h2 className={styles.heading}>{landed.title}</h2>
-          {landed.rows.map((row) => (
-            <DoneRow key={row.id} row={row} />
-          ))}
-        </section>
-      )}
-      {earlier.length > 0 && (
-        <section className={styles.doneList}>
-          <h2 className={styles.heading}>Earlier</h2>
-          {earlier.map((row) => (
-            <DoneRow key={row.id} row={row} />
-          ))}
-        </section>
-      )}
+      {groups.map(({ key, title, rows }) => {
+        const open = toggled[key] ?? key === groups[0].key;
+        const count = `${rows.length} ${rows.length === 1 ? "flight" : "flights"}`;
+        return (
+          <section key={key} className={styles.doneList}>
+            <h2 className={styles.heading}>
+              <button
+                type="button"
+                className={styles.groupHeader}
+                aria-expanded={open}
+                aria-controls={`past-${key}`}
+                aria-label={`${title}, ${count}`}
+                onClick={() => onToggle(key, !open)}
+              >
+                {title}
+                <span className={styles.count}>{rows.length}</span>
+              </button>
+            </h2>
+            <div id={`past-${key}`} className={styles.doneRows} hidden={!open}>
+              {rows.map((row) => (
+                <DoneRow key={row.id} row={row} />
+              ))}
+            </div>
+          </section>
+        );
+      })}
       {list.nextCursor && (
         <button
           type="button"
@@ -181,7 +201,7 @@ export function FlightsView({
           disabled={list.loadingMore}
           onClick={onMore}
         >
-          Show earlier
+          Show more
         </button>
       )}
     </div>
