@@ -277,6 +277,18 @@ describe("Tracker on the Chicago vector at 2 am (ac-2)", () => {
     expect(page).not.toContain("Night one");
   });
 
+  it("counts the nights of a flight home, not a flight to the host", () => {
+    const flight = flightFrom("chicago-overnight", { kind: "return" });
+    vi.setSystemTime(nyTime("20", "02:00"));
+    const page = text(
+      renderToStaticMarkup(
+        <Tracker flight={flight} offsetMs={0} timeZone={TZ} units="mi" />,
+      ),
+    );
+    expect(page).toContain("Night one of a two-day flight home");
+    expect(page).not.toContain("flight to Priya");
+  });
+
   it("reads the landing in the viewer's time zone", () => {
     const flight = flightFrom("chicago-overnight");
     const view = trackerView(
@@ -348,6 +360,86 @@ describe("Tracker chrome and pins (ac-4)", () => {
     );
     expect(page).toContain("Gerald → Rosa");
     expect(page).toContain("Rosa, Philly");
+  });
+});
+
+describe("Tracker on a trip home (#882)", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  const home = (over: Partial<Flight> = {}) =>
+    flightFrom("calm-short", {
+      kind: "return",
+      from: { ...flightFrom("calm-short").from, label: "Upper East Side" },
+      to: { ...flightFrom("calm-short").to, label: "Tudor City" },
+      counterpart: { id: "u2", name: "Tracy", handle: "tracy" },
+      hasNote: false,
+      ...over,
+    });
+
+  function render(flight: Flight): string {
+    vi.setSystemTime(at(flight, 0.5));
+    return text(
+      renderToStaticMarkup(
+        <Tracker flight={flight} offsetMs={0} timeZone={TZ} units="mi" />,
+      ),
+    );
+  }
+
+  it("tells the owner an empty bird is coming home to their loft (ac-1)", () => {
+    const flight = home();
+    const page = render(flight);
+    expect(page).toContain("Gerald → You");
+    expect(page).toContain("Gerald is on the way to you");
+    expect(page).toContain("Coming home from Tracy");
+    expect(page).not.toContain("Carrying your note");
+    expect(page).not.toContain("Gerald → Tracy");
+    expect(page).toMatch(/Upper East Side .* of .* mi Tudor City/);
+    const view = trackerView(flight, at(flight, 0.5), TZ, "mi");
+    expect(view).toMatchObject({
+      toName: "You",
+      loftLabel: "Your loft",
+      loftAt: "to",
+      sillLabel: "Tracy, Upper East Side",
+      fromLabel: "Upper East Side",
+      toLabel: "Tudor City",
+    });
+  });
+
+  it("says the bird is bringing a reply when the host wrote back (ac-2)", () => {
+    const page = render(home({ hasNote: true }));
+    expect(page).toContain("Bringing a reply from Tracy");
+    expect(page).not.toContain("Carrying your note to Tracy");
+  });
+
+  it("tells the host the bird is heading back to its owner (ac-2)", () => {
+    const flight = home({ role: "incoming" });
+    const page = render(flight);
+    expect(page).toContain("Gerald → Max");
+    expect(page).toContain("Heading back to Max");
+    expect(page).not.toContain("Carrying a note for you");
+    expect(page).not.toContain("Gerald → You");
+    const view = trackerView(flight, at(flight, 0.5), TZ, "mi");
+    expect(view).toMatchObject({
+      toName: "Max",
+      loftLabel: "Max, Tudor City",
+      loftAt: "to",
+      sillLabel: "Your sill",
+    });
+  });
+
+  it("tells the host their reply is on its way to the owner (ac-2)", () => {
+    const page = render(home({ role: "incoming", hasNote: true }));
+    expect(page).toContain("Carrying a note to Max");
+    expect(page).not.toContain("Carrying a note for you");
+  });
+
+  it("keeps the loft at the origin on both sides of a delivery (ac-3)", () => {
+    for (const role of ["mine", "incoming"] as const) {
+      const flight = flightFrom("calm-short", { role });
+      const view = trackerView(flight, at(flight, 0.5), TZ, "mi");
+      expect(view.loftAt, role).toBe("from");
+    }
   });
 });
 

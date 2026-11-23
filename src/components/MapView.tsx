@@ -22,6 +22,8 @@ export type BirdLite = {
   gear: string[];
 };
 
+export type LoftAt = "from" | "to";
+
 export type BirdState =
   "scheduled" | "flying" | "roosting" | "delayed" | "landed";
 
@@ -49,6 +51,7 @@ export type MapViewProps = {
   night: boolean;
   loftLabel: string;
   sillLabel: string;
+  loftAt?: LoftAt;
   state?: BirdState;
 };
 
@@ -142,6 +145,7 @@ export function MapView({
   night,
   loftLabel,
   sillLabel,
+  loftAt = "from",
   state = "flying",
 }: MapViewProps) {
   const container = useRef<HTMLDivElement>(null);
@@ -212,11 +216,12 @@ export function MapView({
       m.touchZoomRotate.disableRotation();
       m.keyboard.disableRotation();
 
+      const [loftPin, sillPin] = loftAt === "to" ? [to, from] : [from, to];
       const loft = new Marker({ element: loftEl.current, anchor: "bottom" })
-        .setLngLat([from.lon, from.lat])
+        .setLngLat([loftPin.lon, loftPin.lat])
         .addTo(m);
       const sill = new Marker({ element: sillEl.current, anchor: "bottom" })
-        .setLngLat([to.lon, to.lat])
+        .setLngLat([sillPin.lon, sillPin.lat])
         .addTo(m);
       const start = where();
       const marker = new Marker({ element: birdEl.current })
@@ -303,7 +308,7 @@ export function MapView({
       mounted?.dispose();
       mapRef.current = null;
     };
-  }, [flightId, from, to, plan, distanceMi, offsetMs, bottomPadding]);
+  }, [flightId, from, to, plan, distanceMi, offsetMs, bottomPadding, loftAt]);
 
   const findBird = () => {
     followRef.current = true;

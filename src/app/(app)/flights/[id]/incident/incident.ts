@@ -81,6 +81,7 @@ function searchState(
 }
 
 function resendLink(flight: Flight, birds: readonly SyncBird[]) {
+  if (flight.kind === "return") return null;
   const next = releaseBird(birds.filter((b) => b.id !== flight.bird.id));
   if (!next) return null;
   const href = flight.counterpart
@@ -109,11 +110,15 @@ export function incidentReport(
   const at = clockTime(new Date(event.atMs), timeZone);
   const causes = plan.delayKind === "major" ? delay_major : delay_minor;
   const detours = synced?.detours ?? 0;
+  const sendLate = `Your note to ${friend} is running late. We told ${friend} a bird is on the way, eventually.`;
+  const homeLate = flight.hasNote
+    ? `${name} is running late on the way home. A reply from ${friend} is riding along.`
+    : `${name} is running late on the way home.`;
 
   return {
     reportNo: String(delayedCount).padStart(4, "0"),
     headline: `${name} did not arrive`,
-    sub: `Your note to ${friend} is running late. We told ${friend} a bird is on the way, eventually.`,
+    sub: flight.kind === "return" ? homeLate : sendLate,
     rows: [
       {
         label: "Bird",
