@@ -59,11 +59,15 @@
 .rowName {
   font-weight: 900;
   font-size: 15px;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .rowLine {
   font-weight: 700;
   font-size: 13px;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .empty {

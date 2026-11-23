@@ -267,6 +267,21 @@ describe("the map preview variant (#901 ac-1)", () => {
     const preview = renderWithEffects(MapView, props({ preview: true }));
     expect(find(preview, "button")).toBeUndefined();
   });
+
+  it("keeps Find {bird.name} on-screen with a long bird name (#925 ac-5)", async () => {
+    const long = props();
+    long.bird = { ...long.bird, name: "Sir Bartholomew Featherstonehaugh" };
+    const { map } = await mounted(long);
+    map.handlers.dragstart[0]({ originalEvent: {} });
+    const button = find(renderWithEffects(MapView, long), "button") as {
+      props: { className?: string; style: Record<string, unknown> };
+    };
+    expect(button.props.className).toBe("coo-truncate");
+    expect(button.props.style).toMatchObject({
+      right: 16,
+      maxWidth: "calc(100% - 32px)",
+    });
+  });
 });
 
 describe("the tracker map without preview stays as it was (#901 ac-1)", () => {
