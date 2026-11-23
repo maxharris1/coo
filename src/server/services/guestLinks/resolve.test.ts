@@ -165,7 +165,7 @@ describe("resolveLinksBetween", () => {
     await addressTo(linkId, rosa);
 
     expect(await linksToMyPhone(deps.db, rosa)).toEqual([
-      { id: linkId, other: max, byPhone: true },
+      { id: linkId, other: max, pinned: true },
     ]);
     expect(await linksToMyPhone(deps.db, world.priya.id as UserId)).toEqual([]);
   });

@@ -8,7 +8,7 @@ export type Resolved = { linkId: string; senderId: UserId; claimerId: UserId };
 
 export type Person = { id: string; name: string };
 
-export type Candidate = { id: string; other: UserId; byPhone: boolean };
+export type Candidate = { id: string; other: UserId; pinned: boolean };
 
 const LOCK_ATTEMPTS = 3;
 const LINKS_GREW = new Error("crossed links appeared during the lock");
@@ -88,14 +88,14 @@ export async function linksBetween(
   b: UserId,
   now: number,
   friends: boolean,
-): Promise<{ id: string; byPhone: boolean }[]> {
+): Promise<{ id: string; pinned: boolean }[]> {
   const rows = await db.query<{ id: string; by_phone: boolean }>(CANDIDATES, [
     a,
     b,
     new Date(now).toISOString(),
     friends,
   ]);
-  return rows.map((r) => ({ id: r.id, byPhone: r.by_phone }));
+  return rows.map((r) => ({ id: r.id, pinned: r.by_phone }));
 }
 
 export async function resolveLinksBetween(
@@ -112,15 +112,12 @@ export async function resolveLinksBetween(
   const fresh = (
     await linksBetween(db, a, b, now, friendship?.status === "accepted")
   ).map((l) => l.id);
-  // A phone match was validated before the locks and stays pinned even if
-  // landing clears notify_phone meanwhile. A name match must still be
-  // unambiguous after the locks.
   const ids = owned
     ? owned
         .filter(
           (c) =>
             (c.other === a || c.other === b) &&
-            (c.byPhone || fresh.includes(c.id)),
+            (c.pinned || fresh.includes(c.id)),
         )
         .map((c) => c.id)
     : fresh;
@@ -159,7 +156,7 @@ export async function linksToMyPhone(db: Db, me: UserId): Promise<Candidate[]> {
     "select id, sender_id from public.guest_links_for_phone($1)",
     [me],
   );
-  return rows.map((r) => ({ id: r.id, other: r.sender_id, byPhone: true }));
+  return rows.map((r) => ({ id: r.id, other: r.sender_id, pinned: true }));
 }
 
 // Flights before profiles, the order landing takes them. Any link that
@@ -186,7 +183,7 @@ export async function lockPeopleAndLinks(
   const byId = new Map<string, Candidate>();
   for (const c of [...also, ...(await scan())]) {
     const seen = byId.get(c.id);
-    byId.set(c.id, { ...c, byPhone: c.byPhone || !!seen?.byPhone });
+    byId.set(c.id, { ...c, pinned: c.pinned || !!seen?.pinned });
   }
   const owned = [...byId.values()];
   await db.query(

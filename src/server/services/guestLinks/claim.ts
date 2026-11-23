@@ -108,7 +108,7 @@ async function lockClaim(
     me,
     [found.sender_id],
     before,
-    [{ id: found.id, other: found.sender_id, byPhone: false }],
+    [{ id: found.id, other: found.sender_id, pinned: false }],
   );
   const [link] = await db.query<LockedLink>(
     `select id, status, sender_id, claimed_by, expires_at from guest_links

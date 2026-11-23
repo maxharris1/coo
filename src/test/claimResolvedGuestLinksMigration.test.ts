@@ -165,7 +165,7 @@ describe(`supabase/migrations/${BACKFILL}`, () => {
     await friends(sam, kimA);
     await friends(sam, kimB);
 
-    const byPhone = await send(sam, "E", { phone: "+1 (555) 000-0001" });
+    const pinned = await send(sam, "E", { phone: "+1 (555) 000-0001" });
     const byName = await send(sam, "  priya ", { landed: true, visit: true });
     const blocked = await send(sam, "Bob", { phone: "+15550000002" });
     const expired = await send(sam, "Gail", {
@@ -178,13 +178,13 @@ describe(`supabase/migrations/${BACKFILL}`, () => {
     const leah = await send(sam, "Leah", { landed: true });
     const kim = await send(sam, "Kim", { landed: true });
     const destinations = await Promise.all(
-      [byPhone, byName].map((s) => delivery(s.flight)),
+      [pinned, byName].map((s) => delivery(s.flight)),
     );
     const rowsBefore = await snapshot();
 
     await pg.exec(read(MIGRATIONS, BACKFILL));
 
-    expect(await link(byPhone.link)).toEqual({
+    expect(await link(pinned.link)).toEqual({
       status: "claimed",
       claimed_by: ethan,
     });
@@ -192,12 +192,12 @@ describe(`supabase/migrations/${BACKFILL}`, () => {
       status: "accepted",
       via: "guest_link",
     });
-    expect(await delivery(byPhone.flight)).toEqual({
+    expect(await delivery(pinned.flight)).toEqual({
       ...destinations[0],
       counterpart_id: ethan,
       recipient_id: ethan,
     });
-    expect(await met(ethan, byPhone.bird)).toBe(true);
+    expect(await met(ethan, pinned.bird)).toBe(true);
 
     expect(await link(byName.link)).toEqual({
       status: "claimed",
