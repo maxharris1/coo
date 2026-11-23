@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { SyncPayload } from "@/components/sync";
@@ -203,6 +204,66 @@ describe("Flock on Main", () => {
     expect(html.match(/href="\/birds\//g)).toHaveLength(5);
     expect(html).toContain("5 of 5 perches");
     expect(html).not.toContain("data-perch=");
+  });
+});
+
+describe("Flock rows open the bird's page", () => {
+  const html = render(
+    data({
+      birds: [
+        bird("Gerald"),
+        bird("Brenda", { look: "brenda", status: "flying" }),
+        bird("Admiral Crumbs", { look: "admiral", hungry: true }),
+      ],
+      perches: 4,
+      egg: null,
+    }),
+  );
+  const rows = html.match(/<li[^>]*>.*?<\/li>/g) ?? [];
+  const row = (name: string) => rows.find((r) => r.includes(`>${name}<`));
+
+  it.each([
+    ["Gerald", "gerald", "Ready"],
+    ["Brenda", "brenda", "Flying"],
+  ])(
+    "labels %s's row to /birds/%s and keeps its %s chip (ac-1)",
+    (name, id, chip) => {
+      const link = row(name)?.match(/<a[^>]*>/)?.[0];
+      expect(link).toContain(`href="/birds/${id}"`);
+      expect(link).toContain(`aria-label="Open ${name}"`);
+      expect(row(name)).toContain(`>${chip}<`);
+    },
+  );
+
+  it("gives each row one link, closed before the chip or Feed button (ac-2)", () => {
+    for (const name of ["Gerald", "Brenda", "Admiral Crumbs"]) {
+      const r = row(name) ?? "";
+      expect(r.match(/<a[\s>]/g)).toHaveLength(1);
+      expect(r).not.toMatch(/href="\/(flights|jobs)\//);
+      const close = r.indexOf("</a>");
+      const after = r.slice(close);
+      expect(after).toMatch(/<(span class="[^"]*chip|button)/);
+    }
+    const feed = row("Admiral Crumbs") ?? "";
+    expect(feed).toMatch(/<button[^>]*aria-label="Feed Admiral Crumbs"/);
+    expect(feed.indexOf("<button")).toBeGreaterThan(feed.indexOf("</a>"));
+  });
+
+  it("leaves an empty perch with no link (ac-3)", () => {
+    const empty = rows.find((r) => r.includes('aria-label="Empty perch"'));
+    expect(empty).toBeDefined();
+    expect(empty).not.toContain("<a");
+  });
+
+  it("shows a pressed and focused state on a 44 px row (ac-3)", () => {
+    const css = readFileSync(
+      new URL("./Flock.module.css", import.meta.url),
+      "utf8",
+    );
+    expect(css).toMatch(/\.rowLink:active|:has\(> \.rowLink:active\)/);
+    expect(css).toMatch(/\.rowLink:focus-visible::after \{/);
+    const minHeight = css.match(/\.row \{[^}]*min-height: (\d+)px/)?.[1];
+    expect(Number(minHeight)).toBeGreaterThanOrEqual(44);
   });
 });
 

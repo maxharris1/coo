@@ -168,3 +168,70 @@ describe("the top of Main (ac-1)", () => {
     expect(css).toMatch(/\.bell \{[^}]*width: var\(--coo-touch\)/);
   });
 });
+
+describe("tapping a bird in the loft scene (ac-4)", () => {
+  const sceneLinks = (markup: string) =>
+    [...markup.matchAll(/<a[^>]*data-scene-bird=""[^>]*>/g)].map((m) => m[0]);
+
+  const html = render([
+    bird("Gerald"),
+    bird("Kevin", { look: "kevin", tired: true }),
+    bird("Brenda", { look: "brenda", status: "flying" }),
+  ]);
+
+  it("opens each drawn bird's page: ledge, sleeper and OUT tag", () => {
+    const links = sceneLinks(html);
+    expect(links).toHaveLength(3);
+    for (const [id, name] of [
+      ["gerald", "Gerald"],
+      ["kevin", "Kevin"],
+      ["brenda", "Brenda"],
+    ]) {
+      expect(
+        links.filter(
+          (a) =>
+            a.includes(`href="/birds/${id}"`) &&
+            a.includes(`aria-label="Open ${name}"`),
+        ),
+      ).toHaveLength(1);
+    }
+  });
+
+  it("keeps the links out of the scene picture and the header unchanged", () => {
+    expect(html.match(/<svg[^>]*role="img".*?<\/svg>/s)?.[0]).not.toContain(
+      "<a",
+    );
+    const hrefs = [...html.matchAll(/<a[^>]*href="([^"]+)"/g)].map((m) => m[1]);
+    expect(hrefs.filter((h) => !h.startsWith("/birds/"))).toEqual([
+      "/notifications",
+      "/more",
+      "/shop",
+    ]);
+  });
+
+  it("targets only the birds drawn, with two on the ledge at most", () => {
+    const five = render([
+      bird("Gerald"),
+      bird("Pip"),
+      bird("Dot"),
+      bird("Kevin", { look: "kevin", tired: true }),
+      bird("Brenda", { look: "brenda", status: "flying" }),
+    ]);
+    const hrefs = sceneLinks(five).map((a) => a.match(/href="([^"]+)"/)?.[1]);
+    expect(hrefs.sort()).toEqual(
+      ["/birds/brenda", "/birds/gerald", "/birds/kevin", "/birds/pip"].sort(),
+    );
+    expect(sceneLinks(render([bird("Gerald")]))).toHaveLength(1);
+  });
+
+  it("gives each scene target 44 px, a focus ring and a pressed state", () => {
+    const css = readFileSync(
+      new URL("./MainTop.module.css", import.meta.url),
+      "utf8",
+    );
+    expect(css).toMatch(/\.birdLink \{[^}]*min-width: var\(--coo-touch\)/);
+    expect(css).toMatch(/\.birdLink \{[^}]*min-height: var\(--coo-touch\)/);
+    expect(css).toMatch(/\.birdLink:focus-visible \{[^}]*outline: 3px solid/);
+    expect(css).toMatch(/\.birdLink:active \{/);
+  });
+});

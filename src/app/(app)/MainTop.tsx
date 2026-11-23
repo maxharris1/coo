@@ -8,10 +8,22 @@ type FlockBird = SyncPayload["birds"][number];
 
 const INK = "#2A2140";
 const ILLUSTRATIONS = "/assets/svg/illustrations";
+const VIEW_W = 390;
+const VIEW_H = 230;
 const LEDGE_SPOTS = [
   { x: 192, y: 112, scale: 0.82 },
   { x: 288, y: 116, scale: 0.78 },
 ];
+const LEDGE_BIRD_SIZE = 120;
+// A perched Bird at size 120 draws a 120 by 113 box.
+const LEDGE_BIRD_HEIGHT = 113;
+
+type Box = { x: number; y: number; w: number; h: number };
+
+const SLEEPER_BOX: Box = { x: 49, y: 159, w: 44, h: 34 };
+const OUT_TAG_BOX: Box = { x: 114, y: 138, w: 36, h: 18 };
+
+const pct = (n: number, of: number) => `${(n / of) * 100}%`;
 
 function listNames(names: string[]): string {
   return names.length < 2
@@ -42,140 +54,173 @@ function LoftScene({ birds }: { birds: FlockBird[] }) {
   const sleeper = home.find((b) => b.tired);
   const ledge = home.filter((b) => b !== sleeper).slice(0, LEDGE_SPOTS.length);
   const away = birds.find((b) => isAway(b.status));
+  const targets: { bird: FlockBird; box: Box }[] = [
+    ...(sleeper ? [{ bird: sleeper, box: SLEEPER_BOX }] : []),
+    ...(away ? [{ bird: away, box: OUT_TAG_BOX }] : []),
+    ...ledge.map((bird, i) => {
+      const { x, y, scale } = LEDGE_SPOTS[i];
+      return {
+        bird,
+        box: {
+          x,
+          y,
+          w: LEDGE_BIRD_SIZE * scale,
+          h: LEDGE_BIRD_HEIGHT * scale,
+        },
+      };
+    }),
+  ];
 
   return (
-    <svg
-      className={styles.scene}
-      viewBox="0 0 390 230"
-      role="img"
-      aria-label={describeScene(ledge, sleeper, away)}
-    >
-      <g fill="#8CCDEE">
-        <rect x="0" y="120" width="46" height="110" />
-        <rect x="52" y="88" width="38" height="142" />
-        <rect x="188" y="104" width="54" height="126" />
-        <rect x="250" y="70" width="40" height="160" />
-        <rect x="298" y="112" width="92" height="118" />
-      </g>
-      <image
-        href={`${ILLUSTRATIONS}/water-tower.svg`}
-        x="302"
-        y="24"
-        width="70"
-        height="92"
-      />
-      <image
-        className={styles.drift}
-        href={`${ILLUSTRATIONS}/cloud.svg`}
-        x="194"
-        y="18"
-        width="64"
-        height="31"
-      />
-      <image
-        href={`${ILLUSTRATIONS}/cloud.svg`}
-        x="104"
-        y="12"
-        width="48"
-        height="23"
-      />
-      <rect
-        x="-6"
-        y="196"
-        width="402"
-        height="44"
-        fill="#F08A6B"
-        stroke={INK}
-        strokeWidth="2.5"
-      />
-      <path
-        d="M-6 212 H396 M40 196 V212 M120 196 V212 M200 196 V212 M280 196 V212 M360 196 V212 M80 212 V240 M160 212 V240 M240 212 V240 M320 212 V240"
-        stroke={INK}
-        strokeWidth="1.6"
-        opacity=".45"
-        fill="none"
-      />
-      <image
-        href={`${ILLUSTRATIONS}/coop.svg`}
-        x="6"
-        y="54"
-        width="186"
-        height="148"
-      />
-      {sleeper && (
-        <g data-sleeper="">
-          <circle
-            cx="66"
-            cy="176"
-            r="17"
-            fill="#7A7396"
-            stroke="#FFF4DC"
-            strokeWidth="2"
-          />
-          <path
-            d="M68 174 q5 4 10 0"
-            stroke="#FFF4DC"
-            strokeWidth="2.4"
-            fill="none"
-            strokeLinecap="round"
-          />
-          <path
-            d="M82 175 L93 179 L82 183 Z"
-            fill="#FFC93C"
-            stroke="#FFF4DC"
-            strokeWidth="1.6"
-            strokeLinejoin="round"
-          />
-          <text x="84" y="150" className={styles.snooze}>
-            z
-          </text>
-          <text
-            x="74"
-            y="160"
-            className={`${styles.snooze} ${styles.snoozeLate}`}
-          >
-            z
-          </text>
+    <div className={styles.loft}>
+      <svg
+        className={styles.scene}
+        viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
+        role="img"
+        aria-label={describeScene(ledge, sleeper, away)}
+      >
+        <g fill="#8CCDEE">
+          <rect x="0" y="120" width="46" height="110" />
+          <rect x="52" y="88" width="38" height="142" />
+          <rect x="188" y="104" width="54" height="126" />
+          <rect x="250" y="70" width="40" height="160" />
+          <rect x="298" y="112" width="92" height="118" />
         </g>
-      )}
-      {away && (
-        <g>
-          <path d="M132 124 V140" stroke={INK} strokeWidth="2" fill="none" />
-          <g transform="rotate(-6 132 147)">
-            <rect
-              x="114"
-              y="138"
-              width="36"
-              height="18"
-              rx="4"
-              fill="#FFFBF0"
-              stroke={INK}
+        <image
+          href={`${ILLUSTRATIONS}/water-tower.svg`}
+          x="302"
+          y="24"
+          width="70"
+          height="92"
+        />
+        <image
+          className={styles.drift}
+          href={`${ILLUSTRATIONS}/cloud.svg`}
+          x="194"
+          y="18"
+          width="64"
+          height="31"
+        />
+        <image
+          href={`${ILLUSTRATIONS}/cloud.svg`}
+          x="104"
+          y="12"
+          width="48"
+          height="23"
+        />
+        <rect
+          x="-6"
+          y="196"
+          width="402"
+          height="44"
+          fill="#F08A6B"
+          stroke={INK}
+          strokeWidth="2.5"
+        />
+        <path
+          d="M-6 212 H396 M40 196 V212 M120 196 V212 M200 196 V212 M280 196 V212 M360 196 V212 M80 212 V240 M160 212 V240 M240 212 V240 M320 212 V240"
+          stroke={INK}
+          strokeWidth="1.6"
+          opacity=".45"
+          fill="none"
+        />
+        <image
+          href={`${ILLUSTRATIONS}/coop.svg`}
+          x="6"
+          y="54"
+          width="186"
+          height="148"
+        />
+        {sleeper && (
+          <g data-sleeper="">
+            <circle
+              cx="66"
+              cy="176"
+              r="17"
+              fill="#7A7396"
+              stroke="#FFF4DC"
               strokeWidth="2"
             />
-            <text x="132" y="151" className={styles.tag}>
-              OUT
+            <path
+              d="M68 174 q5 4 10 0"
+              stroke="#FFF4DC"
+              strokeWidth="2.4"
+              fill="none"
+              strokeLinecap="round"
+            />
+            <path
+              d="M82 175 L93 179 L82 183 Z"
+              fill="#FFC93C"
+              stroke="#FFF4DC"
+              strokeWidth="1.6"
+              strokeLinejoin="round"
+            />
+            <text x="84" y="150" className={styles.snooze}>
+              z
+            </text>
+            <text
+              x="74"
+              y="160"
+              className={`${styles.snooze} ${styles.snoozeLate}`}
+            >
+              z
             </text>
           </g>
-        </g>
-      )}
-      {ledge.map((b, i) => {
-        const spot = LEDGE_SPOTS[i];
-        return (
-          <g
-            key={b.id}
-            data-ledge-bird=""
-            transform={`translate(${spot.x} ${spot.y}) scale(${spot.scale})`}
-          >
-            <Bird
-              look={b.look as Look}
-              breed={b.breed}
-              gear={b.gear as GearId[]}
-              size={120}
-            />
+        )}
+        {away && (
+          <g>
+            <path d="M132 124 V140" stroke={INK} strokeWidth="2" fill="none" />
+            <g transform="rotate(-6 132 147)">
+              <rect
+                x="114"
+                y="138"
+                width="36"
+                height="18"
+                rx="4"
+                fill="#FFFBF0"
+                stroke={INK}
+                strokeWidth="2"
+              />
+              <text x="132" y="151" className={styles.tag}>
+                OUT
+              </text>
+            </g>
           </g>
-        );
-      })}
-    </svg>
+        )}
+        {ledge.map((b, i) => {
+          const spot = LEDGE_SPOTS[i];
+          return (
+            <g
+              key={b.id}
+              data-ledge-bird=""
+              transform={`translate(${spot.x} ${spot.y}) scale(${spot.scale})`}
+            >
+              <Bird
+                look={b.look as Look}
+                breed={b.breed}
+                gear={b.gear as GearId[]}
+                size={LEDGE_BIRD_SIZE}
+              />
+            </g>
+          );
+        })}
+      </svg>
+      {targets.map(({ bird, box }) => (
+        <Link
+          key={bird.id}
+          href={`/birds/${bird.id}`}
+          aria-label={`Open ${bird.name}`}
+          data-scene-bird=""
+          className={styles.birdLink}
+          style={{
+            left: pct(box.x + box.w / 2, VIEW_W),
+            top: pct(box.y + box.h / 2, VIEW_H),
+            width: pct(box.w, VIEW_W),
+            height: pct(box.h, VIEW_H),
+          }}
+        />
+      ))}
+    </div>
   );
 }
 
