@@ -55,7 +55,6 @@
 }
 
 :root {
-  --coo-safe-top: env(safe-area-inset-top, 0px);
   --coo-safe-right: env(safe-area-inset-right, 0px);
   --coo-safe-bottom: env(safe-area-inset-bottom, 0px);
   --coo-safe-left: env(safe-area-inset-left, 0px);
@@ -75,8 +74,8 @@ html {
 body {
   min-height: 100dvh;
   margin: 0;
-  padding: var(--coo-safe-top) var(--coo-safe-right) var(--coo-safe-bottom)
-    var(--coo-safe-left);
+  padding: env(safe-area-inset-top, 0px) var(--coo-safe-right)
+    var(--coo-safe-bottom) var(--coo-safe-left);
   background: var(--coo-paper);
   color: var(--coo-ink);
   font-family: var(--coo-font-body);

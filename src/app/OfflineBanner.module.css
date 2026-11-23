@@ -1,6 +1,6 @@
 .line {
   position: sticky;
-  top: 0;
+  top: env(safe-area-inset-top, 0px);
   z-index: 10;
   margin: 0;
   padding: 8px var(--coo-gutter);

@@ -2,14 +2,14 @@
   box-sizing: border-box;
   min-height: 100dvh;
   max-width: 480px;
-  margin-top: calc(-1 * var(--coo-safe-top));
+  margin-top: calc(-1 * env(safe-area-inset-top, 0px));
   margin-right: calc(-1 * var(--coo-safe-right));
   margin-bottom: calc(-1 * var(--coo-safe-bottom));
   margin-left: calc(-1 * var(--coo-safe-left));
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: calc(28px + var(--coo-safe-top))
+  padding: calc(28px + env(safe-area-inset-top, 0px))
     calc(var(--coo-gutter) + var(--coo-safe-right))
     calc(20px + var(--coo-safe-bottom))
     calc(var(--coo-gutter) + var(--coo-safe-left));

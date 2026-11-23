@@ -4,15 +4,16 @@ import { describe, expect, it } from "vitest";
 const src = new URL("../", import.meta.url);
 const read = (path: string) => readFileSync(new URL(path, src), "utf8");
 
-const SAFE_TOP = "var(--coo-safe-top)";
+const SAFE_TOP = "env(safe-area-inset-top, 0px)";
 const BLEED = `calc(-1 * ${SAFE_TOP})`;
+const INSET = String.raw`(?:var\(--coo-safe-\w+\)|env\(safe-area-inset-\w+, 0px\))`;
 
 const SIDES = ["right", "bottom", "left"] as const;
 const inset = (side: string) => `var(--coo-safe-${side})`;
 const bleed = (side: string) => `calc(-1 * ${inset(side)})`;
 
 const PAGE_PAD =
-  "calc(28px + var(--coo-safe-top)) calc(var(--coo-gutter) + var(--coo-safe-right)) calc(20px + var(--coo-safe-bottom)) calc(var(--coo-gutter) + var(--coo-safe-left))";
+  "calc(28px + env(safe-area-inset-top, 0px)) calc(var(--coo-gutter) + var(--coo-safe-right)) calc(20px + var(--coo-safe-bottom)) calc(var(--coo-gutter) + var(--coo-safe-left))";
 
 const PAGES = [
   "app/(public)/auth.module.css",
@@ -31,7 +32,7 @@ const HEROES: { file: string; box: string; pads: Pad[] }[] = [
       {
         rule: "header",
         prop: "padding",
-        now: "calc(var(--coo-gutter) + var(--coo-safe-top)) var(--coo-gutter) 0",
+        now: "calc(var(--coo-gutter) + env(safe-area-inset-top, 0px)) var(--coo-gutter) 0",
         before: "var(--coo-gutter) var(--coo-gutter) 0",
       },
     ],
@@ -43,7 +44,7 @@ const HEROES: { file: string; box: string; pads: Pad[] }[] = [
       {
         rule: "copy",
         prop: "padding",
-        now: "calc(36px + var(--coo-safe-top)) 20px 0",
+        now: "calc(36px + env(safe-area-inset-top, 0px)) 20px 0",
         before: "36px 20px 0",
       },
     ],
@@ -55,7 +56,7 @@ const HEROES: { file: string; box: string; pads: Pad[] }[] = [
       {
         rule: "hero",
         prop: "padding",
-        now: "calc(var(--coo-gutter) + var(--coo-safe-top)) var(--coo-gutter) 0",
+        now: "calc(var(--coo-gutter) + env(safe-area-inset-top, 0px)) var(--coo-gutter) 0",
         before: "var(--coo-gutter) var(--coo-gutter) 0",
       },
     ],
@@ -67,13 +68,13 @@ const HEROES: { file: string; box: string; pads: Pad[] }[] = [
       {
         rule: "tracker",
         prop: "height",
-        now: "calc(100dvh - 84px - var(--coo-safe-bottom, 0px) + var(--coo-safe-top))",
+        now: "calc(100dvh - 84px - var(--coo-safe-bottom, 0px) + env(safe-area-inset-top, 0px))",
         before: "calc(100dvh - 84px - var(--coo-safe-bottom, 0px))",
       },
       {
         rule: "top",
         prop: "top",
-        now: "calc(var(--coo-gutter) + var(--coo-safe-top))",
+        now: "calc(var(--coo-gutter) + env(safe-area-inset-top, 0px))",
         before: "var(--coo-gutter)",
       },
     ],
@@ -85,13 +86,13 @@ const HEROES: { file: string; box: string; pads: Pad[] }[] = [
       {
         rule: "tracker",
         prop: "height",
-        now: "calc(100dvh - 84px - var(--coo-safe-bottom, 0px) + var(--coo-safe-top))",
+        now: "calc(100dvh - 84px - var(--coo-safe-bottom, 0px) + env(safe-area-inset-top, 0px))",
         before: "calc(100dvh - 84px - var(--coo-safe-bottom, 0px))",
       },
       {
         rule: "top",
         prop: "top",
-        now: "calc(var(--coo-gutter) + var(--coo-safe-top))",
+        now: "calc(var(--coo-gutter) + env(safe-area-inset-top, 0px))",
         before: "var(--coo-gutter)",
       },
     ],
@@ -103,7 +104,7 @@ const HEROES: { file: string; box: string; pads: Pad[] }[] = [
       {
         rule: "page",
         prop: "padding",
-        now: "calc(28px + var(--coo-safe-top)) calc(var(--coo-gutter) + var(--coo-safe-right)) calc(12px + var(--coo-safe-bottom)) calc(var(--coo-gutter) + var(--coo-safe-left))",
+        now: "calc(28px + env(safe-area-inset-top, 0px)) calc(var(--coo-gutter) + var(--coo-safe-right)) calc(12px + var(--coo-safe-bottom)) calc(var(--coo-gutter) + var(--coo-safe-left))",
         before: "28px var(--coo-gutter) 12px var(--coo-gutter)",
       },
     ],
@@ -139,7 +140,7 @@ const HEROES: { file: string; box: string; pads: Pad[] }[] = [
       {
         rule: "page",
         prop: "padding",
-        now: "calc(22px + var(--coo-safe-top)) var(--coo-gutter) calc(8px + var(--coo-safe-bottom))",
+        now: "calc(22px + env(safe-area-inset-top, 0px)) var(--coo-gutter) calc(8px + var(--coo-safe-bottom))",
         before: "22px var(--coo-gutter) 8px",
       },
     ],
@@ -151,7 +152,7 @@ const HEROES: { file: string; box: string; pads: Pad[] }[] = [
       {
         rule: "hero",
         prop: "padding",
-        now: "calc(22px + var(--coo-safe-top)) var(--coo-gutter) 0 20px",
+        now: "calc(22px + env(safe-area-inset-top, 0px)) var(--coo-gutter) 0 20px",
         before: "22px var(--coo-gutter) 0 20px",
       },
     ],
@@ -178,17 +179,17 @@ const value = (body: string, prop: string) =>
 
 function withoutInsets(v: string | undefined) {
   if (v === undefined) return undefined;
-  if (/^calc\(-1 \* var\(--coo-safe-\w+\)\)$/.test(v) || v === SAFE_TOP) {
+  if (new RegExp(`^calc\\(-1 \\* ${INSET}\\)$`).test(v) || v === SAFE_TOP) {
     return "0px";
   }
   return v
-    .replace(/ \+ var\(--coo-safe-(?:top|right|bottom|left)\)\)/g, ")")
+    .replace(new RegExp(` \\+ ${INSET}\\)`, "g"), ")")
     .replace(/calc\((\d+px|var\(--[\w-]+\))\)/g, "$1");
 }
 
 function atInset(v: string | undefined, px: number) {
   return v
-    ?.replace(/var\(--coo-safe-\w+\)/g, `${px}px`)
+    ?.replace(new RegExp(INSET, "g"), `${px}px`)
     .replace(/calc\(-1 \* (\d+)px\)/g, (_, n) => `${-n}px`)
     .replace(/calc\((\d+)px \+ (\d+)px\)/g, (_, a, b) => `${+a + +b}px`);
 }
@@ -219,7 +220,7 @@ describe("Loft top", () => {
   });
 
   it("pads the header back down by the same inset, so the controls clear the notch", () => {
-    expect(value(top, "padding-top")).toBe("var(--coo-safe-top)");
+    expect(value(top, "padding-top")).toBe("env(safe-area-inset-top, 0px)");
   });
 
   it.each(LEFT_RIGHT)("bleeds the sky into the %s safe area", (side) => {
@@ -277,7 +278,9 @@ describe("Shop awning", () => {
 
   it("pulls the stripes up under the status bar and grows by the inset", () => {
     expect(value(awning, "margin-top")).toBe(BLEED);
-    expect(value(awning, "height")).toBe("calc(30px + var(--coo-safe-top))");
+    expect(value(awning, "height")).toBe(
+      "calc(30px + env(safe-area-inset-top, 0px))",
+    );
   });
 
   it("keeps the title and balance below the awning", () => {
@@ -412,7 +415,7 @@ describe("cream guard", () => {
     expect(value(desktop, "max-width")).toBe("430px");
     expect(value(body, "background")).toBe("var(--coo-paper)");
     expect(body).toMatch(
-      /padding: var\(--coo-safe-top\) var\(--coo-safe-right\) var\(--coo-safe-bottom\)\s+var\(--coo-safe-left\);/,
+      /padding: env\(safe-area-inset-top, 0px\) var\(--coo-safe-right\)\s+var\(--coo-safe-bottom\) var\(--coo-safe-left\);/,
     );
   });
 });

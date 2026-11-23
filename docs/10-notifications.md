@@ -9,7 +9,9 @@ opened from the home screen, so every new sign-up sees install right after namin
   background paper, icons 192, 512 and maskable 512. Name and short name from `config/app.json`.
 - `<link rel="apple-touch-icon">` to the 180 px icon, `apple-mobile-web-app-capable`, status bar
   style `black-translucent` (so content draws under the status bar when installed),
-  `viewport-fit=cover`, and safe-area padding on the tab bar and headers.
+  `viewport-fit=cover`, and safe-area padding on the tab bar and headers. Full-bleed map and
+  hero chrome, toasts and the offline banner clear the status-bar inset by reading
+  `env(safe-area-inset-top)` directly, never through a custom property.
 - Detect "running installed" with `matchMedia('(display-mode: standalone)')` or
   `navigator.standalone`. When true, set `installed` in settings once.
 - The Install screen (drawn) shows iPhone steps on iOS Safari. On Android Chrome, capture the
