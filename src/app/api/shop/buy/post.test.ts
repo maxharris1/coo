@@ -75,6 +75,11 @@ describe("POST /api/shop/buy", () => {
     ["a missing price", { itemId: "goggles" }],
     ["a fractional price", { itemId: "goggles", price: 119.5 }],
     ["a negative price", { itemId: "goggles", price: -120 }],
+    ["a missing actionId", { itemId: "goggles", price: 120 }],
+    [
+      "an actionId that is not a uuid",
+      { itemId: "goggles", price: 120, actionId: "again" },
+    ],
   ])("answers %s with 400 invalid", async (_, body) => {
     const { jar } = await onboarded("(555) 123-4567", "Max", 1000);
     const { status, json } = await client.post(body, jar);
@@ -185,6 +190,65 @@ describe("POST /api/shop/buy", () => {
     const { json } = await client.post({ itemId: "birdbath", price: 220 }, jar);
     expect(json.me.id).toBe(id);
     expect(await balance(other.id)).toEqual(theirs);
+  });
+
+  async function holdings(id: string) {
+    const [row] = await deps.db.query<{
+      seeds: number;
+      espresso_shots: number;
+      perches: number;
+      gear: number;
+      entries: number;
+    }>(
+      `select seeds, espresso_shots, perches,
+         (select count(*)::int from gear_owned where user_id = $1) as gear,
+         (select count(*)::int from seed_ledger where user_id = $1 and reason = 'shop') as entries
+       from profiles where id = $1`,
+      [id],
+    );
+    return row;
+  }
+
+  it.each([
+    ["an espresso shot", "espresso", 25],
+    ["a perch", "perch", 250],
+    ["gear", "goggles", 120],
+    ["the birdbath", "birdbath", 220],
+  ])(
+    "answers a replay of %s with 200 and the first committed state",
+    async (_, itemId, price) => {
+      const { id, jar } = await onboarded("(555) 123-4567", "Max", 1000);
+      const body = { itemId, price, actionId: crypto.randomUUID() };
+      const first = await client.post(body, jar);
+      expect(first.status).toBe(200);
+      const committed = await holdings(id);
+      const replay = await client.post(body, jar);
+      expect(replay.status).toBe(200);
+      expect(replay.json.me).toEqual(first.json.me);
+      expect(replay.json.closet).toEqual(first.json.closet);
+      expect(await holdings(id)).toEqual(committed);
+      const ledger = await deps.db.query<{ delta: number; ref_id: string }>(
+        "select delta, ref_id from seed_ledger where user_id = $1 and reason = 'shop'",
+        [id],
+      );
+      expect(ledger).toEqual([{ delta: -price, ref_id: body.actionId }]);
+    },
+  );
+
+  it("sells a second shot under a new actionId", async () => {
+    const { id, jar } = await onboarded("(555) 123-4567", "Max", 60);
+    const buyShot = () =>
+      client.post(
+        { itemId: "espresso", price: 25, actionId: crypto.randomUUID() },
+        jar,
+      );
+    expect((await buyShot()).status).toBe(200);
+    expect((await buyShot()).status).toBe(200);
+    expect(await holdings(id)).toMatchObject({
+      seeds: 10,
+      espresso_shots: 2,
+      entries: 2,
+    });
   });
 
   it("sells espresso shots again and again, stocking only the caller", async () => {

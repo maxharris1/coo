@@ -495,6 +495,18 @@ describe("buy espresso", () => {
     ]);
   });
 
+  it("charges and stocks a replayed shot once", async () => {
+    await setSeeds(max, 60);
+    const input = { ...espresso(), actionId: crypto.randomUUID() };
+    const first = await buy(deps, max, input);
+    const committed = await wallet(max);
+    const replay = await buy(deps, max, input);
+    expect(replay).toEqual(first);
+    expect(await wallet(max)).toEqual(committed);
+    expect(committed.seeds).toBe(35);
+    expect(await shots(max)).toBe(1);
+  });
+
   it("refuses a shot at 24 seeds as insufficient_seeds and changes nothing", async () => {
     await setSeeds(max, 24);
     const before = await wallet(max);
