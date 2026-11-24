@@ -2,8 +2,9 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { FlightPlan, LatLon } from "@/lib/flight/engine";
+import { interpolate, type FlightPlan, type LatLon } from "@/lib/flight/engine";
 import {
+  FakeMap,
   find,
   maps,
   markers,
@@ -16,6 +17,7 @@ import { Bird } from "./Bird";
 import {
   FAR_ZOOM,
   MapView,
+  dotsStart,
   ZOOM_BANDS,
   headsWest,
   pinLabelShift,
@@ -556,14 +558,126 @@ describe("the flight line (#965 ac-1)", () => {
 
   it("ends the flown part under the bird and starts the dots one dot gap ahead", async () => {
     const { map } = await mounted(props());
-    map.camera = { lng: calm.input.from.lon, zoom: 8 };
+    map.camera = {
+      lng: calm.input.from.lon,
+      lat: calm.input.from.lat,
+      zoom: 8,
+    };
     map.fire("style.load");
-    const flown = (map.sources["route-flown"].data as Line).geometry
-      .coordinates;
-    const left = (map.sources["route-left"].data as Line).geometry.coordinates;
-    expect(flown.at(-1), "flown ends at the bird").toEqual(markers[2].lngLat);
-    const gapPx = map.project(left[0]).x - map.project(flown.at(-1)!).x;
-    expect(Math.abs(gapPx)).toBeCloseTo(2.2 * 3.5, 1);
+    expectOneGapAhead(map, calm.input.to);
+  });
+});
+
+const DOT_GAP_PX = 2.2 * 3.5;
+
+function px(map: FakeMap, a: [number, number], b: [number, number]) {
+  const p = map.project(a);
+  const q = map.project(b);
+  return Math.hypot(q.x - p.x, q.y - p.y);
+}
+
+function expectOneGapAhead(map: FakeMap, to: LatLon) {
+  const flown = (map.sources["route-flown"].data as Line).geometry.coordinates;
+  const left = (map.sources["route-left"].data as Line).geometry.coordinates;
+  const bird = markers[2].lngLat!;
+  expect(
+    px(map, flown.at(-1)!, bird),
+    "flown ends under the bird",
+  ).toBeLessThan(0.01);
+  expect(
+    px(map, bird, left[0]),
+    "dots start one gap from the bird",
+  ).toBeCloseTo(DOT_GAP_PX, 1);
+  const end: [number, number] = [left.at(-1)![0], to.lat];
+  expect(px(map, left[0], end), "dots start ahead of the bird").toBeLessThan(
+    px(map, bird, end),
+  );
+}
+
+describe("the dots keep one dot gap ahead of the bird (#965 ac-1)", () => {
+  afterEach(resetFakes);
+
+  function gapAt(from: LatLon, to: LatLon, at: number, zoom: number) {
+    const map = new FakeMap({});
+    const here = interpolate(from, to, at);
+    map.camera = { lng: here.lon, lat: here.lat, zoom };
+    const dotsAt = dotsStart(map as never, from, to, at);
+    const dot = interpolate(from, to, dotsAt);
+    const lon = dot.lon + 360 * Math.round((here.lon - dot.lon) / 360);
+    return {
+      dotsAt,
+      gap: px(map, [here.lon, here.lat], [lon, dot.lat]),
+    };
+  }
+
+  it.each([0.9995, 0.9999])(
+    "holds the gap when the lookahead runs past arrival (fraction %d)",
+    (at) => {
+      const { dotsAt, gap } = gapAt(
+        { lat: 40.7, lon: -74 },
+        { lat: 39.95, lon: -75.16 },
+        at,
+        16,
+      );
+      expect(gap).toBeCloseTo(DOT_GAP_PX, 2);
+      expect(dotsAt, "dots still drawn before arrival").toBeLessThan(1);
+    },
+  );
+
+  it("holds the gap across the antimeridian", () => {
+    const { gap } = gapAt(
+      { lat: 0, lon: 179 },
+      { lat: 0, lon: -179 },
+      0.4995,
+      11,
+    );
+    expect(gap).toBeCloseTo(DOT_GAP_PX, 2);
+  });
+});
+
+const fly = (startMs: number, endMs: number): FlightPlan => ({
+  ...calm.plan,
+  arriveAtMs: endMs,
+  segments: [{ kind: "fly", startMs, endMs, fromFrac: 0, toFrac: 1 }],
+});
+
+describe("the drawn route follows the moving bird (#965 ac-1)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"] });
+    stubBrowser(vi);
+  });
+
+  afterEach(() => {
+    resetFakes();
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  it.each([false, true])(
+    "keeps the flown end under the bird and the dots one gap ahead as time passes (preview %s)",
+    async (preview) => {
+      vi.setSystemTime(calm.plan.arriveAtMs - 20_000);
+      const { map } = await mounted(props({ preview }));
+      map.camera = { lng: calm.input.to.lon, lat: calm.input.to.lat, zoom: 16 };
+      map.fire("style.load");
+      vi.advanceTimersByTime(4000);
+      nextFrame();
+      expectOneGapAhead(map, calm.input.to);
+    },
+  );
+
+  it("keeps the dots one gap ahead across the antimeridian", async () => {
+    const from = { lat: 0, lon: 179, label: "East" };
+    const to = { lat: 0, lon: -179, label: "West" };
+    const start = calm.plan.segments[0].startMs;
+    vi.setSystemTime(start + 2_999_400);
+    const { map } = await mounted(
+      props({ from, to, plan: fly(start, start + 6_000_000) }),
+    );
+    map.camera = { lng: 180, lat: 0, zoom: 11 };
+    map.fire("style.load");
+    nextFrame();
+    expectOneGapAhead(map, to);
   });
 });
 
