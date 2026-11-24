@@ -118,6 +118,11 @@ export class FakeMap {
   easeTo() {
     this.eased++;
   }
+  fitted: { bounds: unknown; options: unknown }[] = [];
+  fitBounds(bounds: unknown, options: unknown) {
+    this.fitted.push({ bounds, options });
+    return this;
+  }
   remove() {
     this.removed = true;
   }

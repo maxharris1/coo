@@ -63,6 +63,8 @@ export type MapViewProps = {
   bird: BirdLite;
   offsetMs: number;
   bottomPadding: number;
+  /** Camera room kept clear at the top, for the header and a pin under it. */
+  topPadding?: number;
   /** How far up to lift the map's credit: the height of the card over it. */
   controlsBottom?: number;
   /** A name for the map picture. The credit stays outside it. */
@@ -103,7 +105,10 @@ const FOLLOW_EVERY_MS = 5000;
 const EDGE_MARGIN = 0.2;
 const LEAD_PX = 60;
 const BIRD_PX = 82;
-const PREVIEW_PADDING = { top: 16, left: 16, right: 16, bottom: 16 };
+// A preview is 140 px tall: room above for a pin (40 px tall, standing on its
+// point) and below for the always-open credit, so both pins show.
+const PREVIEW_PADDING = { top: 46, left: 24, right: 24, bottom: 34 };
+const SIDE_PADDING = 48;
 const LABEL_PAD = 16;
 const PIN_GAP = 4;
 const PIN_HALF_WIDTH = 16;
@@ -289,14 +294,17 @@ function swapStyle(
   );
 }
 
-function nearEdge(map: MapLibreMap, p: LatLon): boolean {
+type Insets = { top: number; bottom: number };
+
+/** Near an edge of the part of the map the header and card leave clear. */
+function nearEdge(map: MapLibreMap, p: LatLon, clear: Insets): boolean {
   const { x, y } = map.project([p.lon, p.lat]);
   const { clientWidth: w, clientHeight: h } = map.getContainer();
   return (
     x < w * EDGE_MARGIN ||
     x > w * (1 - EDGE_MARGIN) ||
-    y < h * EDGE_MARGIN ||
-    y > h * (1 - EDGE_MARGIN)
+    y < Math.max(h * EDGE_MARGIN, clear.top) ||
+    y > Math.min(h * (1 - EDGE_MARGIN), h - clear.bottom)
   );
 }
 
@@ -309,6 +317,7 @@ export function MapView({
   bird,
   offsetMs,
   bottomPadding,
+  topPadding = 80,
   controlsBottom = 0,
   mapLabel,
   night,
@@ -331,6 +340,8 @@ export function MapView({
   const linesRef = useRef(bubbleLines);
   const followRef = useRef(true);
   const recentre = useRef<() => void>(() => {});
+  const refit = useRef<() => void>(() => {});
+  const insetsRef = useRef<Insets>({ top: topPadding, bottom: bottomPadding });
   const [following, setFollowing] = useState(true);
   const style: StylePath = MAP_STYLES[night ? "night" : "day"];
   const styleRef = useRef<StylePath>(style);
@@ -359,6 +370,15 @@ export function MapView({
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
+
+  // The header and card can change height (a measured card, a new log line)
+  // without rebuilding the map: keep the camera clear of them instead.
+  useEffect(() => {
+    const prev = insetsRef.current;
+    if (prev.top === topPadding && prev.bottom === bottomPadding) return;
+    insetsRef.current = { top: topPadding, bottom: bottomPadding };
+    refit.current();
+  }, [topPadding, bottomPadding]);
 
   useEffect(() => {
     westRef.current = west;
@@ -423,20 +443,25 @@ export function MapView({
         const el = container.current;
         if (cancelled || !el || !birdEl.current) return;
         if (!loftEl.current || !sillEl.current) return;
+        const bounds = new LngLatBounds(
+          [from.lon, from.lat],
+          [from.lon, from.lat],
+        ).extend([to.lon, to.lat]);
+        const fitPadding = () =>
+          preview
+            ? PREVIEW_PADDING
+            : {
+                ...insetsRef.current,
+                left: SIDE_PADDING,
+                right: SIDE_PADDING,
+              };
         mounted = mountMap(
           lib,
           el,
           {
             style: loaded.style,
-            bounds: new LngLatBounds(
-              [from.lon, from.lat],
-              [from.lon, from.lat],
-            ).extend([to.lon, to.lat]),
-            fitBoundsOptions: {
-              padding: preview
-                ? PREVIEW_PADDING
-                : { top: 80, left: 48, right: 48, bottom: bottomPadding },
-            },
+            bounds,
+            fitBoundsOptions: { padding: fitPadding() },
             ...(preview && { interactive: false }),
             minZoom: 3,
             maxZoom: 17,
@@ -590,20 +615,29 @@ export function MapView({
         };
         frame = requestAnimationFrame(tick);
 
+        // Until the camera first follows the bird it shows the whole route,
+        // refitted whenever the header or card changes height.
+        let followed = false;
         const follow = (always: boolean) => {
           const p = where();
           if (preview || !followRef.current) return;
-          if (!always && !nearEdge(m, p)) return;
+          if (!always && !nearEdge(m, p, insetsRef.current)) return;
+          followed = true;
           m.easeTo({
             center: [p.lon, p.lat],
             zoom: zoomForDistance(distanceMi * (1 - p.frac)),
             offset: [-Math.sin(bearing) * LEAD_PX, Math.cos(bearing) * LEAD_PX],
+            padding: { ...insetsRef.current, left: 0, right: 0 },
             duration: 1500,
           });
         };
         timer = setInterval(() => follow(false), FOLLOW_EVERY_MS);
         if (preview) return;
         recentre.current = () => follow(true);
+        refit.current = () => {
+          if (followed || !followRef.current) return;
+          m.fitBounds(bounds, { padding: fitPadding(), duration: 300 });
+        };
 
         const stopFollowing = (e: { originalEvent?: unknown }) => {
           if (!e.originalEvent) return;
@@ -629,6 +663,7 @@ export function MapView({
       cancelAnimationFrame(frame);
       clearInterval(timer);
       recentre.current = () => {};
+      refit.current = () => {};
       for (const m of markers) m.remove();
       mounted?.dispose();
       mapRef.current = null;
@@ -642,7 +677,6 @@ export function MapView({
     plan,
     distanceMi,
     offsetMs,
-    bottomPadding,
     loftAt,
     preview,
     mapLabel,
@@ -657,6 +691,7 @@ export function MapView({
   return (
     <div
       className={styles.frame}
+      data-preview={preview || undefined}
       style={
         {
           position: "relative",

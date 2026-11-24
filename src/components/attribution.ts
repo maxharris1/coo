@@ -7,17 +7,27 @@ import type { Map as MapLibreMap } from "maplibre-gl";
  */
 export const ATTRIBUTION_OPEN_MS = 5000;
 
+/**
+ * The longest the credit stays open if the map never reports drawing (a map
+ * that keeps changing may never fire `load`): twice the open time from creation.
+ */
+export const ATTRIBUTION_FALLBACK_MS = 2 * ATTRIBUTION_OPEN_MS;
+
 type MapEvents = Pick<MapLibreMap, "on" | "off">;
 type Root = { querySelector?: ParentNode["querySelector"] };
 
 const COMPACT = ".maplibregl-ctrl-attrib.maplibregl-compact";
 const SHOWN = "maplibregl-compact-show";
+const DRAWN = ["styledata", "idle", "load"] as const;
 
 /**
  * Shows MapLibre's compact attribution open when the map first draws, then
  * folds it to its (i) button after `afterMs` or on the first pan, zoom or tap,
- * whichever comes first. It folds once: a tap on (i) reopens it for good, and a
- * style swap does not reopen it. Returns a function that stops the timer and
+ * whichever comes first. "First draws" is the first `styledata`, `idle` or
+ * `load`, whichever comes first, because a busy map may never fire `load`; a
+ * plain fallback folds it `2 × afterMs` after this is called in any case. It
+ * folds once: a tap on (i) reopens it for good, and a style swap does not
+ * reopen it or restart the timer. Returns a function that stops the timers and
  * the listeners.
  */
 export function collapseAttributionSoon(
@@ -26,6 +36,7 @@ export function collapseAttributionSoon(
   afterMs: number = ATTRIBUTION_OPEN_MS,
 ): () => void {
   let timer: ReturnType<typeof setTimeout> | undefined;
+  const fallback = setTimeout(() => request(), 2 * afterMs);
   let wanted = false;
   let stopped = false;
 
@@ -45,11 +56,11 @@ export function collapseAttributionSoon(
   const onMove = (e: { originalEvent?: unknown }) => {
     if (e.originalEvent) request();
   };
-  const onLoad = () => {
+  const onDraw = () => {
     if (!stopped && timer === undefined) timer = setTimeout(request, afterMs);
   };
 
-  map.on("load", onLoad);
+  for (const e of DRAWN) map.on(e, onDraw);
   map.on("movestart", onMove);
   map.on("click", request);
   map.on("data", fold);
@@ -58,7 +69,8 @@ export function collapseAttributionSoon(
     if (stopped) return;
     stopped = true;
     clearTimeout(timer);
-    map.off("load", onLoad);
+    clearTimeout(fallback);
+    for (const e of DRAWN) map.off(e, onDraw);
     map.off("movestart", onMove);
     map.off("click", request);
     map.off("data", fold);

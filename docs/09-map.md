@@ -36,7 +36,8 @@ from Fable's proposed style and fixed against the live tiles (see the tile check
 Three looks:
 
 - **Regional (zoom 12 and below):** flat green land (woods and grass at half strength from zoom 8
-  to 11, so small patches don't mottle it; full strength at 7 and below and from 13), pale-blue water with an ink outline and the
+  to 11, so small patches don't mottle it; full strength at 7 and below and from 13), pale-blue water with an ink outline (thin, under 1 pt, from zoom 7 to 10 so small ponds and
+  marshes stay blue rather than ink blobs; 1.5 pt at 5 to 6, growing to 2.5 pt by 12) and the
   `coo:wave-pattern` squiggle tile on sea, lakes and ponds (not rivers or pools), ink-outlined
   blue rivers from zoom 8, a pine (`coo:tree-pine`) on each wood from zoom 7 to 13, a mountain
   (`coo:mountain`) on each `mountain_peak` with `class` `peak`, `ele` of 500 m or more and
@@ -48,7 +49,8 @@ Three looks:
   ink at 30%) between cream streets with ink casings, city parks (`landcover` `grass` /
   `park`) in green with a 2 pt ink outline and, from zoom 16, one round tree
   (`coo:tree-round`) each (earlier they sprinkled every pocket park), street names in capitals
-  from 15, park names from 15, and shop pills from 15.5.
+  from 14 (8 pt at 14, 9 at 15, 11 at 17, along the line every 300 pt), park names from 15, and
+  shop pills from 15.5.
 - **Protected areas** (`park` source layer) are tinted only from zoom 12, and only the classes
   that read as a park (`national_park`, `nature_reserve`, `regional_park`, `State Park`, `Park`),
   with a round tree each from 14 and no outline. Public lands, forests, game lands, refuges and
@@ -80,12 +82,13 @@ The regional mocks show almost no roads, so:
   towns of `rank` 8 or less (the bigger ones), towns not before 9; every city and town from 11;
   villages and suburbs from 12, neighbourhoods from 13, none from 15. Countries only below
   zoom 5, states and provinces up to 8.
-- Built-up areas from zoom 9, fading in to full strength by 11.
+- Built-up areas fade in from zoom 8 (80% by 9, full strength by 11).
 
 Points of interest are allowed for exactly two things: park names (`poi` `class` `park`) and
 generic shop pills. A shop pill is the `coo:place-pill` icon stretched round a fixed UPPERCASE
 word chosen by `subclass`, never the shop's name: COFFEE (`cafe`), BAKERY (`bakery`), ICE CREAM
-(`ice_cream`), DELI (`deli`), BOOKS (`books`) and PETS (`pet`), 60 pt apart. No other POIs, no
+(`ice_cream`), DELI (`deli`), BOOKS (`books`) and PETS (`pet`), 120 pt apart so only one to
+three show on a street-zoom screen. No other POIs, no
 transit, no house numbers, no airports, no 3D.
 
 ### Labels
@@ -93,8 +96,8 @@ transit, no house numbers, no airports, no 3D.
 Labels stay in the fonts the glyph server has (`Noto Sans Bold`, `Italic`, `Regular`) until
 Nunito glyphs are built and served from this app. State names: Bold capitals, letter spacing
 0.22 em, 10 to 12 pt, ink at 50%. Sea and lake names: Italic capitals, 0.3 em, ink at 50%. City
-names: Bold as written, 11 to 13 pt, ink, beside their dot. Street names: Bold capitals, 0.08
-em. Every label that sits on the map keeps a cream halo (`#4A4380` at night).
+names: Bold as written, 11 to 13 pt, ink, beside their dot. Street names: Bold capitals, 0.04 em at
+zoom 14 widening to 0.08 em by 16. Every label that sits on the map keeps a cream halo (`#4A4380` at night).
 
 ### Attribution
 
@@ -103,19 +106,27 @@ is shown by MapLibre's compact attribution control. It is a licence requirement 
 ODbL, OpenMapTiles CC-BY), so it is never hidden or removed. Following the OSMF attribution
 guidelines for interactive maps, the credit is open in full when the map first draws and folds
 to a small (i) button after 5 seconds or on the first pan, zoom or tap, whichever comes first
-(`collapseAttributionSoon` in `src/components/attribution.ts`). Tapping (i) reopens it, and once
+(`collapseAttributionSoon` in `src/components/attribution.ts`). The 5 seconds start at the first
+`styledata`, `idle` or `load`, because a tracker map that keeps moving the bird may never fire
+`load`, and a plain 10-second fallback from the map's creation folds it in any case. Tapping (i) reopens it, and once
 a reader has opened it nothing folds it again; a day/night style swap does not reopen or fold
 it. The control is restyled in `MapView.module.css` as a small cream card with a thin ink
 outline, a 44 pt tap target round the (i), and a visible keyboard focus ring. `MapView` lifts
-the bottom map controls by its `controlsBottom` (the height of the card over the map: the
-tracker and the job tracker pass their card height), so the credit sits just above the card, in
-the corner the camera keeps clear of the bird. This is separate from `bottomPadding`, the
+the bottom map controls by its `controlsBottom` (the height of the card over the map), so the
+credit sits just above the card, in the corner the camera keeps clear of the bird. The tracker
+and the job tracker measure their card and header with a `ResizeObserver` (`useMapInsets`) and
+pass the card's height as both `controlsBottom` and `bottomPadding`, and the header's bottom edge
+plus room for a pin as `topPadding`. When either changes (a new flight-log line, day to night)
+the map refits the route on the same map, until the camera first follows the bird or the reader
+pans; following keeps the bird inside the part of the map the card and header leave clear. This is separate from `bottomPadding`, the
 camera padding, so the guest page's 24 px padding leaves its credit at the bottom edge.
 `/dev/map` shows the credit open all the time.
 
 Preview maps (the flights list and odd-job cards) sit inside a link and cannot be panned, so
 their credit stays open and never folds (`keepCreditOpen`): a tap on it neither toggles (i) nor
-follows the card's link, while the credit's own links still open. Screen readers keep the
+follows the card's link, while the credit's own links still open. In the 140 px box it is one
+line of 9 pt text with no (i), and the camera fit leaves 46 pt above the route for the loft pin
+and 34 pt below it for the credit, so both pins show. Screen readers keep the
 credit everywhere: a preview hides only MapLibre's canvas container (the map picture and its
 markers) with `aria-hidden`, and the guest page names that same container as its `role="img"`
 picture (`mapLabel`), so the credit is never inside a hidden or image element.

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Bird, type GearId, type Look } from "@/components/Bird";
 import { MapView, type MapViewProps } from "@/components/MapView";
+import { useMapInsets } from "@/components/useMapInsets";
 import { isDaylight, positionAt } from "@/lib/flight/engine";
 import { fuzzyWhen } from "@/lib/format";
 import { type JobLegs, jobLegs, legAt } from "@/lib/game/jobDest";
@@ -33,7 +34,8 @@ export type JobTrackerView =
 
 const HEADLINES = { out: "On an odd job", back: "Heading home" } as const;
 const YOUR_LOFT = "Your loft";
-const CARD_PX = 200;
+/** Until the card and header are measured. */
+const INSETS = { top: 80, bottom: 200 };
 
 export function jobView(
   job: JobView,
@@ -109,6 +111,7 @@ export function JobTracker({
     [job],
   );
   const view = jobView(job, legs, nowMs, timeZone);
+  const { cardRef, headerRef, insets } = useMapInsets(INSETS);
 
   useEffect(() => {
     const timer = setInterval(() => setNowMs(Date.now() + offsetMs), 1000);
@@ -128,7 +131,7 @@ export function JobTracker({
   }
 
   const card = (
-    <div className={styles.card}>
+    <div ref={cardRef} className={styles.card}>
       <div className={styles.who}>
         <Avatar job={job} />
         <div className={styles.words}>
@@ -152,11 +155,12 @@ export function JobTracker({
           {...view.map}
           bird={job.bird}
           offsetMs={offsetMs}
-          bottomPadding={CARD_PX}
-          controlsBottom={CARD_PX}
+          topPadding={insets.top}
+          bottomPadding={insets.bottom}
+          controlsBottom={insets.bottom}
         />
       </div>
-      <header className={styles.top}>
+      <header ref={headerRef} className={styles.top}>
         <Link href="/earn" aria-label="Back to Earn" className={styles.back}>
           <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
             <path

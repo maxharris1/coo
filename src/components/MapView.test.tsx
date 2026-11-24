@@ -18,7 +18,7 @@ import {
   stubBrowser,
   stubStyle,
 } from "@/test/fakeMapLibre";
-import { ATTRIBUTION_OPEN_MS } from "./attribution";
+import { ATTRIBUTION_FALLBACK_MS, ATTRIBUTION_OPEN_MS } from "./attribution";
 import { Bird } from "./Bird";
 import { STOCK_STYLE } from "./mapStyle";
 import {
@@ -218,8 +218,8 @@ describe("the map preview variant (#901 ac-1)", () => {
     expect(map.options.interactive, "no pan or zoom").toBe(false);
     expect(map.options.attributionControl).toEqual({ compact: true });
     expect(map.options.bounds, "fitted to the route").toBeDefined();
-    expect(map.options.fitBoundsOptions).toEqual({
-      padding: { top: 16, left: 16, right: 16, bottom: 16 },
+    expect(map.options.fitBoundsOptions, "room for pins and credit").toEqual({
+      padding: { top: 46, left: 24, right: 24, bottom: 34 },
     });
   });
 
@@ -248,6 +248,25 @@ describe("the map preview variant (#901 ac-1)", () => {
     expect(html).not.toContain("Your loft");
     expect(html).not.toContain(">Philly<");
     expect(html).not.toContain("Find");
+  });
+
+  it("shrinks the open credit to one small line with no (i)", () => {
+    const html = renderToStaticMarkup(
+      <MapView {...props({ preview: true })} />,
+    );
+    expect(html).toContain('data-preview="true"');
+    const css = readFileSync(
+      join(process.cwd(), "src/components/MapView.module.css"),
+      "utf8",
+    );
+    const rule = css.match(
+      /\.frame\[data-preview\] :global\(\.maplibregl-ctrl-attrib\.maplibregl-compact\),[^{]*\{([^}]*)\}/,
+    )?.[1];
+    expect(rule).toContain("white-space: nowrap");
+    expect(rule).toContain("font: 700 9px/16px var(--coo-font-body)");
+    expect(css).toMatch(
+      /\.frame\[data-preview\] :global\(\.maplibregl-ctrl-attrib-button\) \{\s*display: none;/,
+    );
   });
 
   it("hides the picture from assistive tech but not the map credit", async () => {
@@ -331,6 +350,37 @@ describe("the tracker map without preview stays as it was (#901 ac-1)", () => {
     expect(map.handlers.zoomstart).toHaveLength(1);
     vi.advanceTimersByTime(5000);
     expect(map.eased, "follows a bird near the edge").toBe(1);
+  });
+
+  it("keeps the header's room at the top when given one", async () => {
+    const { map } = await mounted(props({ topPadding: 120 }));
+    expect(map.options.fitBoundsOptions).toEqual({
+      padding: { top: 120, left: 48, right: 48, bottom: 260 },
+    });
+  });
+
+  it("refits the route to a card that changes height, on the same map", async () => {
+    const p = props();
+    const { map } = await mounted(p);
+    renderWithEffects(MapView, { ...p, bottomPadding: 329, topPadding: 96 });
+    expect(maps, "not rebuilt").toHaveLength(1);
+    expect(map.fitted).toEqual([
+      {
+        bounds: map.options.bounds,
+        options: {
+          padding: { top: 96, bottom: 329, left: 48, right: 48 },
+          duration: 300,
+        },
+      },
+    ]);
+  });
+
+  it("leaves the camera alone once it follows the bird or the reader pans", async () => {
+    const p = props();
+    const { map } = await mounted(p);
+    map.fire("dragstart", { originalEvent: {} });
+    renderWithEffects(MapView, { ...p, bottomPadding: 329 });
+    expect(map.fitted).toEqual([]);
   });
 
   it("names the picture, not the credit beside it, when given a map label", async () => {
@@ -1295,6 +1345,21 @@ describe("the map credit (OSMF attribution guidelines)", () => {
     });
     resetFakes();
     expect(frame.listeners, "removed when the map closes").toEqual([]);
+  });
+
+  it("folds even when load never fires, as on a busy tracker map", async () => {
+    // No load, styledata or idle is fired here; the exact timing is pinned
+    // in attribution.test.ts (waitFor in mounted() moves fake time).
+    const { credit } = await withCredit();
+    vi.advanceTimersByTime(ATTRIBUTION_FALLBACK_MS);
+    expect(credit.shown).toBe(false);
+  });
+
+  it("folds five seconds after the style first draws", async () => {
+    const { map, credit } = await withCredit();
+    map.fire("styledata");
+    vi.advanceTimersByTime(ATTRIBUTION_OPEN_MS);
+    expect(credit.shown).toBe(false);
   });
 
   it("stays folded through a night style swap and leaves (i) to reopen it", async () => {

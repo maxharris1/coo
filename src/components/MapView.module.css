@@ -98,3 +98,23 @@
   outline: 2px solid var(--coo-ink);
   outline-offset: 2px;
 }
+
+/*
+ * A preview (140 px, inside a card link) keeps its credit open: one short
+ * line of small text with no (i), so it never covers the pins.
+ */
+.frame[data-preview] :global(.maplibregl-ctrl-attrib.maplibregl-compact),
+.frame[data-preview] :global(.maplibregl-ctrl-attrib.maplibregl-compact-show) {
+  min-height: 16px;
+  max-width: calc(100% - 8px);
+  margin: 4px;
+  padding: 0 8px;
+  overflow: hidden;
+  font: 700 9px/16px var(--coo-font-body);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.frame[data-preview] :global(.maplibregl-ctrl-attrib-button) {
+  display: none;
+}

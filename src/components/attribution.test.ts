@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ATTRIBUTION_OPEN_MS, collapseAttributionSoon } from "./attribution";
+import {
+  ATTRIBUTION_FALLBACK_MS,
+  ATTRIBUTION_OPEN_MS,
+  collapseAttributionSoon,
+} from "./attribution";
 
 type Handler = (e: { originalEvent?: unknown }) => void;
 
@@ -84,6 +88,42 @@ describe("the map credit", () => {
     vi.advanceTimersByTime(1);
     expect(control().shown, "folded at 5 s").toBe(false);
     expect(control().classes.has("maplibregl-compact"), "(i) stays").toBe(true);
+  });
+
+  it("starts the five seconds on the first styledata when load never fires", () => {
+    const { map, control } = setup();
+    vi.advanceTimersByTime(1000);
+    map.fire("styledata");
+    vi.advanceTimersByTime(ATTRIBUTION_OPEN_MS - 1);
+    expect(control().shown, "open five seconds from the first draw").toBe(true);
+    vi.advanceTimersByTime(1);
+    expect(control().shown, "folded").toBe(false);
+  });
+
+  it("starts the five seconds on the first idle too", () => {
+    const { map, control } = setup();
+    map.fire("idle");
+    vi.advanceTimersByTime(ATTRIBUTION_OPEN_MS);
+    expect(control().shown).toBe(false);
+  });
+
+  it("folds after the fallback even if the map reports nothing", () => {
+    const { control } = setup();
+    expect(ATTRIBUTION_FALLBACK_MS).toBe(2 * ATTRIBUTION_OPEN_MS);
+    vi.advanceTimersByTime(ATTRIBUTION_FALLBACK_MS - 1);
+    expect(control().shown).toBe(true);
+    vi.advanceTimersByTime(1);
+    expect(control().shown).toBe(false);
+  });
+
+  it("does not restart the five seconds when the style reloads", () => {
+    const { map, control } = setup();
+    map.fire("styledata");
+    vi.advanceTimersByTime(4000);
+    map.fire("styledata");
+    map.fire("load");
+    vi.advanceTimersByTime(1000);
+    expect(control().shown, "folded five seconds after the first").toBe(false);
   });
 
   it("folds at once on the first pan or zoom by the user", () => {

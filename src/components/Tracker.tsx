@@ -16,6 +16,7 @@ import { MapView, birdState, type BirdState, type LoftAt } from "./MapView";
 import styles from "./Tracker.module.css";
 import { TrackerDelay } from "./TrackerDelay";
 import { TrackerEarn } from "./TrackerEarn";
+import { useMapInsets } from "./useMapInsets";
 
 type TrackerState = BirdState;
 type Stat = { value: string; label: string };
@@ -73,7 +74,8 @@ const ROOSTS = ["A barn", "A water tower", "A ledge"];
 const COUNTS = ["one", "two", "three", "four", "five", "six", "seven"];
 const TICK_MS = 10_000;
 const SHORT_FLIGHT_MS = 10 * 60_000;
-const CARD_PX = 260;
+/** Until the card and header are measured. */
+const INSETS = { top: 80, bottom: 260 };
 
 function position(
   flight: Flight,
@@ -309,6 +311,7 @@ export function Tracker({
 }) {
   const [nowMs, setNowMs] = useState(() => Date.now() + offsetMs);
   const view = trackerView(flight, nowMs, timeZone, units);
+  const { cardRef, headerRef, insets } = useMapInsets(INSETS);
 
   useEffect(() => {
     const timer = setInterval(() => setNowMs(Date.now() + offsetMs), TICK_MS);
@@ -333,8 +336,9 @@ export function Tracker({
             distanceMi={totalMi(flight)}
             bird={flight.bird}
             offsetMs={offsetMs}
-            bottomPadding={CARD_PX}
-            controlsBottom={CARD_PX}
+            topPadding={insets.top}
+            bottomPadding={insets.bottom}
+            controlsBottom={insets.bottom}
             night={view.night}
             loftLabel={view.loftLabel}
             sillLabel={view.sillLabel}
@@ -344,7 +348,7 @@ export function Tracker({
           />
         )}
       </div>
-      <header className={styles.top}>
+      <header ref={headerRef} className={styles.top}>
         <Link
           href="/flights"
           aria-label="Back to flights"
@@ -380,7 +384,7 @@ export function Tracker({
           </span>
         </div>
       </header>
-      <div className={styles.card}>
+      <div ref={cardRef} className={styles.card}>
         <div className={styles.handle} aria-hidden="true" />
         <div className={styles.who}>
           <span className={styles.avatar}>
