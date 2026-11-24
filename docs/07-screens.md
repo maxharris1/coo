@@ -30,17 +30,23 @@ flying."; the seed balance; an
 "Incoming" card for each bird headed to me (tap → tracker); "Your flock" with one row per bird:
 avatar, name, one status line, a status chip (Ready, Flying, Resting, Scheduled, On a sill, On a
 job) or a "Feed me" button when hungry; "n of m perches"; a link to the post office (More).
-Rows tap to the bird's page. The loft scene is a rooftop with one perch plank per owned perch:
-three on the parapet beside the coop, and at four or five perches an upper rack that holds the 4th
-and 5th, which makes the scene taller. Birds take perches in hatch order (the flock list order),
-one bird per perch, so a new hatchling never moves anyone. An awake home bird (napping and bathing
-count as home) sits on its own perch; a tired one sleeps in the coop and a bird away shows as the
-OUT tag, and both leave their perch bare, as does any perch no bird holds. Each bird drawn in the
-loft also taps to that bird's page. The scene moves gently: every cloud drifts across the sky at
-its own few pixels a second and wraps around, and each perched bird plays a one-shot idle (hop,
+Rows tap to the bird's page. The loft scene at the top of the screen is one yellow house on a
+rooftop, drawn as `docs/17-loft-scene.md` specifies; that document has the sizes, colours, times
+of day and motion. Every owned perch is a room on the front of the house, three rooms to a floor,
+filled bottom-left first. Three perches make one floor; at four or five perches a second floor
+two rooms wide sits on top, which makes the house taller. Bird `i` in flock order owns room `i`,
+so a new hatchling never moves anyone. An awake home bird (napping and bathing count as home) sits
+on its room's perch. A tired or napping bird, and every home bird once the sun is down, sleeps on
+its own perch in the `sleep` pose. A bird away (flying, on a sill, on a job, scheduled) leaves one
+feather on its perch in its wing colour. A free room holds a suitcase while a roommate is owed
+(tap → `/aviary/roommate`), then an egg in a nest when one is due (tap → `/aviary`), otherwise a
+bare perch. With four perches the fifth room is built but not bought and hangs a "TO LET" sign
+(tap → `/shop`). Each room with a bird, home or away, taps to that bird's page. The scene moves
+gently: the clouds drift slowly back and forth, and each awake bird plays a one-shot idle (hop,
 preen, ruffle, look around, wing stretch, coo bob) on its own timer with rests of several seconds
-between, never leaving its perch. With reduced motion on, all of it is off (still clouds, still
-birds, no idle timers). While the tab is hidden the scene pauses and its timers stop. "Feed me" feeds in place. Empty perches show as dashed
+between, never leaving its perch. Sleeping birds play no idles. With reduced motion on, all of it
+is off (still clouds, still birds, no idle timers). While the tab is hidden the scene pauses and
+its timers stop. "Feed me" feeds in place. Empty perches show as dashed
 slots. While a roommate is owed, the first says "A roommate is waiting" (tap → `/aviary/roommate`).
 A ready egg takes the next empty slot: "An egg is ready" (tap → `/aviary`).
 
