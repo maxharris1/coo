@@ -4,6 +4,8 @@ import type { ReactElement, ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FlightInput, FlightPlan } from "@/lib/flight/engine";
 import type { Flight } from "@/server/services/flights/shape";
+import { STOCK_STYLE } from "./mapStyle";
+import { stubStyle, styleFailures, styleLoads } from "@/test/fakeMapLibre";
 import { Bird } from "./Bird";
 import { MapView } from "./MapView";
 import { Tracker } from "./Tracker";
@@ -17,7 +19,7 @@ beforeEach(() => {
 });
 
 const NIGHT_STYLE = "/map/coo-night.style.json";
-const DAY_STYLE = "https://tiles.openfreemap.org/styles/liberty";
+const DAY_STYLE = "/map/coo-day.style.json";
 
 const lib = vi.hoisted(() => {
   type Effect = { deps?: unknown[]; cleanup?: (() => void) | void };
@@ -41,6 +43,9 @@ const lib = vi.hoisted(() => {
     }
     on(event: string, fn: (e: object) => void) {
       (this.handlers[event] ??= []).push(fn);
+      return this;
+    }
+    off() {
       return this;
     }
     fire(event: string) {
@@ -108,6 +113,11 @@ vi.mock("maplibre-gl", () => ({
   Marker: lib.FakeMarker,
   LngLatBounds: lib.FakeBounds,
   setWorkerUrl: () => {},
+}));
+
+vi.mock("@/components/mapStyle", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/components/mapStyle")>()),
+  ...(await import("@/test/fakeMapLibre")).fakeMapStyle,
 }));
 
 vi.mock("react", async (importOriginal) => ({
@@ -224,6 +234,8 @@ beforeEach(() => {
   lib.hooks.effects = [];
   lib.maps.length = 0;
   lib.markers.length = 0;
+  styleLoads.length = 0;
+  styleFailures.clear();
   vi.stubGlobal("requestAnimationFrame", () => 1);
   vi.stubGlobal(
     "ResizeObserver",
@@ -246,7 +258,10 @@ describe("the tracker map on the Chicago vector (ac-2)", () => {
     vi.setSystemTime(Date.parse("2026-11-20T02:00:00-05:00"));
     renderTracker(chicago());
     const map = await mapCreated();
-    expect(map.options.style, "initial style at 2 am").toBe(NIGHT_STYLE);
+    expect(styleLoads, "loaded through loadMapStyle").toEqual([NIGHT_STYLE]);
+    expect(map.options.style, "initial style at 2 am").toEqual(
+      stubStyle(NIGHT_STYLE),
+    );
   });
 
   it("switches to the night style when the sun sets on an open map", async () => {
@@ -254,19 +269,56 @@ describe("the tracker map on the Chicago vector (ac-2)", () => {
     vi.setSystemTime(Date.parse("2026-11-19T12:00:00-05:00"));
     renderTracker(flight);
     const map = await mapCreated();
-    expect(map.options.style, "initial style at noon").toBe(DAY_STYLE);
+    expect(map.options.style, "initial style at noon").toEqual(
+      stubStyle(DAY_STYLE),
+    );
     expect(map.styles, "no style change while it stays light").toEqual([]);
 
     vi.setSystemTime(Date.parse("2026-11-20T02:00:00-05:00"));
     renderTracker(flight);
-    expect(
-      map.styles.map((s) => s.style),
-      "style requests at 2 am",
-    ).toEqual([NIGHT_STYLE]);
+    await vi.waitFor(() => expect(map.styles).toHaveLength(1));
+    expect(styleLoads, "both loaded through loadMapStyle").toEqual([
+      DAY_STYLE,
+      NIGHT_STYLE,
+    ]);
+    expect(map.styles, "style swap at 2 am").toEqual([
+      { style: stubStyle(NIGHT_STYLE), options: { diff: false } },
+    ]);
     expect(lib.maps.length, "the same map is restyled, not rebuilt").toBe(1);
 
     map.fire("style.load");
     expect(map.layers, "route redrawn on the night style").toEqual([
+      "route-left",
+      "route-flown-casing",
+      "route-flown",
+    ]);
+  });
+
+  it("drops a night style that arrives after the sun is back up", async () => {
+    const flight = chicago();
+    vi.setSystemTime(Date.parse("2026-11-19T12:00:00-05:00"));
+    renderTracker(flight);
+    const map = await mapCreated();
+    vi.setSystemTime(Date.parse("2026-11-20T02:00:00-05:00"));
+    renderTracker(flight);
+    vi.setSystemTime(Date.parse("2026-11-20T12:00:00-05:00"));
+    renderTracker(flight);
+    expect(styleLoads).toEqual([DAY_STYLE, NIGHT_STYLE, DAY_STYLE]);
+    await vi.waitFor(() => expect(map.styles).toHaveLength(1));
+    expect(
+      map.styles.map((s) => s.style),
+      "night dropped",
+    ).toEqual([stubStyle(DAY_STYLE)]);
+  });
+
+  it("falls back to the stock style when ours will not load", async () => {
+    styleFailures.add(DAY_STYLE);
+    vi.setSystemTime(Date.parse("2026-11-19T12:00:00-05:00"));
+    renderTracker(chicago());
+    const map = await mapCreated();
+    expect(map.options.style).toBe(STOCK_STYLE);
+    map.fire("style.load");
+    expect(map.layers, "route still drawn").toEqual([
       "route-left",
       "route-flown-casing",
       "route-flown",

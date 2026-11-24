@@ -2,6 +2,7 @@
 
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
+import { MAP_STYLES, loadMapStyle } from "@/components/mapStyle";
 import { mountMap, type MountedMap } from "@/components/mountMap";
 import { MODE_LABELS, type View } from "./views";
 import styles from "./page.module.css";
@@ -14,23 +15,27 @@ export function DevMap({ place, zoom, mode }: View) {
   useEffect(() => {
     let mounted: MountedMap | null = null;
     let cancelled = false;
-    void import("maplibre-gl").then((lib) => {
-      if (cancelled || !container.current) return;
-      setErrors(0);
-      mounted = mountMap(
-        lib,
-        container.current,
-        {
-          style: `/map/coo-${mode}.style.json`,
-          center: [lon, lat],
-          zoom,
-          minZoom: 3,
-          maxZoom: 17,
-        },
-        { compact: false },
-      );
-      mounted.map.on("error", () => setErrors((n) => n + 1));
-    });
+    void Promise.all([import("maplibre-gl"), loadMapStyle(MAP_STYLES[mode])])
+      .then(([lib, style]) => {
+        if (cancelled || !container.current) return;
+        setErrors(0);
+        mounted = mountMap(
+          lib,
+          container.current,
+          {
+            style,
+            center: [lon, lat],
+            zoom,
+            minZoom: 3,
+            maxZoom: 17,
+          },
+          { compact: false },
+        );
+        mounted.map.on("error", () => setErrors((n) => n + 1));
+      })
+      .catch(() => {
+        if (!cancelled) setErrors((n) => n + 1);
+      });
     return () => {
       cancelled = true;
       mounted?.dispose();

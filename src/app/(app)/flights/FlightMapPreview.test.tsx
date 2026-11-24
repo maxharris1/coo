@@ -24,6 +24,11 @@ vi.mock(
   "maplibre-gl",
   async () => (await import("@/test/fakeMapLibre")).fakeMaplibre,
 );
+vi.mock("@/components/mapStyle", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/components/mapStyle")>()),
+  ...(await import("@/test/fakeMapLibre")).fakeMapStyle,
+}));
+
 vi.mock("react", async (importOriginal) =>
   (await import("@/test/fakeMapLibre")).fakeReact(
     await importOriginal<typeof import("react")>(),

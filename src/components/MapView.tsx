@@ -1,8 +1,19 @@
 "use client";
 
 import "maplibre-gl/dist/maplibre-gl.css";
-import type { GeoJSONSource, Map as MapLibreMap, Marker } from "maplibre-gl";
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import type {
+  GeoJSONSource,
+  Map as MapLibreMap,
+  Marker,
+  StyleSpecification,
+} from "maplibre-gl";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type RefObject,
+} from "react";
 import {
   bearingDeg,
   interpolate,
@@ -11,7 +22,9 @@ import {
   type FlightPlan,
   type LatLon,
 } from "@/lib/flight/engine";
+import { collapseAttributionSoon } from "./attribution";
 import { Bird, type GearId, type Look, type Pose } from "./Bird";
+import { MAP_STYLES, STOCK_STYLE, loadMapStyle } from "./mapStyle";
 import styles from "./MapView.module.css";
 import { mountMap, type MountedMap } from "./mountMap";
 import { bubbleSide, startBubble } from "./speechBubble";
@@ -68,10 +81,7 @@ export const ZOOM_BANDS: readonly { underMi: number; zoom: number }[] = [
 ];
 export const FAR_ZOOM = 4.5;
 
-const MAP_STYLES = {
-  day: "https://tiles.openfreemap.org/styles/liberty",
-  night: "/map/coo-night.style.json",
-} as const;
+type StylePath = (typeof MAP_STYLES)[keyof typeof MAP_STYLES];
 const INK = "#2A2140";
 const TOMATO = "#F4623F";
 const DOT_WIDTH = 3.5;
@@ -226,6 +236,26 @@ export function dotsStart(
   return Math.min(at + (DOT_GAP_PX / px) * step, 1);
 }
 
+/** Our style with its sprite made absolute, or the stock style if it fails. */
+function resolveStyle(path: StylePath): Promise<StyleSpecification | string> {
+  return loadMapStyle(path).catch(() => STOCK_STYLE);
+}
+
+/**
+ * Restyles the open map in place, so the route, pins and bird stay put. A
+ * style that resolves after the map closed or after a newer swap is dropped.
+ */
+function swapStyle(
+  m: MapLibreMap,
+  path: StylePath,
+  current: { map: RefObject<MapLibreMap | null>; style: RefObject<StylePath> },
+) {
+  void resolveStyle(path).then((next) => {
+    if (current.map.current !== m || current.style.current !== path) return;
+    m.setStyle(next, { diff: false });
+  });
+}
+
 function nearEdge(map: MapLibreMap, p: LatLon): boolean {
   const { x, y } = map.project([p.lon, p.lat]);
   const { clientWidth: w, clientHeight: h } = map.getContainer();
@@ -267,8 +297,8 @@ export function MapView({
   const followRef = useRef(true);
   const recentre = useRef<() => void>(() => {});
   const [following, setFollowing] = useState(true);
-  const style = MAP_STYLES[night ? "night" : "day"];
-  const styleRef = useRef(style);
+  const style: StylePath = MAP_STYLES[night ? "night" : "day"];
+  const styleRef = useRef<StylePath>(style);
   const mapRef = useRef<MapLibreMap | null>(null);
   const stateRef = useRef(state);
   const markerRef = useRef<Marker | null>(null);
@@ -280,7 +310,8 @@ export function MapView({
   useEffect(() => {
     if (styleRef.current === style) return;
     styleRef.current = style;
-    mapRef.current?.setStyle(style, { diff: false });
+    const m = mapRef.current;
+    if (m) swapStyle(m, style, { map: mapRef, style: styleRef });
   }, [style]);
 
   useEffect(() => {
@@ -332,6 +363,7 @@ export function MapView({
     let timer: ReturnType<typeof setInterval> | undefined;
     let cancelled = false;
     let stopClouds = () => {};
+    let stopCredit = () => {};
     const fracs = routeFractions(distanceMi);
     const now = () => Date.now() + offsetMs;
     const bearing = bearingDeg(from, to) * (Math.PI / 180);
@@ -342,191 +374,199 @@ export function MapView({
           ? { ...to, frac: 1 }
           : positionAt(plan, from, to, now());
 
-    void import("maplibre-gl").then((lib) => {
-      const { Marker, LngLatBounds } = lib;
-      const el = container.current;
-      if (cancelled || !el || !birdEl.current) return;
-      if (!loftEl.current || !sillEl.current) return;
-      mounted = mountMap(
-        lib,
-        el,
-        {
-          style: styleRef.current,
-          bounds: new LngLatBounds(
-            [from.lon, from.lat],
-            [from.lon, from.lat],
-          ).extend([to.lon, to.lat]),
-          fitBoundsOptions: {
-            padding: preview
-              ? PREVIEW_PADDING
-              : { top: 80, left: 48, right: 48, bottom: bottomPadding },
+    const firstStyle = styleRef.current;
+    void Promise.all([import("maplibre-gl"), resolveStyle(firstStyle)]).then(
+      ([lib, loadedStyle]) => {
+        const { Marker, LngLatBounds } = lib;
+        const el = container.current;
+        if (cancelled || !el || !birdEl.current) return;
+        if (!loftEl.current || !sillEl.current) return;
+        mounted = mountMap(
+          lib,
+          el,
+          {
+            style: loadedStyle,
+            bounds: new LngLatBounds(
+              [from.lon, from.lat],
+              [from.lon, from.lat],
+            ).extend([to.lon, to.lat]),
+            fitBoundsOptions: {
+              padding: preview
+                ? PREVIEW_PADDING
+                : { top: 80, left: 48, right: 48, bottom: bottomPadding },
+            },
+            ...(preview && { interactive: false }),
+            minZoom: 3,
+            maxZoom: 17,
+            maxPitch: 0,
+            dragRotate: false,
+            pitchWithRotate: false,
+            touchPitch: false,
           },
-          ...(preview && { interactive: false }),
-          minZoom: 3,
-          maxZoom: 17,
-          maxPitch: 0,
-          dragRotate: false,
-          pitchWithRotate: false,
-          touchPitch: false,
-        },
-        { compact: true },
-      );
-      const m = mounted.map;
-      mapRef.current = m;
-      m.touchZoomRotate.disableRotation();
-      m.keyboard.disableRotation();
+          { compact: true },
+        );
+        const m = mounted.map;
+        mapRef.current = m;
+        stopCredit = collapseAttributionSoon(m, el);
+        if (styleRef.current !== firstStyle) {
+          swapStyle(m, styleRef.current, { map: mapRef, style: styleRef });
+        }
+        m.touchZoomRotate.disableRotation();
+        m.keyboard.disableRotation();
 
-      const [loftPin, sillPin] = loftAt === "to" ? [to, from] : [from, to];
-      const loft = new Marker({ element: loftEl.current, anchor: "bottom" })
-        .setLngLat([loftPin.lon, loftPin.lat])
-        .addTo(m);
-      const sill = new Marker({ element: sillEl.current, anchor: "bottom" })
-        .setLngLat([sillPin.lon, sillPin.lat])
-        .addTo(m);
-      const start = where();
-      const marker = new Marker({ element: birdEl.current })
-        .setLngLat([start.lon, start.lat])
-        .addTo(m);
-      markers = [loft, sill, marker];
-      markerRef.current = marker;
+        const [loftPin, sillPin] = loftAt === "to" ? [to, from] : [from, to];
+        const loft = new Marker({ element: loftEl.current, anchor: "bottom" })
+          .setLngLat([loftPin.lon, loftPin.lat])
+          .addTo(m);
+        const sill = new Marker({ element: sillEl.current, anchor: "bottom" })
+          .setLngLat([sillPin.lon, sillPin.lat])
+          .addTo(m);
+        const start = where();
+        const marker = new Marker({ element: birdEl.current })
+          .setLngLat([start.lon, start.lat])
+          .addTo(m);
+        markers = [loft, sill, marker];
+        markerRef.current = marker;
 
-      const clouds = cloudsEl.current;
-      if (!preview && clouds) {
-        m.getCanvas().after(clouds);
-        const showClouds = () => {
-          clouds.style.display =
-            m.getZoom() <= CLOUD_MAX_ZOOM ? "block" : "none";
+        const clouds = cloudsEl.current;
+        if (!preview && clouds) {
+          m.getCanvas().after(clouds);
+          const showClouds = () => {
+            clouds.style.display =
+              m.getZoom() <= CLOUD_MAX_ZOOM ? "block" : "none";
+          };
+          const pauseClouds = () => {
+            clouds.style.animationPlayState = document.hidden
+              ? "paused"
+              : "running";
+          };
+          showClouds();
+          pauseClouds();
+          m.on("zoom", showClouds);
+          document.addEventListener("visibilitychange", pauseClouds);
+          stopClouds = () =>
+            document.removeEventListener("visibilitychange", pauseClouds);
+        }
+
+        const clampLabels = () => {
+          const mapWidth = m.getContainer().clientWidth;
+          for (const [pin, label, cap] of [
+            [loft, loftLabelEl.current, PILL_CAP.loft],
+            [sill, sillLabelEl.current, PILL_CAP.sill],
+          ] as const) {
+            if (!label) continue;
+            const { side, maxWidth } = pinLabelShift({
+              pinX: m.project(pin.getLngLat()).x,
+              pinHalfWidth: PIN_HALF_WIDTH,
+              mapWidth,
+              cap,
+              pad: LABEL_PAD,
+              gap: PIN_GAP,
+            });
+            label.style.left = side === "right" ? PIN_BESIDE : "auto";
+            label.style.right = side === "left" ? PIN_BESIDE : "auto";
+            label.style.maxWidth = `${maxWidth}px`;
+          }
         };
-        const pauseClouds = () => {
-          clouds.style.animationPlayState = document.hidden
-            ? "paused"
-            : "running";
-        };
-        showClouds();
-        pauseClouds();
-        m.on("zoom", showClouds);
-        document.addEventListener("visibilitychange", pauseClouds);
-        stopClouds = () =>
-          document.removeEventListener("visibilitychange", pauseClouds);
-      }
+        if (!preview) {
+          for (const e of ["load", "move", "resize"] as const) {
+            m.on(e, clampLabels);
+          }
+        }
 
-      const clampLabels = () => {
-        const mapWidth = m.getContainer().clientWidth;
-        for (const [pin, label, cap] of [
-          [loft, loftLabelEl.current, PILL_CAP.loft],
-          [sill, sillLabelEl.current, PILL_CAP.sill],
-        ] as const) {
-          if (!label) continue;
-          const { side, maxWidth } = pinLabelShift({
-            pinX: m.project(pin.getLngLat()).x,
-            pinHalfWidth: PIN_HALF_WIDTH,
-            mapWidth,
-            cap,
-            pad: LABEL_PAD,
-            gap: PIN_GAP,
+        const route = (frac: number) =>
+          splitRoute(from, to, fracs, frac, dotsStart(m, from, to, frac));
+
+        m.on("style.load", () => {
+          const { flown, left } = route(where().frac);
+          m.addSource("route-flown", { type: "geojson", data: flown });
+          m.addSource("route-left", { type: "geojson", data: left });
+          m.addLayer({
+            id: "route-left",
+            type: "line",
+            source: "route-left",
+            layout: { "line-cap": "round" },
+            paint: {
+              ...ROUTE_LEFT_PAINT[
+                styleRef.current === MAP_STYLES.night ? "night" : "day"
+              ],
+              "line-width": DOT_WIDTH,
+              "line-dasharray": DOT_DASH,
+            },
           });
-          label.style.left = side === "right" ? PIN_BESIDE : "auto";
-          label.style.right = side === "left" ? PIN_BESIDE : "auto";
-          label.style.maxWidth = `${maxWidth}px`;
-        }
-      };
-      if (!preview) {
-        for (const e of ["load", "move", "resize"] as const) {
-          m.on(e, clampLabels);
-        }
-      }
-
-      const route = (frac: number) =>
-        splitRoute(from, to, fracs, frac, dotsStart(m, from, to, frac));
-
-      m.on("style.load", () => {
-        const { flown, left } = route(where().frac);
-        m.addSource("route-flown", { type: "geojson", data: flown });
-        m.addSource("route-left", { type: "geojson", data: left });
-        m.addLayer({
-          id: "route-left",
-          type: "line",
-          source: "route-left",
-          layout: { "line-cap": "round" },
-          paint: {
-            ...ROUTE_LEFT_PAINT[
-              styleRef.current === MAP_STYLES.night ? "night" : "day"
-            ],
-            "line-width": DOT_WIDTH,
-            "line-dasharray": DOT_DASH,
-          },
+          m.addLayer({
+            id: "route-flown-casing",
+            type: "line",
+            source: "route-flown",
+            layout: { "line-cap": "round", "line-join": "round" },
+            paint: { "line-color": INK, "line-width": 8 },
+          });
+          m.addLayer({
+            id: "route-flown",
+            type: "line",
+            source: "route-flown",
+            layout: { "line-cap": "round", "line-join": "round" },
+            paint: { "line-color": TOMATO, "line-width": 5 },
+          });
         });
-        m.addLayer({
-          id: "route-flown-casing",
-          type: "line",
-          source: "route-flown",
-          layout: { "line-cap": "round", "line-join": "round" },
-          paint: { "line-color": INK, "line-width": 8 },
-        });
-        m.addLayer({
-          id: "route-flown",
-          type: "line",
-          source: "route-flown",
-          layout: { "line-cap": "round", "line-join": "round" },
-          paint: { "line-color": TOMATO, "line-width": 5 },
-        });
-      });
 
-      let drawn = { frac: NaN, zoom: NaN };
-      const drawRoute = (frac: number) => {
-        const flownSource = m.getSource<GeoJSONSource>("route-flown");
-        const leftSource = m.getSource<GeoJSONSource>("route-left");
-        if (!flownSource || !leftSource) return;
-        const zoom = m.getZoom();
-        if (frac === drawn.frac && zoom === drawn.zoom) return;
-        drawn = { frac, zoom };
-        const { flown, left } = route(frac);
-        flownSource.setData(flown);
-        leftSource.setData(left);
-      };
+        let drawn = { frac: NaN, zoom: NaN };
+        const drawRoute = (frac: number) => {
+          const flownSource = m.getSource<GeoJSONSource>("route-flown");
+          const leftSource = m.getSource<GeoJSONSource>("route-left");
+          if (!flownSource || !leftSource) return;
+          const zoom = m.getZoom();
+          if (frac === drawn.frac && zoom === drawn.zoom) return;
+          drawn = { frac, zoom };
+          const { flown, left } = route(frac);
+          flownSource.setData(flown);
+          leftSource.setData(left);
+        };
 
-      const tick = () => {
-        const p = where();
-        marker.setLngLat([p.lon, p.lat]);
-        drawRoute(p.frac);
+        const tick = () => {
+          const p = where();
+          marker.setLngLat([p.lon, p.lat]);
+          drawRoute(p.frac);
+          frame = requestAnimationFrame(tick);
+        };
         frame = requestAnimationFrame(tick);
-      };
-      frame = requestAnimationFrame(tick);
 
-      const follow = (always: boolean) => {
-        const p = where();
-        if (preview || !followRef.current) return;
-        if (!always && !nearEdge(m, p)) return;
-        m.easeTo({
-          center: [p.lon, p.lat],
-          zoom: zoomForDistance(distanceMi * (1 - p.frac)),
-          offset: [-Math.sin(bearing) * LEAD_PX, Math.cos(bearing) * LEAD_PX],
-          duration: 1500,
+        const follow = (always: boolean) => {
+          const p = where();
+          if (preview || !followRef.current) return;
+          if (!always && !nearEdge(m, p)) return;
+          m.easeTo({
+            center: [p.lon, p.lat],
+            zoom: zoomForDistance(distanceMi * (1 - p.frac)),
+            offset: [-Math.sin(bearing) * LEAD_PX, Math.cos(bearing) * LEAD_PX],
+            duration: 1500,
+          });
+        };
+        timer = setInterval(() => follow(false), FOLLOW_EVERY_MS);
+        if (preview) return;
+        recentre.current = () => follow(true);
+
+        const stopFollowing = (e: { originalEvent?: unknown }) => {
+          if (!e.originalEvent) return;
+          followRef.current = false;
+          setFollowing(false);
+        };
+        m.on("dragstart", (e) => {
+          draggingRef.current = true;
+          if (bubbleEl.current) bubbleEl.current.style.display = "none";
+          stopFollowing(e);
         });
-      };
-      timer = setInterval(() => follow(false), FOLLOW_EVERY_MS);
-      if (preview) return;
-      recentre.current = () => follow(true);
-
-      const stopFollowing = (e: { originalEvent?: unknown }) => {
-        if (!e.originalEvent) return;
-        followRef.current = false;
-        setFollowing(false);
-      };
-      m.on("dragstart", (e) => {
-        draggingRef.current = true;
-        if (bubbleEl.current) bubbleEl.current.style.display = "none";
-        stopFollowing(e);
-      });
-      m.on("dragend", () => {
-        draggingRef.current = false;
-      });
-      m.on("zoomstart", stopFollowing);
-    });
+        m.on("dragend", () => {
+          draggingRef.current = false;
+        });
+        m.on("zoomstart", stopFollowing);
+      },
+    );
 
     return () => {
       cancelled = true;
       stopClouds();
+      stopCredit();
       cancelAnimationFrame(frame);
       clearInterval(timer);
       recentre.current = () => {};
@@ -557,7 +597,15 @@ export function MapView({
   return (
     <div
       aria-hidden={preview || undefined}
-      style={{ position: "relative", width: "100%", height: "100%" }}
+      className={styles.frame}
+      style={
+        {
+          position: "relative",
+          width: "100%",
+          height: "100%",
+          "--coo-map-bottom": `${bottomPadding}px`,
+        } as CSSProperties
+      }
     >
       <div ref={container} style={{ position: "absolute", inset: 0 }} />
       <div style={{ display: "none" }}>

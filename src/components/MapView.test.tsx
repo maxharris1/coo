@@ -12,8 +12,11 @@ import {
   nextFrame,
   renderWithEffects,
   resetFakes,
+  styleLoads,
   stubBrowser,
+  stubStyle,
 } from "@/test/fakeMapLibre";
+import { ATTRIBUTION_OPEN_MS } from "./attribution";
 import { Bird } from "./Bird";
 import {
   FAR_ZOOM,
@@ -32,6 +35,11 @@ vi.mock(
   "maplibre-gl",
   async () => (await import("@/test/fakeMapLibre")).fakeMaplibre,
 );
+vi.mock("@/components/mapStyle", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/components/mapStyle")>()),
+  ...(await import("@/test/fakeMapLibre")).fakeMapStyle,
+}));
+
 vi.mock("react", async (importOriginal) =>
   (await import("@/test/fakeMapLibre")).fakeReact(
     await importOriginal<typeof import("react")>(),
@@ -1064,5 +1072,167 @@ describe("clouds drift over the map (#968 ac-4)", () => {
     expect(css).toMatch(
       /@media \(prefers-reduced-motion: reduce\) \{\s*\.lane \{\s*animation: none;/,
     );
+  });
+});
+
+describe("the illustrated day style (#958 ac-6)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"] });
+    vi.setSystemTime(midFlight());
+    stubBrowser(vi);
+  });
+
+  afterEach(() => {
+    resetFakes();
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  it("loads /map/coo-day.style.json through loadMapStyle by day", async () => {
+    const { map } = await mounted(props());
+    expect(styleLoads).toEqual(["/map/coo-day.style.json"]);
+    expect(map.options.style).toEqual(stubStyle("/map/coo-day.style.json"));
+  });
+
+  it("uses the same day style on a preview map", async () => {
+    const { map } = await mounted(props({ preview: true }));
+    expect(map.options.style).toEqual(stubStyle("/map/coo-day.style.json"));
+  });
+
+  it("adds the route layers once the loaded style is in", async () => {
+    const { map } = await mounted(props());
+    expect(map.layers, "nothing before style.load").toEqual([]);
+    map.fire("style.load");
+    expect(map.layers).toEqual([
+      "route-left",
+      "route-flown-casing",
+      "route-flown",
+    ]);
+  });
+});
+
+describe("the map credit (OSMF attribution guidelines)", () => {
+  /** MapLibre's compact control once its text has arrived: open. */
+  class Credit {
+    classes = new Set([
+      "maplibregl-ctrl-attrib",
+      "maplibregl-compact",
+      "maplibregl-compact-show",
+    ]);
+    open = true;
+    classList = {
+      contains: (c: string) => this.classes.has(c),
+      remove: (c: string) => this.classes.delete(c),
+    };
+    removeAttribute(name: string) {
+      if (name === "open") this.open = false;
+    }
+    get shown() {
+      return this.open && this.classes.has("maplibregl-compact-show");
+    }
+  }
+
+  async function withCredit(p: MapViewProps = props()) {
+    const { map } = await mounted(p);
+    const credit = new Credit();
+    Object.assign(map.options.container as object, {
+      querySelector: (sel: string) =>
+        sel === ".maplibregl-ctrl-attrib.maplibregl-compact" ? credit : null,
+    });
+    return { map, credit };
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers({
+      toFake: [
+        "Date",
+        "setInterval",
+        "clearInterval",
+        "setTimeout",
+        "clearTimeout",
+      ],
+    });
+    vi.setSystemTime(midFlight());
+    stubBrowser(vi);
+  });
+
+  afterEach(() => {
+    resetFakes();
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  it("keeps MapLibre's compact attribution with the tiles' own credit", async () => {
+    const { map } = await mounted(props());
+    expect(map.options.attributionControl).toEqual({ compact: true });
+  });
+
+  it("shows the full credit when the map draws, then folds it to (i) after 5 s", async () => {
+    const { map, credit } = await withCredit();
+    map.fire("load");
+    vi.advanceTimersByTime(ATTRIBUTION_OPEN_MS - 1);
+    expect(credit.shown, "open for the first five seconds").toBe(true);
+    vi.advanceTimersByTime(1);
+    expect(credit.shown, "folded").toBe(false);
+    expect(credit.classes.has("maplibregl-compact"), "(i) still there").toBe(
+      true,
+    );
+  });
+
+  it("folds on the first pan or zoom, before the five seconds are up", async () => {
+    const { map, credit } = await withCredit();
+    map.fire("load");
+    map.fire("movestart", { originalEvent: {} });
+    expect(credit.shown).toBe(false);
+  });
+
+  it("folds on a preview map too, which nobody can pan", async () => {
+    const { map, credit } = await withCredit(props({ preview: true }));
+    map.fire("load");
+    vi.advanceTimersByTime(ATTRIBUTION_OPEN_MS);
+    expect(credit.shown).toBe(false);
+  });
+
+  it("stays folded through a night style swap and leaves (i) to reopen it", async () => {
+    const day = props();
+    const { map, credit } = await withCredit(day);
+    map.fire("load");
+    vi.advanceTimersByTime(ATTRIBUTION_OPEN_MS);
+    expect(map.handlers.data ?? [], "stopped listening").toHaveLength(0);
+    renderWithEffects(MapView, { ...day, night: true });
+    await vi.waitFor(() => expect(map.styles).toHaveLength(1));
+    map.fire("style.load");
+    map.fire("data");
+    expect(credit.shown).toBe(false);
+    credit.classes.add("maplibregl-compact-show");
+    credit.open = true;
+    map.fire("movestart", { originalEvent: {} });
+    vi.advanceTimersByTime(ATTRIBUTION_OPEN_MS);
+    expect(credit.shown, "a reader's tap on (i) is left alone").toBe(true);
+  });
+
+  it("clears the timer when the map closes", async () => {
+    const { map, credit } = await withCredit();
+    map.fire("load");
+    resetFakes();
+    expect(map.removed).toBe(true);
+    vi.advanceTimersByTime(ATTRIBUTION_OPEN_MS * 2);
+    expect(credit.shown).toBe(true);
+    expect(vi.getTimerCount(), "no timers left behind").toBe(0);
+  });
+
+  it("lifts the map controls above the bottom card", () => {
+    const html = renderToStaticMarkup(<MapView {...props()} />);
+    expect(html).toMatch(/^(<link[^>]*>)*<div class="[^"]*frame[^"]*"/);
+    expect(html).toContain("--coo-map-bottom:260px");
+    const css = readFileSync(
+      join(process.cwd(), "src/components/MapView.module.css"),
+      "utf8",
+    );
+    expect(css).toMatch(
+      /\.frame :global\(\.maplibregl-ctrl-bottom-right\)[^{]*\{\s*bottom: var\(--coo-map-bottom/,
+    );
+    expect(css).toContain("background: var(--coo-card)");
+    expect(css).toContain("border: var(--coo-line-thin)");
   });
 });

@@ -4,6 +4,10 @@ type Handler = (e: object) => void;
 type Effect = { deps?: unknown[]; cleanup?: (() => void) | void };
 
 export const maps: FakeMap[] = [];
+/** Every path the fake style loader was asked for, in order. */
+export const styleLoads: string[] = [];
+/** Paths the fake style loader fails on. */
+export const styleFailures = new Set<string>();
 export const markers: FakeMarker[] = [];
 export const frames: FrameRequestCallback[] = [];
 
@@ -30,14 +34,20 @@ export class FakeMap {
   constructor(readonly options: Record<string, unknown>) {
     maps.push(this);
   }
+  styles: { style: unknown; options: unknown }[] = [];
   on(event: string, fn: Handler) {
     (this.handlers[event] ??= []).push(fn);
     return this;
   }
-  fire(event: string) {
-    for (const fn of this.handlers[event] ?? []) fn({});
+  off(event: string, fn: Handler) {
+    this.handlers[event] = (this.handlers[event] ?? []).filter((f) => f !== fn);
+    return this;
   }
-  setStyle() {
+  fire(event: string, e: object = {}) {
+    for (const fn of this.handlers[event] ?? []) fn(e);
+  }
+  setStyle(style: unknown, options: unknown) {
+    this.styles.push({ style, options });
     return this;
   }
   addSource(id: string, source: { data: unknown }) {
@@ -125,6 +135,20 @@ class FakeBounds {
   }
 }
 
+/** What the fake style loader resolves a path to. */
+export function stubStyle(path: string) {
+  return { version: 8, name: path, sources: {}, layers: [] };
+}
+
+/** Stands in for loadMapStyle in src/components/mapStyle.ts, with no fetch. */
+export const fakeMapStyle = {
+  loadMapStyle: async (path: string) => {
+    styleLoads.push(path);
+    if (styleFailures.has(path)) throw new Error(`Map style ${path} failed`);
+    return stubStyle(path);
+  },
+};
+
 export const fakeMaplibre = {
   Map: FakeMap,
   Marker: FakeMarker,
@@ -189,6 +213,8 @@ export function resetFakes() {
   hooks.effects = [];
   maps.length = 0;
   markers.length = 0;
+  styleLoads.length = 0;
+  styleFailures.clear();
   frames.length = 0;
   fakeDocument.hidden = false;
   fakeDocument.listeners = {};

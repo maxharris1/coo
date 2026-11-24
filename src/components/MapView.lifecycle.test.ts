@@ -27,6 +27,9 @@ const lib = vi.hoisted(() => {
     on() {
       return this;
     }
+    off() {
+      return this;
+    }
     getZoom() {
       return 0;
     }
@@ -84,6 +87,11 @@ vi.mock("maplibre-gl", () => ({
   Marker: lib.FakeMarker,
   LngLatBounds: lib.FakeBounds,
   setWorkerUrl: lib.setWorkerUrl,
+}));
+
+vi.mock("@/components/mapStyle", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/components/mapStyle")>()),
+  ...(await import("@/test/fakeMapLibre")).fakeMapStyle,
 }));
 
 vi.mock("react", async (importOriginal) => ({

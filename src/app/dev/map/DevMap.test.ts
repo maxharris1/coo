@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { stubStyle, styleLoads } from "@/test/fakeMapLibre";
 import { DevMap } from "./DevMap";
 import { PLACES } from "./views";
 
@@ -35,6 +36,11 @@ vi.mock("maplibre-gl", () => ({
   setWorkerUrl: lib.setWorkerUrl,
 }));
 
+vi.mock("@/components/mapStyle", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/components/mapStyle")>()),
+  ...(await import("@/test/fakeMapLibre")).fakeMapStyle,
+}));
+
 vi.mock("react", async (importOriginal) => ({
   ...(await importOriginal<typeof import("react")>()),
   useRef: <T>(initial: T) => ({ current: initial ?? ({} as T) }),
@@ -54,6 +60,7 @@ beforeEach(() => {
 
 afterEach(() => {
   lib.maps.length = 0;
+  styleLoads.length = 0;
   vi.unstubAllGlobals();
 });
 
@@ -71,10 +78,11 @@ it("shows the full attribution, not the compact button", async () => {
   expect(map.options.attributionControl).toEqual({ compact: false });
 });
 
-it("loads the day style at the chosen place and zoom", async () => {
+it("loads the day style through the sprite loader at the chosen place and zoom", async () => {
   const { map } = await mount();
+  expect(styleLoads).toEqual(["/map/coo-day.style.json"]);
   expect(map.options).toMatchObject({
-    style: "/map/coo-day.style.json",
+    style: stubStyle("/map/coo-day.style.json"),
     center: capeCod.center,
     zoom: 15,
   });
@@ -82,7 +90,8 @@ it("loads the day style at the chosen place and zoom", async () => {
 
 it("loads the night style in night mode", async () => {
   const { map } = await mount("night");
-  expect(map.options.style).toBe("/map/coo-night.style.json");
+  expect(styleLoads).toEqual(["/map/coo-night.style.json"]);
+  expect(map.options.style).toEqual(stubStyle("/map/coo-night.style.json"));
 });
 
 it("removes the map on unmount", async () => {
