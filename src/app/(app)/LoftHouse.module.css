@@ -1,0 +1,26 @@
+.loft {
+  position: relative;
+}
+
+.loft > svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.link {
+  position: absolute;
+  min-width: var(--coo-touch);
+  min-height: var(--coo-touch);
+  border-radius: var(--coo-radius-paper);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.link:focus-visible {
+  outline: 3px solid var(--coo-ink);
+  outline-offset: 2px;
+}
+
+.link:active {
+  background: color-mix(in srgb, var(--coo-ink) 12%, transparent);
+}
