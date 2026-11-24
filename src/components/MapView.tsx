@@ -88,39 +88,48 @@ const LEAD_PX = 60;
 const BIRD_PX = 82;
 const PREVIEW_PADDING = { top: 16, left: 16, right: 16, bottom: 16 };
 const LABEL_PAD = 16;
+const PIN_GAP = 4;
+const PIN_HALF_WIDTH = 16;
+const PIN_BESIDE = `calc(100% + ${PIN_GAP}px)`;
+const PILL_CAP = { loft: 160, sill: 180 } as const;
 const PIN_LABEL = {
   position: "absolute",
-  top: "100%",
-  left: "50%",
-  transform: "translateX(-50%)",
-  marginTop: 4,
-  padding: "2px 8px",
+  top: 16,
+  left: PIN_BESIDE,
+  transform: "translateY(-50%)",
+  padding: "4px 10px",
   background: "var(--coo-card)",
-  border: "var(--coo-line-thin)",
+  border: "2px solid var(--coo-ink)",
   borderRadius: "var(--coo-radius-pill)",
   color: "var(--coo-ink)",
-  font: "800 12px var(--coo-font-body)",
+  font: "900 12px var(--coo-font-body)",
   whiteSpace: "nowrap",
   overflow: "hidden",
   textOverflow: "ellipsis",
+  boxSizing: "border-box",
 } as const;
 
 export function pinLabelShift({
   pinX,
-  labelWidth,
+  pinHalfWidth,
   mapWidth,
+  cap,
   pad,
+  gap,
 }: {
   pinX: number;
-  labelWidth: number;
+  pinHalfWidth: number;
   mapWidth: number;
+  cap: number;
   pad: number;
-}): number {
-  const left = pinX - labelWidth / 2;
-  const right = pinX + labelWidth / 2;
-  if (left < pad) return pad - left;
-  if (right > mapWidth - pad) return mapWidth - pad - right;
-  return 0;
+  gap: number;
+}): { side: "left" | "right"; maxWidth: number } {
+  const side = pinX < mapWidth / 2 ? "right" : "left";
+  const room =
+    side === "right"
+      ? mapWidth - pad - (pinX + pinHalfWidth + gap)
+      : pinX - pinHalfWidth - gap - pad;
+  return { side, maxWidth: Math.max(0, Math.min(cap, room)) };
 }
 
 export function zoomForDistance(milesLeft: number): number {
@@ -302,19 +311,22 @@ export function MapView({
 
       const clampLabels = () => {
         const mapWidth = m.getContainer().clientWidth;
-        for (const [pin, label] of [
-          [loft, loftLabelEl.current],
-          [sill, sillLabelEl.current],
+        for (const [pin, label, cap] of [
+          [loft, loftLabelEl.current, PILL_CAP.loft],
+          [sill, sillLabelEl.current, PILL_CAP.sill],
         ] as const) {
           if (!label) continue;
-          label.style.maxWidth = `${mapWidth - 2 * LABEL_PAD}px`;
-          const shift = pinLabelShift({
+          const { side, maxWidth } = pinLabelShift({
             pinX: m.project(pin.getLngLat()).x,
-            labelWidth: label.offsetWidth,
+            pinHalfWidth: PIN_HALF_WIDTH,
             mapWidth,
+            cap,
             pad: LABEL_PAD,
+            gap: PIN_GAP,
           });
-          label.style.transform = `translateX(calc(-50% + ${shift}px))`;
+          label.style.left = side === "right" ? PIN_BESIDE : "auto";
+          label.style.right = side === "left" ? PIN_BESIDE : "auto";
+          label.style.maxWidth = `${maxWidth}px`;
         }
       };
       if (!preview) {
@@ -449,7 +461,10 @@ export function MapView({
               style={{ display: "block" }}
             />
             {!preview && (
-              <span ref={loftLabelEl} style={PIN_LABEL}>
+              <span
+                ref={loftLabelEl}
+                style={{ ...PIN_LABEL, maxWidth: PILL_CAP.loft }}
+              >
                 {loftLabel}
               </span>
             )}
@@ -466,7 +481,10 @@ export function MapView({
               style={{ display: "block" }}
             />
             {!preview && (
-              <span ref={sillLabelEl} style={PIN_LABEL}>
+              <span
+                ref={sillLabelEl}
+                style={{ ...PIN_LABEL, maxWidth: PILL_CAP.sill }}
+              >
                 {sillLabel}
               </span>
             )}

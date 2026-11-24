@@ -64,8 +64,13 @@ All as MapLibre layers or HTML markers, so they zoom with the map:
   ends under the bird. Still to go: ink dots, a 3.5 pt line with round caps and dash
   `[0.01, 2.2]`, so a dot about every 8 pt. The dots start one dot gap ahead of the bird. At
   night the dots are cream at 85%. The flown part is the same.
-- **Pins:** `assets/svg/map/pin-loft.svg` at the origin, `pin-sill.svg` at the destination,
-  with a short label chip.
+- **Pins:** `assets/svg/map/pin-loft.svg` at the origin, `pin-sill.svg` at the destination.
+- **Pin pills:** each pin has a pill ("Your loft", or the recipient's label) beside it, level
+  with the pin head and 4 pt from it. It sits on the side of the pin with more room, so it
+  never covers the pin, and it stays 16 pt inside the map's edges. Cream fill, 2 pt ink outline,
+  Nunito 900 at 12 px, padding 4 by 10, one line that ends in an ellipsis. The loft pill is at
+  most 160 pt wide and the recipient's pill at most 180 pt. Either one shrinks further when
+  its side has less room.
 - **The bird:** an HTML marker holding the `<Bird>` component, 82 pt wide, flipped when the
   route heads west. While flying, `assets/svg/map/bird-shadow.svg` (night:
   `night/bird-shadow.svg`) sits 26 pt below the bird in the same marker. Other poses have no

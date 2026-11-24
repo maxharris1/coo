@@ -74,15 +74,20 @@
   font-size: 15px;
 }
 
-.route span {
+.route span:not(.arrow) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.arrow {
+  flex-shrink: 0;
+}
+
 .chip {
   display: flex;
   flex-shrink: 0;
+  white-space: nowrap;
   align-items: center;
   gap: 6px;
   padding: 3px 10px;

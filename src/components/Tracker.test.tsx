@@ -361,6 +361,34 @@ describe("Tracker chrome and pins (ac-4)", () => {
     expect(page).toContain("Gerald → Rosa");
     expect(page).toContain("Rosa, Philly");
   });
+
+  it("caps 30-character names at 9 characters and keeps the arrow and chip whole (#966 ac-6)", () => {
+    const long = "Bartholomew Featherstonehaughs";
+    expect(long).toHaveLength(30);
+    const html = render(
+      flightFrom("calm-short", {
+        bird: { id: "b1", name: long, look: "gerald", gear: [] },
+        counterpart: { id: "u2", name: long, handle: "bart" },
+      }),
+    );
+    const route =
+      html.match(/<p class="[^"]*route[^"]*"[^>]*>.*?<\/p>/s)?.[0] ?? "";
+    expect(text(route)).toBe("Bartholom… → Bartholom…");
+    expect(route).toContain(`aria-label="${long} to ${long}"`);
+    expect(text(html)).toContain("Bartholom… → Bartholom… In the air");
+  });
+
+  it("never shrinks the arrow or wraps or shrinks the chip (#966 ac-6)", () => {
+    const css = readFileSync(
+      new URL("./Tracker.module.css", import.meta.url),
+      "utf8",
+    );
+    const rule = (sel: string) =>
+      css.match(new RegExp(`\\n${sel} \\{([^}]*)\\}`))?.[1] ?? "";
+    expect(rule("\\.arrow")).toContain("flex-shrink: 0");
+    expect(rule("\\.chip")).toContain("flex-shrink: 0");
+    expect(rule("\\.chip")).toContain("white-space: nowrap");
+  });
 });
 
 describe("Tracker on a trip home (#882)", () => {
