@@ -9,7 +9,7 @@ import { describeLoft, loftRooms, ROOM_LINK, type Room } from "./flockRows";
 import { LoftArt, type LoftItem, type LoftRoom } from "./loftArt";
 import { gestureAnimation, startLoftIdle, type Gesture } from "./loftIdle";
 import { birdBox, loftLayout, type Box } from "./loftLayout";
-import styles from "./LoftHouse.module.css";
+import styles from "./LoftScene.module.css";
 
 type FlockBird = SyncPayload["birds"][number];
 
@@ -170,7 +170,7 @@ function SceneLink({
   );
 }
 
-export function LoftHouseView({
+export function LoftSceneView({
   rooms,
   perches,
   items,
@@ -235,7 +235,7 @@ export function LoftHouseView({
   );
 }
 
-export function LoftHouse({
+export function LoftScene({
   birds,
   perches,
   egg,
@@ -249,7 +249,7 @@ export function LoftHouse({
   const rooms = loftRooms(birds, perches, egg);
   const motion = useLoftMotion(awakeIds(rooms));
   return (
-    <LoftHouseView
+    <LoftSceneView
       rooms={rooms}
       perches={perches}
       items={items}

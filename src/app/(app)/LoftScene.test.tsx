@@ -13,7 +13,7 @@ import type { SyncPayload } from "@/components/sync";
 import { config } from "@/lib/config";
 import birdLooks from "../../../public/assets/data/birds.json";
 import { describeLoft, loftRooms } from "./flockRows";
-import { awakeIds, LoftHouse, LoftHouseView, useLoftMotion } from "./LoftHouse";
+import { awakeIds, LoftScene, LoftSceneView, useLoftMotion } from "./LoftScene";
 import type { LoftItem } from "./loftArt";
 import { gestureAnimation, GESTURES, REST_MS, type Gesture } from "./loftIdle";
 import { birdBox, loftLayout } from "./loftLayout";
@@ -42,7 +42,7 @@ type Props = {
 
 const render = ({ birds, perches, egg = null, items = [] }: Props) =>
   renderToStaticMarkup(
-    <LoftHouse birds={birds} perches={perches} egg={egg} items={items} />,
+    <LoftScene birds={birds} perches={perches} egg={egg} items={items} />,
   )
     .replaceAll("&#x27;", "'")
     .replaceAll("&quot;", '"');
@@ -253,10 +253,10 @@ const artOf = (b: Bird, pose: "perched" | "sleep") =>
   );
 
 const still = { reduced: false, paused: false, gestures: {} };
-const view = (motion: Parameters<typeof LoftHouseView>[0]["motion"]) =>
+const view = (motion: Parameters<typeof LoftSceneView>[0]["motion"]) =>
   unescape(
     renderToStaticMarkup(
-      <LoftHouseView
+      <LoftSceneView
         rooms={flockRooms}
         perches={PERCHES}
         items={[]}
@@ -455,7 +455,7 @@ describe("clouds and motion (ac-3)", () => {
       'data-birds=""',
     );
     expect(view(still)).not.toContain("data-paused");
-    const css = readFileSync("src/app/(app)/LoftHouse.module.css", "utf8");
+    const css = readFileSync("src/app/(app)/LoftScene.module.css", "utf8");
     expect(css.replace(/\s+/g, " ")).toContain(
       ".loft[data-paused] * { animation-play-state: paused !important; }",
     );
