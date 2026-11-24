@@ -102,7 +102,24 @@
         false
       ],
       "paint": {
-        "fill-color": "#B9DE95"
+        "fill-color": "#B9DE95",
+        "fill-opacity": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          7,
+          1,
+          8,
+          0.5,
+          11,
+          0.5,
+          13,
+          1
+        ]
       }
     },
     {
@@ -580,18 +597,7 @@
             1.8,
             0
           ],
-          9.5,
-          [
-            "match",
-            [
-              "get",
-              "class"
-            ],
-            "motorway",
-            2.7,
-            0
-          ],
-          10,
+          10.5,
           [
             "match",
             [
@@ -600,7 +606,18 @@
             ],
             "motorway",
             3,
-            2.2
+            0
+          ],
+          11,
+          [
+            "match",
+            [
+              "get",
+              "class"
+            ],
+            "motorway",
+            3.4,
+            2.6
           ],
           12,
           6.5,
@@ -745,18 +762,7 @@
             0.7,
             0
           ],
-          9.5,
-          [
-            "match",
-            [
-              "get",
-              "class"
-            ],
-            "motorway",
-            1.4,
-            0
-          ],
-          10,
+          10.5,
           [
             "match",
             [
@@ -765,7 +771,18 @@
             ],
             "motorway",
             1.6,
-            1
+            0
+          ],
+          11,
+          [
+            "match",
+            [
+              "get",
+              "class"
+            ],
+            "motorway",
+            1.9,
+            1.2
           ],
           12,
           4,
@@ -935,7 +952,7 @@
       "type": "symbol",
       "source": "openmaptiles",
       "source-layer": "landcover",
-      "minzoom": 14,
+      "minzoom": 16,
       "filter": [
         "all",
         [
@@ -988,7 +1005,18 @@
             ],
             99
           ],
-          2
+          [
+            "case",
+            [
+              ">=",
+              [
+                "zoom"
+              ],
+              10
+            ],
+            2,
+            1
+          ]
         ],
         [
           ">=",
@@ -1005,7 +1033,8 @@
       ],
       "layout": {
         "icon-image": "coo:mountain",
-        "icon-padding": 30,
+        "icon-padding": 48,
+        "icon-allow-overlap": false,
         "symbol-sort-key": [
           "-",
           [
@@ -1284,14 +1313,67 @@
           "class"
         ],
         "city",
-        true,
+        [
+          "any",
+          [
+            "<",
+            [
+              "zoom"
+            ],
+            8
+          ],
+          [
+            ">=",
+            [
+              "zoom"
+            ],
+            11
+          ],
+          [
+            "<=",
+            [
+              "to-number",
+              [
+                "get",
+                "rank"
+              ],
+              99
+            ],
+            8
+          ]
+        ],
         "town",
         [
-          ">=",
+          "any",
           [
-            "zoom"
+            ">=",
+            [
+              "zoom"
+            ],
+            11
           ],
-          9
+          [
+            "all",
+            [
+              ">=",
+              [
+                "zoom"
+              ],
+              9
+            ],
+            [
+              "<=",
+              [
+                "to-number",
+                [
+                  "get",
+                  "rank"
+                ],
+                99
+              ],
+              8
+            ]
+          ]
         ],
         [
           "village",

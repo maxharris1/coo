@@ -387,7 +387,7 @@ describe("day style zooms and sparseness", () => {
     "woods-trees": 7,
     mountains: 7,
     "park-trees": 14,
-    "city-park-trees": 14,
+    "city-park-trees": 16,
     "street-name": 15,
     "park-name": 15,
     shops: 15.5,
@@ -401,10 +401,10 @@ describe("day style zooms and sparseness", () => {
     expect(byId("mountains").maxzoom).toBe(12);
   });
 
-  it("draws only thin motorways below zoom 10", () => {
+  it("draws only thin motorways below zoom 10.5", () => {
     for (const id of ["road", "road-casing"]) {
       const layer = byId(id);
-      for (const zoom of [8, 9]) {
+      for (const zoom of [8, 9, 10, 10.5]) {
         for (const cls of ["trunk", "primary"]) {
           expect(
             evaluate(layer, "paint", "line-width", zoom, { class: cls }),
@@ -418,9 +418,40 @@ describe("day style zooms and sparseness", () => {
         expect(motorway, `${id} motorway z${zoom}`).toBeLessThanOrEqual(3);
       }
       expect(
-        evaluate(layer, "paint", "line-width", 10, { class: "primary" }),
+        evaluate(layer, "paint", "line-width", 11, { class: "primary" }),
       ).toBeGreaterThan(0);
     }
+  });
+
+  it("fades the wood and grass fill at regional zooms but not at zoom 6", () => {
+    const green = byId("green");
+    const at = (zoom: number) =>
+      evaluate(green, "paint", "fill-opacity", zoom) as number;
+    expect(at(6)).toBe(1);
+    expect(at(7)).toBe(1);
+    for (const zoom of [8, 9, 10, 11]) expect(at(zoom), `z${zoom}`).toBe(0.5);
+    expect(at(13)).toBe(1);
+  });
+
+  it("keeps only each tile's top peak below zoom 10, spaced apart", () => {
+    const peaks = featureFilter(
+      byId("mountains").filter as FilterSpecification,
+      "mountains.filter",
+    );
+    const shows = (rank: number, zoom: number, ele = 800) =>
+      peaks.filter({ zoom }, {
+        type: 1,
+        properties: { class: "peak", rank, ele },
+      } as never);
+    expect(shows(1, 9)).toBe(true);
+    expect(shows(2, 9)).toBe(false);
+    expect(shows(2, 10)).toBe(true);
+    expect(shows(3, 10)).toBe(false);
+    expect(shows(1, 9, 499), "still 500 m or higher").toBe(false);
+    expect(byId("mountains").layout).toMatchObject({
+      "icon-allow-overlap": false,
+      "icon-padding": 48,
+    });
   });
 
   it("tints only park-like protected areas, and only from zoom 12", () => {
@@ -450,11 +481,23 @@ describe("day style zooms and sparseness", () => {
       byId("place").filter as FilterSpecification,
       "place.filter",
     );
-    const shows = (cls: string, zoom: number) =>
-      place.filter({ zoom }, { type: 1, properties: { class: cls } } as never);
+    const shows = (cls: string, zoom: number, rank = 5) =>
+      place.filter({ zoom }, {
+        type: 1,
+        properties: { class: cls, rank },
+      } as never);
     expect(shows("city", 4)).toBe(true);
+    expect(shows("city", 6, 11), "z6 unchanged").toBe(true);
     expect(shows("town", 8)).toBe(false);
     expect(shows("town", 9)).toBe(true);
+    for (const zoom of [8, 9, 10]) {
+      expect(shows("city", zoom, 8), `big city z${zoom}`).toBe(true);
+      expect(shows("city", zoom, 11), `small city z${zoom}`).toBe(false);
+      expect(shows("town", zoom, 11), `small town z${zoom}`).toBe(false);
+      expect(shows("village", zoom), `village z${zoom}`).toBe(false);
+    }
+    expect(shows("city", 11, 11)).toBe(true);
+    expect(shows("town", 11, 11)).toBe(true);
     expect(shows("village", 11)).toBe(false);
     expect(shows("village", 12)).toBe(true);
     expect(shows("neighbourhood", 12)).toBe(false);

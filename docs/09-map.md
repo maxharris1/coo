@@ -35,17 +35,20 @@ from Fable's proposed style and fixed against the live tiles (see the tile check
 
 Three looks:
 
-- **Regional (zoom 12 and below):** flat green land, pale-blue water with an ink outline and the
+- **Regional (zoom 12 and below):** flat green land (woods and grass at half strength from zoom 8
+  to 11, so small patches don't mottle it; full strength at 7 and below and from 13), pale-blue water with an ink outline and the
   `coo:wave-pattern` squiggle tile on sea, lakes and ponds (not rivers or pools), ink-outlined
   blue rivers from zoom 8, a pine (`coo:tree-pine`) on each wood from zoom 7 to 13, a mountain
-  (`coo:mountain`) on each `mountain_peak` with `class` `peak`, `rank` 1 or 2 and `ele` of
-  500 m or more from zoom 7 to 12, dashed state borders up to zoom 11, white city dots
+  (`coo:mountain`) on each `mountain_peak` with `class` `peak`, `ele` of 500 m or more and
+  `rank` 1 (the top peak of each tile) below zoom 10 or `rank` 1 or 2 from 10, up to zoom 12,
+  never overlapping and 48 pt apart, dashed state borders up to zoom 11, white city dots
   (`coo:city-dot-major` for `class` `city`, `coo:city-dot` otherwise) beside place names, and
   state and province names in spaced capitals up to zoom 8.
 - **Street (zoom 14 and up):** butter-yellow blocks (the built-up fill, with building edges as
   ink at 30%) between cream streets with ink casings, city parks (`landcover` `grass` /
-  `park`) in green with a 2 pt ink outline and one round tree (`coo:tree-round`) each, street
-  names in capitals from 15, park names from 15, and shop pills from 15.5.
+  `park`) in green with a 2 pt ink outline and, from zoom 16, one round tree
+  (`coo:tree-round`) each (earlier they sprinkled every pocket park), street names in capitals
+  from 15, park names from 15, and shop pills from 15.5.
 - **Protected areas** (`park` source layer) are tinted only from zoom 12, and only the classes
   that read as a park (`national_park`, `nature_reserve`, `regional_park`, `State Park`, `Park`),
   with a round tree each from 14 and no outline. Public lands, forests, game lands, refuges and
@@ -70,11 +73,13 @@ equals the derived output.
 
 The regional mocks show almost no roads, so:
 
-- No roads below zoom 8. From 8 only motorways, thin (casing under 2 pt). Trunks and primaries
-  join between 9.5 and 10. Streets (secondary, tertiary, minor) from 13. No service roads,
-  paths, tracks or tunnels.
-- Place names thin out by class: cities at every zoom, towns from 9, villages and suburbs from
-  12, neighbourhoods from 13, none from 15. Countries only below zoom 5, states up to 8.
+- No roads below zoom 8. From 8 only motorways, thin (casing under 2 pt at 8, 3 pt by 10.5).
+  Trunks and primaries join between 10.5 and 11. Streets (secondary, tertiary, minor) from 13.
+  No service roads, paths, tracks or tunnels.
+- Place names thin out by class: cities at every zoom below 8; from 8 to 10 only cities and
+  towns of `rank` 8 or less (the bigger ones), towns not before 9; every city and town from 11;
+  villages and suburbs from 12, neighbourhoods from 13, none from 15. Countries only below
+  zoom 5, states and provinces up to 8.
 - Built-up areas from zoom 9, fading in to full strength by 11.
 
 Points of interest are allowed for exactly two things: park names (`poi` `class` `park`) and
