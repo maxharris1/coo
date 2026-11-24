@@ -29,7 +29,15 @@ function reply(url: string, method: string): () => Response {
       serverNow: NOW,
       unread,
       birds: [],
-      me: { id: "me-1", seeds: 240, timezone: "UTC", loft: null },
+      me: {
+        id: "me-1",
+        seeds: 240,
+        timezone: "UTC",
+        loft: null,
+        perches: 3,
+        hasBirdbath: false,
+      },
+      egg: null,
     };
     return () => Response.json(body);
   }
