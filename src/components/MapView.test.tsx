@@ -776,3 +776,195 @@ describe("the bird marker (#965 ac-2)", () => {
     expect(markerHtml({ plan: null })).not.toContain("bird-shadow.svg");
   });
 });
+
+describe("the pigeon's speech bubble (#967 ac-3)", () => {
+  const LINES = ["Gerald is over Trenton", "Gerald took off"];
+
+  beforeEach(() => {
+    vi.useFakeTimers({
+      toFake: [
+        "Date",
+        "setInterval",
+        "clearInterval",
+        "setTimeout",
+        "clearTimeout",
+      ],
+    });
+    vi.setSystemTime(midFlight());
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    stubBrowser(vi);
+  });
+
+  afterEach(() => {
+    resetFakes();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
+
+  type Box = { style: Record<string, string>; textContent?: string };
+  type El = {
+    type?: unknown;
+    props?: { children?: unknown; ref?: { current: Box }; src?: string };
+  };
+  const kids = (el: El): El[] => [el.props?.children ?? []].flat(9) as El[];
+  function bubbleIn(tree: unknown) {
+    const walk = (node: unknown): El | undefined => {
+      if (!node || typeof node !== "object") return undefined;
+      if (Array.isArray(node)) {
+        for (const n of node) {
+          const hit = walk(n);
+          if (hit) return hit;
+        }
+        return undefined;
+      }
+      const el = node as El;
+      if (kids(el).some((k) => k?.props?.src?.includes("bubble-tail"))) {
+        return el;
+      }
+      return walk(el.props?.children);
+    };
+    const el = walk(tree);
+    if (!el?.props?.ref) return undefined;
+    const text = kids(el).find((k) => k?.type === "span");
+    return { box: el.props.ref.current, text: text!.props!.ref!.current };
+  }
+  const shown = (b: { box: Box }) => b.box.style.display === "flex";
+
+  it("says a flight log line for 4 s after a 20 to 40 s gap, then the next line", async () => {
+    const { tree } = await mounted(props({ bubbleLines: LINES }));
+    const bubble = bubbleIn(tree)!;
+    vi.advanceTimersByTime(19_000);
+    expect(shown(bubble)).toBe(false);
+    vi.advanceTimersByTime(2_000);
+    expect(shown(bubble)).toBe(true);
+    expect(bubble.text.textContent).toBe(LINES[0]);
+    vi.advanceTimersByTime(4_000);
+    expect(shown(bubble)).toBe(false);
+    vi.advanceTimersByTime(20_000);
+    expect(shown(bubble)).toBe(true);
+    expect(bubble.text.textContent).toBe(LINES[1]);
+  });
+
+  it("uses the newest lines passed after mount", async () => {
+    const p = props({ bubbleLines: LINES });
+    await mounted(p);
+    const tree = renderWithEffects(MapView, { ...p, bubbleLines: ["Later"] });
+    vi.advanceTimersByTime(20_000);
+    expect(bubbleIn(tree)!.text.textContent).toBe("Later");
+    expect(maps, "new lines do not remount the map").toHaveLength(1);
+  });
+
+  it("stays quiet while the map is dragged and hides when a drag starts", async () => {
+    const { tree, map } = await mounted(props({ bubbleLines: LINES }));
+    const bubble = bubbleIn(tree)!;
+    vi.advanceTimersByTime(20_000);
+    expect(shown(bubble)).toBe(true);
+    map.handlers.dragstart[0]({ originalEvent: {} });
+    expect(shown(bubble), "hidden at once").toBe(false);
+    vi.advanceTimersByTime(4_000 + 20_000);
+    expect(shown(bubble), "no showing mid-drag").toBe(false);
+    map.fire("dragend");
+    vi.advanceTimersByTime(20_000);
+    expect(shown(bubble)).toBe(true);
+  });
+
+  const refreshed = async (p: MapViewProps, over: Partial<MapViewProps>) => {
+    const count = maps.length;
+    renderWithEffects(MapView, { ...p, ...over });
+    await vi.waitFor(() => expect(maps).toHaveLength(count + 1));
+    nextFrame();
+  };
+  const sameFlight = (p: MapViewProps): Partial<MapViewProps> => ({
+    from: { ...p.from },
+    to: { ...p.to },
+    plan: structuredClone(p.plan),
+  });
+
+  it("keeps talking every 20 to 40 s through the 20 s sync refresh", async () => {
+    vi.mocked(Math.random).mockReturnValue(0.5);
+    const p = props({ bubbleLines: LINES });
+    const { tree } = await mounted(p);
+    const bubble = bubbleIn(tree)!;
+    let seen = 0;
+    for (let poll = 0; poll < 6; poll++) {
+      for (let s = 0; s < 20; s++) {
+        vi.advanceTimersByTime(1_000);
+        if (shown(bubble)) seen++;
+      }
+      await refreshed(p, sameFlight(p));
+    }
+    expect(seen, "seconds shown in two minutes").toBeGreaterThanOrEqual(4);
+  });
+
+  it("still hides 4 s after showing when the plan changes mid-showing", async () => {
+    const p = props({ bubbleLines: LINES });
+    const { tree } = await mounted(p);
+    const bubble = bubbleIn(tree)!;
+    vi.advanceTimersByTime(20_000);
+    expect(shown(bubble)).toBe(true);
+    vi.advanceTimersByTime(1_000);
+    await refreshed(p, { plan: structuredClone(p.plan) });
+    vi.advanceTimersByTime(3_000);
+    expect(shown(bubble), "hidden by the 4 s deadline").toBe(false);
+  });
+
+  it("talks again when the map is rebuilt in the middle of a drag", async () => {
+    const p = props({ bubbleLines: LINES });
+    const { tree, map } = await mounted(p);
+    const bubble = bubbleIn(tree)!;
+    map.handlers.dragstart[0]({ originalEvent: {} });
+    await refreshed(p, sameFlight(p));
+    vi.advanceTimersByTime(20_000);
+    expect(shown(bubble)).toBe(true);
+  });
+
+  it("sits behind the westbound bird and flips within 100 pt of the right edge", async () => {
+    const { tree, map } = await mounted(props({ bubbleLines: LINES }));
+    const { box } = bubbleIn(tree)!;
+    map.width = 390;
+    map.point = { x: 200, y: 0 };
+    vi.advanceTimersByTime(20_000);
+    expect(box.style.left).toBe("50%");
+    expect(box.style.right).toBe("auto");
+
+    map.point = { x: 300, y: 0 };
+    vi.advanceTimersByTime(24_000);
+    expect(shown({ box })).toBe(true);
+    expect(box.style.right).toBe("50%");
+    expect(box.style.left).toBe("auto");
+  });
+
+  it("styles a cream, ink-outlined, tilted Caveat bubble that clamps to two lines", () => {
+    const html = renderToStaticMarkup(
+      <MapView {...props({ bubbleLines: LINES })} />,
+    );
+    const box = html.match(/<div[^>]*style="([^"]*rotate\(-4deg\)[^"]*)"/);
+    expect(box, "tilted bubble").not.toBeNull();
+    const text = html
+      .slice(html.indexOf(box![0]))
+      .match(/<span style="([^"]*)"/);
+    const s = `${box![1]};${text![1]}`;
+    expect(s).toContain("background:var(--coo-card)");
+    expect(s).toContain("border:2.5px solid var(--coo-ink)");
+    expect(s).toContain("border-radius:14px");
+    expect(s).toContain("font:700 22px var(--coo-font-hand)");
+    expect(s).toContain("color:var(--coo-ink)");
+    expect(s).toContain("padding:6px 12px");
+    expect(s).toContain("max-width:190px");
+    expect(s).toContain("-webkit-line-clamp:2");
+    expect(s).toContain("display:-webkit-box");
+    expect(s).toContain("overflow:hidden");
+    expect(html).toMatch(
+      /<img[^>]*src="\/assets\/svg\/map\/bubble-tail\.svg"[^>]*width="14"[^>]*height="12"/,
+    );
+  });
+
+  it("never talks on a preview map", async () => {
+    const { tree } = await mounted(
+      props({ preview: true, bubbleLines: LINES }),
+    );
+    expect(bubbleIn(tree)).toBeUndefined();
+    expect(vi.getTimerCount(), "only the follow interval").toBe(1);
+  });
+});

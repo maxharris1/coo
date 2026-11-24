@@ -81,7 +81,13 @@ All as MapLibre layers or HTML markers, so they zoom with the map:
   current leg. Later, the roost can sit on a small barn, water tower or tree illustration
   (chosen by hash of the flight id and the roost's index) and the delay on the statue or pretzel
   illustration. Those assets are not in the repo yet.
-- **Thought bubble:** now and then a small bubble above the bird with a short line.
+- **Speech bubble:** HTML and CSS in the bird's marker, above the bird and a little behind it.
+  Cream fill, 2.5 pt ink outline, 14 pt corners, tilted -4 degrees, with the 14 x 12 tail
+  `assets/svg/map/bubble-tail.svg` pointing at the bird. Caveat 700 at 22 px in ink, padding 6
+  by 12, at most 190 pt wide: it wraps to two lines, then ends in an ellipsis. Its line comes
+  from the flight log (`config/copy/flight-log.json`). It shows for 4 s about every 20 to 40 s,
+  never while the user is dragging the map, and flips to the other side when the bird is within
+  100 pt of a screen edge. Preview maps have no bubble.
 - **Night:** when the sun is down at the bird's position (use `isDaylight` from the engine),
   switch to the night style and add a few `coo-twinkle` stars in the map's corners.
 

@@ -138,7 +138,7 @@ to make a new one." and a button to the tracker.
 ### Flight (`/flights/[id]`) — the tracker, three scales and night
 One screen. `Flight`, `FlightBlock` and `FlightLong` are the same screen at different distances.
 - Map fills the top (`docs/09-map.md`): route, origin and destination pins, the bird sprite at
-  `positionAt`, a thought bubble from `config/copy/flight-log.json` every so often.
+  `positionAt`, a speech bubble from `config/copy/flight-log.json` every so often.
 - The map paints behind the status bar. The floating header (back button, route, state chip)
   sits 16px below the status-bar inset, so the clock and Dynamic Island never cover it.
 - The map bird's pose matches the state chip: flying, asleep while roosting, surprised while

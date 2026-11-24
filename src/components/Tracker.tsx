@@ -11,7 +11,7 @@ import { duration, fuzzyWhen, inUnits, type Units } from "@/lib/format";
 import Link from "next/link";
 import type { Flight } from "@/server/services/flights/shape";
 import { Bird, type GearId, type Look } from "./Bird";
-import { FlightLog, placeNear } from "./FlightLog";
+import { FlightLog, flightLog, placeNear } from "./FlightLog";
 import { MapView, birdState, type BirdState, type LoftAt } from "./MapView";
 import styles from "./Tracker.module.css";
 import { TrackerDelay } from "./TrackerDelay";
@@ -339,6 +339,7 @@ export function Tracker({
             sillLabel={view.sillLabel}
             loftAt={view.loftAt}
             state={view.state}
+            bubbleLines={flightLog(flight, nowMs).map((l) => l.text)}
           />
         )}
       </div>
