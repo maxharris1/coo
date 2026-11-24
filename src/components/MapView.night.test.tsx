@@ -277,15 +277,68 @@ describe("the tracker map on the Chicago vector (ac-2)", () => {
     vi.setSystemTime(Date.parse("2026-11-20T02:00:00-05:00"));
     renderTracker(flight);
     const map = await mapCreated();
-    expect(styleName(map.options.style), "built on the day style").toBe(
-      DAY_STYLE,
+    expect(styleName(map.options.style), "built on the night style").toBe(
+      NIGHT_STYLE,
     );
-    await vi.waitFor(() =>
-      expect(
-        map.styles.map((s) => styleName(s.style)),
-        "restyled to night once built",
-      ).toEqual([NIGHT_STYLE]),
-    );
+    expect(map.styles, "no restyle needed").toEqual([]);
+  });
+
+  describe("when the day style is still loading as the sun sets", () => {
+    let rejectDay: (error: Error) => void = () => {};
+    const unhandled: unknown[] = [];
+    const record = (reason: unknown) => unhandled.push(reason);
+
+    beforeEach(() => {
+      unhandled.length = 0;
+      process.on("unhandledRejection", record);
+      vi.stubGlobal("fetch", (path: string) =>
+        path === DAY_STYLE
+          ? new Promise<Response>((_, reject) => {
+              rejectDay = reject;
+            })
+          : Promise.resolve(
+              new Response(
+                JSON.stringify({
+                  version: 8,
+                  name: path,
+                  sources: {},
+                  layers: [],
+                }),
+              ),
+            ),
+      );
+    });
+
+    afterEach(() => {
+      process.off("unhandledRejection", record);
+    });
+
+    function openAtNoonThenNight() {
+      const flight = chicago();
+      vi.setSystemTime(Date.parse("2026-11-19T12:00:00-05:00"));
+      renderTracker(flight);
+      vi.setSystemTime(Date.parse("2026-11-20T02:00:00-05:00"));
+      renderTracker(flight);
+    }
+
+    it("does not wait for an obsolete day response", async () => {
+      openAtNoonThenNight();
+      const map = await mapCreated();
+      expect(styleName(map.options.style), "built on the night style").toBe(
+        NIGHT_STYLE,
+      );
+    });
+
+    it("mounts on the night style when the obsolete day request fails", async () => {
+      openAtNoonThenNight();
+      rejectDay(new Error("day style offline"));
+      const map = await mapCreated();
+      expect(styleName(map.options.style), "built on the night style").toBe(
+        NIGHT_STYLE,
+      );
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(unhandled, "the failed day request is handled").toEqual([]);
+    });
   });
 });
 

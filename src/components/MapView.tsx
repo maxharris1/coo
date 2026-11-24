@@ -1,7 +1,12 @@
 "use client";
 
 import "maplibre-gl/dist/maplibre-gl.css";
-import type { GeoJSONSource, Map as MapLibreMap, Marker } from "maplibre-gl";
+import type {
+  GeoJSONSource,
+  Map as MapLibreMap,
+  Marker,
+  StyleSpecification,
+} from "maplibre-gl";
 import { useEffect, useRef, useState } from "react";
 import {
   bearingDeg,
@@ -184,21 +189,27 @@ export function MapView({
   const [following, setFollowing] = useState(true);
   const style = MAP_STYLES[night ? "night" : "day"];
   const styleRef = useRef(style);
+  const styleLoad = useRef<Promise<StyleSpecification> | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const stateRef = useRef(state);
   const west = headsWest(from, to);
   const pose = POSE[plan ? state : "scheduled"];
 
-  const restyle = (path: string) =>
-    void loadMapStyle(path).then((loaded) => {
-      if (styleRef.current !== path) return;
-      mapRef.current?.setStyle(loaded, { diff: false });
-    });
-
   useEffect(() => {
     if (styleRef.current === style) return;
     styleRef.current = style;
-    restyle(style);
+    const pending = loadMapStyle(style);
+    styleLoad.current = pending;
+    pending.then(
+      (loaded) => {
+        if (styleLoad.current === pending) {
+          mapRef.current?.setStyle(loaded, { diff: false });
+        }
+      },
+      (error) => {
+        if (styleLoad.current === pending && mapRef.current) throw error;
+      },
+    );
   }, [style]);
 
   useEffect(() => {
@@ -221,10 +232,16 @@ export function MapView({
           ? { ...to, frac: 1 }
           : positionAt(plan, from, to, now());
 
-    const path = styleRef.current;
-    const loading = loadMapStyle(path);
+    const currentStyle = async (): Promise<StyleSpecification> => {
+      const pending = styleLoad.current!;
+      await pending.catch(() => {});
+      return styleLoad.current === pending ? pending : currentStyle();
+    };
+
+    styleLoad.current = loadMapStyle(styleRef.current);
+    styleLoad.current.catch(() => {});
     void import("maplibre-gl").then(async (lib) => {
-      const loaded = await loading;
+      const loaded = await currentStyle();
       const { Marker, LngLatBounds } = lib;
       const el = container.current;
       if (cancelled || !el || !birdEl.current) return;
@@ -255,7 +272,6 @@ export function MapView({
       );
       const m = mounted.map;
       mapRef.current = m;
-      if (styleRef.current !== path) restyle(styleRef.current);
       m.touchZoomRotate.disableRotation();
       m.keyboard.disableRotation();
 
