@@ -37,7 +37,8 @@ Everything goes through one function: `notify(deps, tx, { userId, kind, refId, v
      A 404 or 410 from the push service deletes that subscription.
    - If no push was sent, the kind is marked `"sms": true`, and `sms_fallback` is on: send the
      text from `config/copy/sms.json`, set `sms_sent_at`. At most one text per user per 15
-     minutes; extra ones are dropped, not queued.
+     minutes; extra ones are dropped, not queued. The number is read through the
+     `sms_phone(p_user)` definer function, since `coo_app` has no access to schema `auth`.
 
 Kinds, text and which setting controls each are in `config/copy/notifications.json`:
 `incoming`, `landed-in`, `landed-out`, `reply-home`, `reply-delivered`, `home-empty`, `delayed`,
