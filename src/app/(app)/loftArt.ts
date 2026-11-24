@@ -276,7 +276,8 @@ export function skyline(look: LoftLook): { back: string; near: string } {
     },
     moreLit,
   );
-  near += `<g ${ST2}><path d="M300 270 V262" fill="none"/><circle cx="296" cy="259" r="6.5" fill="${MINT}"/><circle cx="304" cy="256" r="7.5" fill="${MINT}"/><rect x="293" y="264" width="14" height="6" rx="1.5" fill="${WOOD}"/><rect x="320" y="262" width="13" height="8" rx="1.5" fill="${mix(slate, INK, 0.18)}"/></g>`;
+  near += `<g ${ST2}><path d="M300 270 V262" fill="none"/><circle cx="296" cy="259" r="6.5" fill="${MINT}"/><circle cx="304" cy="256" r="7.5" fill="${MINT}"/><rect x="293" y="264" width="14" height="6" rx="1.5" fill="${WOOD}"/></g>`;
+  near += `<g ${ST2}><rect x="320" y="262" width="13" height="8" rx="1.5" fill="${mix(slate, INK, 0.18)}"/></g>`;
   near += neighbour(
     {
       x: 338,
@@ -536,12 +537,20 @@ export function birdbath(x: number = SLOTS.birdbath.centerX): string {
 
 export function cart(x: number = SLOTS.cart.centerX): string {
   const y = FLOOR;
+  const steel = mix(LILAC, CARD, 0.25);
   let o = `<g ${ST}>`;
   o += `<path d="M${x - 23} ${y - 28} V${y - 52} M${x + 23} ${y - 28} V${y - 52}" fill="none"/>`;
-  o += `<path d="M${x - 15} ${y - 30} q15 -17 30 0 Z" fill="${SUN}"/>`;
+  o += `<rect x="${x - 17}" y="${y - 49}" width="23" height="17" rx="3" fill="${steel}" stroke-width="2"/>`;
+  o += `<rect x="${x - 19}" y="${y - 52}" width="27" height="5" rx="2" fill="${mix(LILAC, INK, 0.2)}" stroke-width="2"/>`;
+  o += `<circle cx="${x - 11}" cy="${y - 43}" r="2" fill="${TOMATO}" stroke-width="1.4"/><circle cx="${x - 5}" cy="${y - 43}" r="2" fill="${SUN}" stroke-width="1.4"/>`;
+  o += `<path d="M${x - 7} ${y - 38} v3 M${x - 10} ${y - 35} h6" fill="none" stroke-width="2"/>`;
+  o += `<path d="M${x + 10} ${y - 40} h9 l-1 7 h-7 Z" fill="${CARD}" stroke-width="1.8"/><path d="M${x + 19} ${y - 38} q4 0 2 4" fill="none" stroke-width="1.6"/>`;
+  o +=
+    `<path d="M${x + 13} ${y - 44} q-2 -3 0 -5 q2 -2 0 -5" fill="none" stroke-width="1.5" style="animation: coo-twinkle 2.4s ease-in-out infinite"/>` +
+    `<path d="M${x + 17} ${y - 45} q-2 -2 0 -4" fill="none" stroke-width="1.5" style="animation: coo-twinkle 2.4s ease-in-out .8s infinite"/>`;
   o += `<rect x="${x - 25}" y="${y - 30}" width="50" height="19" rx="4" fill="${CARD}"/>`;
   o += `<rect x="${x - 28}" y="${y - 33}" width="56" height="7" rx="3" fill="${WOOD}"/>`;
-  o += `<path d="M${x} ${y - 24} c3.4 2.6 4.6 5.6 0 10 c-4.6 -4.4 -3.4 -7.4 0 -10 Z" fill="${SUN}" stroke-width="1.8"/>`;
+  o += `<ellipse cx="${x}" cy="${y - 19}" rx="4.4" ry="5.6" fill="${WOOD_D}" stroke-width="1.8" transform="rotate(24 ${x} ${y - 19})"/><path d="M${f(x - 1.5)} ${f(y - 23.5)} q3.5 4 .5 9" fill="none" stroke-width="1.4"/>`;
   o += `<circle cx="${x - 14}" cy="${y - 8}" r="8" fill="${CARD}"/><circle cx="${x + 14}" cy="${y - 8}" r="8" fill="${CARD}"/>`;
   o += `<circle cx="${x - 14}" cy="${y - 8}" r="2.2" fill="${INK}"/><circle cx="${x + 14}" cy="${y - 8}" r="2.2" fill="${INK}"/>`;
   const ax0 = x - 27.5;
