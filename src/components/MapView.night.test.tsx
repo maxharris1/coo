@@ -53,6 +53,9 @@ const lib = vi.hoisted(() => {
     getSource() {
       return undefined;
     }
+    project() {
+      return { x: 0, y: 0 };
+    }
     remove() {
       this.removed = true;
     }

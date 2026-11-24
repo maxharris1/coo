@@ -60,12 +60,16 @@ Keep it sparse. No points of interest, no transit, no building numbers, no 3D.
 All as MapLibre layers or HTML markers, so they zoom with the map:
 
 - **Route:** the great-circle path from `interpolate`, sampled every 1% (every 0.2% above 300
-  miles). Flown part: solid tomato, 4 px with ink casing. Remaining part: ink dashes, animated
-  with `coo-march` if drawn as SVG, static otherwise.
+  miles). Flown part: tomato `#F4623F`, 5 pt, round caps and joins, over an 8 pt ink casing. It
+  ends under the bird. Still to go: ink dots, a 3.5 pt line with round caps and dash
+  `[0.01, 2.2]`, so a dot about every 8 pt. The dots start one dot gap ahead of the bird. At
+  night the dots are cream at 85%. The flown part is the same.
 - **Pins:** `assets/svg/map/pin-loft.svg` at the origin, `pin-sill.svg` at the destination,
   with a short label chip.
-- **The bird:** an HTML marker holding the `<Bird>` component, about 56 px, flipped when the
-  route heads west. Its pose follows the tracker's state chip: `fly` (animated wings) while
+- **The bird:** an HTML marker holding the `<Bird>` component, 82 pt wide, flipped when the
+  route heads west. While flying, `assets/svg/map/bird-shadow.svg` (night:
+  `night/bird-shadow.svg`) sits 26 pt below the bird in the same marker. Other poses have no
+  shadow. Its pose follows the tracker's state chip: `fly` (animated wings) while
   flying, `sleep` at the roost while roosting, `surprise` while delayed, `landed` on the
   destination pin once landed, and `perched` on the origin pin while scheduled. A pose change
   re-renders the marker in place and never remounts the map. Odd-job maps keep `fly` on the

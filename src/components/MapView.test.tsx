@@ -587,13 +587,12 @@ describe("the bird marker (#965 ac-2)", () => {
   it("flips the bird when the route heads west", () => {
     const west = props();
     const east = props({ from: west.to, to: west.from });
+    const flip = (p: MapViewProps) =>
+      (find(renderWithEffects(MapView, p), Bird)?.props as { flip: boolean })
+        .flip;
     expect(headsWest(west.from, west.to)).toBe(true);
-    expect(find(renderWithEffects(MapView, west), Bird)?.props.flip).toBe(
-      true,
-    );
-    expect(find(renderWithEffects(MapView, east), Bird)?.props.flip).toBe(
-      false,
-    );
+    expect(flip(west)).toBe(true);
+    expect(flip(east)).toBe(false);
   });
 
   it("puts the shadow 26 pt below the flying bird in the same marker", () => {

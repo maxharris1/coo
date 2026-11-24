@@ -71,10 +71,21 @@ const MAP_STYLES = {
 } as const;
 const INK = "#2A2140";
 const TOMATO = "#F4623F";
+const DOT_WIDTH = 3.5;
+const DOT_DASH = [0.01, 2.2];
+const DOT_GAP_PX = DOT_DASH[1] * DOT_WIDTH;
+const DOT_GAP_STEP = 0.001;
+const ROUTE_LEFT_PAINT: Record<
+  "day" | "night",
+  { "line-color": string; "line-opacity"?: number }
+> = {
+  day: { "line-color": INK },
+  night: { "line-color": "#FFF4DC", "line-opacity": 0.85 },
+};
 const FOLLOW_EVERY_MS = 5000;
 const EDGE_MARGIN = 0.2;
 const LEAD_PX = 60;
-const BIRD_PX = 56;
+const BIRD_PX = 82;
 const PREVIEW_PADDING = { top: 16, left: 16, right: 16, bottom: 16 };
 const LABEL_PAD = 16;
 const PIN_LABEL = {
@@ -139,10 +150,30 @@ function line(from: LatLon, to: LatLon, fracs: number[]) {
   };
 }
 
-function splitRoute(from: LatLon, to: LatLon, fracs: number[], at: number) {
+function splitRoute(
+  from: LatLon,
+  to: LatLon,
+  fracs: number[],
+  at: number,
+  dotsAt: number,
+) {
   const flown = [...fracs.filter((f) => f < at), at];
-  const left = [at, ...fracs.filter((f) => f > at)];
+  const left = [dotsAt, ...fracs.filter((f) => f > dotsAt)];
   return { flown: line(from, to, flown), left: line(from, to, left) };
+}
+
+function dotsStart(
+  map: MapLibreMap,
+  from: LatLon,
+  to: LatLon,
+  at: number,
+): number {
+  const here = interpolate(from, to, at);
+  const ahead = interpolate(from, to, Math.min(at + DOT_GAP_STEP, 1));
+  const a = map.project([here.lon, here.lat]);
+  const b = map.project([ahead.lon, ahead.lat]);
+  const px = Math.hypot(b.x - a.x, b.y - a.y);
+  return Math.min(at + (DOT_GAP_PX / px) * DOT_GAP_STEP, 1);
 }
 
 function nearEdge(map: MapLibreMap, p: LatLon): boolean {
@@ -284,8 +315,11 @@ export function MapView({
         }
       }
 
+      const route = (frac: number) =>
+        splitRoute(from, to, fracs, frac, dotsStart(m, from, to, frac));
+
       const drawRoute = (frac: number) => {
-        const { flown, left } = splitRoute(from, to, fracs, frac);
+        const { flown, left } = route(frac);
         (m.getSource("route-flown") as GeoJSONSource | undefined)?.setData(
           flown,
         );
@@ -293,8 +327,7 @@ export function MapView({
       };
 
       m.on("style.load", () => {
-        const { frac } = where();
-        const { flown, left } = splitRoute(from, to, fracs, frac);
+        const { flown, left } = route(where().frac);
         m.addSource("route-flown", { type: "geojson", data: flown });
         m.addSource("route-left", { type: "geojson", data: left });
         m.addLayer({
@@ -303,9 +336,11 @@ export function MapView({
           source: "route-left",
           layout: { "line-cap": "round" },
           paint: {
-            "line-color": INK,
-            "line-width": 2,
-            "line-dasharray": [2, 2],
+            ...ROUTE_LEFT_PAINT[
+              styleRef.current === MAP_STYLES.night ? "night" : "day"
+            ],
+            "line-width": DOT_WIDTH,
+            "line-dasharray": DOT_DASH,
           },
         });
         m.addLayer({
@@ -313,16 +348,17 @@ export function MapView({
           type: "line",
           source: "route-flown",
           layout: { "line-cap": "round", "line-join": "round" },
-          paint: { "line-color": INK, "line-width": 6 },
+          paint: { "line-color": INK, "line-width": 8 },
         });
         m.addLayer({
           id: "route-flown",
           type: "line",
           source: "route-flown",
           layout: { "line-cap": "round", "line-join": "round" },
-          paint: { "line-color": TOMATO, "line-width": 4 },
+          paint: { "line-color": TOMATO, "line-width": 5 },
         });
       });
+      m.on("zoomend", () => drawRoute(where().frac));
 
       const tick = () => {
         const p = where();
@@ -425,15 +461,34 @@ export function MapView({
           </div>
         </div>
         <div ref={birdEl}>
-          <Bird
-            look={bird.look as Look}
-            gear={bird.gear as GearId[]}
-            pose={pose}
-            animated
-            size={BIRD_PX}
-            flip={west}
-            title={bird.name}
-          />
+          <div style={{ position: "relative" }}>
+            <Bird
+              look={bird.look as Look}
+              gear={bird.gear as GearId[]}
+              pose={pose}
+              animated
+              size={BIRD_PX}
+              flip={west}
+              title={bird.name}
+            />
+            {pose === "fly" && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={`/assets/svg/map/${night ? "night/" : ""}bird-shadow.svg`}
+                alt=""
+                width={34}
+                height={12}
+                style={{
+                  position: "absolute",
+                  left: "50%",
+                  top: "calc(100% + 26px)",
+                  transform: "translateX(-50%)",
+                  display: "block",
+                  pointerEvents: "none",
+                }}
+              />
+            )}
+          </div>
         </div>
       </div>
       {!preview && !following && (
