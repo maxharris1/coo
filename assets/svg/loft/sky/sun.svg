@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="108" height="108">
+<title>Sun with halo, sunset colour. Sunrise uses r 40 and a paler yellow</title>
+<g id="sun" transform="translate(-6 -6)">
+<circle cx="60" cy="60" r="54" fill="#FBA83D" opacity=".28"/><circle cx="60" cy="60" r="42" fill="#FBA83D" stroke="#2A2140" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" class="stroke-ink"/>
+</g>
+</svg>

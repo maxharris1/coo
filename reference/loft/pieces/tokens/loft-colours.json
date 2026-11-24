@@ -1,0 +1,184 @@
+{
+ "_about": "Loft colours by time of day. The brief's four names map onto five looks: morning = sunrise then day, afternoon = day, evening = sunset then dusk, night = night. The look is picked from the sun's height, not the clock (see factory-handoff/repo/docs/17-loft-scene.md).",
+ "briefNames": {
+  "morning": [
+   "sunrise",
+   "day"
+  ],
+  "afternoon": [
+   "day"
+  ],
+  "evening": [
+   "sunset",
+   "dusk"
+  ],
+  "night": [
+   "night"
+  ]
+ },
+ "looks": {
+  "sunrise": {
+   "skyBands": [
+    {
+     "fromY": -300,
+     "color": "#C7E8F5"
+    },
+    {
+     "fromY": 178,
+     "color": "#FAD0C0"
+    },
+    {
+     "fromY": 238,
+     "color": "#FFDA7B"
+    }
+   ],
+   "skyTop": "#C7E8F5",
+   "cityFar": "#D1ABB5",
+   "cityMid": "#AB88AB",
+   "tint": "#F9C5B4",
+   "tintAmount": {
+    "nearCity": 0.2,
+    "houseAndAddOns": 0.1,
+    "deck": 0.16
+   },
+   "cloud": "#FDEBDE",
+   "textOnSky": "#2A2140",
+   "lightsOn": false,
+   "birdFilter": "none"
+  },
+  "day": {
+   "skyBands": [
+    {
+     "fromY": -300,
+     "color": "#A9DDF7"
+    }
+   ],
+   "skyTop": "#A9DDF7",
+   "cityFar": "#9BC8E3",
+   "cityMid": "#89AEC9",
+   "tint": null,
+   "tintAmount": {
+    "nearCity": 0,
+    "houseAndAddOns": 0,
+    "deck": 0.0
+   },
+   "cloud": "#FFFBF0",
+   "textOnSky": "#2A2140",
+   "lightsOn": false,
+   "birdFilter": "none"
+  },
+  "sunset": {
+   "skyBands": [
+    {
+     "fromY": -300,
+     "color": "#E2BBC3"
+    },
+    {
+     "fromY": 178,
+     "color": "#F7AE9F"
+    },
+    {
+     "fromY": 238,
+     "color": "#FDB23D"
+    }
+   ],
+   "skyTop": "#E2BBC3",
+   "cityFar": "#BF899F",
+   "cityMid": "#936C9E",
+   "tint": "#BD5F6A",
+   "tintAmount": {
+    "nearCity": 0.26,
+    "houseAndAddOns": 0.12,
+    "deck": 0.208
+   },
+   "cloud": "#FBD5C9",
+   "textOnSky": "#2A2140",
+   "lightsOn": true,
+   "birdFilter": "none"
+  },
+  "dusk": {
+   "skyBands": [
+    {
+     "fromY": -300,
+     "color": "#635D93"
+    },
+    {
+     "fromY": 196,
+     "color": "#926886"
+    },
+    {
+     "fromY": 262,
+     "color": "#F6AA9B"
+    }
+   ],
+   "skyTop": "#635D93",
+   "cityFar": "#614767",
+   "cityMid": "#433354",
+   "tint": "#4A4380",
+   "tintAmount": {
+    "nearCity": 0.42,
+    "houseAndAddOns": 0.26,
+    "deck": 0.336
+   },
+   "cloud": "#AEA8BE",
+   "textOnSky": "#FFFBF0",
+   "lightsOn": true,
+   "birdFilter": "brightness(.9) saturate(.9)"
+  },
+  "night": {
+   "skyBands": [
+    {
+     "fromY": -300,
+     "color": "#3E386E"
+    }
+   ],
+   "skyTop": "#3E386E",
+   "cityFar": "#342F5F",
+   "cityMid": "#2B2751",
+   "tint": "#2C2752",
+   "tintAmount": {
+    "nearCity": 0.52,
+    "houseAndAddOns": 0.34,
+    "deck": 0.416
+   },
+   "cloud": "#928DAD",
+   "textOnSky": "#FFFBF0",
+   "lightsOn": true,
+   "birdFilter": "brightness(.8) saturate(.82)"
+  }
+ },
+ "pieceColours": {
+  "brick": "#F08A6B",
+  "card": "#FFFBF0",
+  "ink": "#2A2140",
+  "lilac": "#D5D1EA",
+  "loft-brick-far": "#D2ADA6",
+  "loft-brick-near": "#D8A69B",
+  "loft-city-far": "#9BC8E3",
+  "loft-city-far-line": "#A2D2ED",
+  "loft-city-mid": "#89AEC9",
+  "loft-city-mid-cap": "#7E9DB9",
+  "loft-city-window": "#99C6E0",
+  "loft-door-shine": "#8983A7",
+  "loft-sand-shade": "#B9B2AC",
+  "loft-slate": "#BFBAD4",
+  "loft-steel-shade": "#B3AEC8",
+  "loft-sun-shade": "#DDAE3D",
+  "loft-tomato-shade": "#D0563F",
+  "loft-tower-roof": "#AFAAC5",
+  "loft-wood-shade": "#B68263",
+  "mint": "#86D9A0",
+  "muted": "#5E5675",
+  "night": "#4A4380",
+  "night-water": "#2C2752",
+  "paper": "#FFF4DC",
+  "peach": "#F9C5B4",
+  "rose": "#F59C8E",
+  "sand": "#E9E3D0",
+  "sky": "#A9DDF7",
+  "stamp": "#C23A1C",
+  "sun": "#FFC93C",
+  "tomato": "#F4623F",
+  "wood": "#D99A6C"
+ }
+}

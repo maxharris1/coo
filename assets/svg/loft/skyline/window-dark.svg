@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 19 19" width="19" height="19">
+<title>Neighbour&#x27;s window: dark. Pane colour follows the wall it is on</title>
+<g id="window-dark" transform="translate(-7 -9)">
+<rect x="10" y="10" width="13" height="15" rx="1.5" fill="#807A96" stroke="#2A2140" stroke-width="1.6" class="stroke-ink"/><path d="M12 22 L20 13" stroke="#ACA7B6" stroke-width="1.4" stroke-linecap="round"/><rect x="8.5" y="24.5" width="16" height="2.6" rx="1" fill="#E2DEE3" stroke="#2A2140" stroke-width="1.2" class="stroke-ink"/>
+</g>
+</svg>

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 66" width="56" height="66">
+<title>Rooftop birdbath. Left deck slot</title>
+<g id="birdbath" transform="translate(-10 -314)">
+<g stroke="#2A2140" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" class="stroke-ink"><path d="M25 378 q0 -6 5 -7 h16 q5 1 5 7 Z" fill="#D5D1EA" class="fill-lilac"/><path d="M33 371 V348 H43 V371 Z" fill="#FFFBF0" class="fill-card"/><path d="M12 336 H64 q-2 14 -26 14 q-24 0 -26 -14 Z" fill="#FFFBF0" class="fill-card"/><ellipse cx="38" cy="336" rx="26" ry="5.5" fill="#A9DDF7" class="fill-sky"/><path d="M26 336 q4 -2 8 0 M42 335 q4 -2 8 0" fill="none" stroke-width="1.6"/></g><path d="M19 342 q2 6 10 8" fill="none" stroke="#D5D1EA" stroke-width="2.4" stroke-linecap="round" class="stroke-lilac"/><g fill="#FFFBF0" stroke="#2A2140" stroke-width="1.4" class="fill-card stroke-ink"><circle cx="53" cy="324" r="2.2"/><circle cx="59" cy="317" r="1.5"/></g>
+</g>
+</svg>

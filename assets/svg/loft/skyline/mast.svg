@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 33" width="14" height="33">
+<title>Plain aerial mast for near roofs. No crossbars</title>
+<g id="mast" transform="translate(-13 -8)">
+<g stroke="#2A2140" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" class="stroke-ink"><path d="M20 40 V14" fill="none"/><circle cx="20" cy="12" r="2.4" fill="#F4623F" class="fill-tomato"/><path d="M14 40 h12" fill="none"/></g>
+</g>
+</svg>

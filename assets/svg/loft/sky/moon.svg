@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52" width="52" height="52">
+<title>Crescent moon with halo</title>
+<g id="moon" transform="translate(-296 -68)">
+<circle cx="322" cy="94" r="26" fill="#FFFBF0" opacity=".12" class="fill-card"/><path d="M327 77 A17 17 0 1 0 339 100 A13.5 13.5 0 1 1 327 77 Z" fill="#FFFBF0" stroke="#2A2140" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" class="fill-card stroke-ink"/>
+</g>
+</svg>

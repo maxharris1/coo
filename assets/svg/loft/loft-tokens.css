@@ -1,0 +1,92 @@
+/* Loft colour tokens. Inline a piece's SVG in the page and these classes take over from the hex fallbacks in the file. */
+:root {
+  --coo-brick: #F08A6B;
+  --coo-loft-brick-far: #D2ADA6;
+  --coo-loft-brick-near: #D8A69B;
+  --coo-loft-city-far: #9BC8E3;
+  --coo-loft-city-far-line: #A2D2ED;
+  --coo-loft-city-mid: #89AEC9;
+  --coo-loft-city-mid-cap: #7E9DB9;
+  --coo-loft-city-window: #99C6E0;
+  --coo-loft-door-shine: #8983A7;
+  --coo-loft-sand-shade: #B9B2AC;
+  --coo-loft-slate: #BFBAD4;
+  --coo-loft-steel-shade: #B3AEC8;
+  --coo-loft-sun-shade: #DDAE3D;
+  --coo-loft-tomato-shade: #D0563F;
+  --coo-loft-tower-roof: #AFAAC5;
+  --coo-loft-wood-shade: #B68263;
+  --coo-rose: #F59C8E;
+  --coo-wood: #D99A6C;
+}
+
+.fill-brick { fill: var(--coo-brick, #F08A6B); }
+.stroke-brick { stroke: var(--coo-brick, #F08A6B); }
+.fill-card { fill: var(--coo-card, #FFFBF0); }
+.stroke-card { stroke: var(--coo-card, #FFFBF0); }
+.fill-ink { fill: var(--coo-ink, #2A2140); }
+.stroke-ink { stroke: var(--coo-ink, #2A2140); }
+.fill-lilac { fill: var(--coo-lilac, #D5D1EA); }
+.stroke-lilac { stroke: var(--coo-lilac, #D5D1EA); }
+.fill-loft-brick-far { fill: var(--coo-loft-brick-far, #D2ADA6); }
+.stroke-loft-brick-far { stroke: var(--coo-loft-brick-far, #D2ADA6); }
+.fill-loft-brick-near { fill: var(--coo-loft-brick-near, #D8A69B); }
+.stroke-loft-brick-near { stroke: var(--coo-loft-brick-near, #D8A69B); }
+.fill-loft-city-far { fill: var(--coo-loft-city-far, #9BC8E3); }
+.stroke-loft-city-far { stroke: var(--coo-loft-city-far, #9BC8E3); }
+.fill-loft-city-far-line { fill: var(--coo-loft-city-far-line, #A2D2ED); }
+.stroke-loft-city-far-line { stroke: var(--coo-loft-city-far-line, #A2D2ED); }
+.fill-loft-city-mid { fill: var(--coo-loft-city-mid, #89AEC9); }
+.stroke-loft-city-mid { stroke: var(--coo-loft-city-mid, #89AEC9); }
+.fill-loft-city-mid-cap { fill: var(--coo-loft-city-mid-cap, #7E9DB9); }
+.stroke-loft-city-mid-cap { stroke: var(--coo-loft-city-mid-cap, #7E9DB9); }
+.fill-loft-city-window { fill: var(--coo-loft-city-window, #99C6E0); }
+.stroke-loft-city-window { stroke: var(--coo-loft-city-window, #99C6E0); }
+.fill-loft-door-shine { fill: var(--coo-loft-door-shine, #8983A7); }
+.stroke-loft-door-shine { stroke: var(--coo-loft-door-shine, #8983A7); }
+.fill-loft-sand-shade { fill: var(--coo-loft-sand-shade, #B9B2AC); }
+.stroke-loft-sand-shade { stroke: var(--coo-loft-sand-shade, #B9B2AC); }
+.fill-loft-slate { fill: var(--coo-loft-slate, #BFBAD4); }
+.stroke-loft-slate { stroke: var(--coo-loft-slate, #BFBAD4); }
+.fill-loft-steel-shade { fill: var(--coo-loft-steel-shade, #B3AEC8); }
+.stroke-loft-steel-shade { stroke: var(--coo-loft-steel-shade, #B3AEC8); }
+.fill-loft-sun-shade { fill: var(--coo-loft-sun-shade, #DDAE3D); }
+.stroke-loft-sun-shade { stroke: var(--coo-loft-sun-shade, #DDAE3D); }
+.fill-loft-tomato-shade { fill: var(--coo-loft-tomato-shade, #D0563F); }
+.stroke-loft-tomato-shade { stroke: var(--coo-loft-tomato-shade, #D0563F); }
+.fill-loft-tower-roof { fill: var(--coo-loft-tower-roof, #AFAAC5); }
+.stroke-loft-tower-roof { stroke: var(--coo-loft-tower-roof, #AFAAC5); }
+.fill-loft-wood-shade { fill: var(--coo-loft-wood-shade, #B68263); }
+.stroke-loft-wood-shade { stroke: var(--coo-loft-wood-shade, #B68263); }
+.fill-mint { fill: var(--coo-mint, #86D9A0); }
+.stroke-mint { stroke: var(--coo-mint, #86D9A0); }
+.fill-muted { fill: var(--coo-muted, #5E5675); }
+.stroke-muted { stroke: var(--coo-muted, #5E5675); }
+.fill-night { fill: var(--coo-night, #4A4380); }
+.stroke-night { stroke: var(--coo-night, #4A4380); }
+.fill-night-water { fill: var(--coo-night-water, #2C2752); }
+.stroke-night-water { stroke: var(--coo-night-water, #2C2752); }
+.fill-paper { fill: var(--coo-paper, #FFF4DC); }
+.stroke-paper { stroke: var(--coo-paper, #FFF4DC); }
+.fill-peach { fill: var(--coo-peach, #F9C5B4); }
+.stroke-peach { stroke: var(--coo-peach, #F9C5B4); }
+.fill-rose { fill: var(--coo-rose, #F59C8E); }
+.stroke-rose { stroke: var(--coo-rose, #F59C8E); }
+.fill-sand { fill: var(--coo-sand, #E9E3D0); }
+.stroke-sand { stroke: var(--coo-sand, #E9E3D0); }
+.fill-sky { fill: var(--coo-sky, #A9DDF7); }
+.stroke-sky { stroke: var(--coo-sky, #A9DDF7); }
+.fill-stamp { fill: var(--coo-stamp, #C23A1C); }
+.stroke-stamp { stroke: var(--coo-stamp, #C23A1C); }
+.fill-sun { fill: var(--coo-sun, #FFC93C); }
+.stroke-sun { stroke: var(--coo-sun, #FFC93C); }
+.fill-tomato { fill: var(--coo-tomato, #F4623F); }
+.stroke-tomato { stroke: var(--coo-tomato, #F4623F); }
+.fill-wood { fill: var(--coo-wood, #D99A6C); }
+.stroke-wood { stroke: var(--coo-wood, #D99A6C); }
+
+[data-loft-time="sunrise"] { --coo-loft-sky-top: #C7E8F5; --coo-loft-city-far: #D1ABB5; --coo-loft-city-mid: #AB88AB; --coo-loft-cloud: #FDEBDE; --coo-loft-text: #2A2140; }
+[data-loft-time="day"] { --coo-loft-sky-top: #A9DDF7; --coo-loft-city-far: #9BC8E3; --coo-loft-city-mid: #89AEC9; --coo-loft-cloud: #FFFBF0; --coo-loft-text: #2A2140; }
+[data-loft-time="sunset"] { --coo-loft-sky-top: #E2BBC3; --coo-loft-city-far: #BF899F; --coo-loft-city-mid: #936C9E; --coo-loft-cloud: #FBD5C9; --coo-loft-text: #2A2140; }
+[data-loft-time="dusk"] { --coo-loft-sky-top: #635D93; --coo-loft-city-far: #614767; --coo-loft-city-mid: #433354; --coo-loft-cloud: #AEA8BE; --coo-loft-text: #FFFBF0; }
+[data-loft-time="night"] { --coo-loft-sky-top: #3E386E; --coo-loft-city-far: #342F5F; --coo-loft-city-mid: #2B2751; --coo-loft-cloud: #928DAD; --coo-loft-text: #FFFBF0; }

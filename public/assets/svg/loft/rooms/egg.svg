@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 34 32" width="34" height="32">
+<title>Egg in a nest, not ready</title>
+<g id="egg" transform="translate(-23 -42)">
+<path d="M25 64 q15 9 30 0 l-2 4 h-26 Z" fill="#B68263" stroke="#2A2140" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" class="fill-loft-wood-shade stroke-ink"/><g transform="translate(40 67)"><path d="M0 -24 C7 -24 11 -11 11 -5 a11 11 0 0 1 -22 0 C-11 -11 -7 -24 0 -24 Z" fill="#FFFBF0" stroke="#2A2140" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" class="fill-card stroke-ink"/><circle cx="-4" cy="-10" r="1.6" fill="#D5D1EA" class="fill-lilac"/><circle cx="4" cy="-4" r="2" fill="#D5D1EA" class="fill-lilac"/></g><path d="M24 65 q16 10 32 0" fill="none" stroke="#2A2140" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" class="stroke-ink"/>
+</g>
+</svg>

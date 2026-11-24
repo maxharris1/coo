@@ -16,11 +16,13 @@ mocks match.
 | `svg/gear/overlays/` | The same items in bird coordinates (viewBox -10 -22 140 132) for static compositing |
 | `svg/icons/` | 49 interface icons, 24 grid, `currentColor` |
 | `svg/illustrations/` | 24 props and scene pieces |
-| `svg/map/` | Route pins |
+| `svg/map/` | Route pins, and the illustrated map's decorations (`svg/map/night/` for night). See `docs/09-map.md` |
+| `svg/loft/` | The loft scene cut into one SVG per piece, and `loft-tokens.css` for their classes. See `docs/17-loft-scene.md` section 10 |
 | `app-icon/` | SVG masters and PNG exports (16, 32, 180, 192, 512, maskable 512) |
 | `manifest.webmanifest` | Home screen install settings. Name fields are replaced from `config/app.json` |
 | `map/coo-day.style.json` | STARTER map style. Not tested against live tiles. See `docs/09-map.md` |
 | `map/coo-night.overrides.json` | Night colours |
+| `map/map-colours.json` | Colours for the proposed illustrated map: regional, street and night |
 | `data/birds.json` | Palettes for each look and breed |
 | `copy/empty-states.json`, `copy/voice.md` | Empty-state lines and the voice rules |
 | `preview/motion.html` | Every animation running |

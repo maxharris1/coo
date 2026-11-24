@@ -1,0 +1,146 @@
+{
+ "tree-pine": {
+  "x": 0,
+  "y": 0,
+  "width": 36,
+  "height": 36,
+  "pixelRatio": 2
+ },
+ "tree-pine-night": {
+  "x": 40,
+  "y": 0,
+  "width": 36,
+  "height": 36,
+  "pixelRatio": 2
+ },
+ "tree-round": {
+  "x": 80,
+  "y": 0,
+  "width": 56,
+  "height": 56,
+  "pixelRatio": 2
+ },
+ "tree-round-night": {
+  "x": 140,
+  "y": 0,
+  "width": 56,
+  "height": 56,
+  "pixelRatio": 2
+ },
+ "tree-pair": {
+  "x": 200,
+  "y": 0,
+  "width": 68,
+  "height": 44,
+  "pixelRatio": 2
+ },
+ "hill": {
+  "x": 272,
+  "y": 0,
+  "width": 120,
+  "height": 56,
+  "pixelRatio": 2
+ },
+ "mountain": {
+  "x": 396,
+  "y": 0,
+  "width": 72,
+  "height": 52,
+  "pixelRatio": 2
+ },
+ "mountain-night": {
+  "x": 472,
+  "y": 0,
+  "width": 72,
+  "height": 52,
+  "pixelRatio": 2
+ },
+ "wave": {
+  "x": 548,
+  "y": 0,
+  "width": 44,
+  "height": 20,
+  "pixelRatio": 2
+ },
+ "wave-night": {
+  "x": 596,
+  "y": 0,
+  "width": 44,
+  "height": 20,
+  "pixelRatio": 2
+ },
+ "wave-pattern": {
+  "x": 644,
+  "y": 0,
+  "width": 256,
+  "height": 256,
+  "pixelRatio": 2
+ },
+ "wave-pattern-night": {
+  "x": 0,
+  "y": 260,
+  "width": 256,
+  "height": 256,
+  "pixelRatio": 2
+ },
+ "city-dot": {
+  "x": 260,
+  "y": 260,
+  "width": 28,
+  "height": 28,
+  "pixelRatio": 2
+ },
+ "city-dot-night": {
+  "x": 292,
+  "y": 260,
+  "width": 28,
+  "height": 28,
+  "pixelRatio": 2
+ },
+ "city-dot-major": {
+  "x": 324,
+  "y": 260,
+  "width": 36,
+  "height": 36,
+  "pixelRatio": 2
+ },
+ "city-dot-major-night": {
+  "x": 364,
+  "y": 260,
+  "width": 36,
+  "height": 36,
+  "pixelRatio": 2
+ },
+ "place-pill": {
+  "x": 404,
+  "y": 260,
+  "width": 72,
+  "height": 48,
+  "pixelRatio": 2,
+  "stretchX": [
+   [
+    26,
+    46
+   ]
+  ],
+  "stretchY": [
+   [
+    22,
+    26
+   ]
+  ],
+  "content": [
+   20,
+   10,
+   52,
+   38
+  ]
+ },
+ "shop-highlight": {
+  "x": 480,
+  "y": 260,
+  "width": 68,
+  "height": 68,
+  "pixelRatio": 2
+ }
+}

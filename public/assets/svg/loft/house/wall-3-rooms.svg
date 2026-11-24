@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 226 84" width="226" height="84">
+<title>Ground floor wall, three rooms wide</title>
+<g id="wall-3-rooms" transform="translate(-82 -296)">
+<rect x="84" y="298" width="222" height="80" fill="#FFC93C" stroke="#2A2140" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" class="fill-sun stroke-ink"/><path d="M86 318 H304" stroke="#DDAE3D" stroke-width="1.5" class="stroke-loft-sun-shade"/><path d="M86 338 H304" stroke="#DDAE3D" stroke-width="1.5" class="stroke-loft-sun-shade"/><path d="M86 358 H304" stroke="#DDAE3D" stroke-width="1.5" class="stroke-loft-sun-shade"/><path d="M158 298 V378" stroke="#2A2140" stroke-width="2" class="stroke-ink"/><path d="M232 298 V378" stroke="#2A2140" stroke-width="2" class="stroke-ink"/>
+</g>
+</svg>

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 34 215" width="34" height="215">
+<title>Far building: one flat colour, no outline, no windows</title>
+<g id="far-2-banded" transform="translate(-94 -163)">
+<rect x="94" y="176" width="34" height="202" fill="#9BC8E3" class="fill-loft-city-far"/><path d="M111 176 V164" stroke="#9BC8E3" stroke-width="2" stroke-linecap="round" fill="none" class="stroke-loft-city-far"/><path d="M94 190 h34 M94 204 h34" stroke="#A2D2ED" stroke-width="2" fill="none" class="stroke-loft-city-far-line"/>
+</g>
+</svg>

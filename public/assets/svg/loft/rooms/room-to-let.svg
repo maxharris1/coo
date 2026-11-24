@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 78 84" width="78" height="84">
+<title>A room that is built but not bought: sand panel and TO LET sign</title>
+<g id="room-to-let" transform="translate(2 2)">
+<rect x="0" y="0" width="74" height="80" fill="#E9E3D0" stroke="#2A2140" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" class="fill-sand stroke-ink"/><rect x="7" y="7" width="60" height="66" rx="6" fill="none" stroke="#2A2140" stroke-width="1.8" stroke-dasharray="3 5" stroke-linecap="round" opacity=".55" class="stroke-ink"/><g transform="rotate(-4 37 36)"><path d="M23 36 L37 22 L51 36" fill="none" stroke="#2A2140" stroke-width="1.6" class="stroke-ink"/><circle cx="37" cy="22" r="2" fill="#2A2140" class="fill-ink"/><rect x="15" y="36" width="44" height="19" rx="4" fill="#FFFBF0" stroke="#2A2140" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" class="fill-card stroke-ink"/><text x="37" y="49.4" text-anchor="middle" font-family="Nunito, sans-serif" font-weight="900" font-size="9.5" letter-spacing=".6" fill="#C23A1C" class="fill-stamp">TO LET</text></g>
+</g>
+</svg>

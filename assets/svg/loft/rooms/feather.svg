@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 33 15" width="33" height="15">
+<title>Feather left on the perch by a bird that is out. Fill is currentColor: set it to the bird&#x27;s wing colour</title>
+<g id="feather" transform="translate(-20 -55)">
+<g transform="rotate(-14 36 64)"><path d="M21 64 q8 -9 22 -6 q6 1 9 5 q-12 7 -24 4 Z" fill="currentColor" stroke="#2A2140" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" class="stroke-ink"/><path d="M21 64 q14 -2 28 -2" fill="none" stroke="#2A2140" stroke-width="1.5" stroke-linecap="round" class="stroke-ink"/></g>
+</g>
+</svg>

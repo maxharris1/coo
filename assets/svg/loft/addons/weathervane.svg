@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 34" width="44" height="34">
+<title>Weathervane. Stands on the roof peak</title>
+<g id="weathervane" transform="translate(-172 -224)">
+<g stroke="#2A2140" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" class="stroke-ink"><path d="M195 256 V241" fill="none" stroke-width="2.5"/><circle cx="195" cy="253" r="3.2" fill="#FFC93C" class="fill-sun"/><g><path d="M178 240 H207" fill="none"/><path d="M206 235 L215 240 L206 245 Z" fill="#FFC93C" class="fill-sun"/><path d="M178 235 l-5 5 l5 5 Z" fill="#FFC93C" class="fill-sun"/><path d="M187 237 q0 -9 8 -9 q4 -5 8 -1 l4 1 l-4 2 q0 7 -8 7 Z" fill="#FFFBF0" class="fill-card"/><circle cx="200.5" cy="228" r=".9" fill="#2A2140" stroke="none" class="fill-ink"/></g></g>
+</g>
+</svg>

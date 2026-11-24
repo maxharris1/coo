@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 55" width="36" height="55">
+<title>Wooden water tower</title>
+<g id="water-tower" transform="translate(-349 -192)">
+<g stroke="#2A2140" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" class="stroke-ink"><path d="M356 246 L358 232 M378 246 L376 232 M357 241 L377 235 M377 241 L357 235" fill="none" stroke-width="1.8"/><rect x="353" y="208" width="28" height="25" rx="2" fill="#D99A6C" class="fill-wood"/><path d="M353 216 h28 M353 225 h28" stroke="#B68263" stroke-width="1.6" fill="none" class="stroke-loft-wood-shade"/><path d="M360 209 v23 M367 209 v23 M374 209 v23" stroke="#C88E68" stroke-width="1" fill="none"/><path d="M350 209 L367 195 L384 209 Z" fill="#AFAAC5" class="fill-loft-tower-roof"/><circle cx="367" cy="194" r="1.8" fill="#2A2140" stroke="none" class="fill-ink"/></g>
+</g>
+</svg>

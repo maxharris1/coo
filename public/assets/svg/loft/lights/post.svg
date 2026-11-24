@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 234" width="14" height="234">
+<title>Light post (spare). Stands on the deck at each edge and holds one end of the garland</title>
+<g id="post">
+<rect x="4.5" y="9" width="5" height="225" rx="1.5" fill="#D99A6C" stroke="#2A2140" stroke-width="2" stroke-linejoin="round" class="fill-wood stroke-ink"/>
+<path d="M2 233 h10" fill="none" stroke="#2A2140" stroke-width="2.5" stroke-linecap="round" class="stroke-ink"/>
+<circle cx="7" cy="6" r="4" fill="#F4623F" stroke="#2A2140" stroke-width="2" class="fill-tomato stroke-ink"/>
+</g>
+</svg>

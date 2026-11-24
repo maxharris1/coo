@@ -145,48 +145,69 @@ def _pigeon_dot(x, y, flip=False):
     return f'<path d="M{x} {y} q{-6 * k} 0 {-7 * k} -4 q{1 * k} -4 {5 * k} -4 q{1 * k} -3 {3.5 * k} -2 l{2.2 * k} 1 l{-2 * k} 1 q{.6 * k} 4 {-1.7 * k} 8 Z" fill="{mix(INK, SKY, .28)}"/>'
 
 
+def mid_building(n, x, w, t, NEAR, WIN, lit_k):
+    """A middle-distance tower: flat tint, a darker cap, a grid of small windows. n picks the window pattern."""
+    o = f'<rect x="{x}" y="{t}" width="{w}" height="{FLOOR - t}" fill="{NEAR}"/><rect x="{x}" y="{t}" width="{w}" height="3" fill="{mix(NEAR, INK, .12)}"/>'
+    cols = int(max(2, (w - 8) // 9))
+    gap = (w - cols * 5) / (cols + 1)
+    for r in range(int((FLOOR - t - 16) // 12)):
+        for c in range(cols):
+            k = (n * 7 + r * 3 + c * 5) % 11
+            yy = t + 9 + r * 12
+            if k in (0, 7):
+                continue
+            o += f'<rect x="{x + gap + c * (5 + gap):.1f}" y="{yy}" width="5" height="7" rx="1" fill="{"§lit§" if k in lit_k and yy < FLOOR - 70 else WIN}"/>'
+    return o
+
+
+FAR_TOWERS = [(-6, 30, 208), (20, 30, 186), (54, 36, 204), (94, 34, 176), (128, 30, 198), (160, 44, 184), (206, 30, 196),
+              (236, 30, 170), (262, 28, 152), (290, 36, 188), (326, 30, 172), (356, 40, 196)]
+MID_TOWERS = [(40, 36, 234), (72, 30, 252), (98, 44, 220), (140, 34, 242), (170, 44, 206), (212, 34, 234), (244, 36, 216),
+              (278, 30, 240), (304, 34, 228), (336, 30, 244), (372, 24, 232)]
+NEAR_PARTS = {}
+
+
 def skyline(ph):
     """Three depths. Far: haze, shapes only. Middle: sky-tinted towers with window grids.
     Near: the neighbours across the street, in colour, with outlines, as tall as we are."""
     FAR, NEAR = ph["far"], ph["mid"]
     WIN = mix(NEAR, ph["bands"][-1][1], .5)
     # ---- far: tall pale shapes, one spire
-    far = [(-6, 30, 208), (20, 30, 186), (54, 36, 204), (94, 34, 176), (128, 30, 198), (160, 44, 184), (206, 30, 196),
-           (236, 30, 170), (262, 28, 152), (290, 36, 188), (326, 30, 172), (356, 40, 196)]
+    far = FAR_TOWERS
     o = "".join(f'<rect x="{x}" y="{t}" width="{w}" height="{FLOOR - t}" fill="{FAR}"/>' for x, w, t in far)
     o += f'<path d="M268 152 h16 l-3 -9 h-10 Z M273 143 h6 l-2 -8 h-2 Z" fill="{FAR}"/><path d="M276 136 V124 M111 176 V164 M341 172 V160" stroke="{FAR}" stroke-width="2" stroke-linecap="round" fill="none"/>'
     o += f'<path d="M94 190 h34 M94 204 h34 M236 184 h30 M236 198 h30 M160 198 h44 M326 186 h30" stroke="{mix(FAR, ph["bands"][-1][1], .5)}" stroke-width="2" fill="none"/>'
+    o += "§midstart§"
     # ---- middle: towers with windows; a setback tower in the centre
-    mid = [(40, 36, 234), (72, 30, 252), (98, 44, 220), (140, 34, 242), (170, 44, 206), (212, 34, 234), (244, 36, 216),
-           (278, 30, 240), (304, 34, 228), (336, 30, 244), (372, 24, 232)]
+    mid = MID_TOWERS
     o += f'<rect x="180" y="192" width="24" height="16" fill="{NEAR}"/><path d="M192 192 V180" stroke="{NEAR}" stroke-width="2.4" stroke-linecap="round"/>'
     o += f'<g fill="{NEAR}"><path d="M250 216 L252 205 H266 L268 216 Z"/><rect x="250" y="192" width="18" height="14" rx="2"/><path d="M248 193 L259 185 L270 193 Z"/></g>'
     for n, (x, w, t) in enumerate(mid):
-        o += f'<rect x="{x}" y="{t}" width="{w}" height="{FLOOR - t}" fill="{NEAR}"/><rect x="{x}" y="{t}" width="{w}" height="3" fill="{mix(NEAR, INK, .12)}"/>'
-        cols = int(max(2, (w - 8) // 9))
-        gap = (w - cols * 5) / (cols + 1)
-        for r in range(int((FLOOR - t - 16) // 12)):
-            for c in range(cols):
-                k = (n * 7 + r * 3 + c * 5) % 11
-                yy = t + 9 + r * 12
-                if k in (0, 7):
-                    continue
-                o += f'<rect x="{x + gap + c * (5 + gap):.1f}" y="{yy}" width="5" height="7" rx="1" fill="{"§lit§" if k in ph["lit_k"] and yy < FLOOR - 70 else WIN}"/>'
-    back, o = o, ""
+        o += mid_building(n, x, w, t, NEAR, WIN, ph["lit_k"])
+    far_part, mid_part = o.split("§midstart§")
+    back = far_part + mid_part
     # ---- near, left: a low slate roof with a stair hut, then a tall brick walk-up
     brick = mix(BRICK, SKY, .34)
     slate = mix(LILAC, INK, .13)
-    o += _neighbour(40, 288, 60, slate, ("dark", "lit"), cols=2, win=(10, 12), xs=(51, 64))
-    o += f'<g {ST2}><rect x="54" y="270" width="18" height="14" fill="{mix(slate, CARD, .35)}"/><rect x="59" y="275" width="7" height="9" fill="{mix(slate, INK, .4)}" stroke-width="1.4"/></g>'
-    o += _pigeon_dot(68, 270)
-    o += _neighbour(-8, 198, 56, brick, ("curtain", "dark", "lit", "plant", "dark", "cat", "dark", "curtain"), cols=2, win=(13, 15))
-    o += _pigeon_dot(12, 194, True)
-    # ---- near, right: a slate building with a roof garden, then a brick one carrying the water tower
-    o += _neighbour(284, 274, 56, slate, ("curtain",), cols=1, win=(10, 12), xs=(323,))
-    o += f'<g {ST2}><path d="M300 270 V262" fill="none"/><circle cx="296" cy="259" r="6.5" fill="{MINT}"/><circle cx="304" cy="256" r="7.5" fill="{MINT}"/><rect x="293" y="264" width="14" height="6" rx="1.5" fill="{WOOD}"/><rect x="320" y="262" width="13" height="8" rx="1.5" fill="{mix(slate, INK, .18)}"/></g>'
+    hut = f'<g {ST2}><rect x="54" y="270" width="18" height="14" fill="{mix(slate, CARD, .35)}"/><rect x="59" y="275" width="7" height="9" fill="{mix(slate, INK, .4)}" stroke-width="1.4"/></g>'
+    garden = f'<g {ST2}><path d="M300 270 V262" fill="none"/><circle cx="296" cy="259" r="6.5" fill="{MINT}"/><circle cx="304" cy="256" r="7.5" fill="{MINT}"/><rect x="293" y="264" width="14" height="6" rx="1.5" fill="{WOOD}"/></g>'
+    ac = f'<g {ST2}><rect x="320" y="262" width="13" height="8" rx="1.5" fill="{mix(slate, INK, .18)}"/></g>'
     rb = mix(BRICK, SKY, .42)
-    o += _neighbour(338, 250, 60, rb, ("dark", "lit", "plant", "dark"), cols=2, win=(13, 15))
-    o += water_tower(367, 246)
+    parts = [
+        ("near-slate-low", _neighbour(40, 288, 60, slate, ("dark", "lit"), cols=2, win=(10, 12), xs=(51, 64))),
+        ("stair-hut", hut),
+        ("rooftop-pigeon-a", _pigeon_dot(68, 270)),
+        ("near-brick-tall", _neighbour(-8, 198, 56, brick, ("curtain", "dark", "lit", "plant", "dark", "cat", "dark", "curtain"), cols=2, win=(13, 15))),
+        ("rooftop-pigeon-b", _pigeon_dot(12, 194, True)),
+        ("near-slate-garden", _neighbour(284, 274, 56, slate, ("curtain",), cols=1, win=(10, 12), xs=(323,))),
+        ("roof-garden", garden),
+        ("ac-unit", ac),
+        ("near-brick-right", _neighbour(338, 250, 60, rb, ("dark", "lit", "plant", "dark"), cols=2, win=(13, 15))),
+        ("water-tower", water_tower(367, 246)),
+    ]
+    NEAR_PARTS.clear()
+    NEAR_PARTS.update({"far": far_part, "mid": mid_part, "near": parts})
+    o = "".join(m for _, m in parts)
     return back, o
 
 
@@ -268,43 +289,70 @@ def _bay(x, y, state):
     return o
 
 
+def wall(n, x0, y0):
+    """One floor of the house: n rooms wide."""
+    o = f'<rect x="{x0}" y="{y0}" width="{n * BAY_W}" height="{BAY_H}" fill="{SUN}" {ST}/>'
+    o += "".join(f'<path d="M{x0 + 2} {y0 + k} H{x0 + n * BAY_W - 2}" stroke="{SUN_D}" stroke-width="1.5"/>' for k in (20, 40, 60))
+    o += "".join(f'<path d="M{x0 + c * BAY_W} {y0} V{y0 + BAY_H}" stroke="{INK}" stroke-width="2"/>' for c in range(1, n))
+    return o
+
+
+def cornice(n, floor):
+    """Caps the floor below: n is that floor's width in rooms, floor counts from 1."""
+    return f'<rect x="{CX - n * BAY_W / 2 - 4}" y="{FLOOR - floor * BAY_H - 3}" width="{n * BAY_W + 8}" height="7" rx="3" fill="{CARD}" {ST}/>'
+
+
+def roof(g):
+    x0, x1, ey, py = g["x0"], g["x1"], g["eave"], g["peak"]
+    o = f'<path d="M{x0 + 5} {ey - 3} L{CX} {py} L{x1 - 5} {ey - 3} Z" fill="{TOMATO}" {ST}/>'
+    for d in (16, 32):
+        if CX - x0 - 5 - d * 1.9 > 30:
+            o += f'<path d="M{x0 + 5 + d * 1.9:.1f} {ey - 3} L{CX} {py + d:.1f} L{x1 - 5 - d * 1.9:.1f} {ey - 3}" fill="none" stroke="{TOM_D}" stroke-width="1.6" stroke-linejoin="round"/>'
+    return o + f'<rect x="{x0}" y="{ey - 5}" width="{x1 - x0}" height="9" rx="4" fill="{TOM_D}" {ST}/>'
+
+
+def sign(g):
+    ey = g["eave"]
+    return (f'<rect x="{CX - 29}" y="{ey - 24}" width="58" height="15" rx="4" fill="{CARD}" {ST2}/>'
+            f'<text x="{CX}" y="{ey - 13}" text-anchor="middle" font-family="Nunito, sans-serif" font-weight="900" font-size="9.5" letter-spacing=".8" fill="{INK}">LOFT 4B</text>')
+
+
+def chimney_at(g):
+    """Where the stovepipe meets the right roof slope."""
+    x0, x1, ey, py = g["x0"], g["x1"], g["eave"], g["peak"]
+    k = (ey - 3 - py) / (CX - x0 - 5)
+    px = CX + (x1 - CX) * .52
+    return px, py + (px - CX) * k
+
+
+def chimney(g):
+    px, pyy = chimney_at(g)
+    return f'<rect x="{px - 5}" y="{pyy - 20:.1f}" width="10" height="{24:.1f}" fill="{LILAC}" {ST2}/><rect x="{px - 7.5}" y="{pyy - 24:.1f}" width="15" height="6" rx="2" fill="{mix(LILAC, INK, .2)}" {ST2}/>'
+
+
+SMOKE_PUFFS = ((1, -34, 4.5), (6, -44, 6), (2, -55, 4))
+
+
+def smoke(g):
+    px, pyy = chimney_at(g)
+    return "".join(f'<circle cx="{px + dx:.1f}" cy="{pyy + dy:.1f}" r="{r}" fill="{CARD}" stroke="{INK}" stroke-width="1.6" '
+                   f'style="transform-box: fill-box; transform-origin: 50% 50%; animation: loft-smoke 5s ease-out {j * 1.6:.1f}s infinite"/>' for j, (dx, dy, r) in enumerate(SMOKE_PUFFS))
+
+
 def house(perches, bays, items=()):
     rows = rows_for(perches)
     g = roof_geom(perches)
     o = ""
-    # walls, bottom floor first
     for r, n in enumerate(rows):
-        x0, y0 = CX - n * BAY_W / 2, FLOOR - (r + 1) * BAY_H
-        o += f'<rect x="{x0}" y="{y0}" width="{n * BAY_W}" height="{BAY_H}" fill="{SUN}" {ST}/>'
-        o += "".join(f'<path d="M{x0 + 2} {y0 + k} H{x0 + n * BAY_W - 2}" stroke="{SUN_D}" stroke-width="1.5"/>' for k in (20, 40, 60))
-        o += "".join(f'<path d="M{x0 + c * BAY_W} {y0} V{y0 + BAY_H}" stroke="{INK}" stroke-width="2"/>' for c in range(1, n))
-    # a cornice between floors, which also caps the shoulders of the ground floor
+        o += wall(n, CX - n * BAY_W / 2, FLOOR - (r + 1) * BAY_H)
     for r in range(1, len(rows)):
-        n = rows[r - 1]
-        o += f'<rect x="{CX - n * BAY_W / 2 - 4}" y="{FLOOR - r * BAY_H - 3}" width="{n * BAY_W + 8}" height="7" rx="3" fill="{CARD}" {ST}/>'
-    # bays
+        o += cornice(rows[r - 1], r)
     for i in range(sum(rows)):
         x, y = bay_xy(perches, i)
         o += _bay(x, y, bays[i] if i < len(bays) else ("tolet" if i >= perches else "empty"))
-    # roof
-    x0, x1, ey, py = g["x0"], g["x1"], g["eave"], g["peak"]
-    o += f'<path d="M{x0 + 5} {ey - 3} L{CX} {py} L{x1 - 5} {ey - 3} Z" fill="{TOMATO}" {ST}/>'
-    k = (ey - 3 - py) / (CX - x0 - 5)
-    for d in (16, 32):
-        if CX - x0 - 5 - d * 1.9 > 30:
-            o += f'<path d="M{x0 + 5 + d * 1.9:.1f} {ey - 3} L{CX} {py + d:.1f} L{x1 - 5 - d * 1.9:.1f} {ey - 3}" fill="none" stroke="{TOM_D}" stroke-width="1.6" stroke-linejoin="round"/>'
-    o += f'<rect x="{x0}" y="{ey - 5}" width="{x1 - x0}" height="9" rx="4" fill="{TOM_D}" {ST}/>'
-    o += (f'<rect x="{CX - 29}" y="{ey - 24}" width="58" height="15" rx="4" fill="{CARD}" {ST2}/>'
-          f'<text x="{CX}" y="{ey - 13}" text-anchor="middle" font-family="Nunito, sans-serif" font-weight="900" font-size="9.5" letter-spacing=".8" fill="{INK}">LOFT 4B</text>')
-    # stovepipe on the right slope, always there
-    px = CX + (x1 - CX) * .52
-    pyy = py + (px - CX) * k
-    o += f'<rect x="{px - 5}" y="{pyy - 20:.1f}" width="10" height="{24:.1f}" fill="{LILAC}" {ST2}/><rect x="{px - 7.5}" y="{pyy - 24:.1f}" width="15" height="6" rx="2" fill="{mix(LILAC, INK, .2)}" {ST2}/>'
-    for j, (dx, dy, r) in enumerate(((1, -34, 4.5), (6, -44, 6), (2, -55, 4))):
-        o += (f'<circle cx="{px + dx:.1f}" cy="{pyy + dy:.1f}" r="{r}" fill="{CARD}" stroke="{INK}" stroke-width="1.6" '
-              f'style="transform-box: fill-box; transform-origin: 50% 50%; animation: loft-smoke 5s ease-out {j * 1.6:.1f}s infinite"/>')
+    o += roof(g) + sign(g) + chimney(g) + smoke(g)
     if "vane" in items:
-        o += vane(CX, py)
+        o += vane(CX, g["peak"])
     return o
 
 
@@ -337,14 +385,23 @@ def birdbath(x=LEFT_SLOT_X):
 
 
 def cart(x=RIGHT_SLOT_X):
+    """The espresso cart. Stands in the right deck slot."""
     f = FLOOR
+    steel = mix(LILAC, CARD, .25)
     o = f'<g {ST}>'
     o += f'<path d="M{x - 23} {f - 28} V{f - 52} M{x + 23} {f - 28} V{f - 52}" fill="none"/>'
-    # body, counter, seed heap
-    o += f'<path d="M{x - 15} {f - 30} q15 -17 30 0 Z" fill="{SUN}"/>'
+    # espresso machine on the counter, one cup, steam
+    o += f'<rect x="{x - 17}" y="{f - 49}" width="23" height="17" rx="3" fill="{steel}" stroke-width="2"/>'
+    o += f'<rect x="{x - 19}" y="{f - 52}" width="27" height="5" rx="2" fill="{mix(LILAC, INK, .2)}" stroke-width="2"/>'
+    o += f'<circle cx="{x - 11}" cy="{f - 43}" r="2" fill="{TOMATO}" stroke-width="1.4"/><circle cx="{x - 5}" cy="{f - 43}" r="2" fill="{SUN}" stroke-width="1.4"/>'
+    o += f'<path d="M{x - 7} {f - 38} v3 M{x - 10} {f - 35} h6" fill="none" stroke-width="2"/>'
+    o += f'<path d="M{x + 10} {f - 40} h9 l-1 7 h-7 Z" fill="{CARD}" stroke-width="1.8"/><path d="M{x + 19} {f - 38} q4 0 2 4" fill="none" stroke-width="1.6"/>'
+    o += (f'<path d="M{x + 13} {f - 44} q-2 -3 0 -5 q2 -2 0 -5" fill="none" stroke-width="1.5" style="animation: coo-twinkle 2.4s ease-in-out infinite"/>'
+          f'<path d="M{x + 17} {f - 45} q-2 -2 0 -4" fill="none" stroke-width="1.5" style="animation: coo-twinkle 2.4s ease-in-out .8s infinite"/>')
+    # body with a coffee bean, counter
     o += f'<rect x="{x - 25}" y="{f - 30}" width="50" height="19" rx="4" fill="{CARD}"/>'
     o += f'<rect x="{x - 28}" y="{f - 33}" width="56" height="7" rx="3" fill="{WOOD}"/>'
-    o += f'<path d="M{x} {f - 24} c3.4 2.6 4.6 5.6 0 10 c-4.6 -4.4 -3.4 -7.4 0 -10 Z" fill="{SUN}" stroke-width="1.8"/>'
+    o += f'<ellipse cx="{x}" cy="{f - 19}" rx="4.4" ry="5.6" fill="{WOOD_D}" stroke-width="1.8" transform="rotate(24 {x} {f - 19})"/><path d="M{x - 1.5} {f - 23.5} q3.5 4 .5 9" fill="none" stroke-width="1.4"/>'
     # wheels
     o += f'<circle cx="{x - 14}" cy="{f - 8}" r="8" fill="{CARD}"/><circle cx="{x + 14}" cy="{f - 8}" r="8" fill="{CARD}"/>'
     o += f'<circle cx="{x - 14}" cy="{f - 8}" r="2.2" fill="{INK}"/><circle cx="{x + 14}" cy="{f - 8}" r="2.2" fill="{INK}"/>'
@@ -360,7 +417,7 @@ def cart(x=RIGHT_SLOT_X):
 SMOKE_CSS = "@keyframes loft-smoke{0%{transform:translate(0,10px) scale(.4);opacity:0}25%{opacity:1}100%{transform:translate(9px,-12px) scale(1.25);opacity:0}}"
 
 
-def bird_in_bay(perches, i, v, pose_name="perched", gear=(), w=70):
+def bird_in_bay(perches, i, v, pose_name="perched", gear=(), w=65):
     x, y = bay_xy(perches, i)
     vb, inner = pose(v, pose_name, 3, gear, anim=True)
     vx, vy, vw, vh = [float(n) for n in vb.split()]
@@ -495,7 +552,7 @@ def loft_screen(title, greeting, seeds, perches, birds, items, rows, perch_link,
     if "birdbath" in items:
         hits += hit(LEFT_SLOT_X - 30, FLOOR - 60, 60, 60, "Shop.dc.html", "Rooftop birdbath", k, dy)
     if "cart" in items:
-        hits += hit(RIGHT_SLOT_X - 30, FLOOR - 70, 60, 70, "Shop.dc.html", "Seed cart", k, dy)
+        hits += hit(RIGHT_SLOT_X - 30, FLOOR - 70, 60, 70, "Shop.dc.html", "Espresso cart", k, dy)
     gsize = 27 if w >= 380 else 23
     hero = (f'<section aria-label="Your loft" style="position: relative; height: {hero_h}px; overflow: hidden">{svg}{hits}'
             f'<div style="position: absolute; left: 16px; right: 16px; top: 12px; display: flex; align-items: center; justify-content: space-between">'
@@ -566,7 +623,7 @@ def spec():
         (3, CX - 26, g["peak"] - 32, 52, 34, "Roof peak", "Weathervane. Moves up with the roof when a floor is added."),
         (4, CX - 115, FLOOR - 164, 230, 164, "Rooms", "One room per perch. Three to a floor, filled bottom-left first, in the same order as the flock list. The second floor is two rooms wide and centred."),
         (5, LEFT_SLOT_X - 32, FLOOR - 64, 64, 64, "Left of the house", "Rooftop birdbath. 60 pt wide slot, standing on the deck line."),
-        (6, RIGHT_SLOT_X - 32, FLOOR - 72, 64, 72, "Right of the house", "Seed cart. Same slot size, mirrored."),
+        (6, RIGHT_SLOT_X - 32, FLOOR - 72, 64, 72, "Right of the house", "Espresso cart. Same slot size, mirrored."),
         (7, 6, FLOOR + 1, 378, 28, "The wall", "Flower boxes hang under each deck slot. Nothing here rises above the deck line."),
     ]
     over = ""
@@ -589,7 +646,7 @@ def spec():
         ("Rooftop birdbath · 220 seeds", "Lands in the left slot. The house does not move.", 3, [G, B, "egg"], ("birdbath",)),
         ("Perch 4 · 250 seeds", "A second floor goes up. Its spare room hangs a sign.", 4, [G, B, K, None], ("birdbath",)),
         ("Perch 5 · 400 seeds", "The spare room opens. The roof stays put.", 5, [G, B, K, A, None], ("birdbath",)),
-        ("Seed cart and flower boxes", "New add-ons, prices to set. Right slot, and along the wall.", 5, [G, B, K, A, P], ("birdbath", "cart", "planters")),
+        ("Espresso cart and flower boxes", "New add-ons, prices to set. Right slot, and along the wall.", 5, [G, B, K, A, P], ("birdbath", "cart", "planters")),
         ("Weathervane", "New add-on, price to set. On the roof peak.", 5, [G, B, K, A, P], items),
     ]
     sk = 384 / W
@@ -645,13 +702,12 @@ def spec():
 
 
 if __name__ == "__main__":
-    import json, os, sys
-    out = sys.argv[1] if len(sys.argv) > 1 else "loft-out"   # usage: python3 loft.py [output folder]
-    os.makedirs(out, exist_ok=True)
+    import json
+    out = "/home/claude/coo/project"
     for name, html in screens().items():
         open(f"{out}/{name}.dc.html", "w").write(html)
         print(name, len(html))
     html, h = spec()
     open(f"{out}/LoftSpec.dc.html", "w").write(html)
     print("LoftSpec", len(html), h)
-    json.dump({"spec_h": h}, open(f"{out}/loft-meta.json", "w"))
+    json.dump({"spec_h": h}, open("/tmp/loft-meta.json", "w"))
