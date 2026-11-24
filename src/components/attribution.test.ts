@@ -1,9 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  ATTRIBUTION_FALLBACK_MS,
-  ATTRIBUTION_OPEN_MS,
-  collapseAttributionSoon,
-} from "./attribution";
+import { ATTRIBUTION_OPEN_MS, collapseAttributionSoon } from "./attribution";
 
 type Handler = (e: { originalEvent?: unknown }) => void;
 
@@ -107,13 +103,28 @@ describe("the map credit", () => {
     expect(control().shown).toBe(false);
   });
 
-  it("folds after the fallback even if the map reports nothing", () => {
-    const { control } = setup();
-    expect(ATTRIBUTION_FALLBACK_MS).toBe(2 * ATTRIBUTION_OPEN_MS);
-    vi.advanceTimersByTime(ATTRIBUTION_FALLBACK_MS - 1);
-    expect(control().shown).toBe(true);
+  it("shows a credit that arrives late, on a slow network, for the full five seconds", () => {
+    const { map, control, setControl } = setup();
+    const late = control();
+    setControl(null);
+    map.fire("styledata");
+    map.fire("load");
+    vi.advanceTimersByTime(6000);
+    setControl(late);
+    map.fire("sourcedata");
+    expect(late.shown, "open as soon as it appears").toBe(true);
+    vi.advanceTimersByTime(ATTRIBUTION_OPEN_MS - 1);
+    map.fire("data");
+    expect(late.shown, "still open just under five seconds later").toBe(true);
     vi.advanceTimersByTime(1);
-    expect(control().shown).toBe(false);
+    expect(late.shown, "folded").toBe(false);
+  });
+
+  it("keeps nothing running while it waits for the credit", () => {
+    const { map, setControl } = setup();
+    setControl(null);
+    map.fire("load");
+    expect(vi.getTimerCount(), "no timer before the credit shows").toBe(0);
   });
 
   it("does not restart the five seconds when the style reloads", () => {

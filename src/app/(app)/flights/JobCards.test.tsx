@@ -75,6 +75,10 @@ describe("Flights odd job cards", () => {
     // The map picture is hidden from screen readers once MapLibre draws it
     // (MapView.test.tsx); the frame is not, so the map credit stays readable.
     expect(link![0]).not.toContain('aria-hidden="true"');
+    expect(
+      link![0].match(/^<a\b[^>]*aria-label="([^"]*)"/)?.[1],
+      "named by its words, not the map credit inside it",
+    ).toMatch(/^Gerald, on an odd job(\. Home .+)?$/);
   });
 
   it("keeps a card as text with no link when the job has no stored dest", () => {

@@ -18,7 +18,7 @@ import {
   stubBrowser,
   stubStyle,
 } from "@/test/fakeMapLibre";
-import { ATTRIBUTION_FALLBACK_MS, ATTRIBUTION_OPEN_MS } from "./attribution";
+import { ATTRIBUTION_OPEN_MS } from "./attribution";
 import { Bird } from "./Bird";
 import { STOCK_STYLE } from "./mapStyle";
 import {
@@ -27,6 +27,7 @@ import {
   dotsStart,
   ZOOM_BANDS,
   headsWest,
+  nearEdge,
   pinLabelShift,
   routeFractions,
   zoomForDistance,
@@ -343,8 +344,8 @@ describe("the tracker map without preview stays as it was (#901 ac-1)", () => {
   it("is interactive, padded for the card and follows the bird", async () => {
     const { map } = await mounted(props());
     expect(map.options.interactive).toBeUndefined();
-    expect(map.options.fitBoundsOptions).toEqual({
-      padding: { top: 80, left: 48, right: 48, bottom: 260 },
+    expect(map.options.fitBoundsOptions, "card plus the credit's row").toEqual({
+      padding: { top: 80, left: 48, right: 48, bottom: 260 + 40 },
     });
     expect(map.handlers.dragstart).toHaveLength(1);
     expect(map.handlers.zoomstart).toHaveLength(1);
@@ -355,7 +356,7 @@ describe("the tracker map without preview stays as it was (#901 ac-1)", () => {
   it("keeps the header's room at the top when given one", async () => {
     const { map } = await mounted(props({ topPadding: 120 }));
     expect(map.options.fitBoundsOptions).toEqual({
-      padding: { top: 120, left: 48, right: 48, bottom: 260 },
+      padding: { top: 120, left: 48, right: 48, bottom: 300 },
     });
   });
 
@@ -368,11 +369,35 @@ describe("the tracker map without preview stays as it was (#901 ac-1)", () => {
       {
         bounds: map.options.bounds,
         options: {
-          padding: { top: 96, bottom: 329, left: 48, right: 48 },
+          padding: { top: 96, bottom: 329 + 40, left: 48, right: 48 },
           duration: 300,
         },
       },
     ]);
+  });
+
+  it("keeps the credit's row above the card clear of the bird and pins", async () => {
+    const p = props({ bottomPadding: 300, controlsBottom: 300 });
+    const { map } = await mounted(p);
+    const bottom = (
+      map.options.fitBoundsOptions as { padding: { bottom: number } }
+    ).padding.bottom;
+    expect(bottom - 300, "room for the 24 px credit, its margin and air").toBe(
+      40,
+    );
+  });
+
+  it("counts a bird in the credit's row as at the edge, so the camera follows it", () => {
+    const at = (y: number) =>
+      ({
+        project: () => ({ x: 200, y }),
+        getContainer: () => ({ clientWidth: 400, clientHeight: 800 }),
+      }) as never;
+    const bird = { lat: 0, lon: 0 };
+    // 20 px above a 300 px card: clear of the card, but in the credit's row.
+    expect(nearEdge(at(480), bird, { top: 80, bottom: 300 })).toBe(false);
+    expect(nearEdge(at(480), bird, { top: 80, bottom: 340 })).toBe(true);
+    expect(nearEdge(at(400), bird, { top: 80, bottom: 340 })).toBe(false);
   });
 
   it("leaves the camera alone once it follows the bird or the reader pans", async () => {
@@ -384,11 +409,26 @@ describe("the tracker map without preview stays as it was (#901 ac-1)", () => {
   });
 
   it("names the picture, not the credit beside it, when given a map label", async () => {
-    const { map } = await mounted(props({ mapLabel: "Live map." }));
+    const p = props({ mapLabel: "Live map." });
+    const { map } = await mounted(p);
     expect(map.canvasContainer.attributes).toEqual({
       role: "img",
       "aria-label": "Live map.",
     });
+    const tree = renderWithEffects(MapView, p) as {
+      props: Record<string, unknown>;
+    };
+    expect(tree.props.role, "the frame hands the name over").toBeUndefined();
+    expect(tree.props["aria-label"]).toBeUndefined();
+  });
+
+  it("keeps the name on the frame until the map draws, or if it never does", () => {
+    const html = renderToStaticMarkup(
+      <MapView {...props({ mapLabel: "Live map." })} />,
+    );
+    expect(html).toMatch(
+      /^(<link[^>]*>)*<div class="[^"]*frame[^"]*" role="img" aria-label="Live map\."/,
+    );
   });
 
   it("shows pin labels and keeps the map in the accessibility tree", () => {
@@ -1348,10 +1388,11 @@ describe("the map credit (OSMF attribution guidelines)", () => {
   });
 
   it("folds even when load never fires, as on a busy tracker map", async () => {
-    // No load, styledata or idle is fired here; the exact timing is pinned
-    // in attribution.test.ts (waitFor in mounted() moves fake time).
-    const { credit } = await withCredit();
-    vi.advanceTimersByTime(ATTRIBUTION_FALLBACK_MS);
+    // Only the tiles' data arrives here, never load; the exact timing is
+    // pinned in attribution.test.ts (waitFor in mounted() moves fake time).
+    const { map, credit } = await withCredit();
+    map.fire("sourcedata");
+    vi.advanceTimersByTime(ATTRIBUTION_OPEN_MS);
     expect(credit.shown).toBe(false);
   });
 

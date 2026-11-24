@@ -7,28 +7,30 @@ import type { Map as MapLibreMap } from "maplibre-gl";
  */
 export const ATTRIBUTION_OPEN_MS = 5000;
 
-/**
- * The longest the credit stays open if the map never reports drawing (a map
- * that keeps changing may never fire `load`): twice the open time from creation.
- */
-export const ATTRIBUTION_FALLBACK_MS = 2 * ATTRIBUTION_OPEN_MS;
-
 type MapEvents = Pick<MapLibreMap, "on" | "off">;
 type Root = { querySelector?: ParentNode["querySelector"] };
 
 const COMPACT = ".maplibregl-ctrl-attrib.maplibregl-compact";
 const SHOWN = "maplibregl-compact-show";
-const DRAWN = ["styledata", "idle", "load"] as const;
+/** Events after which MapLibre may have filled in and opened the credit. */
+const MAYBE_SHOWN = [
+  "data",
+  "styledata",
+  "sourcedata",
+  "idle",
+  "load",
+] as const;
 
 /**
- * Shows MapLibre's compact attribution open when the map first draws, then
- * folds it to its (i) button after `afterMs` or on the first pan, zoom or tap,
- * whichever comes first. "First draws" is the first `styledata`, `idle` or
- * `load`, whichever comes first, because a busy map may never fire `load`; a
- * plain fallback folds it `2 × afterMs` after this is called in any case. It
- * folds once: a tap on (i) reopens it for good, and a style swap does not
- * reopen it or restart the timer. Returns a function that stops the timers and
- * the listeners.
+ * Shows MapLibre's compact attribution open when it first appears, then folds
+ * it to its (i) button after `afterMs` or on the first pan, zoom or tap,
+ * whichever comes first. The credit's text arrives with the tiles' TileJSON,
+ * which can take seconds on a slow network, so the `afterMs` start only when
+ * the open credit is first found, never at map creation or `load` (a busy map
+ * may never fire `load` at all). A pan or tap before then folds it as soon as
+ * it appears. It folds once: a tap on (i) reopens it for good, and a style
+ * swap does not reopen it or restart the timer. Returns a function that stops
+ * the timer and the listeners.
  */
 export function collapseAttributionSoon(
   map: MapEvents,
@@ -36,14 +38,14 @@ export function collapseAttributionSoon(
   afterMs: number = ATTRIBUTION_OPEN_MS,
 ): () => void {
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const fallback = setTimeout(() => request(), 2 * afterMs);
   let wanted = false;
   let stopped = false;
+  const credit = () => root.querySelector?.<HTMLElement>(COMPACT) ?? null;
 
   const fold = () => {
     if (!wanted || stopped) return;
-    const control = root.querySelector?.<HTMLElement>(COMPACT);
-    // Not compact yet (its text arrives with the tiles): try again on data.
+    const control = credit();
+    // Not compact yet (its text arrives with the tiles): try again later.
     if (!control) return;
     control.classList.remove(SHOWN);
     control.removeAttribute("open");
@@ -56,24 +58,23 @@ export function collapseAttributionSoon(
   const onMove = (e: { originalEvent?: unknown }) => {
     if (e.originalEvent) request();
   };
-  const onDraw = () => {
-    if (!stopped && timer === undefined) timer = setTimeout(request, afterMs);
+  const watch = () => {
+    if (stopped) return;
+    if (timer === undefined && credit()) timer = setTimeout(request, afterMs);
+    fold();
   };
 
-  for (const e of DRAWN) map.on(e, onDraw);
+  for (const e of MAYBE_SHOWN) map.on(e, watch);
   map.on("movestart", onMove);
   map.on("click", request);
-  map.on("data", fold);
 
   function stop() {
     if (stopped) return;
     stopped = true;
     clearTimeout(timer);
-    clearTimeout(fallback);
-    for (const e of DRAWN) map.off(e, onDraw);
+    for (const e of MAYBE_SHOWN) map.off(e, watch);
     map.off("movestart", onMove);
     map.off("click", request);
-    map.off("data", fold);
   }
   return stop;
 }

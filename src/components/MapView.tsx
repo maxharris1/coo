@@ -109,6 +109,10 @@ const BIRD_PX = 82;
 // point) and below for the always-open credit, so both pins show.
 const PREVIEW_PADDING = { top: 46, left: 24, right: 24, bottom: 34 };
 const SIDE_PADDING = 48;
+// The camera keeps a row clear above the card for the map credit (24 px tall
+// with an 8 px margin) and a little air, so the credit, open or folded, never
+// covers the bird or a pin, and a pin never sits flush on the card.
+const CREDIT_ROW_PX = 40;
 const LABEL_PAD = 16;
 const PIN_GAP = 4;
 const PIN_HALF_WIDTH = 16;
@@ -297,7 +301,11 @@ function swapStyle(
 type Insets = { top: number; bottom: number };
 
 /** Near an edge of the part of the map the header and card leave clear. */
-function nearEdge(map: MapLibreMap, p: LatLon, clear: Insets): boolean {
+export function nearEdge(
+  map: Pick<MapLibreMap, "project" | "getContainer">,
+  p: LatLon,
+  clear: Insets,
+): boolean {
   const { x, y } = map.project([p.lon, p.lat]);
   const { clientWidth: w, clientHeight: h } = map.getContainer();
   return (
@@ -343,6 +351,9 @@ export function MapView({
   const refit = useRef<() => void>(() => {});
   const insetsRef = useRef<Insets>({ top: topPadding, bottom: bottomPadding });
   const [following, setFollowing] = useState(true);
+  // Until MapLibre's canvas carries the map's name (or if it never draws),
+  // the frame carries it, so the map always has an accessible name.
+  const [canvasNamed, setCanvasNamed] = useState(false);
   const style: StylePath = MAP_STYLES[night ? "night" : "day"];
   const styleRef = useRef<StylePath>(style);
   const appliedRef = useRef<Applied>({ path: style, kind: kindOf(style) });
@@ -447,14 +458,14 @@ export function MapView({
           [from.lon, from.lat],
           [from.lon, from.lat],
         ).extend([to.lon, to.lat]);
+        const clearArea = (): Insets => ({
+          top: insetsRef.current.top,
+          bottom: insetsRef.current.bottom + CREDIT_ROW_PX,
+        });
         const fitPadding = () =>
           preview
             ? PREVIEW_PADDING
-            : {
-                ...insetsRef.current,
-                left: SIDE_PADDING,
-                right: SIDE_PADDING,
-              };
+            : { ...clearArea(), left: SIDE_PADDING, right: SIDE_PADDING };
         mounted = mountMap(
           lib,
           el,
@@ -482,6 +493,7 @@ export function MapView({
           const canvas = m.getCanvasContainer();
           canvas.setAttribute("role", "img");
           canvas.setAttribute("aria-label", mapLabel);
+          setCanvasNamed(true);
         }
         // A preview sits inside a link and nobody can pan it, so its credit
         // stays open; a tap on the credit neither folds it nor opens the link.
@@ -621,13 +633,13 @@ export function MapView({
         const follow = (always: boolean) => {
           const p = where();
           if (preview || !followRef.current) return;
-          if (!always && !nearEdge(m, p, insetsRef.current)) return;
+          if (!always && !nearEdge(m, p, clearArea())) return;
           followed = true;
           m.easeTo({
             center: [p.lon, p.lat],
             zoom: zoomForDistance(distanceMi * (1 - p.frac)),
             offset: [-Math.sin(bearing) * LEAD_PX, Math.cos(bearing) * LEAD_PX],
-            padding: { ...insetsRef.current, left: 0, right: 0 },
+            padding: { ...clearArea(), left: 0, right: 0 },
             duration: 1500,
           });
         };
@@ -692,6 +704,8 @@ export function MapView({
     <div
       className={styles.frame}
       data-preview={preview || undefined}
+      role={mapLabel && !canvasNamed ? "img" : undefined}
+      aria-label={mapLabel && !canvasNamed ? mapLabel : undefined}
       style={
         {
           position: "relative",

@@ -84,7 +84,16 @@ export function jobCards({
       );
     }
     return (
-      <Link key={b.id} href={`/jobs/${job.id}`} className={styles.airCard}>
+      <Link
+        key={b.id}
+        href={`/jobs/${job.id}`}
+        aria-label={
+          b.busyUntil === null
+            ? `${b.name}, on an odd job`
+            : `${b.name}, on an odd job. Home ${fuzzyWhen(b.busyUntil, nowMs, timeZone)}`
+        }
+        className={styles.airCard}
+      >
         <div className={styles.preview}>
           <JobMapPreview map={map} bird={job.bird} offsetMs={offsetMs} />
         </div>

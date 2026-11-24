@@ -186,6 +186,14 @@ describe("Guest page, live map credit", () => {
     );
   });
 
+  it("names the map box itself when there is no route to draw", () => {
+    const g = guestFlying();
+    const html = render({ ...g, flight: { ...g.flight, plan: undefined } });
+    expect(html).toMatch(
+      /<div class="[^"]*map[^"]*" role="img" aria-label="Live map\. Gerald is flying from Brooklyn to Philadelphia\."/,
+    );
+  });
+
   it("leaves the credit at the bottom of the map, not lifted by camera padding", () => {
     expect(render(guestFlying())).not.toContain("data-controls-bottom");
   });

@@ -50,7 +50,9 @@ Three looks:
   `park`) in green with a 2 pt ink outline and, from zoom 16, one round tree
   (`coo:tree-round`) each (earlier they sprinkled every pocket park), street names in capitals
   from 14 (8 pt at 14, 9 at 15, 11 at 17, along the line every 300 pt), park names from 15, and
-  shop pills from 15.5.
+  shop pills from 15.5. Street names deviate from STYLE.md's label table (15 and up at 9.5 pt) on
+  purpose: at 9.5 pt most Manhattan street names did not fit their segments and only appeared
+  at zoom 17, so they start smaller and a zoom earlier.
 - **Protected areas** (`park` source layer) are tinted only from zoom 12, and only the classes
   that read as a park (`national_park`, `nature_reserve`, `regional_park`, `State Park`, `Park`),
   with a round tree each from 14 and no outline. Public lands, forests, game lands, refuges and
@@ -106,14 +108,19 @@ is shown by MapLibre's compact attribution control. It is a licence requirement 
 ODbL, OpenMapTiles CC-BY), so it is never hidden or removed. Following the OSMF attribution
 guidelines for interactive maps, the credit is open in full when the map first draws and folds
 to a small (i) button after 5 seconds or on the first pan, zoom or tap, whichever comes first
-(`collapseAttributionSoon` in `src/components/attribution.ts`). The 5 seconds start at the first
-`styledata`, `idle` or `load`, because a tracker map that keeps moving the bird may never fire
-`load`, and a plain 10-second fallback from the map's creation folds it in any case. Tapping (i) reopens it, and once
+(`collapseAttributionSoon` in `src/components/attribution.ts`). The 5 seconds start when the open
+credit first appears, checked on every `data`, `styledata`, `sourcedata`, `idle` and `load`: its
+text arrives with the tiles' TileJSON, which can take several seconds on a slow network, and a
+tracker map that keeps moving the bird may never fire `load` at all. A pan or tap before the
+credit appears folds it as soon as it does. Tapping (i) reopens it, and once
 a reader has opened it nothing folds it again; a day/night style swap does not reopen or fold
 it. The control is restyled in `MapView.module.css` as a small cream card with a thin ink
 outline, a 44 pt tap target round the (i), and a visible keyboard focus ring. `MapView` lifts
 the bottom map controls by its `controlsBottom` (the height of the card over the map), so the
-credit sits just above the card, in the corner the camera keeps clear of the bird. The tracker
+credit sits just above the card. The camera keeps a 40 pt row above the card clear (the 24 pt
+credit, its 8 pt margin and some air): the route fit leaves it empty, and a bird that flies
+into it counts as at the edge, so the camera follows it out. The credit, open or folded, never
+covers the bird or a pin that way, and the destination pin never sits flush on the card. The tracker
 and the job tracker measure their card and header with a `ResizeObserver` (`useMapInsets`) and
 pass the card's height as both `controlsBottom` and `bottomPadding`, and the header's bottom edge
 plus room for a pin as `topPadding`. When either changes (a new flight-log line, day to night)
