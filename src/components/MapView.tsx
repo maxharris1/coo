@@ -136,7 +136,12 @@ export function routeFractions(distanceMi: number): number[] {
   return Array.from({ length: steps + 1 }, (_, i) => i / steps);
 }
 
+function nearLon(lon: number, ref: number): number {
+  return lon + 360 * Math.round((ref - lon) / 360);
+}
+
 function line(from: LatLon, to: LatLon, fracs: number[]) {
+  let lon = from.lon;
   return {
     type: "Feature" as const,
     properties: {},
@@ -144,7 +149,8 @@ function line(from: LatLon, to: LatLon, fracs: number[]) {
       type: "LineString" as const,
       coordinates: fracs.map((f) => {
         const p = interpolate(from, to, f);
-        return [p.lon, p.lat];
+        lon = nearLon(p.lon, lon);
+        return [lon, p.lat];
       }),
     },
   };
@@ -162,18 +168,20 @@ function splitRoute(
   return { flown: line(from, to, flown), left: line(from, to, left) };
 }
 
-function dotsStart(
-  map: MapLibreMap,
+export function dotsStart(
+  map: Pick<MapLibreMap, "project">,
   from: LatLon,
   to: LatLon,
   at: number,
 ): number {
+  const step = Math.min(at + DOT_GAP_STEP, 1) - at;
+  if (step <= 0) return 1;
   const here = interpolate(from, to, at);
-  const ahead = interpolate(from, to, Math.min(at + DOT_GAP_STEP, 1));
+  const ahead = interpolate(from, to, at + step);
   const a = map.project([here.lon, here.lat]);
-  const b = map.project([ahead.lon, ahead.lat]);
+  const b = map.project([nearLon(ahead.lon, here.lon), ahead.lat]);
   const px = Math.hypot(b.x - a.x, b.y - a.y);
-  return Math.min(at + (DOT_GAP_PX / px) * DOT_GAP_STEP, 1);
+  return Math.min(at + (DOT_GAP_PX / px) * step, 1);
 }
 
 function nearEdge(map: MapLibreMap, p: LatLon): boolean {
@@ -318,14 +326,6 @@ export function MapView({
       const route = (frac: number) =>
         splitRoute(from, to, fracs, frac, dotsStart(m, from, to, frac));
 
-      const drawRoute = (frac: number) => {
-        const { flown, left } = route(frac);
-        (m.getSource("route-flown") as GeoJSONSource | undefined)?.setData(
-          flown,
-        );
-        (m.getSource("route-left") as GeoJSONSource | undefined)?.setData(left);
-      };
-
       m.on("style.load", () => {
         const { flown, left } = route(where().frac);
         m.addSource("route-flown", { type: "geojson", data: flown });
@@ -358,18 +358,30 @@ export function MapView({
           paint: { "line-color": TOMATO, "line-width": 5 },
         });
       });
-      m.on("zoomend", () => drawRoute(where().frac));
+
+      let drawn = { frac: NaN, zoom: NaN };
+      const drawRoute = (frac: number) => {
+        const flownSource = m.getSource<GeoJSONSource>("route-flown");
+        const leftSource = m.getSource<GeoJSONSource>("route-left");
+        if (!flownSource || !leftSource) return;
+        const zoom = m.getZoom();
+        if (frac === drawn.frac && zoom === drawn.zoom) return;
+        drawn = { frac, zoom };
+        const { flown, left } = route(frac);
+        flownSource.setData(flown);
+        leftSource.setData(left);
+      };
 
       const tick = () => {
         const p = where();
         marker.setLngLat([p.lon, p.lat]);
+        drawRoute(p.frac);
         frame = requestAnimationFrame(tick);
       };
       frame = requestAnimationFrame(tick);
 
       const follow = (always: boolean) => {
         const p = where();
-        drawRoute(p.frac);
         if (preview || !followRef.current) return;
         if (!always && !nearEdge(m, p)) return;
         m.easeTo({
