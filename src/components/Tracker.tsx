@@ -121,6 +121,11 @@ function seconds(ms: number): string {
   return s % 60 ? `${m} min ${s % 60} sec` : `${m} min`;
 }
 
+function capName(name: string, max = 9): string {
+  const chars = Array.from(name);
+  return chars.length > max ? `${chars.slice(0, max).join("")}…` : name;
+}
+
 function recipient(flight: Flight): string | undefined {
   return flight.counterpart?.name ?? flight.guestName;
 }
@@ -355,10 +360,15 @@ export function Tracker({
           </svg>
         </Link>
         <div className={styles.title}>
-          <p className={styles.route}>
-            <span>{flight.bird.name}</span>
-            <span aria-label="to">→</span>
-            <span>{view.toName}</span>
+          <p
+            className={styles.route}
+            aria-label={`${flight.bird.name} to ${view.toName}`}
+          >
+            <span>{capName(flight.bird.name)}</span>
+            <span aria-label="to" className={styles.arrow}>
+              →
+            </span>
+            <span>{capName(view.toName)}</span>
           </p>
           <span className={styles.chip}>
             {view.state === "flying" && (

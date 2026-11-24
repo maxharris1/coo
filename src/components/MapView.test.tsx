@@ -326,56 +326,91 @@ describe("the tracker map without preview stays as it was (#901 ac-1)", () => {
   });
 });
 
-describe("pin labels stay inside the map (#924 ac-1)", () => {
+describe("pin pills sit beside their pins (#966 ac-5)", () => {
   const PAD = 16;
-  const PILL_CHROME = 2 * 8 + 2 * 2;
+  const GAP = 4;
+  const PIN_HALF = 16;
+  const CAPS = { loft: 160, sill: 180 } as const;
   const MEASURED = {
     "Enrico Palazzo, Tudor City": 147.6,
     "Bartholomew Featherstonehaugh, Upper East Side": 289.5,
     "Your sill": 46.1,
     "Your loft": 49,
   };
-  const pill = (label: keyof typeof MEASURED, mapWidth: number) =>
-    Math.min(MEASURED[label] + PILL_CHROME, mapWidth - 2 * PAD);
-  const box = (pinX: number, labelWidth: number, mapWidth: number) => {
-    const shift = pinLabelShift({ pinX, labelWidth, mapWidth, pad: PAD });
-    return {
-      left: pinX - labelWidth / 2 + shift,
-      right: pinX + labelWidth / 2 + shift,
-    };
+  const PILL_CHROME = 2 * 10 + 2 * 2;
+  const boxOf = (
+    pinX: number,
+    label: keyof typeof MEASURED,
+    pin: keyof typeof CAPS,
+    mapWidth: number,
+  ) => {
+    const { side, maxWidth } = pinLabelShift({
+      pinX,
+      pinHalfWidth: PIN_HALF,
+      mapWidth,
+      cap: CAPS[pin],
+      pad: PAD,
+      gap: GAP,
+    });
+    const width = Math.min(MEASURED[label] + PILL_CHROME, maxWidth);
+    const left =
+      side === "right" ? pinX + PIN_HALF + GAP : pinX - PIN_HALF - GAP - width;
+    return { side, maxWidth, left, right: left + width };
   };
 
   describe.each([390, 320])("on a %ipx tracker", (mapWidth) => {
-    it.each([
-      "Enrico Palazzo, Tudor City",
-      "Bartholomew Featherstonehaugh, Upper East Side",
-    ] as const)("keeps the %s pill whole by the right edge", (label) => {
-      const { left, right } = box(
-        mapWidth - 10,
-        pill(label, mapWidth),
-        mapWidth,
-      );
-      expect(left).toBeGreaterThanOrEqual(PAD);
-      expect(right).toBeLessThanOrEqual(mapWidth - PAD);
-    });
+    const cases = [
+      ["Enrico Palazzo, Tudor City", "sill"],
+      ["Bartholomew Featherstonehaugh, Upper East Side", "sill"],
+      ["Your loft", "loft"],
+      ["Your sill", "loft"],
+    ] as const;
 
-    it.each(["Your sill", "Your loft"] as const)(
-      "keeps the %s pill whole by the left edge",
-      (label) => {
-        const { left, right } = box(4, pill(label, mapWidth), mapWidth);
+    it.each(
+      cases.flatMap(([label, pin]) =>
+        [
+          10,
+          40,
+          mapWidth / 2 - 1,
+          mapWidth / 2 + 1,
+          mapWidth - 40,
+          mapWidth - 10,
+        ].map((pinX) => [label, pin, pinX] as const),
+      ),
+    )(
+      "puts the %s pill (%s) at x %d on the roomier side, inside the map and off the pin",
+      (label, pin, pinX) => {
+        const { side, maxWidth, left, right } = boxOf(
+          pinX,
+          label,
+          pin,
+          mapWidth,
+        );
+        expect(side).toBe(pinX < mapWidth / 2 ? "right" : "left");
+        expect(maxWidth).toBeLessThanOrEqual(CAPS[pin]);
         expect(left).toBeGreaterThanOrEqual(PAD);
         expect(right).toBeLessThanOrEqual(mapWidth - PAD);
+        const coversPin = left < pinX + PIN_HALF && right > pinX - PIN_HALF;
+        expect(coversPin).toBe(false);
       },
     );
   });
 
-  it("leaves a pill centred on a pin away from the edges", () => {
-    expect(
-      pinLabelShift({ pinX: 195, labelWidth: 168, mapWidth: 390, pad: PAD }),
-    ).toBe(0);
+  it("caps the loft pill at 160 and the recipient pill at 180 with room to spare", () => {
+    const at = (cap: number) =>
+      pinLabelShift({
+        pinX: 20,
+        pinHalfWidth: PIN_HALF,
+        mapWidth: 1000,
+        cap,
+        pad: PAD,
+        gap: GAP,
+      });
+    expect(at(CAPS.loft)).toEqual({ side: "right", maxWidth: 160 });
+    expect(at(CAPS.sill)).toEqual({ side: "right", maxWidth: 180 });
   });
 
-  it("caps the pill at the map width less the padding and ellipsizes the text", () => {
+  it("styles the pills as one-line cream Nunito 900 12px pills with a 2px ink outline", () => {
     const html = renderToStaticMarkup(
       <MapView
         {...props({
@@ -383,12 +418,22 @@ describe("pin labels stay inside the map (#924 ac-1)", () => {
         })}
       />,
     );
-    const span = html.match(
-      /<span style="[^"]*">Bartholomew[^<]*<\/span>/,
-    )?.[0];
-    expect(span).toContain("overflow:hidden");
-    expect(span).toContain("text-overflow:ellipsis");
-    expect(span).toContain("white-space:nowrap");
+    const span = (text: string) =>
+      html.match(new RegExp(`<span style="[^"]*">${text}[^<]*</span>`))?.[0] ??
+      "";
+    const loft = span("Your loft");
+    const sill = span("Bartholomew");
+    for (const s of [loft, sill]) {
+      expect(s).toContain("background:var(--coo-card)");
+      expect(s).toContain("border:2px solid var(--coo-ink)");
+      expect(s).toContain("font:900 12px var(--coo-font-body)");
+      expect(s).toContain("padding:4px 10px");
+      expect(s).toContain("white-space:nowrap");
+      expect(s).toContain("overflow:hidden");
+      expect(s).toContain("text-overflow:ellipsis");
+    }
+    expect(loft).toContain("max-width:160px");
+    expect(sill).toContain("max-width:180px");
   });
 
   describe("on the live map", () => {
@@ -424,68 +469,58 @@ describe("pin labels stay inside the map (#924 ac-1)", () => {
     };
 
     it.each(["load", "move", "resize"])(
-      "re-clamps both labels on %s",
+      "puts both pills beside their pins on %s",
       async (event) => {
         const { tree, map } = await mounted(props());
-        const spans = labelsIn(tree);
-        expect(spans).toHaveLength(2);
-        for (const s of spans) s.offsetWidth = 168;
-        map.point = { x: 395, y: 0 };
+        const [loft, sill] = labelsIn(tree);
+        map.width = 390;
+        map.point = { x: 350, y: 0 };
         map.fire(event);
-        for (const s of spans) {
-          expect(s.style.maxWidth).toBe("368px");
-          expect(s.style.transform).toBe("translateX(calc(-50% + -95px))");
-        }
+        expect(loft.style.right).toBe("calc(100% + 4px)");
+        expect(loft.style.left).toBe("auto");
+        expect(loft.style.maxWidth).toBe("160px");
+        expect(sill.style.maxWidth).toBe("180px");
+
+        map.point = { x: 40, y: 0 };
+        map.fire(event);
+        expect(loft.style.left).toBe("calc(100% + 4px)");
+        expect(loft.style.right).toBe("auto");
       },
     );
+
+    it("shrinks a pill when its side has less room than the cap", async () => {
+      const { tree, map } = await mounted(props());
+      const [, sill] = labelsIn(tree);
+      map.width = 320;
+      map.point = { x: 170, y: 0 };
+      map.fire("move");
+      expect(sill.style.maxWidth).toBe(`${170 - 16 - 4 - 16}px`);
+    });
 
     describe.each([390, 320])(
       "panned into the next world copy at zoom 3 on a %ipx tracker",
       (mapWidth) => {
-        it.each([
-          "Enrico Palazzo, Tudor City",
-          "Bartholomew Featherstonehaugh, Upper East Side",
-        ] as const)(
-          "keeps the %s pill and the loft pill whole",
-          async (label) => {
-            const p = props({ sillLabel: label });
-            const { tree, map } = await mounted(p);
-            const [loftLabel, sillLabel] = labelsIn(tree);
-            loftLabel.offsetWidth = pill("Your loft", mapWidth);
-            sillLabel.offsetWidth = pill(label, mapWidth);
-            const [loftPin, sillPin] = [markers[0], markers[1]];
-            const zoom = 3;
-            const worldPx = 512 * 2 ** zoom;
-            const pinX = mapWidth - 10;
-            map.width = mapWidth;
-            map.camera = {
-              lng: p.to.lon + 360 - ((pinX - mapWidth / 2) / worldPx) * 360,
-              zoom,
-            };
+        it("puts the sill pill on the left of its wrapped pin", async () => {
+          const p = props();
+          const { tree, map } = await mounted(p);
+          const [, sillLabel] = labelsIn(tree);
+          const sillPin = markers[1];
+          const zoom = 3;
+          const worldPx = 512 * 2 ** zoom;
+          const pinX = mapWidth - 10;
+          map.width = mapWidth;
+          map.camera = {
+            lng: p.to.lon + 360 - ((pinX - mapWidth / 2) / worldPx) * 360,
+            zoom,
+          };
 
-            map.fire("move");
+          map.fire("move");
 
-            expect(sillPin.getLngLat().lng).toBeCloseTo(p.to.lon + 360);
-            for (const [pin, el] of [
-              [loftPin, loftLabel],
-              [sillPin, sillLabel],
-            ] as const) {
-              const x = map.project([pin.getLngLat().lng, 0]).x;
-              const shift = Number(
-                el.style.transform.match(/calc\(-50% \+ (-?[\d.]+)px\)/)?.[1],
-              );
-              expect(x - el.offsetWidth / 2 + shift).toBeGreaterThanOrEqual(
-                PAD,
-              );
-              expect(x + el.offsetWidth / 2 + shift).toBeLessThanOrEqual(
-                mapWidth - PAD,
-              );
-            }
-            expect(map.project([sillPin.getLngLat().lng, 0]).x).toBeCloseTo(
-              pinX,
-            );
-          },
-        );
+          expect(sillPin.getLngLat().lng).toBeCloseTo(p.to.lon + 360);
+          expect(map.project([sillPin.getLngLat().lng, 0]).x).toBeCloseTo(pinX);
+          expect(sillLabel.style.right).toBe("calc(100% + 4px)");
+          expect(sillLabel.style.maxWidth).toBe("180px");
+        });
       },
     );
   });
