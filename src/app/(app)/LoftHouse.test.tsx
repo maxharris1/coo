@@ -1,11 +1,22 @@
+import { readFileSync } from "node:fs";
+import { act } from "react";
+import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  Bird as BirdArt,
+  PERCH_VB,
+  type GearId,
+  type Look,
+} from "@/components/Bird";
 import type { SyncPayload } from "@/components/sync";
 import { config } from "@/lib/config";
 import birdLooks from "../../../public/assets/data/birds.json";
 import { describeLoft, loftRooms } from "./flockRows";
-import { LoftHouse } from "./LoftHouse";
+import { awakeIds, LoftHouse, LoftHouseView, useLoftMotion } from "./LoftHouse";
 import type { LoftItem } from "./loftArt";
+import { gestureAnimation, GESTURES, REST_MS, type Gesture } from "./loftIdle";
+import { birdBox, loftLayout } from "./loftLayout";
 
 type Bird = SyncPayload["birds"][number];
 
@@ -59,6 +70,24 @@ const sceneLabel = (html: string) =>
   html.match(/<svg[^>]*role="img"[^>]*aria-label="([^"]*)"/)?.[1] ??
   html.match(/<svg[^>]*aria-label="([^"]*)"[^>]*role="img"/)?.[1];
 
+const unescape = (html: string) =>
+  html.replaceAll("&#x27;", "'").replaceAll("&quot;", '"');
+
+const overlay = (html: string) => {
+  const start = html.search(/<svg[^>]*data-birds=""/);
+  return start < 0 ? "" : html.slice(start, html.lastIndexOf("</svg>") + 6);
+};
+const birdGroups = (html: string) =>
+  [
+    ...overlay(html).matchAll(
+      /<g data-room="(\d+)" transform="([^"]*)">(.*?<\/svg>)<\/g>/g,
+    ),
+  ].map(([, room, transform, body]) => ({
+    room: Number(room),
+    transform,
+    body,
+  }));
+
 const { scene } = config.loft;
 const SMALL_W = scene.minWidth;
 const SMALL_H = (SMALL_W * scene.height) / scene.width;
@@ -106,7 +135,7 @@ describe("room links (ac-1)", () => {
     expect(render({ birds: [gerald, kevin], perches: 3 })).not.toMatch(
       featherFill,
     );
-    expect(html.match(/<svg/g)).toHaveLength(1);
+    expect(birdGroups(html).map((g) => g.room)).toEqual([0]);
   });
 
   it("links an owed roommate's room to the roommate page", () => {
@@ -200,5 +229,231 @@ describe("scene label (ac-3)", () => {
       "Your rooftop loft. Gerald sits at home. Kevin is asleep. Two rooms are free. One room is to let.",
     );
     expect(html).toContain("coo-drift");
+  });
+});
+
+const brenda = bird("Brenda", { look: "brenda", tired: true });
+const flying = bird("Kevin", { look: "kevin", status: "flying" });
+const pip = bird("Pip", { look: "dumpling", status: "busy", busyKind: "nap" });
+const flock = [gerald, brenda, flying, pip];
+const PERCHES = 5;
+const flockRooms = loftRooms(flock, PERCHES, null);
+
+const artOf = (b: Bird, pose: "perched" | "sleep") =>
+  unescape(
+    renderToStaticMarkup(
+      <BirdArt
+        look={b.look as Look}
+        breed={b.breed}
+        gear={b.gear as GearId[]}
+        size={120}
+        pose={pose}
+      />,
+    ),
+  );
+
+const still = { reduced: false, paused: false, gestures: {} };
+const view = (motion: Parameters<typeof LoftHouseView>[0]["motion"]) =>
+  unescape(
+    renderToStaticMarkup(
+      <LoftHouseView
+        rooms={flockRooms}
+        perches={PERCHES}
+        items={[]}
+        motion={motion}
+      />,
+    ),
+  );
+
+describe("home birds on their perches (ac-1)", () => {
+  const html = render({ birds: flock, perches: PERCHES });
+
+  it("draws the birds in an overlay with the art's viewBox", () => {
+    const [art, birds] = [...html.matchAll(/<svg[^>]*>/g)].map(([t]) => t);
+    expect(attr(art, "viewBox")).toBe(`0 0 ${scene.width} ${scene.height}`);
+    expect(birds).toContain('data-birds=""');
+    expect(attr(birds, "viewBox")).toBe(attr(art, "viewBox"));
+    expect(attr(birds, "aria-hidden")).toBe("true");
+  });
+
+  it("draws each home bird once, in flock order", () => {
+    const groups = birdGroups(html);
+    expect(groups.map((g) => g.room)).toEqual([0, 1, 3]);
+    for (const g of groups) expect(g.body.match(/<svg/g)).toHaveLength(1);
+  });
+
+  it("stands each bird's feet on its own perch", () => {
+    const layout = loftLayout(PERCHES);
+    const [, vy, vw] = PERCH_VB.split(" ").map(Number);
+    const { feetY, feetYInBirdViewBox } = config.loft.rooms.bird;
+    const groups = birdGroups(html);
+    expect(groups).toHaveLength(3);
+    for (const { room, transform, body } of groups) {
+      const box = birdBox(layout.rooms[room]);
+      expect(transform).toBe(
+        `translate(${box.x} ${box.y}) scale(${box.w / 120})`,
+      );
+      expect(body).toMatch(/^<g[^>]*><svg[^>]* width="120"/);
+      expect(box.y + ((feetYInBirdViewBox - vy) * box.w) / vw).toBeCloseTo(
+        layout.rooms[room].y + feetY,
+      );
+    }
+  });
+
+  it("draws asleep birds sleeping and awake birds perched", () => {
+    const [g, b, p] = birdGroups(html).map((x) => x.body);
+    expect(g).toContain(artOf(gerald, "perched"));
+    expect(b).toContain(artOf(brenda, "sleep"));
+    expect(p).toContain(artOf(pip, "sleep"));
+    expect(g).not.toContain(">z</text>");
+  });
+});
+
+type Motion = ReturnType<typeof useLoftMotion>;
+
+let root: Root | null = null;
+let reduce = false;
+let doc: EventTarget & { hidden: boolean };
+const seen: Motion[] = [];
+
+function Probe({ ids }: { ids: readonly string[] }) {
+  seen.push(useLoftMotion(ids));
+  return null;
+}
+
+const mount = async (ids: readonly string[]) => {
+  const container = Object.assign(new EventTarget(), {
+    nodeType: 1,
+    tagName: "DIV",
+    ownerDocument: new EventTarget(),
+  }) as unknown as Element;
+  root = createRoot(container);
+  await act(async () => root!.render(<Probe ids={ids} />));
+};
+
+const longestGesture = Math.max(...Object.values(GESTURES).map((g) => g.ms));
+const runIdle = async () => {
+  const until = REST_MS.min + REST_MS.max + longestGesture * 2;
+  for (let t = 0; t < until; t += 200)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(200);
+    });
+};
+
+beforeEach(() => {
+  vi.useFakeTimers();
+  reduce = false;
+  seen.length = 0;
+  doc = Object.assign(new EventTarget(), { hidden: false });
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  vi.stubGlobal("document", doc);
+  vi.stubGlobal(
+    "window",
+    Object.assign(new EventTarget(), { HTMLIFrameElement: class {} }),
+  );
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    matches: reduce && query === "(prefers-reduced-motion: reduce)",
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  }));
+});
+
+afterEach(async () => {
+  if (root) await act(async () => root!.unmount());
+  root = null;
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+});
+
+describe("idle gestures (ac-2)", () => {
+  it("counts only awake home birds as awake", () => {
+    expect(awakeIds(flockRooms)).toEqual(["gerald"]);
+  });
+
+  it("plays gestures for awake birds and never for asleep ones", async () => {
+    await mount(awakeIds(flockRooms));
+    await runIdle();
+    const played = seen.flatMap((m) => Object.keys(m.gestures));
+    expect(played).toContain("gerald");
+    expect(played).not.toContain("brenda");
+    expect(played).not.toContain("pip");
+    expect(seen.every((m) => !m.reduced && !m.paused)).toBe(true);
+  });
+
+  it("animates the awake bird's group with the gesture, not the asleep birds", async () => {
+    await mount(awakeIds(flockRooms));
+    await runIdle();
+    const gesture = seen.find((m) => m.gestures.gerald)!.gestures
+      .gerald as Gesture;
+    const html = view({
+      ...still,
+      gestures: { gerald: gesture, brenda: gesture, pip: gesture },
+    });
+    const [g, b, p] = birdGroups(html).map((x) => x.body);
+    expect(g).toMatch(
+      new RegExp(
+        `^<g data-idle="${gesture}" style="[^"]*animation:${gestureAnimation(gesture).replace(/[()]/g, "\\$&")}`,
+      ),
+    );
+    expect(b).not.toContain("data-idle");
+    expect(p).not.toContain("data-idle");
+  });
+});
+
+describe("clouds and motion (ac-3)", () => {
+  it("draws two drifting clouds", () => {
+    const html = render({ birds: flock, perches: PERCHES });
+    expect(html.match(/coo-drift/g)).toHaveLength(2);
+  });
+
+  it("plays no gestures with reduced motion", async () => {
+    reduce = true;
+    await mount(awakeIds(flockRooms));
+    await runIdle();
+    expect(seen.at(-1)!.reduced).toBe(true);
+    expect(seen.every((m) => Object.keys(m.gestures).length === 0)).toBe(true);
+  });
+
+  it("animates nothing in the scene with reduced motion", () => {
+    const html = view({
+      reduced: true,
+      paused: false,
+      gestures: { gerald: "hop" },
+    });
+    expect(overlay(html)).not.toContain("animation");
+    expect(overlay(html)).not.toContain("data-idle");
+    expect(html).not.toContain("<animate");
+    const motionCss = readFileSync("public/assets/motion.css", "utf8");
+    expect(motionCss).toContain(
+      "@media (prefers-reduced-motion: reduce){*{animation:none !important}}",
+    );
+  });
+
+  it("pauses while the tab is hidden", async () => {
+    await mount(awakeIds(flockRooms));
+    expect(seen.at(-1)!.paused).toBe(false);
+    await act(async () => {
+      doc.hidden = true;
+      doc.dispatchEvent(new Event("visibilitychange"));
+    });
+    expect(seen.at(-1)!.paused).toBe(true);
+    await act(async () => {
+      doc.hidden = false;
+      doc.dispatchEvent(new Event("visibilitychange"));
+    });
+    expect(seen.at(-1)!.paused).toBe(false);
+  });
+
+  it("marks the whole scene paused so every animation stops", () => {
+    const html = view({ ...still, paused: true });
+    expect(html).toMatch(/^<div[^>]* data-paused="">/);
+    expect(html.match(/^<div[^>]*>(<svg.*<\/svg>)/)?.[1]).toContain(
+      'data-birds=""',
+    );
+    expect(view(still)).not.toContain("data-paused");
+    const css = readFileSync("src/app/(app)/LoftHouse.module.css", "utf8");
+    expect(css.replace(/\s+/g, " ")).toContain(
+      ".loft[data-paused] * { animation-play-state: paused !important; }",
+    );
   });
 });
