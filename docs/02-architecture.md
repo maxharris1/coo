@@ -60,7 +60,7 @@ Twilio is called with `fetch`.
 config/                      copied from the packet, unchanged
 public/
   assets/                    copied from the packet's assets/
-  map/coo-day.style.json     map style (packet assets/map)
+  map/                       flight map styles (day, night) and the coo sprite; docs/09-map.md
   sw.js                      service worker
   manifest.webmanifest
 src/

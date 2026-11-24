@@ -303,12 +303,12 @@ describe("the tracker map on the Chicago vector (ac-2)", () => {
     renderTracker(flight);
     vi.setSystemTime(Date.parse("2026-11-20T12:00:00-05:00"));
     renderTracker(flight);
-    expect(styleLoads).toEqual([DAY_STYLE, NIGHT_STYLE, DAY_STYLE]);
-    await vi.waitFor(() => expect(map.styles).toHaveLength(1));
-    expect(
-      map.styles.map((s) => s.style),
-      "night dropped",
-    ).toEqual([stubStyle(DAY_STYLE)]);
+    expect(styleLoads, "day is already on the map").toEqual([
+      DAY_STYLE,
+      NIGHT_STYLE,
+    ]);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(map.styles, "night dropped, day not set again").toEqual([]);
   });
 
   it("falls back to the stock style when ours will not load", async () => {

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { interpolate, type FlightPlan, type LatLon } from "@/lib/flight/engine";
 import {
   FakeMap,
+  type FakeElement,
   fakeDocument,
   find,
   maps,
@@ -12,12 +13,14 @@ import {
   nextFrame,
   renderWithEffects,
   resetFakes,
+  styleFailures,
   styleLoads,
   stubBrowser,
   stubStyle,
 } from "@/test/fakeMapLibre";
 import { ATTRIBUTION_OPEN_MS } from "./attribution";
 import { Bird } from "./Bird";
+import { STOCK_STYLE } from "./mapStyle";
 import {
   FAR_ZOOM,
   MapView,
@@ -238,14 +241,24 @@ describe("the map preview variant (#901 ac-1)", () => {
     ]);
   });
 
-  it("is hidden from assistive tech with no pin labels and no Find button", () => {
+  it("has no pin labels and no Find button", () => {
     const html = renderToStaticMarkup(
       <MapView {...props({ preview: true })} />,
     );
-    expect(html).toMatch(/^(<link[^>]*>)*<div aria-hidden="true"/);
     expect(html).not.toContain("Your loft");
     expect(html).not.toContain(">Philly<");
     expect(html).not.toContain("Find");
+  });
+
+  it("hides the picture from assistive tech but not the map credit", async () => {
+    const html = renderToStaticMarkup(
+      <MapView {...props({ preview: true })} />,
+    );
+    expect(html, "the frame, credit and all, stays in the tree").toMatch(
+      /^(<link[^>]*>)*<div class="[^"]*frame[^"]*"(?![^>]*aria-hidden)/,
+    );
+    const { map } = await mounted(props({ preview: true }));
+    expect(map.canvasContainer.attributes).toEqual({ "aria-hidden": "true" });
   });
 
   it("perches the bird at the origin when there is no plan", async () => {
@@ -318,6 +331,14 @@ describe("the tracker map without preview stays as it was (#901 ac-1)", () => {
     expect(map.handlers.zoomstart).toHaveLength(1);
     vi.advanceTimersByTime(5000);
     expect(map.eased, "follows a bird near the edge").toBe(1);
+  });
+
+  it("names the picture, not the credit beside it, when given a map label", async () => {
+    const { map } = await mounted(props({ mapLabel: "Live map." }));
+    expect(map.canvasContainer.attributes).toEqual({
+      role: "img",
+      "aria-label": "Live map.",
+    });
   });
 
   it("shows pin labels and keeps the map in the accessibility tree", () => {
@@ -1075,7 +1096,7 @@ describe("clouds drift over the map (#968 ac-4)", () => {
   });
 });
 
-describe("the illustrated day style (#958 ac-6)", () => {
+describe("the illustrated day style (#950)", () => {
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"] });
     vi.setSystemTime(midFlight());
@@ -1097,6 +1118,39 @@ describe("the illustrated day style (#958 ac-6)", () => {
   it("uses the same day style on a preview map", async () => {
     const { map } = await mounted(props({ preview: true }));
     expect(map.options.style).toEqual(stubStyle("/map/coo-day.style.json"));
+  });
+
+  const routeLeft = (map: FakeMap) =>
+    (map.specs["route-left"] as { paint: Record<string, unknown> }).paint;
+
+  it("paints the dotted route for the night style once it has loaded", async () => {
+    const { map } = await mounted(props({ night: true }));
+    map.fire("style.load");
+    expect(routeLeft(map)["line-color"]).toBe("#FFF4DC");
+  });
+
+  it("paints the dotted route for the style that actually loaded", async () => {
+    styleFailures.add("/map/coo-night.style.json");
+    const { map } = await mounted(props({ night: true }));
+    expect(map.options.style, "stock fallback").toBe(STOCK_STYLE);
+    map.fire("style.load");
+    expect(routeLeft(map)["line-color"], "ink on the light stock map").toBe(
+      "#2A2140",
+    );
+  });
+
+  it("keeps the current style when the night style will not load", async () => {
+    const day = props();
+    const { map } = await mounted(day);
+    styleFailures.add("/map/coo-night.style.json");
+    renderWithEffects(MapView, { ...day, night: true });
+    await vi.waitFor(() =>
+      expect(styleLoads).toContain("/map/coo-night.style.json"),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(map.styles, "no swap to stock or anything else").toEqual([]);
+    map.fire("style.load");
+    expect(routeLeft(map)["line-color"], "still day ink").toBe("#2A2140");
   });
 
   it("adds the route layers once the loaded style is in", async () => {
@@ -1186,11 +1240,61 @@ describe("the map credit (OSMF attribution guidelines)", () => {
     expect(credit.shown).toBe(false);
   });
 
-  it("folds on a preview map too, which nobody can pan", async () => {
+  it("keeps the credit open on a preview map, which sits inside a link", async () => {
     const { map, credit } = await withCredit(props({ preview: true }));
     map.fire("load");
-    vi.advanceTimersByTime(ATTRIBUTION_OPEN_MS);
-    expect(credit.shown).toBe(false);
+    map.fire("click");
+    map.fire("data");
+    vi.advanceTimersByTime(ATTRIBUTION_OPEN_MS * 2);
+    expect(credit.shown).toBe(true);
+    expect(map.handlers.load ?? [], "no fold timer to start").toHaveLength(0);
+    expect(map.handlers.data ?? [], "no fold listeners").toHaveLength(0);
+  });
+
+  it("keeps a tap on a preview's credit from the (i) toggle and the card's link", async () => {
+    const { map } = await mounted(props({ preview: true }));
+    const frame = map.options.container as FakeElement;
+    const [guard] = frame.listeners;
+    expect(guard).toMatchObject({ type: "click", capture: true });
+    const tap = (target: object) => {
+      const e = {
+        target,
+        stopped: false,
+        prevented: false,
+        stopPropagation() {
+          this.stopped = true;
+        },
+        preventDefault() {
+          this.prevented = true;
+        },
+      };
+      guard.fn(e as unknown as Event);
+      return { stopped: e.stopped, prevented: e.prevented };
+    };
+    const credit = { contains: (el: unknown) => el === osm };
+    const osm = { closest: () => osm };
+    const inCredit = (link: unknown) => ({
+      closest: (sel: string) =>
+        sel === ".maplibregl-ctrl-attrib" ? credit : link,
+    });
+    expect(tap(inCredit(null)), "text or (i)").toEqual({
+      stopped: true,
+      prevented: true,
+    });
+    expect(tap(inCredit({ card: true })), "only the card's link").toEqual({
+      stopped: true,
+      prevented: true,
+    });
+    expect(tap(inCredit(osm)), "the credit's own link still opens").toEqual({
+      stopped: true,
+      prevented: false,
+    });
+    expect(tap({ closest: () => null }), "the map itself").toEqual({
+      stopped: false,
+      prevented: false,
+    });
+    resetFakes();
+    expect(frame.listeners, "removed when the map closes").toEqual([]);
   });
 
   it("stays folded through a night style swap and leaves (i) to reopen it", async () => {
@@ -1224,7 +1328,12 @@ describe("the map credit (OSMF attribution guidelines)", () => {
   it("lifts the map controls above the bottom card", () => {
     const html = renderToStaticMarkup(<MapView {...props()} />);
     expect(html).toMatch(/^(<link[^>]*>)*<div class="[^"]*frame[^"]*"/);
-    expect(html).toContain("--coo-map-bottom:260px");
+    expect(html, "by the card height it is given").toContain(
+      "--coo-map-bottom:0px",
+    );
+    expect(
+      renderToStaticMarkup(<MapView {...props({ controlsBottom: 260 })} />),
+    ).toContain("--coo-map-bottom:260px");
     const css = readFileSync(
       join(process.cwd(), "src/components/MapView.module.css"),
       "utf8",

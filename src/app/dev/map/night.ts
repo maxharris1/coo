@@ -43,10 +43,9 @@ export const ROLES = {
   park: paint(["city-park", "park"], "fill-color"),
   water: paint(["water"], "fill-color"),
   river: paint(["river"], "line-color"),
-  waterLine: [
-    ...paint(["water"], "fill-outline-color"),
-    ...paint(["shoreline", "river-casing"], "line-color"),
-  ],
+  waterLine: paint(["shoreline", "river-casing"], "line-color"),
+  // The water's own edge: waterLine at lineOpacity, so it matches the shore.
+  waterEdge: paint(["water"], "fill-outline-color"),
   parkLine: paint(["park-outline"], "line-color"),
   lineOpacity: paint(
     ["shoreline", "river-casing", "park-outline"],

@@ -153,6 +153,7 @@ export function JobTracker({
           bird={job.bird}
           offsetMs={offsetMs}
           bottomPadding={CARD_PX}
+          controlsBottom={CARD_PX}
         />
       </div>
       <header className={styles.top}>

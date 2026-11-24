@@ -90,6 +90,19 @@ describe("night style", () => {
     ]);
   });
 
+  it("edges the water like the shoreline: cream at the line opacity", () => {
+    expect(colours.night.waterLine).toBe("#FFF4DC");
+    expect(overrides.waterEdge).toBe(
+      `rgba(255,244,220,${colours.night.lineOpacity})`,
+    );
+  });
+
+  it("dims water names as much as the day style does", () => {
+    expect(overrides.waterLabelOpacity).toBe(
+      colours.regional.waterLabelOpacity,
+    );
+  });
+
   it("swaps every decoration for its -night sprite icon", () => {
     const names = Object.keys(sprite);
     const nightIcons = [
@@ -170,7 +183,7 @@ describe("night style at the representative QA views", () => {
   const FEATURE_ROLES: Record<string, Role[]> = {
     parks: ["park", "woods", "parkLine"],
     "major-roads": ["road", "roadCasing"],
-    water: ["water", "waterLine", "river"],
+    water: ["water", "waterLine", "waterEdge", "river"],
   };
 
   it.each(qa.views)(

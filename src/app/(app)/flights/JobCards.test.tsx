@@ -72,7 +72,9 @@ describe("Flights odd job cards", () => {
     expect(link![0]).toContain("Gerald, on an odd job");
     expect(link![0]).toContain("pin-loft.svg");
     expect(link![0]).toContain("pin-sill.svg");
-    expect(link![0]).toContain('aria-hidden="true"');
+    // The map picture is hidden from screen readers once MapLibre draws it
+    // (MapView.test.tsx); the frame is not, so the map credit stays readable.
+    expect(link![0]).not.toContain('aria-hidden="true"');
   });
 
   it("keeps a card as text with no link when the job has no stored dest", () => {

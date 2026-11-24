@@ -140,17 +140,37 @@
       "type": "fill",
       "source": "openmaptiles",
       "source-layer": "park",
+      "minzoom": 12,
       "filter": [
-        "match",
+        "all",
         [
-          "geometry-type"
+          "match",
+          [
+            "geometry-type"
+          ],
+          [
+            "Polygon",
+            "MultiPolygon"
+          ],
+          true,
+          false
         ],
         [
-          "Polygon",
-          "MultiPolygon"
-        ],
-        true,
-        false
+          "match",
+          [
+            "get",
+            "class"
+          ],
+          [
+            "national_park",
+            "nature_reserve",
+            "regional_park",
+            "State Park",
+            "Park"
+          ],
+          true,
+          false
+        ]
       ],
       "paint": {
         "fill-color": "#566186",
@@ -162,8 +182,6 @@
           [
             "zoom"
           ],
-          6,
-          0.35,
           12,
           0.6,
           14,
@@ -220,7 +238,7 @@
       ],
       "paint": {
         "fill-color": "#2C2752",
-        "fill-outline-color": "#FFF4DC"
+        "fill-outline-color": "rgba(255,244,220,0.75)"
       }
     },
     {
@@ -853,16 +871,35 @@
       "source-layer": "park",
       "minzoom": 14,
       "filter": [
-        "match",
+        "all",
         [
-          "geometry-type"
+          "match",
+          [
+            "geometry-type"
+          ],
+          [
+            "Polygon",
+            "MultiPolygon"
+          ],
+          true,
+          false
         ],
         [
-          "Polygon",
-          "MultiPolygon"
-        ],
-        true,
-        false
+          "match",
+          [
+            "get",
+            "class"
+          ],
+          [
+            "national_park",
+            "nature_reserve",
+            "regional_park",
+            "State Park",
+            "Park"
+          ],
+          true,
+          false
+        ]
       ],
       "layout": {
         "icon-image": "coo:tree-round-night",
@@ -1014,7 +1051,7 @@
         "text-color": "#FFF4DC",
         "text-halo-color": "#4A4380",
         "text-halo-width": 1.2,
-        "text-opacity": 0.6
+        "text-opacity": 0.5
       }
     },
     {
@@ -1326,7 +1363,10 @@
           "get",
           "class"
         ],
-        "state",
+        [
+          "state",
+          "province"
+        ],
         true,
         "country",
         [

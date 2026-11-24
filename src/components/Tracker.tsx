@@ -334,6 +334,7 @@ export function Tracker({
             bird={flight.bird}
             offsetMs={offsetMs}
             bottomPadding={CARD_PX}
+            controlsBottom={CARD_PX}
             night={view.night}
             loftLabel={view.loftLabel}
             sillLabel={view.sillLabel}

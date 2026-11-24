@@ -40,6 +40,7 @@ describe("/dev/map/flight", () => {
     expect(map.loftLabel).toBe("Your loft");
     expect(map.sillLabel).toBe("Priya, Philadelphia");
     expect(map.bottomPadding).toBe(260);
+    expect(map.controlsBottom, "the credit clears the card").toBe(260);
     expect(map.night).toBe(false);
     expect(map.bubbleLines).toEqual([
       "Flew over New Brunswick. Nobody waved.",

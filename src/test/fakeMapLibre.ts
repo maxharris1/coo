@@ -21,6 +21,25 @@ const hooks = {
   effect: 0,
 };
 
+/** Enough of a DOM element for the attributes and listeners the map sets. */
+export class FakeElement {
+  style = {};
+  offsetWidth = 0;
+  attributes: Record<string, string> = {};
+  listeners: { type: string; fn: (e: Event) => void; capture: boolean }[] = [];
+  setAttribute(name: string, value: string) {
+    this.attributes[name] = value;
+  }
+  addEventListener(type: string, fn: (e: Event) => void, capture = false) {
+    this.listeners.push({ type, fn, capture });
+  }
+  removeEventListener(type: string, fn: (e: Event) => void, capture = false) {
+    this.listeners = this.listeners.filter(
+      (l) => !(l.type === type && l.fn === fn && l.capture === capture),
+    );
+  }
+}
+
 export class FakeMap {
   handlers: Record<string, Handler[]> = {};
   layers: string[] = [];
@@ -88,6 +107,10 @@ export class FakeMap {
   }
   getCanvas() {
     return { after: (el: unknown) => this.afterCanvas.push(el) };
+  }
+  canvasContainer = new FakeElement();
+  getCanvasContainer() {
+    return this.canvasContainer;
   }
   getContainer() {
     return { clientWidth: this.width, clientHeight: 800 };
@@ -161,7 +184,7 @@ export function fakeReact(react: typeof import("react")) {
     ...react,
     useRef: <T>(initial: T) =>
       (hooks.refs[hooks.ref++] ??= {
-        current: initial ?? { style: {}, offsetWidth: 0 },
+        current: initial ?? new FakeElement(),
       }) as {
         current: T;
       },

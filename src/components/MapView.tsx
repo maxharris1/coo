@@ -22,7 +22,7 @@ import {
   type FlightPlan,
   type LatLon,
 } from "@/lib/flight/engine";
-import { collapseAttributionSoon } from "./attribution";
+import { collapseAttributionSoon, keepCreditOpen } from "./attribution";
 import { Bird, type GearId, type Look, type Pose } from "./Bird";
 import { MAP_STYLES, STOCK_STYLE, loadMapStyle } from "./mapStyle";
 import styles from "./MapView.module.css";
@@ -63,6 +63,10 @@ export type MapViewProps = {
   bird: BirdLite;
   offsetMs: number;
   bottomPadding: number;
+  /** How far up to lift the map's credit: the height of the card over it. */
+  controlsBottom?: number;
+  /** A name for the map picture. The credit stays outside it. */
+  mapLabel?: string;
   night: boolean;
   loftLabel: string;
   sillLabel: string;
@@ -236,24 +240,53 @@ export function dotsStart(
   return Math.min(at + (DOT_GAP_PX / px) * step, 1);
 }
 
-/** Our style with its sprite made absolute, or the stock style if it fails. */
-function resolveStyle(path: StylePath): Promise<StyleSpecification | string> {
-  return loadMapStyle(path).catch(() => STOCK_STYLE);
+type StyleKind = "day" | "night" | "stock";
+type Applied = { path: StylePath | typeof STOCK_STYLE; kind: StyleKind };
+
+const kindOf = (path: StylePath): StyleKind =>
+  path === MAP_STYLES.night ? "night" : "day";
+
+/**
+ * The style a new map opens with: ours with its sprite made absolute, or the
+ * stock style if ours fails, with the kind that actually loaded.
+ */
+function resolveStyle(
+  path: StylePath,
+): Promise<{ style: StyleSpecification | string; applied: Applied }> {
+  return loadMapStyle(path).then(
+    (style) => ({ style, applied: { path, kind: kindOf(path) } }),
+    () => ({
+      style: STOCK_STYLE,
+      applied: { path: STOCK_STYLE, kind: "stock" as const },
+    }),
+  );
 }
 
 /**
- * Restyles the open map in place, so the route, pins and bird stay put. A
- * style that resolves after the map closed or after a newer swap is dropped.
+ * Restyles the open map in place, so the route, pins and bird stay put. It
+ * does nothing when that style is already on the map. A style that resolves
+ * after the map closed or after a newer swap is dropped, and one that fails to
+ * load leaves the current style in place.
  */
 function swapStyle(
   m: MapLibreMap,
   path: StylePath,
-  current: { map: RefObject<MapLibreMap | null>; style: RefObject<StylePath> },
+  current: {
+    map: RefObject<MapLibreMap | null>;
+    style: RefObject<StylePath>;
+    applied: RefObject<Applied>;
+  },
 ) {
-  void resolveStyle(path).then((next) => {
-    if (current.map.current !== m || current.style.current !== path) return;
-    m.setStyle(next, { diff: false });
-  });
+  if (current.applied.current.path === path) return;
+  loadMapStyle(path).then(
+    (next) => {
+      if (current.map.current !== m || current.style.current !== path) return;
+      if (current.applied.current.path === path) return;
+      current.applied.current = { path, kind: kindOf(path) };
+      m.setStyle(next, { diff: false });
+    },
+    () => {},
+  );
 }
 
 function nearEdge(map: MapLibreMap, p: LatLon): boolean {
@@ -276,6 +309,8 @@ export function MapView({
   bird,
   offsetMs,
   bottomPadding,
+  controlsBottom = 0,
+  mapLabel,
   night,
   loftLabel,
   sillLabel,
@@ -299,6 +334,7 @@ export function MapView({
   const [following, setFollowing] = useState(true);
   const style: StylePath = MAP_STYLES[night ? "night" : "day"];
   const styleRef = useRef<StylePath>(style);
+  const appliedRef = useRef<Applied>({ path: style, kind: kindOf(style) });
   const mapRef = useRef<MapLibreMap | null>(null);
   const stateRef = useRef(state);
   const markerRef = useRef<Marker | null>(null);
@@ -311,7 +347,13 @@ export function MapView({
     if (styleRef.current === style) return;
     styleRef.current = style;
     const m = mapRef.current;
-    if (m) swapStyle(m, style, { map: mapRef, style: styleRef });
+    if (m) {
+      swapStyle(m, style, {
+        map: mapRef,
+        style: styleRef,
+        applied: appliedRef,
+      });
+    }
   }, [style]);
 
   useEffect(() => {
@@ -376,7 +418,7 @@ export function MapView({
 
     const firstStyle = styleRef.current;
     void Promise.all([import("maplibre-gl"), resolveStyle(firstStyle)]).then(
-      ([lib, loadedStyle]) => {
+      ([lib, loaded]) => {
         const { Marker, LngLatBounds } = lib;
         const el = container.current;
         if (cancelled || !el || !birdEl.current) return;
@@ -385,7 +427,7 @@ export function MapView({
           lib,
           el,
           {
-            style: loadedStyle,
+            style: loaded.style,
             bounds: new LngLatBounds(
               [from.lon, from.lat],
               [from.lon, from.lat],
@@ -407,9 +449,26 @@ export function MapView({
         );
         const m = mounted.map;
         mapRef.current = m;
-        stopCredit = collapseAttributionSoon(m, el);
+        appliedRef.current = loaded.applied;
+        // Name or hide the picture (canvas and markers) but not the credit,
+        // which MapLibre keeps beside it, so screen readers still reach it.
+        if (preview) m.getCanvasContainer().setAttribute("aria-hidden", "true");
+        if (mapLabel) {
+          const canvas = m.getCanvasContainer();
+          canvas.setAttribute("role", "img");
+          canvas.setAttribute("aria-label", mapLabel);
+        }
+        // A preview sits inside a link and nobody can pan it, so its credit
+        // stays open; a tap on the credit neither folds it nor opens the link.
+        stopCredit = preview
+          ? keepCreditOpen(el)
+          : collapseAttributionSoon(m, el);
         if (styleRef.current !== firstStyle) {
-          swapStyle(m, styleRef.current, { map: mapRef, style: styleRef });
+          swapStyle(m, styleRef.current, {
+            map: mapRef,
+            style: styleRef,
+            applied: appliedRef,
+          });
         }
         m.touchZoomRotate.disableRotation();
         m.keyboard.disableRotation();
@@ -488,7 +547,7 @@ export function MapView({
             layout: { "line-cap": "round" },
             paint: {
               ...ROUTE_LEFT_PAINT[
-                styleRef.current === MAP_STYLES.night ? "night" : "day"
+                appliedRef.current.kind === "night" ? "night" : "day"
               ],
               "line-width": DOT_WIDTH,
               "line-dasharray": DOT_DASH,
@@ -586,6 +645,7 @@ export function MapView({
     bottomPadding,
     loftAt,
     preview,
+    mapLabel,
   ]);
 
   const findBird = () => {
@@ -596,14 +656,13 @@ export function MapView({
 
   return (
     <div
-      aria-hidden={preview || undefined}
       className={styles.frame}
       style={
         {
           position: "relative",
           width: "100%",
           height: "100%",
-          "--coo-map-bottom": `${bottomPadding}px`,
+          "--coo-map-bottom": `${controlsBottom}px`,
         } as CSSProperties
       }
     >

@@ -151,17 +151,37 @@
       "type": "fill",
       "source": "openmaptiles",
       "source-layer": "park",
+      "minzoom": 12,
       "filter": [
-        "match",
+        "all",
         [
-          "geometry-type"
+          "match",
+          [
+            "geometry-type"
+          ],
+          [
+            "Polygon",
+            "MultiPolygon"
+          ],
+          true,
+          false
         ],
         [
-          "Polygon",
-          "MultiPolygon"
-        ],
-        true,
-        false
+          "match",
+          [
+            "get",
+            "class"
+          ],
+          [
+            "national_park",
+            "nature_reserve",
+            "regional_park",
+            "State Park",
+            "Park"
+          ],
+          true,
+          false
+        ]
       ],
       "paint": {
         "fill-color": [
@@ -185,8 +205,6 @@
           [
             "zoom"
           ],
-          6,
-          0.35,
           12,
           0.6,
           14,
@@ -876,16 +894,35 @@
       "source-layer": "park",
       "minzoom": 14,
       "filter": [
-        "match",
+        "all",
         [
-          "geometry-type"
+          "match",
+          [
+            "geometry-type"
+          ],
+          [
+            "Polygon",
+            "MultiPolygon"
+          ],
+          true,
+          false
         ],
         [
-          "Polygon",
-          "MultiPolygon"
-        ],
-        true,
-        false
+          "match",
+          [
+            "get",
+            "class"
+          ],
+          [
+            "national_park",
+            "nature_reserve",
+            "regional_park",
+            "State Park",
+            "Park"
+          ],
+          true,
+          false
+        ]
       ],
       "layout": {
         "icon-image": "coo:tree-round",
@@ -1349,7 +1386,10 @@
           "get",
           "class"
         ],
-        "state",
+        [
+          "state",
+          "province"
+        ],
         true,
         "country",
         [

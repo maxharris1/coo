@@ -162,7 +162,7 @@ function GuestLive({
         <h1 className={styles.title}>{copy.title}</h1>
         <p className={styles.lede}>{copy.lede}</p>
       </div>
-      <div className={styles.map} role="img" aria-label={copy.map}>
+      <div className={styles.map}>
         {flight.plan && (
           <MapView
             flightId="guest"
@@ -173,6 +173,7 @@ function GuestLive({
             bird={{ id: "guest", ...guest.bird }}
             offsetMs={clock.offsetMs}
             bottomPadding={MAP_BOTTOM_PX}
+            mapLabel={copy.map}
             night={false}
             loftLabel={`${guest.senderName}, ${flight.from.label}`}
             sillLabel={`You, ${flight.to.label}`}

@@ -20,9 +20,7 @@ mocks match.
 | `svg/loft/` | The loft scene cut into one SVG per piece, and `loft-tokens.css` for their classes. See `docs/17-loft-scene.md` section 10 |
 | `app-icon/` | SVG masters and PNG exports (16, 32, 180, 192, 512, maskable 512) |
 | `manifest.webmanifest` | Home screen install settings. Name fields are replaced from `config/app.json` |
-| `map/coo-day.style.json` | STARTER map style. Not tested against live tiles. See `docs/09-map.md` |
-| `map/coo-night.overrides.json` | Night colours |
-| `map/map-colours.json` | Colours for the proposed illustrated map: regional, street and night |
+| `map/` (repo `assets/map/` only) | `coo-night.overrides.json`, the night values `src/app/dev/map/night.ts` swaps into the day style, and `map-colours.json`, the illustrated map's regional, street and night colours. The styles the app serves are in `public/map/`. See `docs/09-map.md` |
 | `data/birds.json` | Palettes for each look and breed |
 | `copy/empty-states.json`, `copy/voice.md` | Empty-state lines and the voice rules |
 | `preview/motion.html` | Every animation running |

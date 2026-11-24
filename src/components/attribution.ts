@@ -65,3 +65,24 @@ export function collapseAttributionSoon(
   }
   return stop;
 }
+
+type Clickable = Pick<HTMLElement, "addEventListener" | "removeEventListener">;
+
+/**
+ * For a preview map inside a link: the credit stays open, so a tap on it is
+ * kept from MapLibre's (i) toggle and from the link around the map. A tap on
+ * one of the credit's own links still opens that link. Returns a function that
+ * removes the listener.
+ */
+export function keepCreditOpen(root: Clickable): () => void {
+  const onClick = (e: Event) => {
+    const target = e.target as Element | null;
+    const credit = target?.closest?.(".maplibregl-ctrl-attrib");
+    if (!credit) return;
+    e.stopPropagation();
+    const link = target?.closest("a");
+    if (!link || !credit.contains(link)) e.preventDefault();
+  };
+  root.addEventListener("click", onClick, true);
+  return () => root.removeEventListener("click", onClick, true);
+}

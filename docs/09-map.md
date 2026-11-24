@@ -41,12 +41,16 @@ Three looks:
   (`coo:mountain`) on each `mountain_peak` with `class` `peak`, `rank` 1 or 2 and `ele` of
   500 m or more from zoom 7 to 12, dashed state borders up to zoom 11, white city dots
   (`coo:city-dot-major` for `class` `city`, `coo:city-dot` otherwise) beside place names, and
-  state names in spaced capitals up to zoom 8.
+  state and province names in spaced capitals up to zoom 8.
 - **Street (zoom 14 and up):** butter-yellow blocks (the built-up fill, with building edges as
   ink at 30%) between cream streets with ink casings, city parks (`landcover` `grass` /
-  `park`) and protected areas (`park`) in green with a 2 pt ink outline and one round tree
-  (`coo:tree-round`) each, street names in capitals from 15, park names from 15, and shop
-  pills from 15.5.
+  `park`) in green with a 2 pt ink outline and one round tree (`coo:tree-round`) each, street
+  names in capitals from 15, park names from 15, and shop pills from 15.5.
+- **Protected areas** (`park` source layer) are tinted only from zoom 12, and only the classes
+  that read as a park (`national_park`, `nature_reserve`, `regional_park`, `State Park`, `Park`),
+  with a round tree each from 14 and no outline. Public lands, forests, game lands, refuges and
+  generic `protected_area`s are never tinted: at regional zooms they covered whole regions (the
+  Adirondacks, the Pinelands, BLM land) in mint, which read like the stock map.
 - **Between 12 and 14** the built-up and park colours blend from regional to street with
   `interpolate` on zoom.
 
@@ -56,7 +60,8 @@ Night (`public/map/coo-night.style.json`) is generated, never edited: run
 replaces, and `DAY_ONLY` lists the few that stay (the shop pill keeps its cream pill and ink
 words). The overrides are the `night` colours of `assets/map/map-colours.json`: land `#4A4380`,
 woods `#525884`, parks `#566186`, built-up `#5B548D` blending to blocks `#605A91`, water and
-rivers `#2C2752`, cream water, river and park lines at 75%, roads `#726B99` on `#2C2752`
+rivers `#2C2752`, cream water, river and park lines at 75% (the water fill's own edge too, as
+`rgba(255,244,220,0.75)`), water names at 50% like the day style, roads `#726B99` on `#2C2752`
 casings, cream borders at 50%, cream labels on a `#4A4380` halo with state names at 72%, and
 every decoration swapped for its `-night` sprite icon. `night.test.ts` checks the committed file
 equals the derived output.
@@ -97,9 +102,18 @@ to a small (i) button after 5 seconds or on the first pan, zoom or tap, whicheve
 a reader has opened it nothing folds it again; a day/night style swap does not reopen or fold
 it. The control is restyled in `MapView.module.css` as a small cream card with a thin ink
 outline, a 44 pt tap target round the (i), and a visible keyboard focus ring. `MapView` lifts
-the bottom map controls by its `bottomPadding` (the height the camera leaves for the bottom
-card), so the credit sits just above the card, in the corner the camera keeps clear of the bird.
+the bottom map controls by its `controlsBottom` (the height of the card over the map: the
+tracker and the job tracker pass their card height), so the credit sits just above the card, in
+the corner the camera keeps clear of the bird. This is separate from `bottomPadding`, the
+camera padding, so the guest page's 24 px padding leaves its credit at the bottom edge.
 `/dev/map` shows the credit open all the time.
+
+Preview maps (the flights list and odd-job cards) sit inside a link and cannot be panned, so
+their credit stays open and never folds (`keepCreditOpen`): a tap on it neither toggles (i) nor
+follows the card's link, while the credit's own links still open. Screen readers keep the
+credit everywhere: a preview hides only MapLibre's canvas container (the map picture and its
+markers) with `aria-hidden`, and the guest page names that same container as its `role="img"`
+picture (`mapLabel`), so the credit is never inside a hidden or image element.
 
 `/dev/map/flight` renders the real tracker (map, header and bottom card) on a fixed fake flight,
 Brooklyn to Philadelphia, without the API, so the credit can be checked against the card's real
@@ -210,7 +224,10 @@ They also run each decoration layer's filter through MapLibre's `featureFilter` 
 z9 (never saddles), squiggles match the sea off Cape Cod at z6 (not rivers), New York gets the
 big city dot, round trees match New York's city parks, and no mountain matches Manhattan's hills
 at z11 or z12. The samples have no `poi` layer and no z14 tiles, so shop pills and street-zoom
-parks are not checked against live tiles yet (a `todo` test marks the gap).
+parks are not checked against live tiles yet (a `todo` test marks the gap). Those tiles cannot
+be fetched from the build container (no network to the tile server), so that check is done by
+eye in a browser on `/dev/map` at Williamsburg-like zooms until the samples are refreshed from a
+machine that can reach the tiles.
 
 ## Odd jobs on the map
 

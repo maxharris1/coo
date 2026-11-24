@@ -321,6 +321,18 @@ describe("day style labels (STYLE.md section 5)", () => {
     expect(state.maxzoom).toBe(8);
   });
 
+  it("labels Canadian provinces like US states", () => {
+    const state = featureFilter(
+      byId("state").filter as FilterSpecification,
+      "state.filter",
+    );
+    const shows = (cls: string, zoom: number) =>
+      state.filter({ zoom }, { type: 1, properties: { class: cls } } as never);
+    expect(shows("state", 6)).toBe(true);
+    expect(shows("province", 6)).toBe(true);
+    expect(shows("country", 6)).toBe(false);
+  });
+
   it("sets sea and lake names in spaced italic capitals", () => {
     const water = byId("water-name");
     expect(water.layout).toMatchObject({
@@ -370,6 +382,7 @@ describe("day style zooms and sparseness", () => {
     "street-casing": 13,
     street: 13,
     building: 14,
+    park: 12,
     "park-outline": 14,
     "woods-trees": 7,
     mountains: 7,
@@ -407,6 +420,28 @@ describe("day style zooms and sparseness", () => {
       expect(
         evaluate(layer, "paint", "line-width", 10, { class: "primary" }),
       ).toBeGreaterThan(0);
+    }
+  });
+
+  it("tints only park-like protected areas, and only from zoom 12", () => {
+    const keeps = (id: string, cls: string) =>
+      featureFilter(
+        byId(id).filter as FilterSpecification,
+        `${id}.filter`,
+      ).filter({ zoom: 14 }, { type: 3, properties: { class: cls } } as never);
+    for (const id of ["park", "park-trees"]) {
+      for (const cls of ["national_park", "nature_reserve", "State Park"]) {
+        expect(keeps(id, cls), `${id} ${cls}`).toBe(true);
+      }
+      for (const cls of [
+        "protected_area",
+        "National Public Lands",
+        "forest_reserve",
+        "State Game Land",
+        "wildlife_refuge",
+      ]) {
+        expect(keeps(id, cls), `${id} ${cls}`).toBe(false);
+      }
     }
   });
 
