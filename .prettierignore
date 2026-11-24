@@ -16,3 +16,4 @@ AGENTS.md
 factory.md
 .github/
 src/app/dev/map/liberty-facts.json
+src/app/dev/map/tile-samples.json

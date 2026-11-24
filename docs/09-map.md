@@ -118,7 +118,12 @@ Colorado. The new layers' filters need these fixes before they draw what the spe
 live TileJSON at `https://tiles.openfreemap.org/planet` and z3, z6, z9, z12 and z14 tiles over the
 three `/dev/map` places, the Adirondacks and Colorado. It rewrites `sourceLayers` in
 `src/app/dev/map/liberty-facts.json` with each source layer's fields (every `name:<lang>` folded
-into `name:*`) and the `class` values seen in those tiles. CI never runs it.
+into `name:*`) and the `class` values seen in those tiles. It also writes
+`src/app/dev/map/tile-samples.json` from the z3, z6, z9 and z12 tiles over the same five places,
+plus New York at z11. For each decoration layer (`water-waves`, `woods-trees`, `mountains`,
+`place`), place and zoom it keeps up to 20 features from the layer's source layer, each with its
+geometry type and properties. When a tile has more, it sorts them by `rank` (unranked last), keeps
+the first feature of each `class`, then fills up with the lowest ranks. CI never runs it.
 
 The style tests in `src/app/dev/map/style.test.ts` pin the current style (no `poi` layers, token
 colours, layer ids). The proposed style adds `poi` layers for park names and shop pills, which
