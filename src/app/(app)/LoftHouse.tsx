@@ -33,7 +33,7 @@ const BIRDBATH: Box = {
   h: slots.birdbath.height,
 };
 
-const BIRD_SIZE = 120;
+export const BIRD_SIZE = 120;
 const REDUCE = "(prefers-reduced-motion: reduce)";
 
 const pct = (n: number, of: number) => `${(n / of) * 100}%`;
