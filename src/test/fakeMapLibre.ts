@@ -20,6 +20,7 @@ const hooks = {
 export class FakeMap {
   handlers: Record<string, Handler[]> = {};
   layers: string[] = [];
+  specs: Record<string, Record<string, unknown>> = {};
   sources: Record<string, { data: unknown }> = {};
   eased = 0;
   removed = false;
@@ -44,21 +45,34 @@ export class FakeMap {
   }
   addLayer(layer: { id: string }) {
     this.layers.push(layer.id);
+    this.specs[layer.id] = layer;
     return this;
   }
-  getSource() {
-    return { setData() {} };
+  getSource(id: string) {
+    const source = this.sources[id];
+    return (
+      source && {
+        setData: (data: unknown) => {
+          source.data = data;
+        },
+      }
+    );
   }
   point = { x: 0, y: 0 };
-  camera: { lng: number; zoom: number } | undefined;
+  camera: { lng: number; lat?: number; zoom: number } | undefined;
   width = 400;
-  project(at: [number, number] | { lng: number }) {
+  getZoom() {
+    return this.camera?.zoom ?? 0;
+  }
+  project(at: [number, number] | { lng: number; lat?: number }) {
     if (!this.camera) return this.point;
-    const lng = Array.isArray(at) ? at[0] : at.lng;
+    const [lng, lat] = Array.isArray(at) ? at : [at.lng, at.lat ?? 0];
     const worldPx = 512 * 2 ** this.camera.zoom;
+    const mercY = (l: number) =>
+      Math.log(Math.tan(Math.PI / 4 + (l * Math.PI) / 360)) / (2 * Math.PI);
     return {
       x: this.width / 2 + ((lng - this.camera.lng) / 360) * worldPx,
-      y: 0,
+      y: 400 + (mercY(this.camera.lat ?? 0) - mercY(lat)) * worldPx,
     };
   }
   getContainer() {
