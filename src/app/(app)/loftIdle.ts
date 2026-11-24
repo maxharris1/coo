@@ -1,4 +1,4 @@
-import type { Reach } from "./coopLayout";
+export type Reach = { lift: number; sink: number };
 
 type GestureSpec = {
   keyframes: string;
