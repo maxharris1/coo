@@ -4,7 +4,7 @@ import { useState } from "react";
 import { FlightMapPreview } from "@/app/(app)/flights/FlightMapPreview";
 import { Tracker } from "@/components/Tracker";
 import { type FakeParams, fakeFlight, fakeNow } from "./fakeFlight";
-import styles from "./page.module.css";
+import styles from "./flight.module.css";
 
 export function DevFlight({ params }: { params: FakeParams }) {
   const nowMs = fakeNow(params);

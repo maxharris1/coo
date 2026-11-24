@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { MapViewProps } from "@/components/MapView";
 import { parseFake } from "./fakeFlight";
-import DevFlightMapPage from "./page";
+import DevMapPage from "./page";
 
 const seen: MapViewProps[] = [];
 
@@ -16,7 +16,9 @@ vi.mock("@/components/MapView", async (importOriginal) => ({
 
 const render = async (params: Record<string, string | undefined>) =>
   renderToStaticMarkup(
-    await DevFlightMapPage({ searchParams: Promise.resolve(params) }),
+    await DevMapPage({
+      searchParams: Promise.resolve({ flight: "1", ...params }),
+    }),
   );
 
 const percent = (html: string) =>
@@ -26,7 +28,7 @@ beforeEach(() => {
   seen.length = 0;
 });
 
-describe("/dev/map/flight", () => {
+describe("/dev/map?flight=1", () => {
   it("renders the real tracker 40% of the way from Brooklyn to Philadelphia by day", async () => {
     const html = await render({});
     expect(html).toContain('data-night="false"');

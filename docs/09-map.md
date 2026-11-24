@@ -120,7 +120,7 @@ credit everywhere: a preview hides only MapLibre's canvas container (the map pic
 markers) with `aria-hidden`, and the guest page names that same container as its `role="img"`
 picture (`mapLabel`), so the credit is never inside a hidden or image element.
 
-`/dev/map/flight` renders the real tracker (map, header and bottom card) on a fixed fake flight,
+`/dev/map?flight=1` renders the real tracker (map, header and bottom card) on a fixed fake flight,
 Brooklyn to Philadelphia, without the API, so the credit can be checked against the card's real
 height. `?progress=0..1` sets how far the bird has flown (default 0.4), `?night=1` forces night
 and `?preview=1` shows the flights-list preview instead.
