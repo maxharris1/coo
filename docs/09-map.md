@@ -13,47 +13,93 @@
 - **Tiles:** OpenFreeMap's public vector tiles, which use OpenStreetMap data in the OpenMapTiles
   layer schema. No key, no sign-up. Their stock style is at
   `https://tiles.openfreemap.org/styles/liberty`.
-- **Style:** our own style JSON, served from `public/map/coo-day.style.json`. It points at the
-  same tile source as the stock style and repaints the layers in our tokens.
-- **Attribution:** keep MapLibre's attribution control visible (compact form is fine). The text
-  is in `config/app.json` → `mapAttribution`. This is a licence requirement.
+- **Style:** our own illustrated style JSON, served from `public/map/coo-day.style.json` by day
+  and `public/map/coo-night.style.json` by night. It reads the same tiles, glyphs and default
+  sprite as the stock style, adds our decoration sprite (`public/map/sprite/coo`) and repaints
+  everything in the colours of `assets/map/map-colours.json`. The loft picker (`PinMap`) stays
+  on the stock style.
+- **Loading:** every flight map (tracker, flight previews, job tracker, guest page) and
+  `/dev/map` load the style through `loadMapStyle(path)` in `src/components/mapStyle.ts`. It
+  fetches the JSON and makes each sprite url that starts with `/` absolute against
+  `window.location.origin`, because MapLibre 6 rejects relative sprite urls. If our style cannot
+  be fetched, `MapView` falls back to the stock style so the flight still shows.
+- **Attribution:** see "Attribution" below. This is a licence requirement.
 
-## The style: what exists and what is left
+## The style
 
-`assets/map/coo-day.style.json` is a **starter**: 16 layers (land, urban, green, park, water,
-shoreline, river, building, street, road, border, labels) in the right colours, as drawn on the
-MapStyle sheet. It has **not** been tested against live tiles. Ticket T048 finishes it:
+`public/map/coo-day.style.json` is the illustrated look from `reference/map/STYLE.md`, built
+from Fable's proposed style and fixed against the live tiles (see the tile check below). It has
+28 layers. Its `sources` and `glyphs` equal `src/app/dev/map/liberty-facts.json`, and its
+`sprite` is two sprites: `default` (the stock Liberty sprite) and `coo`
+(`/map/sprite/coo`, made absolute by `loadMapStyle`).
 
-1. Fetch the stock style JSON. Copy its `sources`, `glyphs` and `sprite` values into ours. The
-   values in the starter were written from memory and may be wrong.
-2. Check each of our layers' `source-layer` and filters against the stock style's layers of the
-   same purpose. Fix any that draw nothing.
-3. Set every text layer's font to a font stack the glyph server actually has (the stock style
-   lists them). Nunito on the map would need our own glyph files; do not attempt that now.
-4. Check at zooms 3, 6, 9, 12, 15 and 17 over New York, a rural area and a coast.
-   Adjust until it matches the MapStyle sheet and the three tracker mocks.
-5. Build the night style: the same file with the colour changes in
-   `assets/map/coo-night.overrides.json` (land `--coo-night`, water `--coo-night-water`, labels pale).
+Three looks:
 
-Maputnik (a free browser editor for these styles) makes this quick.
+- **Regional (zoom 12 and below):** flat green land, pale-blue water with an ink outline and the
+  `coo:wave-pattern` squiggle tile on sea, lakes and ponds (not rivers or pools), ink-outlined
+  blue rivers from zoom 8, a pine (`coo:tree-pine`) on each wood from zoom 7 to 13, a mountain
+  (`coo:mountain`) on each `mountain_peak` with `class` `peak`, `rank` 1 or 2 and `ele` of
+  500 m or more from zoom 7 to 12, dashed state borders up to zoom 11, white city dots
+  (`coo:city-dot-major` for `class` `city`, `coo:city-dot` otherwise) beside place names, and
+  state names in spaced capitals up to zoom 8.
+- **Street (zoom 14 and up):** butter-yellow blocks (the built-up fill, with building edges as
+  ink at 30%) between cream streets with ink casings, city parks (`landcover` `grass` /
+  `park`) and protected areas (`park`) in green with a 2 pt ink outline and one round tree
+  (`coo:tree-round`) each, street names in capitals from 15, park names from 15, and shop
+  pills from 15.5.
+- **Between 12 and 14** the built-up and park colours blend from regional to street with
+  `interpolate` on zoom.
 
-Until T048 is done, the tracker may use the stock style so that other work is not blocked.
+Night (`public/map/coo-night.style.json`) is generated, never edited: run
+`node src/app/dev/map/night.ts`. It takes the day file and swaps in the values in
+`assets/map/coo-night.overrides.json`; `ROLES` in `night.ts` says which day property each value
+replaces, and `DAY_ONLY` lists the few that stay (the shop pill keeps its cream pill and ink
+words). The overrides are the `night` colours of `assets/map/map-colours.json`: land `#4A4380`,
+woods `#525884`, parks `#566186`, built-up `#5B548D` blending to blocks `#605A91`, water and
+rivers `#2C2752`, cream water, river and park lines at 75%, roads `#726B99` on `#2C2752`
+casings, cream borders at 50%, cream labels on a `#4A4380` halo with state names at 72%, and
+every decoration swapped for its `-night` sprite icon. `night.test.ts` checks the committed file
+equals the derived output.
 
-## Style rules
+### Keep it sparse
 
-| Feature | Day | Notes |
-|---|---|---|
-| Land | paper `#FFF4DC` | |
-| Water | sky `#A9DDF7`, ink shoreline 1.5 px | |
-| Parks, green | mint `#86D9A0` at 60% | |
-| Built-up areas | sand `#E9E3D0` | zoom 9 and up |
-| Buildings | card `#FFFBF0` with ink 1 px outline | zoom 15 and up |
-| Major roads | card fill with ink casing | thicker as you zoom in |
-| Streets | card, thin casing | zoom 13 and up |
-| State borders | ink, dashed | |
-| Labels | ink with a card halo | cities by rank; street names from zoom 15 |
+The regional mocks show almost no roads, so:
 
-Keep it sparse. No points of interest, no transit, no building numbers, no 3D.
+- No roads below zoom 8. From 8 only motorways, thin (casing under 2 pt). Trunks and primaries
+  join between 9.5 and 10. Streets (secondary, tertiary, minor) from 13. No service roads,
+  paths, tracks or tunnels.
+- Place names thin out by class: cities at every zoom, towns from 9, villages and suburbs from
+  12, neighbourhoods from 13, none from 15. Countries only below zoom 5, states up to 8.
+- Built-up areas from zoom 9, fading in to full strength by 11.
+
+Points of interest are allowed for exactly two things: park names (`poi` `class` `park`) and
+generic shop pills. A shop pill is the `coo:place-pill` icon stretched round a fixed UPPERCASE
+word chosen by `subclass`, never the shop's name: COFFEE (`cafe`), BAKERY (`bakery`), ICE CREAM
+(`ice_cream`), DELI (`deli`), BOOKS (`books`) and PETS (`pet`), 60 pt apart. No other POIs, no
+transit, no house numbers, no airports, no 3D.
+
+### Labels
+
+Labels stay in the fonts the glyph server has (`Noto Sans Bold`, `Italic`, `Regular`) until
+Nunito glyphs are built and served from this app. State names: Bold capitals, letter spacing
+0.22 em, 10 to 12 pt, ink at 50%. Sea and lake names: Italic capitals, 0.3 em, ink at 50%. City
+names: Bold as written, 11 to 13 pt, ink, beside their dot. Street names: Bold capitals, 0.08
+em. Every label that sits on the map keeps a cream halo (`#4A4380` at night).
+
+### Attribution
+
+The map credit ("OpenFreeMap © OpenMapTiles Data from OpenStreetMap") comes from the tiles and
+is shown by MapLibre's compact attribution control. It is a licence requirement (OpenStreetMap
+ODbL, OpenMapTiles CC-BY), so it is never hidden or removed. Following the OSMF attribution
+guidelines for interactive maps, the credit is open in full when the map first draws and folds
+to a small (i) button after 5 seconds or on the first pan, zoom or tap, whichever comes first
+(`collapseAttributionSoon` in `src/components/attribution.ts`). Tapping (i) reopens it, and once
+a reader has opened it nothing folds it again; a day/night style swap does not reopen or fold
+it. The control is restyled in `MapView.module.css` as a small cream card with a thin ink
+outline, a 44 pt tap target round the (i), and a visible keyboard focus ring. `MapView` lifts
+the bottom map controls by its `bottomPadding` (the height the camera leaves for the bottom
+card), so the credit sits just above the card, in the corner the camera keeps clear of the bird.
+`/dev/map` shows the credit open all the time.
 
 ## What we draw on top
 
@@ -97,10 +143,13 @@ All as MapLibre layers or HTML markers, so they zoom with the map, except the cl
   Under reduced motion they stay still at their resting spots, and they pause while the tab is
   hidden. Preview maps have no clouds.
 - **Night:** when the sun is down at the bird's position (use `isDaylight` from the engine),
-  switch to the night style and add a few `coo-twinkle` stars in the map's corners.
+  switch to the night style. `MapView` loads it through `loadMapStyle` and swaps it in with
+  `setStyle`, so the route layers are re-added on `style.load` and the pins and bird stay put
+  without a remount. A style that arrives after the sun is back up is dropped. Stars and a
+  cross-fade are not built yet.
 
 
-## The illustrated look (proposed, not live)
+## The illustrated look
 
 Fable's second pack (2026-11-23) turns the map into the look of the original mocks: green land,
 ink-outlined water with squiggles, pines, mountains, round trees in parks, shop pills at street
@@ -110,14 +159,13 @@ zoom, a dark purple night, a dotted route ahead of the bird and a speech bubble.
 
 | What | Where |
 |---|---|
-| Proposed day and night styles | `public/map/proposed/coo-day.style.json`, `coo-night.style.json`. Not used by any screen yet |
+| Day and night styles | `public/map/coo-day.style.json`, `coo-night.style.json` (see "The style") |
 | Decoration sprite (1x, 2x) | `public/map/sprite/coo.json`, `coo.png`, `coo@2x.json`, `coo@2x.png` |
 | Each decoration on its own, day and night | `assets/svg/map/`, `assets/svg/map/night/` (served from `public/assets/`) |
 | Every colour for the regional, street and night looks | `assets/map/map-colours.json` |
 
-The proposed styles point their `coo` sprite at `https://coo-pigeon.vercel.app/map/sprite/coo`.
-MapLibre 6 rejects relative sprite URLs, so the screen that loads these styles must rewrite that
-url to the page's own origin (for preview deploys) before handing the style to the map.
+The styles point their `coo` sprite at `/map/sprite/coo`; `loadMapStyle` makes it absolute
+against the page's own origin, so preview deploys load their own sprite.
 
 ### Tile check (2026-11-23, OpenFreeMap planet 20261115)
 
@@ -148,10 +196,16 @@ plus New York at z11. For each decoration layer (`water-waves`, `woods-trees`, `
 geometry type and properties. When a tile has more, it sorts them by `rank` (unranked last), keeps
 the first feature of each `class`, then fills up with the lowest ranks. CI never runs it.
 
-The style tests in `src/app/dev/map/style.test.ts` pin the current style (no `poi` layers, token
-colours, layer ids). The proposed style adds `poi` layers for park names and shop pills, which
-changes the "no points of interest" rule above; the ticket that ships it updates the rule and the
-tests together.
+The style tests in `src/app/dev/map/style.test.ts` pin the shipped style: the stock sources,
+glyphs and sprite, source layers, fields and class values that exist in `liberty-facts.json`,
+font stacks the glyph server has, the `map-colours.json` colours and their 12 to 14 blend, the
+zooms each layer starts at, the sparse road and place rules, and the two allowed `poi` uses.
+They also run each decoration layer's filter through MapLibre's `featureFilter` over
+`tile-samples.json`: pines match the Adirondack woods at z9, mountains match the Colorado peaks at
+z9 (never saddles), squiggles match the sea off Cape Cod at z6 (not rivers), New York gets the
+big city dot, round trees match New York's city parks, and no mountain matches Manhattan's hills
+at z11 or z12. The samples have no `poi` layer and no z14 tiles, so shop pills and street-zoom
+parks are not checked against live tiles yet (a `todo` test marks the gap).
 
 ## Odd jobs on the map
 
