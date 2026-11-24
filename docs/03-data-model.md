@@ -16,9 +16,10 @@ fix this document.
 - `coo_app` has no access to schema `auth`. Its only paths to `auth.users` are security definer
   functions only `coo_app` may execute: `sync_phone_last4(p_user)` copies the last four digits of
   the Auth phone to `profiles.phone_last4`, `guest_links_for_phone(p_user)` lists the active guest
-  links sent to that phone, and `lock_auth_user(p_user)` takes a key-share lock on the user row
+  links sent to that phone, `lock_auth_user(p_user)` takes a key-share lock on the user row
   for the rest of the transaction and returns whether the user still exists, so a place search
-  can never write a held place for a deleted account.
+  can never write a held place for a deleted account, and `sms_phone(p_user)` returns the Auth
+  phone (or null) so the SMS fallback can text it.
 
 ## Tables
 

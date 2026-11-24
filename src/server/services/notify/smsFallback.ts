@@ -93,10 +93,10 @@ export async function smsFallback(
     sms_fallback: boolean;
     phone: string | null;
   }>(
-    `select n.user_id, n.kind, n.ref_id, n.url, p.sms_fallback, u.phone
+    `select n.user_id, n.kind, n.ref_id, n.url, p.sms_fallback,
+            public.sms_phone(n.user_id) as phone
      from notifications n
      join profiles p on p.id = n.user_id
-     join auth.users u on u.id = n.user_id
      where n.id = $1`,
     [notificationId],
   );
