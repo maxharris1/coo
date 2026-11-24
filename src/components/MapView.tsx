@@ -13,6 +13,7 @@ import {
 } from "@/lib/flight/engine";
 import { Bird, type GearId, type Look, type Pose } from "./Bird";
 import { mountMap, type MountedMap } from "./mountMap";
+import { bubbleSide, startBubble } from "./speechBubble";
 
 export type Place = LatLon & { label: string };
 export type BirdLite = {
@@ -54,6 +55,7 @@ export type MapViewProps = {
   loftAt?: LoftAt;
   state?: BirdState;
   preview?: boolean;
+  bubbleLines?: readonly string[];
 };
 
 export const ZOOM_BANDS: readonly { underMi: number; zoom: number }[] = [
@@ -106,6 +108,30 @@ const PIN_LABEL = {
   whiteSpace: "nowrap",
   overflow: "hidden",
   textOverflow: "ellipsis",
+  boxSizing: "border-box",
+} as const;
+const NO_LINES: readonly string[] = [];
+const BUBBLE_BOX = {
+  position: "absolute",
+  bottom: "100%",
+  display: "none",
+  flexDirection: "column",
+  width: "max-content",
+  transform: "rotate(-4deg)",
+  pointerEvents: "none",
+} as const;
+const BUBBLE_TEXT = {
+  display: "-webkit-box",
+  WebkitBoxOrient: "vertical",
+  WebkitLineClamp: 2,
+  overflow: "hidden",
+  maxWidth: 190,
+  padding: "6px 12px",
+  background: "var(--coo-card)",
+  border: "2.5px solid var(--coo-ink)",
+  borderRadius: 14,
+  color: "var(--coo-ink)",
+  font: "700 22px var(--coo-font-hand)",
   boxSizing: "border-box",
 } as const;
 
@@ -219,6 +245,7 @@ export function MapView({
   loftAt = "from",
   state = "flying",
   preview = false,
+  bubbleLines = NO_LINES,
 }: MapViewProps) {
   const container = useRef<HTMLDivElement>(null);
   const birdEl = useRef<HTMLDivElement>(null);
@@ -226,6 +253,9 @@ export function MapView({
   const sillEl = useRef<HTMLDivElement>(null);
   const loftLabelEl = useRef<HTMLSpanElement>(null);
   const sillLabelEl = useRef<HTMLSpanElement>(null);
+  const bubbleEl = useRef<HTMLDivElement>(null);
+  const bubbleTextEl = useRef<HTMLSpanElement>(null);
+  const linesRef = useRef(bubbleLines);
   const followRef = useRef(true);
   const recentre = useRef<() => void>(() => {});
   const [following, setFollowing] = useState(true);
@@ -247,11 +277,16 @@ export function MapView({
   }, [state]);
 
   useEffect(() => {
+    linesRef.current = bubbleLines;
+  }, [bubbleLines]);
+
+  useEffect(() => {
     let mounted: MountedMap | null = null;
     let markers: Marker[] = [];
     let frame = 0;
     let timer: ReturnType<typeof setInterval> | undefined;
     let cancelled = false;
+    let stopBubble = () => {};
     const fracs = routeFractions(distanceMi);
     const now = () => Date.now() + offsetMs;
     const bearing = bearingDeg(from, to) * (Math.PI / 180);
@@ -412,7 +447,42 @@ export function MapView({
         followRef.current = false;
         setFollowing(false);
       };
-      m.on("dragstart", stopFollowing);
+      let dragging = false;
+      const box = bubbleEl.current;
+      const text = bubbleTextEl.current;
+      const hideBubble = () => {
+        if (box) box.style.display = "none";
+      };
+      if (box && text) {
+        let said = 0;
+        stopBubble = startBubble({
+          show: () => {
+            const lines = linesRef.current;
+            if (!lines.length) return;
+            text.textContent = lines[said++ % lines.length];
+            const side = bubbleSide({
+              birdX: m.project(marker.getLngLat()).x,
+              mapWidth: m.getContainer().clientWidth,
+              west: headsWest(from, to),
+            });
+            box.style.left = side === "right" ? "50%" : "auto";
+            box.style.right = side === "left" ? "50%" : "auto";
+            box.style.alignItems = side === "right" ? "flex-start" : "flex-end";
+            box.style.display = "flex";
+          },
+          hide: hideBubble,
+          dragging: () => dragging,
+        });
+      }
+
+      m.on("dragstart", (e) => {
+        dragging = true;
+        hideBubble();
+        stopFollowing(e);
+      });
+      m.on("dragend", () => {
+        dragging = false;
+      });
       m.on("zoomstart", stopFollowing);
     });
 
@@ -420,6 +490,7 @@ export function MapView({
       cancelled = true;
       cancelAnimationFrame(frame);
       clearInterval(timer);
+      stopBubble();
       recentre.current = () => {};
       for (const m of markers) m.remove();
       mounted?.dispose();
@@ -517,6 +588,23 @@ export function MapView({
                   pointerEvents: "none",
                 }}
               />
+            )}
+            {!preview && (
+              <div ref={bubbleEl} style={BUBBLE_BOX}>
+                <span ref={bubbleTextEl} style={BUBBLE_TEXT} />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/assets/svg/map/bubble-tail.svg"
+                  alt=""
+                  width={14}
+                  height={12}
+                  style={{
+                    position: "relative",
+                    display: "block",
+                    margin: "-3px 16px 0",
+                  }}
+                />
+              </div>
             )}
           </div>
         </div>
