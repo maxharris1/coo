@@ -114,6 +114,12 @@ Colorado. The new layers' filters need these fixes before they draw what the spe
 - Labels must stay in a font stack the glyph server has (`Noto Sans Bold`, `Italic`,
   `Regular`) until Nunito glyphs are built and served from this app.
 
+`node src/app/dev/map/sample-tiles.ts` reruns the source-layer part of this check. It reads the
+live TileJSON at `https://tiles.openfreemap.org/planet` and z3, z6, z9, z12 and z14 tiles over the
+three `/dev/map` places, the Adirondacks and Colorado. It rewrites `sourceLayers` in
+`src/app/dev/map/liberty-facts.json` with each source layer's fields (every `name:<lang>` folded
+into `name:*`) and the `class` values seen in those tiles. CI never runs it.
+
 The style tests in `src/app/dev/map/style.test.ts` pin the current style (no `poi` layers, token
 colours, layer ids). The proposed style adds `poi` layers for park names and shop pills, which
 changes the "no points of interest" rule above; the ticket that ships it updates the rule and the
