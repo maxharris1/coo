@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Bird } from "@/components/Bird";
 import { MapView } from "@/components/MapView";
 import type { JobView } from "@/server/services/jobs/get";
-import { stubStyleFetch } from "@/test/fakeMapLibre";
+import { attachRefs, stubStyleFetch } from "@/test/fakeMapLibre";
 import { JobTracker } from "./JobTracker";
 
 const lib = vi.hoisted(() => {
@@ -106,9 +106,9 @@ vi.mock("react", async (importOriginal) => ({
     return [lib.hooks.states[k] as T, set];
   },
   useRef: <T,>(initial: T) =>
-    (lib.hooks.refs[lib.hooks.ref++] ??= {
-      current: initial ?? {},
-    }) as { current: T },
+    (lib.hooks.refs[lib.hooks.ref++] ??= { current: initial }) as {
+      current: T;
+    },
   useMemo: <T,>(fn: () => T, deps: unknown[]) => {
     const k = lib.hooks.memo++;
     const prev = lib.hooks.memos[k];
@@ -171,6 +171,7 @@ function render() {
   const map = find(tree, MapView);
   if (!map) throw new Error("JobTracker rendered no MapView");
   const drawn = MapView(map.props as Parameters<typeof MapView>[0]);
+  attachRefs(drawn);
   for (const run of lib.hooks.pending) run();
   const bird = find(drawn, Bird);
   if (!bird) throw new Error("MapView rendered no bird");

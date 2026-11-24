@@ -4,7 +4,7 @@ import type { ReactElement, ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FlightInput, FlightPlan } from "@/lib/flight/engine";
 import type { Flight } from "@/server/services/flights/shape";
-import { stubStyleFetch, styleName } from "@/test/fakeMapLibre";
+import { attachRefs, stubStyleFetch, styleName } from "@/test/fakeMapLibre";
 import { Bird } from "./Bird";
 import { MapView } from "./MapView";
 import { Tracker } from "./Tracker";
@@ -97,9 +97,9 @@ vi.mock("maplibre-gl", () => ({
 vi.mock("react", async (importOriginal) => ({
   ...(await importOriginal<typeof import("react")>()),
   useRef: <T,>(initial: T) =>
-    (lib.hooks.refs[lib.hooks.ref++] ??= {
-      current: initial ?? {},
-    }) as { current: T },
+    (lib.hooks.refs[lib.hooks.ref++] ??= { current: initial }) as {
+      current: T;
+    },
   useState: <T,>(initial: T | (() => T)) => [
     typeof initial === "function" ? (initial as () => T)() : initial,
     () => {},
@@ -188,6 +188,7 @@ function renderTracker(flight: Flight) {
   const map = find(tree, MapView);
   if (!map) throw new Error("Tracker rendered no MapView");
   const drawn = MapView(map.props as Parameters<typeof MapView>[0]);
+  attachRefs(drawn);
   for (const run of lib.hooks.pending) run();
   const bird = find(drawn, Bird);
   if (!bird) throw new Error("MapView rendered no bird");

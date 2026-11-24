@@ -118,11 +118,7 @@ export function fakeReact(react: typeof import("react")) {
   return {
     ...react,
     useRef: <T>(initial: T) =>
-      (hooks.refs[hooks.ref++] ??= {
-        current: initial ?? { style: {}, offsetWidth: 0 },
-      }) as {
-        current: T;
-      },
+      (hooks.refs[hooks.ref++] ??= { current: initial }) as { current: T },
     useState: <T>(initial: T | (() => T)) => {
       const k = hooks.state++;
       if (!(k in hooks.states)) {
@@ -160,8 +156,23 @@ export function renderWithEffects<P>(
   hooks.effect = 0;
   hooks.pending = [];
   const tree = component(props);
+  attachRefs(tree);
   for (const run of hooks.pending) run();
   return tree;
+}
+
+export function attachRefs(node: ReactNode): void {
+  if (!node || typeof node !== "object") return;
+  if (Array.isArray(node)) {
+    for (const child of node) attachRefs(child);
+    return;
+  }
+  const { ref, children } =
+    (node as ReactElement<{ ref?: unknown; children?: ReactNode }>).props ?? {};
+  if (ref && typeof ref === "object" && "current" in ref && !ref.current) {
+    ref.current = { style: {}, offsetWidth: 0 };
+  }
+  attachRefs(children);
 }
 
 export function resetFakes() {
