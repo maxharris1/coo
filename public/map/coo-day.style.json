@@ -38,7 +38,7 @@
       "type": "fill",
       "source": "openmaptiles",
       "source-layer": "landuse",
-      "minzoom": 9,
+      "minzoom": 8,
       "filter": [
         "match",
         [
@@ -76,8 +76,10 @@
           [
             "zoom"
           ],
+          8,
+          0,
           9,
-          0.6,
+          0.8,
           11,
           1
         ]
@@ -345,6 +347,14 @@
           ],
           5,
           1.5,
+          6,
+          1.6429,
+          7,
+          1.2,
+          8,
+          0.6,
+          10,
+          0.9,
           12,
           2.5
         ],
@@ -1111,7 +1121,7 @@
       "type": "symbol",
       "source": "openmaptiles",
       "source-layer": "transportation_name",
-      "minzoom": 15,
+      "minzoom": 14,
       "filter": [
         "all",
         [
@@ -1170,12 +1180,29 @@
           [
             "zoom"
           ],
+          14,
+          8,
           15,
-          9.5,
+          9,
           17,
           11
         ],
-        "text-letter-spacing": 0.08
+        "text-letter-spacing": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          14,
+          0.04,
+          16,
+          0.08
+        ],
+        "symbol-spacing": 300,
+        "text-max-angle": 30,
+        "text-padding": 2
       },
       "paint": {
         "text-color": "#2A2140",
@@ -1293,8 +1320,8 @@
           ],
           99
         ],
-        "icon-padding": 60,
-        "text-padding": 60
+        "icon-padding": 120,
+        "text-padding": 120
       },
       "paint": {
         "text-color": "#2A2140"

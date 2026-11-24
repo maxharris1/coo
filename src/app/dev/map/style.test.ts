@@ -276,10 +276,16 @@ describe("day style colours (STYLE.md section 2)", () => {
     expect(mid).not.toBe("rgba(255,226,168,1)");
   });
 
-  it("outlines water in ink, 1.5 pt growing to 2.5 pt by zoom 12", () => {
+  it("outlines water in ink, 1.5 pt growing to 2.5 pt by zoom 12, thin from 7 to 10", () => {
     const shore = byId("shoreline");
-    expect(evaluate(shore, "paint", "line-width", 5)).toBe(1.5);
-    expect(evaluate(shore, "paint", "line-width", 12)).toBe(2.5);
+    const at = (zoom: number) =>
+      evaluate(shore, "paint", "line-width", zoom) as number;
+    expect(at(5)).toBe(1.5);
+    expect(at(6), "zoom 6 as before").toBeCloseTo(1.5 + 1 / 7, 3);
+    for (const zoom of [8, 9, 10]) {
+      expect(at(zoom), `small ponds stay blue at z${zoom}`).toBeLessThan(1);
+    }
+    expect(at(12)).toBe(2.5);
   });
 
   it("dashes the state borders in ink at 40% and hides them above zoom 11", () => {
@@ -376,7 +382,7 @@ describe("day style labels (STYLE.md section 5)", () => {
 
 describe("day style zooms and sparseness", () => {
   const MIN_ZOOMS: Record<string, number> = {
-    urban: 9,
+    urban: 8,
     "road-casing": 8,
     road: 8,
     "street-casing": 13,
@@ -388,7 +394,7 @@ describe("day style zooms and sparseness", () => {
     mountains: 7,
     "park-trees": 14,
     "city-park-trees": 16,
-    "street-name": 15,
+    "street-name": 14,
     "park-name": 15,
     shops: 15.5,
   };
@@ -421,6 +427,33 @@ describe("day style zooms and sparseness", () => {
         evaluate(layer, "paint", "line-width", 11, { class: "primary" }),
       ).toBeGreaterThan(0);
     }
+  });
+
+  it("fades the built-up tone in from zoom 8, clearly there by 9", () => {
+    const urban = byId("urban");
+    const at = (zoom: number) =>
+      evaluate(urban, "paint", "fill-opacity", zoom) as number;
+    expect(at(8)).toBe(0);
+    expect(at(9)).toBe(0.8);
+    expect(at(11)).toBe(1);
+  });
+
+  it("names streets from zoom 14 in small capitals along the line", () => {
+    const names = byId("street-name");
+    expect(names.layout).toMatchObject({
+      "symbol-placement": "line",
+      "symbol-spacing": 300,
+    });
+    expect(evaluate(names, "layout", "text-size", 14)).toBe(8);
+    expect(evaluate(names, "layout", "text-size", 15)).toBe(9);
+    expect(evaluate(names, "layout", "text-size", 17)).toBe(11);
+  });
+
+  it("keeps shop pills 120 pt apart so only a few show at once", () => {
+    expect(byId("shops").layout).toMatchObject({
+      "icon-padding": 120,
+      "text-padding": 120,
+    });
   });
 
   it("fades the wood and grass fill at regional zooms but not at zoom 6", () => {
