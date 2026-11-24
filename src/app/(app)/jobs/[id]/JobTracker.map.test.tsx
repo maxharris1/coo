@@ -46,6 +46,9 @@ const lib = vi.hoisted(() => {
     project() {
       return { x: 0, y: 0 };
     }
+    getZoom() {
+      return 12;
+    }
     getContainer() {
       return { clientWidth: 400, clientHeight: 800 };
     }
@@ -78,7 +81,8 @@ const lib = vi.hoisted(() => {
     }
   }
 
-  return { hooks, counts, changed, FakeMap, FakeMarker, FakeBounds };
+  const frame = { next: undefined as FrameRequestCallback | undefined };
+  return { hooks, counts, frame, changed, FakeMap, FakeMarker, FakeBounds };
 });
 
 vi.mock("maplibre-gl", () => ({
@@ -186,6 +190,7 @@ async function mapMounted(n: number) {
 async function tickSeconds(n: number) {
   for (let i = 0; i < n; i++) {
     vi.advanceTimersByTime(1000);
+    lib.frame.next?.(0);
     render();
     await new Promise((resolve) => setImmediate(resolve));
   }
@@ -203,7 +208,11 @@ beforeEach(() => {
     routeUpdates: 0,
     cameraUpdates: 0,
   });
-  vi.stubGlobal("requestAnimationFrame", () => 1);
+  lib.frame.next = undefined;
+  vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+    lib.frame.next = cb;
+    return 1;
+  });
   vi.stubGlobal("cancelAnimationFrame", () => {});
   vi.stubGlobal(
     "ResizeObserver",
@@ -231,7 +240,7 @@ describe("the job tracker map as the clock ticks (ac-1)", () => {
     expect(lib.counts).toEqual({
       mounts: 1,
       disposals: 0,
-      routeUpdates: 2,
+      routeUpdates: 12,
       cameraUpdates: 1,
     });
   });
