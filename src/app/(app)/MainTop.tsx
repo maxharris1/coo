@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { SyncPayload } from "@/components/sync";
 import { greeting } from "@/lib/format";
-import { LoftScene } from "./LoftScene";
+import { LoftHouse } from "./LoftHouse";
 import styles from "./MainTop.module.css";
 
 const INK = "#2A2140";
@@ -94,7 +94,14 @@ export function MainTop({ data, nowMs }: { data: SyncPayload; nowMs: number }) {
       <h1 className={styles.greeting}>
         {greeting(nowMs, timezone, data.birds)}
       </h1>
-      <LoftScene birds={data.birds} perches={data.me.perches} />
+      <div className={styles.loft}>
+        <LoftHouse
+          birds={data.birds}
+          perches={data.me.perches}
+          egg={data.egg}
+          items={data.me.hasBirdbath ? ["birdbath"] : []}
+        />
+      </div>
     </section>
   );
 }

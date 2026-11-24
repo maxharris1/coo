@@ -1,15 +1,24 @@
 .top {
+  position: relative;
   display: flex;
   flex-direction: column;
   margin-top: calc(-1 * env(safe-area-inset-top, 0px));
   margin-right: calc(-1 * var(--coo-safe-right));
   margin-left: calc(-1 * var(--coo-safe-left));
   padding-top: env(safe-area-inset-top, 0px);
+  overflow: clip;
   background: var(--coo-sky);
   color: var(--coo-ink);
 }
 
+.top::after {
+  content: "";
+  aspect-ratio: 390 / 284;
+}
+
 .header {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -101,6 +110,10 @@
 }
 
 .greeting {
+  position: relative;
+  z-index: 1;
+  box-sizing: border-box;
+  max-width: calc(200% / 3);
   margin: 0;
   padding: 10px calc(20px + var(--coo-safe-right)) 0
     calc(20px + var(--coo-safe-left));
@@ -112,8 +125,10 @@
 }
 
 .loft {
-  position: relative;
-  flex-shrink: 0;
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
 }
 
 .scene {

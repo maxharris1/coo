@@ -19,11 +19,29 @@ const bird = (name: string, over: Partial<Bird> = {}): Bird =>
     ...over,
   }) as Bird;
 
-const data = (birds: Bird[], seeds = 240, unread = 0) =>
+type Extra = {
+  perches?: number;
+  hasBirdbath?: boolean;
+  egg?: SyncPayload["egg"];
+};
+
+const data = (
+  birds: Bird[],
+  seeds = 240,
+  unread = 0,
+  { perches = 4, hasBirdbath = false, egg = null }: Extra = {},
+) =>
   ({
-    me: { seeds, timezone: "America/New_York", loft: null, perches: 3 },
+    me: {
+      seeds,
+      timezone: "America/New_York",
+      loft: null,
+      perches,
+      hasBirdbath,
+    },
     birds,
     unread,
+    egg,
   }) as unknown as SyncPayload;
 
 const morning = new Date("2026-11-20T14:20:00Z").getTime();
@@ -95,12 +113,6 @@ describe("the top of Main (ac-1)", () => {
     );
   });
 
-  it("draws the loft scene from the assets/svg illustrations", () => {
-    for (const asset of ["coop", "water-tower", "cloud"]) {
-      expect(html).toContain(`href="/assets/svg/illustrations/${asset}.svg"`);
-    }
-  });
-
   it("uses only tokens for colour in its stylesheet", () => {
     const css = readFileSync(
       new URL("./MainTop.module.css", import.meta.url),
@@ -120,18 +132,82 @@ describe("the top of Main (ac-1)", () => {
   });
 });
 
-describe("the loft below the header", () => {
-  it("draws the scene for the owned perches and keeps its links out of the header", () => {
-    const html = render(mock);
-    expect(html.match(/data-perch=""/g)).toHaveLength(3);
-    expect(html.match(/<svg[^>]*role="img".*?<\/svg>/s)?.[0]).not.toContain(
-      "<a",
-    );
-    const hrefs = [...html.matchAll(/<a[^>]*href="([^"]+)"/g)].map((m) => m[1]);
-    expect(hrefs.filter((h) => !h.startsWith("/birds/"))).toEqual([
-      "/notifications",
-      "/more",
-      "/shop",
-    ]);
+const renderWith = (birds: Bird[], extra: Extra) =>
+  renderToStaticMarkup(
+    <MainTop data={data(birds, 240, 0, extra)} nowMs={morning} />,
+  ).replaceAll("&#x27;", "'");
+
+const hrefs = (html: string) =>
+  [...html.matchAll(/<a[^>]*href="([^"]+)"/g)].map((m) => m[1]);
+
+const css = readFileSync(
+  new URL("./MainTop.module.css", import.meta.url),
+  "utf8",
+);
+const rule = (selector: string) =>
+  css.match(new RegExp(`(?:^|\\n)${selector} \\{([^}]*)\\}`))?.[1] ?? "";
+
+describe("the loft below the header (#972 ac-1)", () => {
+  it("keeps the scene's links out of the header", () => {
+    const header = render(mock).match(/<header.*?<\/header>/s)?.[0] ?? "";
+    expect(hrefs(header)).toEqual(["/notifications", "/more", "/shop"]);
+  });
+
+  const home = [bird("Gerald"), bird("Kevin", { look: "kevin" })];
+
+  it("draws the house loft with the home birds in their rooms", () => {
+    const html = renderWith(home, {});
+    expect(html).toContain("data-birds");
+    expect(html.match(/data-room="\d+"/g)).toHaveLength(2);
+    expect(html).toMatch(/role="img"[^>]*aria-label="Your rooftop loft\./);
+    expect(html).not.toContain("/assets/svg/illustrations/coop.svg");
+  });
+
+  it("builds one room per owned perch, with a second floor at four", () => {
+    const three = renderWith(home, { perches: 3 });
+    const four = renderWith(home, { perches: 4 });
+    const toLet = (html: string) =>
+      html.match(/aria-label="Room to let. Open the shop"/g)?.length ?? 0;
+    expect(toLet(three)).toBe(0);
+    expect(toLet(four)).toBe(1);
+  });
+
+  it("shows a ready egg from sync as the egg room that opens the aviary", () => {
+    const html = renderWith(home, {
+      egg: { status: "ready", deliveriesToGo: 0 },
+    });
+    const egg = html.match(/<a[^>]*href="\/aviary"[^>]*>/)?.[0];
+    expect(egg).toContain('aria-label="An egg is ready"');
+    expect(hrefs(renderWith(home, {}))).not.toContain("/aviary");
+  });
+
+  it("draws the birdbath only when the profile owns one", () => {
+    const label = 'aria-label="Birdbath. Open the shop"';
+    expect(renderWith(home, { hasBirdbath: true })).toContain(label);
+    expect(renderWith(home, { hasBirdbath: false })).not.toContain(label);
+  });
+});
+
+describe("the hero layout (#972 ac-2)", () => {
+  it("anchors the art below the sky band to the bottom of the hero", () => {
+    expect(rule("\\.top")).toMatch(/position: relative/);
+    expect(rule("\\.loft")).toMatch(/position: absolute/);
+    expect(rule("\\.loft")).toMatch(/bottom: 0/);
+    expect(rule("\\.loft")).toMatch(/right: 0/);
+    expect(rule("\\.loft")).toMatch(/left: 0/);
+    expect(rule("\\.top::after")).toMatch(/aspect-ratio: 390 \/ 284/);
+  });
+
+  it("paints the top bar and greeting over the sky band", () => {
+    for (const sel of ["\\.header", "\\.greeting"]) {
+      expect(rule(sel)).toMatch(/position: relative/);
+      expect(rule(sel)).toMatch(/z-index: 1/);
+    }
+    expect(rule("\\.top")).toMatch(/background: var\(--coo-sky\)/);
+  });
+
+  it("keeps the greeting to the left two thirds", () => {
+    expect(rule("\\.greeting")).toMatch(/box-sizing: border-box/);
+    expect(rule("\\.greeting")).toMatch(/max-width: calc\(200% \/ 3\)/);
   });
 });
