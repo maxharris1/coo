@@ -1,31 +1,28 @@
 {
   "fetched": "2026-11-21",
   "from": "https://tiles.openfreemap.org/styles/liberty",
-  "openmaptiles": {
-    "type": "vector",
-    "url": "https://tiles.openfreemap.org/planet"
-  },
+  "openmaptiles": {"type":"vector","url":"https://tiles.openfreemap.org/planet"},
   "glyphs": "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
   "sprite": "https://tiles.openfreemap.org/sprites/ofm_f384/ofm",
-  "sourceLayers": [
-    "aerodrome_label",
-    "aeroway",
-    "boundary",
-    "building",
-    "landcover",
-    "landuse",
-    "park",
-    "place",
-    "poi",
-    "transportation",
-    "transportation_name",
-    "water",
-    "water_name",
-    "waterway"
-  ],
-  "fontStacks": [
-    ["Noto Sans Bold"],
-    ["Noto Sans Italic"],
-    ["Noto Sans Regular"]
-  ]
+  "sourceLayers": {
+    "aerodrome_label": {"fields":["class","ele","ele_ft","iata","icao","name","name:*","name_de","name_en","name_int"],"classes":["international","other"]},
+    "aeroway": {"fields":["class","ref"],"classes":["aerodrome","apron","runway","taxiway"]},
+    "boundary": {"fields":["adm0_l","adm0_r","admin_level","claimed_by","class","disputed","disputed_name","maritime","name","name:*","name_de","name_en","name_int"],"classes":["aboriginal_lands"]},
+    "building": {"fields":["colour","hide_3d","render_height","render_min_height"],"classes":[]},
+    "housenumber": {"fields":["housenumber"],"classes":[]},
+    "landcover": {"fields":["class","subclass"],"classes":["farmland","grass","ice","rock","sand","wetland","wood"]},
+    "landuse": {"fields":["class"],"classes":["bus_station","cemetery","college","commercial","dam","hospital","industrial","library","military","neighbourhood","pitch","playground","quarry","quarter","railway","residential","retail","school","stadium","suburb","track","university","zoo"]},
+    "mountain_peak": {"fields":["class","customary_ft","ele","ele_ft","name","name:*","name_de","name_en","name_int","rank"],"classes":["peak","saddle"]},
+    "park": {"fields":["class","name","name:*","name_de","name_en","name_int","rank"],"classes":["Administrative","Experimental Forest","Intensive Use","Land Trust","Marine Protected Area","National Monument","National Protection Area","National Public Lands","National Recreation Area","Park","Primitive Area","Recreation Area","Recreation Management Area","Reservation","State Game Land","State Historic Site","State Park","Wetland Restoration Site","conservation","conservation_district","conservation_easement","cultural_assets","forest_reserve","game_land","grassland_reserve","historic","historic_district","historic_site","hunting preserve","marine","national_park","nature_reserve","protected_area","recreation","regional_park","shore_reserve","sustainable","watershed_reserve","wilderness_preserve","wildlife_refuge"]},
+    "place": {"fields":["capital","class","iso_a2","name","name:*","name_de","name_en","name_int","rank"],"classes":["aboriginal_lands","city","continent","country","hamlet","island","neighbourhood","province","quarter","state","suburb","town","village"]},
+    "poi": {"fields":["agg_stop","class","indoor","layer","level","name","name:*","name_de","name_en","name_int","rank","subclass"],"classes":["alcohol_shop","art_gallery","atm","attraction","bakery","bank","bar","beer","bicycle","bicycle_parking","bicycle_rental","bollard","brownfield","bus","butcher","cafe","campsite","car","castle","cemetery","cinema","clothing_store","college","cycling","dentist","doctors","dog_park","drinking_water","entrance","escape_game","fast_food","ferry_terminal","fire_station","fuel","garden","gate","golf","grocery","hackerspace","hairdresser","harbor","hospital","ice_cream","ice_rink","information","laundry","library","lift_gate","lodging","monument","motorcycle_parking","museum","music","office","park","parking","pharmacy","picnic_site","pitch","place_of_worship","playground","police","post","railway","recycling","restaurant","running","school","shelter","shop","sports_centre","stadium","swimming_pool","telephone","theatre","toilets","toll_booth","town_hall","veterinary","waste_basket","yoga"]},
+    "transportation": {"fields":["access","bicycle","brunnel","class","expressway","foot","horse","indoor","layer","level","mtb_scale","network","official","oneway","ramp","service","subclass","surface","toll"],"classes":["aerialway","bridge","ferry","minor","minor_construction","motorway","motorway_construction","path","pier","primary","primary_construction","rail","secondary","secondary_construction","service","tertiary","track","transit","trunk","trunk_construction"]},
+    "transportation_name": {"fields":["class","indoor","layer","level","name","name:*","name_de","name_en","name_int","network","ref","ref_length","route_10_colour","route_10_name","route_10_network","route_10_ref","route_11_colour","route_11_name","route_11_network","route_11_ref","route_12_colour","route_12_name","route_12_network","route_12_ref","route_13_colour","route_13_name","route_13_network","route_13_ref","route_14_colour","route_14_name","route_14_network","route_14_ref","route_15_colour","route_15_name","route_15_network","route_15_ref","route_16_colour","route_16_name","route_16_network","route_16_ref","route_17_name","route_17_network","route_17_ref","route_18_name","route_18_network","route_18_ref","route_19_name","route_19_network","route_1_colour","route_1_name","route_1_network","route_1_ref","route_20_name","route_20_network","route_21_name","route_21_network","route_2_colour","route_2_name","route_2_network","route_2_ref","route_3_colour","route_3_name","route_3_network","route_3_ref","route_4_colour","route_4_name","route_4_network","route_4_ref","route_5_colour","route_5_name","route_5_network","route_5_ref","route_6_colour","route_6_name","route_6_network","route_6_ref","route_7_colour","route_7_name","route_7_network","route_7_ref","route_8_colour","route_8_name","route_8_network","route_8_ref","route_9_colour","route_9_name","route_9_network","route_9_ref","subclass"],"classes":["aerialway","ferry","minor","motorway","motorway_construction","path","primary","secondary","service","tertiary","track","trunk"]},
+    "water": {"fields":["brunnel","class","id","intermittent"],"classes":["lake","ocean","pond","river","swimming_pool"]},
+    "water_name": {"fields":["class","intermittent","name","name:*","name_de","name_en","name_int"],"classes":["bay","lake","sea","strait"]},
+    "waterway": {"fields":["brunnel","class","intermittent","name","name:*","name_de","name_en","name_int"],"classes":["canal","river","stream"]}
+  },
+  "fontStacks": [["Noto Sans Bold"],["Noto Sans Italic"],["Noto Sans Regular"]],
+  "tilejson": "https://tiles.openfreemap.org/planet",
+  "tilesFetched": {"date":"2026-11-23","version":"3.16.0","tiles":"https://tiles.openfreemap.org/planet/20261122_124456_pt/{z}/{x}/{y}.pbf"}
 }

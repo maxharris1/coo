@@ -88,8 +88,18 @@ describe("day style against the stock OpenFreeMap style", () => {
   it("reads only source layers the tiles have", () => {
     for (const layer of layers.filter((l) => l.type !== "background")) {
       expect(layer.source, layer.id).toBe("openmaptiles");
-      expect(facts.sourceLayers, layer.id).toContain(layer["source-layer"]);
+      expect(Object.keys(facts.sourceLayers), layer.id).toContain(
+        layer["source-layer"],
+      );
     }
+  });
+
+  it("records mountain peaks with their class values from the live tiles", () => {
+    const peaks = facts.sourceLayers.mountain_peak;
+    expect(peaks.fields).toEqual(
+      expect.arrayContaining(["class", "ele", "rank"]),
+    );
+    expect(peaks.classes).toContain("peak");
   });
 
   it("sets every label in a font stack the glyph server has", () => {
