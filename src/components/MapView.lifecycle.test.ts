@@ -27,6 +27,12 @@ const lib = vi.hoisted(() => {
     on() {
       return this;
     }
+    getZoom() {
+      return 0;
+    }
+    getCanvas() {
+      return { after() {} };
+    }
     remove() {
       this.removed = true;
     }
@@ -82,7 +88,7 @@ vi.mock("maplibre-gl", () => ({
 
 vi.mock("react", async (importOriginal) => ({
   ...(await importOriginal<typeof import("react")>()),
-  useRef: <T>(initial: T) => ({ current: initial ?? ({} as T) }),
+  useRef: <T>(initial: T) => ({ current: initial ?? ({ style: {} } as T) }),
   useState: <T>(initial: T) => [initial, () => {}],
   useEffect: lib.setEffect,
 }));
@@ -129,6 +135,11 @@ beforeEach(() => {
   lib.markerAt.length = 0;
   vi.stubGlobal("requestAnimationFrame", () => 1);
   vi.stubGlobal("cancelAnimationFrame", () => {});
+  vi.stubGlobal("document", {
+    hidden: false,
+    addEventListener() {},
+    removeEventListener() {},
+  });
   vi.stubGlobal(
     "ResizeObserver",
     class {
