@@ -1,0 +1,13 @@
+.page {
+  padding: 24px var(--coo-gutter);
+}
+
+/* Same box as a flying row's map on /flights. */
+.preview {
+  position: relative;
+  max-width: 420px;
+  height: 140px;
+  border: var(--coo-line);
+  border-radius: var(--coo-radius-row);
+  overflow: hidden;
+}

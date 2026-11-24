@@ -101,6 +101,11 @@ the bottom map controls by its `bottomPadding` (the height the camera leaves for
 card), so the credit sits just above the card, in the corner the camera keeps clear of the bird.
 `/dev/map` shows the credit open all the time.
 
+`/dev/map/flight` renders the real tracker (map, header and bottom card) on a fixed fake flight,
+Brooklyn to Philadelphia, without the API, so the credit can be checked against the card's real
+height. `?progress=0..1` sets how far the bird has flown (default 0.4), `?night=1` forces night
+and `?preview=1` shows the flights-list preview instead.
+
 ## What we draw on top
 
 All as MapLibre layers or HTML markers, so they zoom with the map, except the clouds:
