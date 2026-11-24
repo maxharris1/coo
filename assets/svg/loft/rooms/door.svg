@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+<title>Round doorway, daytime</title>
+<g id="door" transform="translate(-5 -7)">
+<circle cx="17" cy="19" r="10" fill="#4A4380" stroke="#2A2140" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" class="fill-night stroke-ink"/><path d="M10.5 16 a7 7 0 0 1 6 -4.5" fill="none" stroke="#8983A7" stroke-width="1.8" stroke-linecap="round" class="stroke-loft-door-shine"/>
+</g>
+</svg>

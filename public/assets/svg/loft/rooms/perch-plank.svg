@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 13" width="64" height="13">
+<title>Perch plank on two brackets. Birds stand on its top edge</title>
+<g id="perch-plank" transform="translate(-5 -66)">
+<path d="M14 78 v-5 h7 Z M60 78 v-5 h-7 Z" fill="#B68263" stroke="#2A2140" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" class="fill-loft-wood-shade stroke-ink"/><rect x="7" y="68" width="60" height="7" rx="3" fill="#D99A6C" stroke="#2A2140" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" class="fill-wood stroke-ink"/>
+</g>
+</svg>

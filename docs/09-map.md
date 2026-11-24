@@ -76,6 +76,49 @@ All as MapLibre layers or HTML markers, so they zoom with the map:
 - **Night:** when the sun is down at the bird's position (use `isDaylight` from the engine),
   switch to the night style and add a few `coo-twinkle` stars in the map's corners.
 
+
+## The illustrated look (proposed, not live)
+
+Fable's second pack (2026-11-23) turns the map into the look of the original mocks: green land,
+ink-outlined water with squiggles, pines, mountains, round trees in parks, shop pills at street
+zoom, a dark purple night, a dotted route ahead of the bird and a speech bubble. The full spec is
+`reference/map/STYLE.md`; the original mocks are in `reference/map/mocks/` and everything is on
+`reference/map/map-kit-sheet.png`.
+
+| What | Where |
+|---|---|
+| Proposed day and night styles | `public/map/proposed/coo-day.style.json`, `coo-night.style.json`. Not used by any screen yet |
+| Decoration sprite (1x, 2x) | `public/map/sprite/coo.json`, `coo.png`, `coo@2x.json`, `coo@2x.png` |
+| Each decoration on its own, day and night | `assets/svg/map/`, `assets/svg/map/night/` (served from `public/assets/`) |
+| Every colour for the regional, street and night looks | `assets/map/map-colours.json` |
+
+The proposed styles point their `coo` sprite at `https://coo-pigeon.vercel.app/map/sprite/coo`.
+MapLibre 6 rejects relative sprite URLs, so the screen that loads these styles must rewrite that
+url to the page's own origin (for preview deploys) before handing the style to the map.
+
+### Tile check (2026-11-23, OpenFreeMap planet 20261115)
+
+Read from live tiles over New York, Williamsburg, the Adirondacks, rural Pennsylvania and
+Colorado. The new layers' filters need these fixes before they draw what the spec wants:
+
+- `mountain_peak` starts at zoom 7 on these tiles, not 5. Its `rank` is per tile, so New York
+  hills get rank 1 at zoom 11. Filter to `class` `peak` (saddles also get rank 1 and 2) and
+  consider a height floor on `ele`.
+- `landcover` is absent at zooms 5 and 6 and is a few large merged polygons at zoom 7, so
+  "one pine per polygon" gives about one pine per tile there. Pines start at 7 at the earliest.
+- The `park` source layer holds protected areas, nature reserves and national parks only. City
+  parks are `landcover` with `class` `grass` and `subclass` `park` (Central Park, McCarren Park).
+  Round trees and the street-zoom park fill need that filter.
+- `poi` `subclass` has `bakery`, `cafe`, `ice_cream`, `deli`, `books` and `pet`, but no `pizza`
+  (pizza places are `restaurant` or `fast_food`). `poi` starts at zoom 11.
+- Labels must stay in a font stack the glyph server has (`Noto Sans Bold`, `Italic`,
+  `Regular`) until Nunito glyphs are built and served from this app.
+
+The style tests in `src/app/dev/map/style.test.ts` pin the current style (no `poi` layers, token
+colours, layer ids). The proposed style adds `poi` layers for park names and shop pills, which
+changes the "no points of interest" rule above; the ticket that ships it updates the rule and the
+tests together.
+
 ## Odd jobs on the map
 
 A bird on an odd job flies from its loft to the job's stored destination and straight back. The

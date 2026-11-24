@@ -75,7 +75,7 @@ Free rooms are filled in this order: roommate, egg, then empty. This is the exis
 | Add-on | Place | Owned when |
 |---|---|---|
 | Rooftop birdbath | Left deck slot | `me.hasBirdbath` |
-| Seed cart | Right deck slot | not sold yet |
+| Espresso cart | Right deck slot | not sold yet |
 | Flower boxes | Hung on the wall under each deck slot. Nothing rises above the deck line | not sold yet |
 | Weathervane | Roof peak. Moves up with the roof | not sold yet |
 | String lights, stovepipe, sign | Always there | free |
@@ -168,3 +168,32 @@ All transform and opacity only, all off with reduced motion, all paused while th
 
 A third floor fits the same way: three rooms to a floor, newest floor on top, top floor centred.
 Add 80 pt of sky for it. Nothing else in this document changes.
+
+## 10. The pieces, cut apart
+
+Fable's second pack (2026-11-23) cuts the approved art into one SVG per piece. The app still draws
+the scene from code (`src/app/(app)/loftArt.ts`, ported from `reference/generator/loft.py`); the
+pieces are for anyone who needs a single item on its own (the store, a sheet, a later scene).
+
+| What | Where |
+|---|---|
+| One SVG per piece: house, rooms, deck, add-ons, lights, sky, skyline | `assets/svg/loft/<group>/`, served from `public/assets/svg/loft/` |
+| The `fill-*` / `stroke-*` classes the pieces carry | `assets/svg/loft/loft-tokens.css` (not loaded by the app) |
+| How to build the scene from the pieces, sizes, slots, text limits | `reference/loft/pieces/README.md` |
+| x, y, size and layer of every piece for three lofts | `reference/loft/pieces/layout/loft-layout.json` and `loft-layout-sheet.png` |
+| Colours per look, with the brief's four names mapped to the five looks | `reference/loft/pieces/tokens/loft-colours.json` |
+| Smoke, twinkle, clouds, weathervane keyframes | `reference/loft/pieces/motion.json` (all already in `public/assets/motion.css`) |
+| Every piece on one sheet, and the spare light posts in place | `reference/loft/pieces/loft-pieces-sheet.png`, `optional-light-posts.png` |
+
+Where the pieces and this document disagree, this document and `config/loft.json` win. In
+particular the layout file's `birdBox` is 70 pt wide (Fable's drawing); the app draws birds
+65 pt wide (`config.loft.rooms.bird.width`, decided on #943) so a party hat never crosses the
+room top while a bird hops.
+
+The right deck item is an espresso cart, not a seed cart. Its expected markup for every loft and
+look is in `reference/loft/espresso-cart-fixtures/`; those files replace
+`public/assets/loft-reference/` and `assets/loft-reference/` in the same change that redraws
+`cart()` in `loftArt.ts`. The cart is decoration only: espresso shots are still bought in the
+store.
+
+The spare light posts (`assets/svg/loft/lights/post.svg`) are not part of the approved scene.

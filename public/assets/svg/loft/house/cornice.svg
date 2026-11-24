@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 234 11" width="234" height="11">
+<title>Cornice that caps the ground floor when there is an upper floor</title>
+<g id="cornice" transform="translate(-78 -293)">
+<rect x="80.0" y="295" width="230" height="7" rx="3" fill="#FFFBF0" stroke="#2A2140" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" class="fill-card stroke-ink"/>
+</g>
+</svg>

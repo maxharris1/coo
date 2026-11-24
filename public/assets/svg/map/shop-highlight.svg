@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 34 34" width="34" height="34">
+<title>Highlighted shop marker (the tomato block in the street mock)</title>
+<g id="shop-highlight">
+<rect x="2" y="2" width="30" height="30" rx="7" fill="#F4623F" stroke="#2A2140" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/><path d="M9 15 h16 v9 h-16 Z" fill="#FFFBF0" stroke="#2A2140" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/><path d="M8 11 h18 l2 4 h-22 Z" fill="#FFC93C" stroke="#2A2140" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+</g>
+</svg>

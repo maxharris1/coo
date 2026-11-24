@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 109" width="64" height="109">
+<title>Near building: flat colour, 2 pt ink outline, windows with sills, cornice. Cut at the deck line</title>
+<g id="near-slate-garden" transform="translate(-280 -269)">
+<rect x="284" y="274" width="56" height="108" fill="#BFBAD4" stroke="#2A2140" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" class="fill-loft-slate stroke-ink"/><path d="M289 290 h7 m5 9 h6" stroke="#ADA8C2" stroke-width="1.6" stroke-linecap="round"/><path d="M306 313 h7 m5 9 h6" stroke="#ADA8C2" stroke-width="1.6" stroke-linecap="round"/><path d="M323 336 h7 m5 9 h6" stroke="#ADA8C2" stroke-width="1.6" stroke-linecap="round"/><rect x="323" y="288" width="10" height="12" rx="1.5" fill="#807A96" stroke="#2A2140" stroke-width="1.6" class="stroke-ink"/><path d="M323.8 288.8 h8.4 v5.4 q-4.2 3 -8.4 0 Z" fill="#FFFBF0" class="fill-card"/><rect x="321.5" y="299.5" width="13" height="2.6" rx="1" fill="#E2DEE3" stroke="#2A2140" stroke-width="1.2" class="stroke-ink"/><rect x="281" y="270" width="62" height="7" rx="2.5" fill="#E5E1E5" stroke="#2A2140" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" class="stroke-ink"/>
+</g>
+</svg>

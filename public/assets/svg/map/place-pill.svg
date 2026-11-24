@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 24" width="36" height="24">
+<title>Label pill. Stretches to fit its text</title>
+<g id="place-pill">
+<rect x="2" y="2" width="32" height="20" rx="10" fill="#FFFBF0" stroke="#2A2140" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+</g>
+</svg>

@@ -1,0 +1,71 @@
+{
+ "_about": "Loft motion. Transform and opacity only. Turn all of it off under prefers-reduced-motion, and pause while the tab is hidden.",
+ "smoke": {
+  "keyframes": "loft-smoke",
+  "css": "@keyframes loft-smoke{0%{transform:translate(0,10px) scale(.4);opacity:0}25%{opacity:1}100%{transform:translate(9px,-12px) scale(1.25);opacity:0}}",
+  "durationMs": 5000,
+  "easing": "ease-out",
+  "loop": "infinite",
+  "staggerMs": 1600,
+  "puffs": [
+   {
+    "dx": 1,
+    "dy": -34,
+    "r": 4.5
+   },
+   {
+    "dx": 6,
+    "dy": -44,
+    "r": 6
+   },
+   {
+    "dx": 2,
+    "dy": -55,
+    "r": 4
+   }
+  ],
+  "note": "dx, dy are from the point where the pipe meets the roof. Each puff rises 22 pt, drifts 9 pt right, grows from 0.4 to 1.25, fades in by 25% and out by 100%."
+ },
+ "twinkle": {
+  "keyframes": "coo-twinkle",
+  "css": "@keyframes coo-twinkle{0%,100%{opacity:1}50%{opacity:.25}}",
+  "appliesTo": "bulb halos (lit only), stars, birdbath sparkle, espresso steam",
+  "durationMs": "3000, 4000 or 5000 by bulb index mod 3; stars 3000 to 6000",
+  "easing": "ease-in-out",
+  "loop": "infinite",
+  "staggerMs": 370
+ },
+ "clouds": {
+  "keyframes": "coo-drift",
+  "css": "@keyframes coo-drift{from{transform:translateX(0)}to{transform:translateX(18px)}}",
+  "durationMs": {
+   "large": 30000,
+   "small": 24000
+  },
+  "easing": "ease-in-out",
+  "loop": "infinite alternate",
+  "delayMs": {
+   "large": 0,
+   "small": 4000
+  }
+ },
+ "weathervane": {
+  "keyframes": "coo-sway",
+  "css": "@keyframes coo-sway{from{transform:rotate(-6deg)}to{transform:rotate(6deg)}}",
+  "durationMs": 7000,
+  "easing": "ease-in-out",
+  "loop": "infinite alternate",
+  "origin": "bottom centre of the arrow group"
+ },
+ "eggReady": {
+  "keyframes": "coo-wobble",
+  "durationMs": 900,
+  "easing": "ease-in-out",
+  "loop": "infinite",
+  "origin": "bottom centre"
+ },
+ "timeOfDayChange": {
+  "durationMs": 2000,
+  "how": "cross-fade old and new scene with opacity"
+ }
+}

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 58 25" width="58" height="25">
+<title>Planter: a flower box. One hangs under each deck slot</title>
+<g id="planter" transform="translate(-9 -377)">
+<g stroke="#2A2140" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" class="stroke-ink"><rect x="10" y="388" width="56" height="13" rx="3" fill="#D99A6C" class="fill-wood"/><path d="M10 393 H66" fill="none" stroke="#B68263" stroke-width="1.5" class="stroke-loft-wood-shade"/><circle cx="16" cy="386" r="5.2" fill="#86D9A0" class="fill-mint"/><circle cx="27" cy="386" r="5.2" fill="#86D9A0" class="fill-mint"/><circle cx="38" cy="386" r="5.2" fill="#86D9A0" class="fill-mint"/><circle cx="49" cy="386" r="5.2" fill="#86D9A0" class="fill-mint"/><circle cx="60" cy="386" r="5.2" fill="#86D9A0" class="fill-mint"/><circle cx="17.0" cy="382.5" r="3.9" fill="#F4623F" stroke-width="1.5" class="fill-tomato"/><circle cx="27.5" cy="383.5" r="3.9" fill="#FFFBF0" stroke-width="1.5" class="fill-card"/><circle cx="38.0" cy="382.5" r="3.9" fill="#F59C8E" stroke-width="1.5" class="fill-rose"/><circle cx="48.5" cy="383.5" r="3.9" fill="#FFC93C" stroke-width="1.5" class="fill-sun"/><circle cx="59.0" cy="382.5" r="3.9" fill="#FFFBF0" stroke-width="1.5" class="fill-card"/></g>
+</g>
+</svg>

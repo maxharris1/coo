@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 172 48" width="172" height="48">
+<title>Roof for a two-floor house (sits on two rooms)</title>
+<g id="roof-narrow" transform="translate(-109 -176)">
+<path d="M116.0 215 L195 178 L274.0 215 Z" fill="#F4623F" stroke="#2A2140" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" class="fill-tomato stroke-ink"/><path d="M146.4 215 L195 194.0 L243.6 215" fill="none" stroke="#D0563F" stroke-width="1.6" stroke-linejoin="round" class="stroke-loft-tomato-shade"/><rect x="111.0" y="213" width="168.0" height="9" rx="4" fill="#D0563F" stroke="#2A2140" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" class="fill-loft-tomato-shade stroke-ink"/>
+</g>
+</svg>

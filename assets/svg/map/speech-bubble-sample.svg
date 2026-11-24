@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 58" width="160" height="58">
+<title>Sample speech bubble. Build it in HTML and CSS (see STYLE.md); this shows the look</title>
+<g id="speech-bubble-sample">
+<g transform="rotate(-4 80 26)"><path d="M14 6 h124 a10 10 0 0 1 10 10 v14 a10 10 0 0 1 -10 10 h-70 l-8 10 l-2 -10 h-44 a10 10 0 0 1 -10 -10 v-14 a10 10 0 0 1 10 -10 Z" fill="#FFFBF0" stroke="#2A2140" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/><text x="76" y="31" text-anchor="middle" font-family="Caveat, cursive" font-weight="700" font-size="22" fill="#2A2140">ooh, a bagel</text></g>
+</g>
+</svg>
