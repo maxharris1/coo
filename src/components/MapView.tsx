@@ -263,7 +263,10 @@ export function MapView({
   const styleRef = useRef(style);
   const mapRef = useRef<MapLibreMap | null>(null);
   const stateRef = useRef(state);
+  const markerRef = useRef<Marker | null>(null);
+  const draggingRef = useRef(false);
   const west = headsWest(from, to);
+  const westRef = useRef(west);
   const pose = POSE[plan ? state : "scheduled"];
 
   useEffect(() => {
@@ -277,8 +280,42 @@ export function MapView({
   }, [state]);
 
   useEffect(() => {
+    westRef.current = west;
+  }, [west]);
+
+  useEffect(() => {
     linesRef.current = bubbleLines;
   }, [bubbleLines]);
+
+  useEffect(() => {
+    const box = bubbleEl.current;
+    const text = bubbleTextEl.current;
+    if (preview || !box || !text) return;
+    let said = 0;
+    const stopBubble = startBubble({
+      show: () => {
+        const lines = linesRef.current;
+        const m = mapRef.current;
+        const marker = markerRef.current;
+        if (!lines.length || !m || !marker) return;
+        text.textContent = lines[said++ % lines.length];
+        const side = bubbleSide({
+          birdX: m.project(marker.getLngLat()).x,
+          mapWidth: m.getContainer().clientWidth,
+          west: westRef.current,
+        });
+        box.style.left = side === "right" ? "50%" : "auto";
+        box.style.right = side === "left" ? "50%" : "auto";
+        box.style.alignItems = side === "right" ? "flex-start" : "flex-end";
+        box.style.display = "flex";
+      },
+      hide: () => {
+        box.style.display = "none";
+      },
+      dragging: () => draggingRef.current,
+    });
+    return stopBubble;
+  }, [preview]);
 
   useEffect(() => {
     let mounted: MountedMap | null = null;
@@ -286,7 +323,6 @@ export function MapView({
     let frame = 0;
     let timer: ReturnType<typeof setInterval> | undefined;
     let cancelled = false;
-    let stopBubble = () => {};
     const fracs = routeFractions(distanceMi);
     const now = () => Date.now() + offsetMs;
     const bearing = bearingDeg(from, to) * (Math.PI / 180);
@@ -343,6 +379,7 @@ export function MapView({
         .setLngLat([start.lon, start.lat])
         .addTo(m);
       markers = [loft, sill, marker];
+      markerRef.current = marker;
 
       const clampLabels = () => {
         const mapWidth = m.getContainer().clientWidth;
@@ -447,41 +484,13 @@ export function MapView({
         followRef.current = false;
         setFollowing(false);
       };
-      let dragging = false;
-      const box = bubbleEl.current;
-      const text = bubbleTextEl.current;
-      const hideBubble = () => {
-        if (box) box.style.display = "none";
-      };
-      if (box && text) {
-        let said = 0;
-        stopBubble = startBubble({
-          show: () => {
-            const lines = linesRef.current;
-            if (!lines.length) return;
-            text.textContent = lines[said++ % lines.length];
-            const side = bubbleSide({
-              birdX: m.project(marker.getLngLat()).x,
-              mapWidth: m.getContainer().clientWidth,
-              west: headsWest(from, to),
-            });
-            box.style.left = side === "right" ? "50%" : "auto";
-            box.style.right = side === "left" ? "50%" : "auto";
-            box.style.alignItems = side === "right" ? "flex-start" : "flex-end";
-            box.style.display = "flex";
-          },
-          hide: hideBubble,
-          dragging: () => dragging,
-        });
-      }
-
       m.on("dragstart", (e) => {
-        dragging = true;
-        hideBubble();
+        draggingRef.current = true;
+        if (bubbleEl.current) bubbleEl.current.style.display = "none";
         stopFollowing(e);
       });
       m.on("dragend", () => {
-        dragging = false;
+        draggingRef.current = false;
       });
       m.on("zoomstart", stopFollowing);
     });
@@ -490,11 +499,12 @@ export function MapView({
       cancelled = true;
       cancelAnimationFrame(frame);
       clearInterval(timer);
-      stopBubble();
       recentre.current = () => {};
       for (const m of markers) m.remove();
       mounted?.dispose();
       mapRef.current = null;
+      markerRef.current = null;
+      draggingRef.current = false;
     };
   }, [
     flightId,

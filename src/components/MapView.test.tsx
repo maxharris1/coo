@@ -869,6 +869,56 @@ describe("the pigeon's speech bubble (#967 ac-3)", () => {
     expect(shown(bubble)).toBe(true);
   });
 
+  const refreshed = async (p: MapViewProps, over: Partial<MapViewProps>) => {
+    const count = maps.length;
+    renderWithEffects(MapView, { ...p, ...over });
+    await vi.waitFor(() => expect(maps).toHaveLength(count + 1));
+    nextFrame();
+  };
+  const sameFlight = (p: MapViewProps): Partial<MapViewProps> => ({
+    from: { ...p.from },
+    to: { ...p.to },
+    plan: structuredClone(p.plan),
+  });
+
+  it("keeps talking every 20 to 40 s through the 20 s sync refresh", async () => {
+    vi.mocked(Math.random).mockReturnValue(0.5);
+    const p = props({ bubbleLines: LINES });
+    const { tree } = await mounted(p);
+    const bubble = bubbleIn(tree)!;
+    let seen = 0;
+    for (let poll = 0; poll < 6; poll++) {
+      for (let s = 0; s < 20; s++) {
+        vi.advanceTimersByTime(1_000);
+        if (shown(bubble)) seen++;
+      }
+      await refreshed(p, sameFlight(p));
+    }
+    expect(seen, "seconds shown in two minutes").toBeGreaterThanOrEqual(4);
+  });
+
+  it("still hides 4 s after showing when the plan changes mid-showing", async () => {
+    const p = props({ bubbleLines: LINES });
+    const { tree } = await mounted(p);
+    const bubble = bubbleIn(tree)!;
+    vi.advanceTimersByTime(20_000);
+    expect(shown(bubble)).toBe(true);
+    vi.advanceTimersByTime(1_000);
+    await refreshed(p, { plan: structuredClone(p.plan) });
+    vi.advanceTimersByTime(3_000);
+    expect(shown(bubble), "hidden by the 4 s deadline").toBe(false);
+  });
+
+  it("talks again when the map is rebuilt in the middle of a drag", async () => {
+    const p = props({ bubbleLines: LINES });
+    const { tree, map } = await mounted(p);
+    const bubble = bubbleIn(tree)!;
+    map.handlers.dragstart[0]({ originalEvent: {} });
+    await refreshed(p, sameFlight(p));
+    vi.advanceTimersByTime(20_000);
+    expect(shown(bubble)).toBe(true);
+  });
+
   it("sits behind the westbound bird and flips within 100 pt of the right edge", async () => {
     const { tree, map } = await mounted(props({ bubbleLines: LINES }));
     const { box } = bubbleIn(tree)!;
