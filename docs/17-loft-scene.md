@@ -49,7 +49,7 @@ On the roof: the "LOFT 4B" sign, a stovepipe on the right slope with three smoke
 weathervane slot on the peak.
 
 Inside each room: a round doorway (centre 17, 19 from the room's corner, radius 10) and a wooden
-perch plank whose top is 68 pt below the room's top. A bird is drawn 70 pt wide with its feet on
+perch plank whose top is 68 pt below the room's top. A bird is drawn 65 pt wide with its feet on
 the plank, 5 pt in from the room's left edge.
 
 ### What a room shows

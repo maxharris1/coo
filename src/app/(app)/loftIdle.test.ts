@@ -9,7 +9,7 @@ import {
   startLoftIdle,
   type Gesture,
 } from "./loftIdle";
-import { BIRD_SIZE } from "./loftLayout";
+import { BIRD_SIZE } from "./coopLayout";
 
 type FakeDoc = EventTarget & { hidden: boolean };
 const fakeDoc = (hidden = false): FakeDoc =>
