@@ -2,10 +2,23 @@
   position: relative;
 }
 
-.loft > svg {
+.loft > svg:first-child {
   display: block;
   width: 100%;
   height: auto;
+}
+
+.birds {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.loft[data-paused] * {
+  animation-play-state: paused !important;
 }
 
 .link {
