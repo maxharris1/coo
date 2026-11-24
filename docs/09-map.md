@@ -57,7 +57,7 @@ Keep it sparse. No points of interest, no transit, no building numbers, no 3D.
 
 ## What we draw on top
 
-All as MapLibre layers or HTML markers, so they zoom with the map:
+All as MapLibre layers or HTML markers, so they zoom with the map, except the clouds:
 
 - **Route:** the great-circle path from `interpolate`, sampled every 1% (every 0.2% above 300
   miles). Flown part: tomato `#F4623F`, 5 pt, round caps and joins, over an 8 pt ink casing. It
@@ -88,6 +88,14 @@ All as MapLibre layers or HTML markers, so they zoom with the map:
   from the flight log (`config/copy/flight-log.json`). It shows for 4 s about every 20 to 40 s,
   never while the user is dragging the map, and flips to the other side when the bird is within
   100 pt of a screen edge. Preview maps have no bubble.
+- **Clouds:** three `assets/svg/map/cloud.svg` (night: `night/cloud.svg`), 74 x 36, in screen
+  space rather than on the map: they sit just above the map canvas and below every marker, so
+  a cloud can pass under the bird, a pin, a pill or the speech bubble but never over them, and
+  panning the map does not move them. They show at zoom 11 and below and hide at street zoom
+  (12 and up). Each drifts left to right across the whole screen at its own height (18%, 42%
+  and 64% down), in 34, 46 and 40 s, starting spread out, and wraps back to the left edge.
+  Under reduced motion they stay still at their resting spots, and they pause while the tab is
+  hidden. Preview maps have no clouds.
 - **Night:** when the sun is down at the bird's position (use `isDaylight` from the engine),
   switch to the night style and add a few `coo-twinkle` stars in the map's corners.
 

@@ -2,7 +2,7 @@
 
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { GeoJSONSource, Map as MapLibreMap, Marker } from "maplibre-gl";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import {
   bearingDeg,
   interpolate,
@@ -12,6 +12,7 @@ import {
   type LatLon,
 } from "@/lib/flight/engine";
 import { Bird, type GearId, type Look, type Pose } from "./Bird";
+import styles from "./MapView.module.css";
 import { mountMap, type MountedMap } from "./mountMap";
 import { bubbleSide, startBubble } from "./speechBubble";
 
@@ -111,6 +112,12 @@ const PIN_LABEL = {
   boxSizing: "border-box",
 } as const;
 const NO_LINES: readonly string[] = [];
+const CLOUD_MAX_ZOOM = 11;
+const CLOUDS = [
+  { top: "18%", drift: 34, start: 0, rest: "35%" },
+  { top: "42%", drift: 46, start: -15, rest: "85%" },
+  { top: "64%", drift: 40, start: -28, rest: "60%" },
+] as const;
 const BUBBLE_BOX = {
   position: "absolute",
   bottom: "100%",
@@ -255,6 +262,7 @@ export function MapView({
   const sillLabelEl = useRef<HTMLSpanElement>(null);
   const bubbleEl = useRef<HTMLDivElement>(null);
   const bubbleTextEl = useRef<HTMLSpanElement>(null);
+  const cloudsEl = useRef<HTMLDivElement>(null);
   const linesRef = useRef(bubbleLines);
   const followRef = useRef(true);
   const recentre = useRef<() => void>(() => {});
@@ -323,6 +331,7 @@ export function MapView({
     let frame = 0;
     let timer: ReturnType<typeof setInterval> | undefined;
     let cancelled = false;
+    let stopClouds = () => {};
     const fracs = routeFractions(distanceMi);
     const now = () => Date.now() + offsetMs;
     const bearing = bearingDeg(from, to) * (Math.PI / 180);
@@ -380,6 +389,26 @@ export function MapView({
         .addTo(m);
       markers = [loft, sill, marker];
       markerRef.current = marker;
+
+      const clouds = cloudsEl.current;
+      if (!preview && clouds) {
+        m.getCanvas().after(clouds);
+        const showClouds = () => {
+          clouds.style.display =
+            m.getZoom() <= CLOUD_MAX_ZOOM ? "block" : "none";
+        };
+        const pauseClouds = () => {
+          clouds.style.animationPlayState = document.hidden
+            ? "paused"
+            : "running";
+        };
+        showClouds();
+        pauseClouds();
+        m.on("zoom", showClouds);
+        document.addEventListener("visibilitychange", pauseClouds);
+        stopClouds = () =>
+          document.removeEventListener("visibilitychange", pauseClouds);
+      }
 
       const clampLabels = () => {
         const mapWidth = m.getContainer().clientWidth;
@@ -497,6 +526,7 @@ export function MapView({
 
     return () => {
       cancelled = true;
+      stopClouds();
       cancelAnimationFrame(frame);
       clearInterval(timer);
       recentre.current = () => {};
@@ -617,6 +647,30 @@ export function MapView({
               </div>
             )}
           </div>
+        </div>
+        <div ref={cloudsEl} className={styles.clouds}>
+          {CLOUDS.map((c) => (
+            <div
+              key={c.top}
+              className={styles.lane}
+              style={
+                {
+                  top: c.top,
+                  "--drift": `${c.drift}s`,
+                  "--start": `${c.start}s`,
+                  "--rest": c.rest,
+                } as CSSProperties
+              }
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`/assets/svg/map/${night ? "night/" : ""}cloud.svg`}
+                alt=""
+                width={74}
+                height={36}
+              />
+            </div>
+          ))}
         </div>
       </div>
       {!preview && !following && (

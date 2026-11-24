@@ -49,6 +49,9 @@ const lib = vi.hoisted(() => {
     getZoom() {
       return 12;
     }
+    getCanvas() {
+      return { after() {} };
+    }
     getContainer() {
       return { clientWidth: 400, clientHeight: 800 };
     }
@@ -110,7 +113,7 @@ vi.mock("react", async (importOriginal) => ({
   },
   useRef: <T,>(initial: T) =>
     (lib.hooks.refs[lib.hooks.ref++] ??= {
-      current: initial ?? {},
+      current: initial ?? { style: {} },
     }) as { current: T },
   useMemo: <T,>(fn: () => T, deps: unknown[]) => {
     const k = lib.hooks.memo++;
@@ -214,6 +217,11 @@ beforeEach(() => {
     return 1;
   });
   vi.stubGlobal("cancelAnimationFrame", () => {});
+  vi.stubGlobal("document", {
+    hidden: false,
+    addEventListener() {},
+    removeEventListener() {},
+  });
   vi.stubGlobal(
     "ResizeObserver",
     class {

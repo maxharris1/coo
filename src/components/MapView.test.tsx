@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { interpolate, type FlightPlan, type LatLon } from "@/lib/flight/engine";
 import {
   FakeMap,
+  fakeDocument,
   find,
   maps,
   markers,
@@ -966,5 +967,102 @@ describe("the pigeon's speech bubble (#967 ac-3)", () => {
     );
     expect(bubbleIn(tree)).toBeUndefined();
     expect(vi.getTimerCount(), "only the follow interval").toBe(1);
+  });
+});
+
+describe("clouds drift over the map (#968 ac-4)", () => {
+  type Host = { style: Record<string, string> };
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"] });
+    vi.setSystemTime(midFlight());
+    stubBrowser(vi);
+  });
+
+  afterEach(() => {
+    resetFakes();
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  async function clouds(over: Partial<MapViewProps> = {}) {
+    const { map } = await mounted(props(over));
+    expect(map.afterCanvas).toHaveLength(1);
+    return { map, host: map.afterCanvas[0] as Host };
+  }
+
+  it("draws three day clouds, or night clouds by night, each drifting 30 to 50 s", () => {
+    for (const night of [false, true]) {
+      const html = renderToStaticMarkup(<MapView {...props({ night })} />);
+      const src = `/assets/svg/map/${night ? "night/" : ""}cloud.svg`;
+      const imgs = html.match(/<img[^>]*cloud\.svg[^>]*>/g) ?? [];
+      expect(imgs).toHaveLength(3);
+      for (const img of imgs) {
+        expect(img).toContain(`src="${src}"`);
+        expect(img).toMatch(/width="74"[^>]*height="36"/);
+      }
+      const secs = [...html.matchAll(/--drift:(\d+)s/g)].map((m) =>
+        Number(m[1]),
+      );
+      expect(secs).toHaveLength(3);
+      for (const s of secs) expect(s).toBeGreaterThanOrEqual(30);
+      for (const s of secs) expect(s).toBeLessThanOrEqual(50);
+    }
+  });
+
+  it("show at zoom 11 and below and hide at street zoom", async () => {
+    const { map, host } = await clouds();
+    for (const [zoom, display] of [
+      [11, "block"],
+      [12, "none"],
+      [16, "none"],
+      [6, "block"],
+    ] as const) {
+      map.camera = { lng: 0, zoom };
+      map.fire("zoom");
+      expect(host.style.display, `zoom ${zoom}`).toBe(display);
+    }
+  });
+
+  it("pause while the tab is hidden and resume when it shows", async () => {
+    const { host } = await clouds();
+    expect(host.style.animationPlayState).toBe("running");
+    fakeDocument.hidden = true;
+    fakeDocument.fire("visibilitychange");
+    expect(host.style.animationPlayState).toBe("paused");
+    fakeDocument.hidden = false;
+    fakeDocument.fire("visibilitychange");
+    expect(host.style.animationPlayState).toBe("running");
+  });
+
+  it("stop listening once the map goes away", async () => {
+    await clouds();
+    resetFakes();
+    expect(fakeDocument.listeners.visibilitychange ?? []).toHaveLength(0);
+  });
+
+  it("never draw on preview maps", async () => {
+    const { map } = await mounted(props({ preview: true }));
+    expect(map.afterCanvas).toHaveLength(0);
+  });
+
+  it("drift left to right with transforms only, wrap, and stop under reduced motion", () => {
+    const css = readFileSync(
+      new URL("./MapView.module.css", import.meta.url),
+      "utf8",
+    );
+    expect(css).toMatch(/\.clouds \{[^}]*pointer-events: none;/);
+    expect(css).toMatch(
+      /\.lane \{[^}]*animation: coo-map-cloud var\(--drift\) linear var\(--start\) infinite;[^}]*animation-play-state: inherit;/,
+    );
+    const frames = css.match(/@keyframes coo-map-cloud \{([\s\S]*?)\n\}/)![1];
+    expect(frames).toMatch(/from \{\s*transform: translateX\(0\);/);
+    expect(frames).toMatch(
+      /to \{\s*transform: translateX\(calc\(100% \+ 74px\)\);/,
+    );
+    expect(frames.replace(/transform: [^;]+;/g, "")).not.toMatch(/:/);
+    expect(css).toMatch(
+      /@media \(prefers-reduced-motion: reduce\) \{\s*\.lane \{\s*animation: none;/,
+    );
   });
 });

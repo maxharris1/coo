@@ -8,6 +8,14 @@ import { Bird } from "./Bird";
 import { MapView } from "./MapView";
 import { Tracker } from "./Tracker";
 
+beforeEach(() => {
+  vi.stubGlobal("document", {
+    hidden: false,
+    addEventListener() {},
+    removeEventListener() {},
+  });
+});
+
 const NIGHT_STYLE = "/map/coo-night.style.json";
 const DAY_STYLE = "https://tiles.openfreemap.org/styles/liberty";
 
@@ -56,6 +64,12 @@ const lib = vi.hoisted(() => {
     project() {
       return { x: 0, y: 0 };
     }
+    getZoom() {
+      return 0;
+    }
+    getCanvas() {
+      return { after() {} };
+    }
     remove() {
       this.removed = true;
     }
@@ -100,7 +114,7 @@ vi.mock("react", async (importOriginal) => ({
   ...(await importOriginal<typeof import("react")>()),
   useRef: <T,>(initial: T) =>
     (lib.hooks.refs[lib.hooks.ref++] ??= {
-      current: initial ?? {},
+      current: initial ?? { style: {} },
     }) as { current: T },
   useState: <T,>(initial: T | (() => T)) => [
     typeof initial === "function" ? (initial as () => T)() : initial,

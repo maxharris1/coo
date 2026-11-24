@@ -24,6 +24,7 @@ export class FakeMap {
   sources: Record<string, { data: unknown }> = {};
   eased = 0;
   removed = false;
+  afterCanvas: unknown[] = [];
   keyboard = { disableRotation() {} };
   touchZoomRotate = { disableRotation() {} };
   constructor(readonly options: Record<string, unknown>) {
@@ -74,6 +75,9 @@ export class FakeMap {
       x: this.width / 2 + ((lng - this.camera.lng) / 360) * worldPx,
       y: 400 + (mercY(this.camera.lat ?? 0) - mercY(lat)) * worldPx,
     };
+  }
+  getCanvas() {
+    return { after: (el: unknown) => this.afterCanvas.push(el) };
   }
   getContainer() {
     return { clientWidth: this.width, clientHeight: 800 };
@@ -186,6 +190,8 @@ export function resetFakes() {
   maps.length = 0;
   markers.length = 0;
   frames.length = 0;
+  fakeDocument.hidden = false;
+  fakeDocument.listeners = {};
 }
 
 export function stubBrowser(vi: {
@@ -196,6 +202,7 @@ export function stubBrowser(vi: {
     return frames.length;
   });
   vi.stubGlobal("cancelAnimationFrame", () => {});
+  vi.stubGlobal("document", fakeDocument);
   vi.stubGlobal(
     "ResizeObserver",
     class {
@@ -204,6 +211,22 @@ export function stubBrowser(vi: {
     },
   );
 }
+
+export const fakeDocument = {
+  hidden: false,
+  listeners: {} as Record<string, (() => void)[]>,
+  addEventListener(event: string, fn: () => void) {
+    (this.listeners[event] ??= []).push(fn);
+  },
+  removeEventListener(event: string, fn: () => void) {
+    this.listeners[event] = (this.listeners[event] ?? []).filter(
+      (f) => f !== fn,
+    );
+  },
+  fire(event: string) {
+    for (const fn of this.listeners[event] ?? []) fn();
+  },
+};
 
 export function nextFrame() {
   frames.at(-1)?.(0);
