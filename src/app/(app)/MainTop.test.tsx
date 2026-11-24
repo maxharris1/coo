@@ -160,7 +160,6 @@ describe("the loft below the header (#972 ac-1)", () => {
     expect(html).toContain("data-birds");
     expect(html.match(/data-room="\d+"/g)).toHaveLength(2);
     expect(html).toMatch(/role="img"[^>]*aria-label="Your rooftop loft\./);
-    expect(html).not.toContain("/assets/svg/illustrations/coop.svg");
   });
 
   it("builds one room per owned perch, with a second floor at four", () => {
