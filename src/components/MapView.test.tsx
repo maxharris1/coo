@@ -488,3 +488,143 @@ describe("pin labels stay inside the map (#924 ac-1)", () => {
     );
   });
 });
+
+type Line = { geometry: { coordinates: [number, number][] } };
+
+describe("the flight line (#965 ac-1)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"] });
+    vi.setSystemTime(midFlight());
+    stubBrowser(vi);
+  });
+
+  afterEach(() => {
+    resetFakes();
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  async function routeLayers(night: boolean) {
+    const { map } = await mounted(props({ night }));
+    map.fire("style.load");
+    return map;
+  }
+
+  it.each([false, true])(
+    "draws the flown part tomato, 5 pt with round ends, over an 8 pt ink casing (night %s)",
+    async (night) => {
+      const { specs } = await routeLayers(night);
+      expect(specs["route-flown"]).toMatchObject({
+        source: "route-flown",
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: { "line-color": "#F4623F", "line-width": 5 },
+      });
+      expect(specs["route-flown-casing"]).toMatchObject({
+        source: "route-flown",
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: { "line-color": "#2A2140", "line-width": 8 },
+      });
+    },
+  );
+
+  it("draws the part still to go as ink dots by day", async () => {
+    const { specs } = await routeLayers(false);
+    expect(specs["route-left"]).toMatchObject({
+      source: "route-left",
+      layout: { "line-cap": "round" },
+      paint: {
+        "line-color": "#2A2140",
+        "line-width": 3.5,
+        "line-dasharray": [0.01, 2.2],
+      },
+    });
+    expect(specs["route-left"].paint).not.toHaveProperty("line-opacity");
+  });
+
+  it("draws the dots cream at 85% at night", async () => {
+    const { specs } = await routeLayers(true);
+    expect(specs["route-left"]).toMatchObject({
+      layout: { "line-cap": "round" },
+      paint: {
+        "line-color": "#FFF4DC",
+        "line-opacity": 0.85,
+        "line-width": 3.5,
+        "line-dasharray": [0.01, 2.2],
+      },
+    });
+  });
+
+  it("ends the flown part under the bird and starts the dots one dot gap ahead", async () => {
+    const { map } = await mounted(props());
+    map.camera = { lng: calm.input.from.lon, zoom: 8 };
+    map.fire("style.load");
+    const flown = (map.sources["route-flown"].data as Line).geometry
+      .coordinates;
+    const left = (map.sources["route-left"].data as Line).geometry.coordinates;
+    expect(flown.at(-1), "flown ends at the bird").toEqual(markers[2].lngLat);
+    const gapPx = map.project(left[0]).x - map.project(flown.at(-1)!).x;
+    expect(Math.abs(gapPx)).toBeCloseTo(2.2 * 3.5, 1);
+  });
+});
+
+describe("the bird marker (#965 ac-2)", () => {
+  function markerHtml(over: Partial<MapViewProps> = {}): string {
+    return renderToStaticMarkup(<MapView {...props(over)} />);
+  }
+
+  beforeEach(() => stubBrowser(vi));
+
+  afterEach(() => {
+    resetFakes();
+    vi.unstubAllGlobals();
+  });
+
+  it("draws the flying bird 82 pt wide", () => {
+    const tree = renderWithEffects(MapView, props());
+    expect(find(tree, Bird)?.props).toMatchObject({ pose: "fly", size: 82 });
+  });
+
+  it("flips the bird when the route heads west", () => {
+    const west = props();
+    const east = props({ from: west.to, to: west.from });
+    expect(headsWest(west.from, west.to)).toBe(true);
+    expect(find(renderWithEffects(MapView, west), Bird)?.props.flip).toBe(
+      true,
+    );
+    expect(find(renderWithEffects(MapView, east), Bird)?.props.flip).toBe(
+      false,
+    );
+  });
+
+  it("puts the shadow 26 pt below the flying bird in the same marker", () => {
+    const html = markerHtml();
+    const shadow = html.match(
+      /<img[^>]*src="\/assets\/svg\/map\/bird-shadow\.svg"[^>]*>/,
+    );
+    expect(shadow, "day shadow").not.toBeNull();
+    expect(shadow![0]).toContain("calc(100% + 26px)");
+    const birdAt = html.indexOf('aria-label="Gerald"');
+    const shadowAt = html.indexOf(shadow![0]);
+    const birdBox = html.lastIndexOf("<div", birdAt);
+    expect(shadowAt, "shadow sits in the bird's marker").toBeGreaterThan(
+      birdBox,
+    );
+  });
+
+  it("uses the night shadow at night", () => {
+    const html = markerHtml({ night: true });
+    expect(html).toContain('src="/assets/svg/map/night/bird-shadow.svg"');
+    expect(html).not.toContain('src="/assets/svg/map/bird-shadow.svg"');
+  });
+
+  it.each<BirdState>(["scheduled", "roosting", "delayed", "landed"])(
+    "shows no shadow while %s",
+    (state) => {
+      expect(markerHtml({ state })).not.toContain("bird-shadow.svg");
+    },
+  );
+
+  it("shows no shadow before there is a plan", () => {
+    expect(markerHtml({ plan: null })).not.toContain("bird-shadow.svg");
+  });
+});

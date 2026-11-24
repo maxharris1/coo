@@ -20,6 +20,7 @@ const hooks = {
 export class FakeMap {
   handlers: Record<string, Handler[]> = {};
   layers: string[] = [];
+  specs: Record<string, Record<string, unknown>> = {};
   sources: Record<string, { data: unknown }> = {};
   eased = 0;
   removed = false;
@@ -44,6 +45,7 @@ export class FakeMap {
   }
   addLayer(layer: { id: string }) {
     this.layers.push(layer.id);
+    this.specs[layer.id] = layer;
     return this;
   }
   getSource() {
