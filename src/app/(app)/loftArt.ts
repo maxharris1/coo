@@ -1,4 +1,8 @@
+import { createElement } from "react";
+import birds from "../../../public/assets/data/birds.json";
+import type { Look } from "@/components/Bird";
 import { config } from "@/lib/config";
+import { loftLayout, type LoftLayout } from "./loftLayout";
 
 export const TOKENS = {
   ink: "#2A2140",
@@ -23,11 +27,16 @@ const {
   ink: INK,
   card: CARD,
   sky: SKY,
+  tomato: TOMATO,
   sun: SUN,
   mint: MINT,
   lilac: LILAC,
+  sand: SAND,
+  stamp: STAMP,
+  night: NIGHT,
 } = TOKENS;
 const WOOD = "#D99A6C";
+const ROSE = "#F59C8E";
 const BRICK = "#F08A6B";
 
 const { scene, lights: GARLAND } = config.loft;
@@ -78,6 +87,8 @@ export function pyFloat(n: number, digits?: number): string {
 }
 
 const WOOD_D = mix(WOOD, INK, 0.2);
+const SUN_D = mix(SUN, INK, 0.16);
+const TOM_D = mix(TOMATO, INK, 0.18);
 
 type WindowKind = "dark" | "lit" | "curtain" | "plant" | "cat";
 
@@ -350,4 +361,241 @@ export function deck(brick: string = TOKENS.peach): string {
   o += `<rect x="-4" y="${FLOOR}" width="${W + 8}" height="${COPING}" fill="${CARD}" ${ST}/>`;
   o += `<path d="M-4 ${pyFloat(y1 - 1.25)} H${W + 4}" stroke="${INK}" stroke-width="2.5"/>`;
   return o;
+}
+
+export type LoftRoom =
+  "home" | "empty" | "egg" | "ready" | "roommate" | `away:${Look}`;
+export type LoftItem = "birdbath" | "cart" | "planters" | "vane";
+export type LoftArtProps = {
+  perches: number;
+  rooms: readonly LoftRoom[];
+  items: readonly LoftItem[];
+  clouds?: boolean;
+};
+
+type BayState = LoftRoom | "toLet";
+
+const { rooms: ROOM, slots: SLOTS } = config.loft;
+const BAY_W = ROOM.width;
+const BAY_H = ROOM.height;
+const f = (n: number) => pyFloat(n);
+const f1 = (n: number) => pyFloat(n, 1);
+
+function toLetBay(x: number, y: number): string {
+  const sx = x + 37;
+  const sy = y + 36;
+  return (
+    `<rect x="${f(x)}" y="${y}" width="${BAY_W}" height="${BAY_H}" fill="${SAND}" ${ST}/>` +
+    `<rect x="${f(x + 7)}" y="${y + 7}" width="${BAY_W - 14}" height="${BAY_H - 14}" rx="6" fill="none" stroke="${INK}" stroke-width="1.8" stroke-dasharray="3 5" stroke-linecap="round" opacity=".55"/>` +
+    `<g transform="rotate(-4 ${f(sx)} ${sy})"><path d="M${f(sx - 14)} ${sy} L${f(sx)} ${sy - 14} L${f(sx + 14)} ${sy}" fill="none" stroke="${INK}" stroke-width="1.6"/>` +
+    `<circle cx="${f(sx)}" cy="${sy - 14}" r="2" fill="${INK}"/><rect x="${f(sx - 22)}" y="${sy}" width="44" height="19" rx="4" fill="${CARD}" ${ST2}/>` +
+    `<text x="${f(sx)}" y="${f(sy + 13.4)}" text-anchor="middle" font-family="Nunito, sans-serif" font-weight="900" font-size="9.5" letter-spacing=".6" fill="${STAMP}">TO LET</text></g>`
+  );
+}
+
+function feather(x: number, y: number, look: Look): string {
+  const fx = x + 36;
+  const fy = y + 64;
+  return (
+    `<g transform="rotate(-14 ${f(fx)} ${fy})"><path d="M${f(fx - 15)} ${fy} q8 -9 22 -6 q6 1 9 5 q-12 7 -24 4 Z" fill="${birds[look].wing}" ${ST2}/>` +
+    `<path d="M${f(fx - 15)} ${fy} q14 -2 28 -2" fill="none" stroke="${INK}" stroke-width="1.5" stroke-linecap="round"/></g>`
+  );
+}
+
+function suitcase(x: number, y: number): string {
+  const cx = x + 40;
+  const by = y + 68;
+  return (
+    `<g ${ST2}><path d="M${f(cx - 5)} ${by - 19} v-4 q0 -3 3 -3 h4 q3 0 3 3 v4" fill="none"/><rect x="${f(cx - 13)}" y="${by - 19}" width="26" height="19" rx="4" fill="${TOMATO}"/>` +
+    `<path d="M${f(cx - 6)} ${by - 19} v19 M${f(cx + 6)} ${by - 19} v19" stroke="${CARD}" stroke-width="3"/><path d="M${f(cx - 6)} ${by - 19} v19 M${f(cx + 6)} ${by - 19} v19" fill="none" stroke-width="0"/>` +
+    `<rect x="${f(cx - 13)}" y="${by - 19}" width="26" height="19" rx="4" fill="none"/>` +
+    `<path d="M${f(cx + 13)} ${by - 12} l7 3" fill="none" stroke-width="1.5"/><rect x="${f(cx + 18)}" y="${by - 11}" width="9" height="7" rx="1.5" fill="${SUN}" stroke-width="1.5" transform="rotate(18 ${f(cx + 22)} ${by - 8})"/></g>`
+  );
+}
+
+function nest(x: number, y: number, ready: boolean): string {
+  const ex = x + 40;
+  const ey = y + 68;
+  let egg = `<path d="M0 -24 C7 -24 11 -11 11 -5 a11 11 0 0 1 -22 0 C-11 -11 -7 -24 0 -24 Z" fill="${CARD}" ${ST2}/><circle cx="-4" cy="-10" r="1.6" fill="${LILAC}"/><circle cx="4" cy="-4" r="2" fill="${LILAC}"/>`;
+  let o = `<path d="M${f(ex - 15)} ${ey - 4} q15 9 30 0 l-2 4 h-26 Z" fill="${WOOD_D}" ${ST2}/>`;
+  if (ready) {
+    egg += `<path d="M-9 -9 l4 3 l4 -4 l4 4 l5 -3" fill="none" stroke="${INK}" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>`;
+    egg = `<g style="transform-box: fill-box; transform-origin: 50% 100%; animation: coo-wobble .9s ease-in-out infinite">${egg}</g>`;
+    o += `<path d="M${f(ex + 14)} ${ey - 24} l5 -4 M${f(ex + 17)} ${ey - 15} l6 0 M${f(ex - 14)} ${ey - 24} l-5 -4" stroke="${INK}" stroke-width="1.8" stroke-linecap="round"/>`;
+  }
+  o += `<g transform="translate(${f(ex)} ${ey - 1})">${egg}</g>`;
+  o += `<path d="M${f(ex - 16)} ${ey - 3} q16 10 32 0" fill="none" ${ST2}/>`;
+  return o;
+}
+
+function bay(x: number, y: number, state: BayState): string {
+  if (state === "toLet") return toLetBay(x, y);
+  let o =
+    `<circle cx="${f(x + 17)}" cy="${y + 19}" r="15" fill="§halo§" opacity="§haloa§"/><circle cx="${f(x + 17)}" cy="${y + 19}" r="10" fill="§hole§" ${ST}/>` +
+    `<path d="M${f(x + 10.5)} ${y + 16} a7 7 0 0 1 6 -4.5" fill="none" stroke="§holehi§" stroke-width="1.8" stroke-linecap="round"/>` +
+    `<path d="M${f(x + 14)} ${y + 78} v-5 h7 Z M${f(x + 60)} ${y + 78} v-5 h-7 Z" fill="${WOOD_D}" ${ST2}/>` +
+    `<rect x="${f(x + 7)}" y="${y + 68}" width="${BAY_W - 14}" height="7" rx="3" fill="${WOOD}" ${ST}/>`;
+  if (state.startsWith("away:"))
+    o += feather(x, y, state.slice("away:".length) as Look);
+  else if (state === "roommate") o += suitcase(x, y);
+  else if (state === "egg" || state === "ready")
+    o += nest(x, y, state === "ready");
+  return o;
+}
+
+function floorsOf(rooms: LoftLayout["rooms"]) {
+  const floors: { x: number; y: number; n: number }[] = [];
+  for (const { x, y } of rooms) {
+    const top = floors.at(-1);
+    if (top?.y === y) top.n++;
+    else floors.push({ x, y, n: 1 });
+  }
+  return floors;
+}
+
+export function vane(x: number, y: number): string {
+  return (
+    `<g ${ST2}><path d="M${x} ${y + 2} V${y - 13}" fill="none" stroke-width="2.5"/><circle cx="${x}" cy="${y - 1}" r="3.2" fill="${SUN}"/>` +
+    `<g style="transform-box: fill-box; transform-origin: 50% 100%; animation: coo-sway 7s ease-in-out infinite alternate">` +
+    `<path d="M${x - 17} ${y - 14} H${x + 12}" fill="none"/><path d="M${x + 11} ${y - 19} L${x + 20} ${y - 14} L${x + 11} ${y - 9} Z" fill="${SUN}"/>` +
+    `<path d="M${x - 17} ${y - 19} l-5 5 l5 5 Z" fill="${SUN}"/>` +
+    `<path d="M${x - 8} ${y - 17} q0 -9 8 -9 q4 -5 8 -1 l4 1 l-4 2 q0 7 -8 7 Z" fill="${CARD}"/><circle cx="${f(x + 5.5)}" cy="${y - 26}" r=".9" fill="${INK}" stroke="none"/></g></g>`
+  );
+}
+
+export function house(
+  layout: LoftLayout,
+  rooms: readonly LoftRoom[],
+  items: readonly LoftItem[],
+): string {
+  const floors = floorsOf(layout.rooms);
+  let o = "";
+  for (const { x, y, n } of floors) {
+    o += `<rect x="${f(x)}" y="${y}" width="${n * BAY_W}" height="${BAY_H}" fill="${SUN}" ${ST}/>`;
+    for (const k of [20, 40, 60])
+      o += `<path d="M${f(x + 2)} ${y + k} H${f(x + n * BAY_W - 2)}" stroke="${SUN_D}" stroke-width="1.5"/>`;
+    for (let c = 1; c < n; c++)
+      o += `<path d="M${f(x + c * BAY_W)} ${y} V${y + BAY_H}" stroke="${INK}" stroke-width="2"/>`;
+  }
+  for (const below of floors.slice(0, -1))
+    o += `<rect x="${f(below.x - 4)}" y="${below.y - 3}" width="${below.n * BAY_W + 8}" height="7" rx="3" fill="${CARD}" ${ST}/>`;
+  layout.rooms.forEach(({ x, y, toLet }, i) => {
+    o += bay(x, y, toLet ? "toLet" : (rooms[i] ?? "empty"));
+  });
+
+  const { x0, x1, eave: ey, peak: py } = layout.roof;
+  o += `<path d="M${f(x0 + 5)} ${ey - 3} L${CX} ${py} L${f(x1 - 5)} ${ey - 3} Z" fill="${TOMATO}" ${ST}/>`;
+  const k = (ey - 3 - py) / (CX - x0 - 5);
+  for (const d of [16, 32]) {
+    if (CX - x0 - 5 - d * 1.9 > 30)
+      o += `<path d="M${f1(x0 + 5 + d * 1.9)} ${ey - 3} L${CX} ${f1(py + d)} L${f1(x1 - 5 - d * 1.9)} ${ey - 3}" fill="none" stroke="${TOM_D}" stroke-width="1.6" stroke-linejoin="round"/>`;
+  }
+  o += `<rect x="${f(x0)}" y="${ey - 5}" width="${f(x1 - x0)}" height="9" rx="4" fill="${TOM_D}" ${ST}/>`;
+  o +=
+    `<rect x="${CX - 29}" y="${ey - 24}" width="58" height="15" rx="4" fill="${CARD}" ${ST2}/>` +
+    `<text x="${CX}" y="${ey - 13}" text-anchor="middle" font-family="Nunito, sans-serif" font-weight="900" font-size="9.5" letter-spacing=".8" fill="${INK}">LOFT 4B</text>`;
+  const px = CX + (x1 - CX) * 0.52;
+  const pyy = py + (px - CX) * k;
+  o += `<rect x="${f(px - 5)}" y="${f1(pyy - 20)}" width="10" height="${f1(24)}" fill="${LILAC}" ${ST2}/><rect x="${f(px - 7.5)}" y="${f1(pyy - 24)}" width="15" height="6" rx="2" fill="${mix(LILAC, INK, 0.2)}" ${ST2}/>`;
+  const puffs = [
+    [1, -34, 4.5],
+    [6, -44, 6],
+    [2, -55, 4],
+  ];
+  puffs.forEach(([dx, dy, r], j) => {
+    o +=
+      `<circle cx="${f1(px + dx)}" cy="${f1(pyy + dy)}" r="${r}" fill="${CARD}" stroke="${INK}" stroke-width="1.6" ` +
+      `style="transform-box: fill-box; transform-origin: 50% 50%; animation: loft-smoke 5s ease-out ${f1(j * 1.6)}s infinite"/>`;
+  });
+  if (items.includes("vane")) o += vane(CX, py);
+  return o;
+}
+
+export function planter(x: number): string {
+  const cols = [TOMATO, CARD, ROSE, SUN, CARD];
+  let o = `<g ${ST2}><rect x="${x - 28}" y="${FLOOR + 10}" width="56" height="13" rx="3" fill="${WOOD}"/><path d="M${x - 28} ${FLOOR + 15} H${x + 28}" fill="none" stroke="${WOOD_D}" stroke-width="1.5"/>`;
+  for (let i = 0; i < 5; i++)
+    o += `<circle cx="${x - 22 + i * 11}" cy="${FLOOR + 8}" r="5.2" fill="${MINT}"/>`;
+  cols.forEach((c, i) => {
+    o += `<circle cx="${f(x - 21 + i * 10.5)}" cy="${f(FLOOR + 4.5 + (i % 2))}" r="3.9" fill="${c}" stroke-width="1.5"/>`;
+  });
+  return o + "</g>";
+}
+
+export function birdbath(x: number = SLOTS.birdbath.centerX): string {
+  const y = FLOOR;
+  return (
+    `<g ${ST}><path d="M${x - 13} ${y} q0 -6 5 -7 h16 q5 1 5 7 Z" fill="${LILAC}"/><path d="M${x - 5} ${y - 7} V${y - 30} H${x + 5} V${y - 7} Z" fill="${CARD}"/>` +
+    `<path d="M${x - 26} ${y - 42} H${x + 26} q-2 14 -26 14 q-24 0 -26 -14 Z" fill="${CARD}"/>` +
+    `<ellipse cx="${x}" cy="${y - 42}" rx="26" ry="5.5" fill="${SKY}"/>` +
+    `<path d="M${x - 12} ${y - 42} q4 -2 8 0 M${x + 4} ${y - 43} q4 -2 8 0" fill="none" stroke-width="1.6"/></g>` +
+    `<path d="M${x - 19} ${y - 36} q2 6 10 8" fill="none" stroke="${LILAC}" stroke-width="2.4" stroke-linecap="round"/>` +
+    `<g fill="${CARD}" stroke="${INK}" stroke-width="1.4"><circle cx="${x + 15}" cy="${y - 54}" r="2.2" style="animation: coo-twinkle 2.6s ease-in-out infinite"/><circle cx="${x + 21}" cy="${y - 61}" r="1.5" style="animation: coo-twinkle 2.6s ease-in-out .9s infinite"/></g>`
+  );
+}
+
+export function cart(x: number = SLOTS.cart.centerX): string {
+  const y = FLOOR;
+  let o = `<g ${ST}>`;
+  o += `<path d="M${x - 23} ${y - 28} V${y - 52} M${x + 23} ${y - 28} V${y - 52}" fill="none"/>`;
+  o += `<path d="M${x - 15} ${y - 30} q15 -17 30 0 Z" fill="${SUN}"/>`;
+  o += `<rect x="${x - 25}" y="${y - 30}" width="50" height="19" rx="4" fill="${CARD}"/>`;
+  o += `<rect x="${x - 28}" y="${y - 33}" width="56" height="7" rx="3" fill="${WOOD}"/>`;
+  o += `<path d="M${x} ${y - 24} c3.4 2.6 4.6 5.6 0 10 c-4.6 -4.4 -3.4 -7.4 0 -10 Z" fill="${SUN}" stroke-width="1.8"/>`;
+  o += `<circle cx="${x - 14}" cy="${y - 8}" r="8" fill="${CARD}"/><circle cx="${x + 14}" cy="${y - 8}" r="8" fill="${CARD}"/>`;
+  o += `<circle cx="${x - 14}" cy="${y - 8}" r="2.2" fill="${INK}"/><circle cx="${x + 14}" cy="${y - 8}" r="2.2" fill="${INK}"/>`;
+  const ax0 = x - 27.5;
+  for (let i = 0; i < 5; i++)
+    o += `<path d="M${f(ax0 + i * 11)} ${y - 64} h11 v9 a5.5 5.5 0 0 1 -11 0 Z" fill="${i % 2 === 0 ? TOMATO : CARD}"/>`;
+  o += `<rect x="${f(ax0 - 1)}" y="${y - 68}" width="57" height="6" rx="3" fill="${TOM_D}"/>`;
+  return o + "</g>";
+}
+
+export function loftArtMarkup({
+  perches,
+  rooms,
+  items,
+  clouds = true,
+}: LoftArtProps): string {
+  const look = config.loft.times.day;
+  const layout = loftLayout(perches);
+  const { roof } = layout;
+  const { back, near } = skyline(look);
+  let o = sky(look, clouds) + back + near;
+  o += lights(
+    layout.floors > 1
+      ? { x0: roof.x0 - 4, x1: roof.x1 + 4, y: roof.peak - 22 }
+      : undefined,
+  );
+  o += house(layout, rooms, items);
+  if (items.includes("birdbath")) o += birdbath();
+  if (items.includes("cart")) o += cart();
+  o += deck();
+  if (items.includes("planters"))
+    o += SLOTS.flowerBoxes.centerX.map(planter).join("");
+  const warm = mix(SUN, CARD, 0.25);
+  const glow = look.doorwaysGlow;
+  return o
+    .replaceAll("§hole§", glow ? warm : NIGHT)
+    .replaceAll(
+      "§holehi§",
+      glow ? mix(warm, CARD, 0.6) : mix(NIGHT, CARD, 0.35),
+    )
+    .replaceAll("§halo§", warm)
+    .replaceAll("§haloa§", glow ? ".4" : "0");
+}
+
+export function LoftArt({
+  label = "Your rooftop loft",
+  ...props
+}: LoftArtProps & { label?: string }) {
+  return createElement("svg", {
+    xmlns: "http://www.w3.org/2000/svg",
+    width: W,
+    height: HERO_H,
+    viewBox: `0 0 ${W} ${HERO_H}`,
+    role: "img",
+    "aria-label": label,
+    dangerouslySetInnerHTML: { __html: loftArtMarkup(props) },
+  });
 }

@@ -1,8 +1,21 @@
 import { readFileSync } from "node:fs";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { normaliseMarkup } from "@/components/normaliseMarkup";
 import { config } from "@/lib/config";
-import { TOKENS, deck, lights, mix, pyFloat, sky, skyline } from "./loftArt";
+import {
+  LoftArt,
+  TOKENS,
+  deck,
+  lights,
+  loftArtMarkup,
+  mix,
+  pyFloat,
+  sky,
+  skyline,
+  type LoftArtProps,
+} from "./loftArt";
 
 const day = config.loft.times.day;
 const ROOTLESS = { skipRootPresentation: true };
@@ -84,6 +97,40 @@ describe("motion.css", () => {
   it("carries loft.py's smoke keyframes", () => {
     expect(read("public/assets/motion.css")).toContain(
       "@keyframes loft-smoke{0%{transform:translate(0,10px) scale(.4);opacity:0}25%{opacity:1}100%{transform:translate(9px,-12px) scale(1.25);opacity:0}}",
+    );
+  });
+});
+
+type Fixture = LoftArtProps & { file: string; time: string };
+
+describe("LoftArt matches the loft reference", () => {
+  const dayFixtures = (
+    JSON.parse(read("public/assets/loft-reference/index.json"))
+      .files as Fixture[]
+  ).filter((f) => f.time === "day");
+
+  for (const { file, perches, rooms, items } of dayFixtures) {
+    it(file, () => {
+      const ours = renderToStaticMarkup(
+        createElement(LoftArt, { perches, rooms, items, clouds: false }),
+      );
+      expect(normaliseMarkup(ours, ROOTLESS)).toEqual(
+        normaliseMarkup(read(`public/assets/loft-reference/${file}`), ROOTLESS),
+      );
+    });
+  }
+
+  it("covers every day fixture in the index", () => {
+    expect(dayFixtures).toHaveLength(4);
+  });
+
+  it("drifts the two clouds in front of the sky when asked", () => {
+    const props = { perches: 3, rooms: [], items: [] };
+    expect(loftArtMarkup({ ...props, clouds: true })).toBe(
+      loftArtMarkup({ ...props, clouds: false }).replace(
+        sky(day, false),
+        sky(day),
+      ),
     );
   });
 });
