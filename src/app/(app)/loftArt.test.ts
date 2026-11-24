@@ -7,6 +7,7 @@ import { config } from "@/lib/config";
 import {
   LoftArt,
   TOKENS,
+  cart,
   deck,
   lights,
   loftArtMarkup,
@@ -97,6 +98,26 @@ describe("motion.css", () => {
   it("carries loft.py's smoke keyframes", () => {
     expect(read("public/assets/motion.css")).toContain(
       "@keyframes loft-smoke{0%{transform:translate(0,10px) scale(.4);opacity:0}25%{opacity:1}100%{transform:translate(9px,-12px) scale(1.25);opacity:0}}",
+    );
+  });
+});
+
+describe("the espresso cart", () => {
+  it("twinkles its two steam wisps with coo-twinkle, the second 0.8 s late", () => {
+    const animations = [...cart().matchAll(/style="animation: ([^"]+)"/g)].map(
+      (m) => m[1],
+    );
+    expect(animations).toEqual([
+      "coo-twinkle 2.4s ease-in-out infinite",
+      "coo-twinkle 2.4s ease-in-out .8s infinite",
+    ]);
+  });
+
+  it("stops twinkling under reduced motion", () => {
+    const css = read("public/assets/motion.css");
+    expect(css).toContain("@keyframes coo-twinkle");
+    expect(css.replace(/\s+/g, "")).toContain(
+      "@media(prefers-reduced-motion:reduce){*{animation:none!important",
     );
   });
 });

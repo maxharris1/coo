@@ -190,10 +190,8 @@ particular the layout file's `birdBox` is 70 pt wide (Fable's drawing); the app 
 65 pt wide (`config.loft.rooms.bird.width`, decided on #943) so a party hat never crosses the
 room top while a bird hops.
 
-The right deck item is an espresso cart, not a seed cart. Its expected markup for every loft and
-look is in `reference/loft/espresso-cart-fixtures/`; those files replace
-`public/assets/loft-reference/` and `assets/loft-reference/` in the same change that redraws
-`cart()` in `loftArt.ts`. The cart is decoration only: espresso shots are still bought in the
-store.
+The right deck item is an espresso cart, drawn by `cart()` in `loftArt.ts` and matched by the
+fixtures in `public/assets/loft-reference/`. Its two steam wisps twinkle and stop under reduced
+motion. The cart is decoration only: espresso shots are still bought in the store.
 
 The spare light posts (`assets/svg/loft/lights/post.svg`) are not part of the approved scene.
