@@ -182,6 +182,7 @@ export function stubBrowser(vi: {
     return frames.length;
   });
   vi.stubGlobal("cancelAnimationFrame", () => {});
+  stubStyleFetch(vi);
   vi.stubGlobal(
     "ResizeObserver",
     class {
@@ -207,4 +208,22 @@ export function find(node: ReactNode, type: unknown): ReactElement | undefined {
   const el = node as ReactElement<{ children?: ReactNode }>;
   if (el.type === type) return el;
   return find(el.props?.children, type);
+}
+
+export function stubStyleFetch(vi: {
+  stubGlobal: (name: string, value: unknown) => unknown;
+}) {
+  const requested: string[] = [];
+  vi.stubGlobal("window", { location: { origin: "http://localhost" } });
+  vi.stubGlobal("fetch", async (path: string) => {
+    requested.push(path);
+    return new Response(
+      JSON.stringify({ version: 8, name: path, sources: {}, layers: [] }),
+    );
+  });
+  return requested;
+}
+
+export function styleName(style: unknown): unknown {
+  return (style as { name?: unknown } | undefined)?.name;
 }

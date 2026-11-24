@@ -4,6 +4,7 @@ import type { ReactElement, ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FlightInput, FlightPlan } from "@/lib/flight/engine";
 import type { Flight } from "@/server/services/flights/shape";
+import { stubStyleFetch, styleName } from "@/test/fakeMapLibre";
 import { Bird } from "./Bird";
 import { MapView } from "./MapView";
 import { Tracker } from "./Tracker";
@@ -201,12 +202,15 @@ async function mapCreated() {
   return lib.maps[0];
 }
 
+let requested: string[] = [];
+
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"] });
   lib.hooks.refs = [];
   lib.hooks.effects = [];
   lib.maps.length = 0;
   lib.markers.length = 0;
+  requested = stubStyleFetch(vi);
   vi.stubGlobal("requestAnimationFrame", () => 1);
   vi.stubGlobal(
     "ResizeObserver",
@@ -229,7 +233,10 @@ describe("the tracker map on the Chicago vector (ac-2)", () => {
     vi.setSystemTime(Date.parse("2026-11-20T02:00:00-05:00"));
     renderTracker(chicago());
     const map = await mapCreated();
-    expect(map.options.style, "initial style at 2 am").toBe(NIGHT_STYLE);
+    expect(requested, "style fetched at 2 am").toEqual([NIGHT_STYLE]);
+    expect(styleName(map.options.style), "initial style at 2 am").toBe(
+      NIGHT_STYLE,
+    );
   });
 
   it("switches to the night style when the sun sets on an open map", async () => {
@@ -237,15 +244,21 @@ describe("the tracker map on the Chicago vector (ac-2)", () => {
     vi.setSystemTime(Date.parse("2026-11-19T12:00:00-05:00"));
     renderTracker(flight);
     const map = await mapCreated();
-    expect(map.options.style, "initial style at noon").toBe(DAY_STYLE);
+    expect(requested, "style fetched at noon").toEqual([DAY_STYLE]);
+    expect(styleName(map.options.style), "initial style at noon").toBe(
+      DAY_STYLE,
+    );
     expect(map.styles, "no style change while it stays light").toEqual([]);
 
     vi.setSystemTime(Date.parse("2026-11-20T02:00:00-05:00"));
     renderTracker(flight);
-    expect(
-      map.styles.map((s) => s.style),
-      "style requests at 2 am",
-    ).toEqual([NIGHT_STYLE]);
+    await vi.waitFor(() =>
+      expect(
+        map.styles.map((s) => styleName(s.style)),
+        "style requests at 2 am",
+      ).toEqual([NIGHT_STYLE]),
+    );
+    expect(map.styles[0].options).toEqual({ diff: false });
     expect(lib.maps.length, "the same map is restyled, not rebuilt").toBe(1);
 
     map.fire("style.load");
@@ -254,6 +267,24 @@ describe("the tracker map on the Chicago vector (ac-2)", () => {
       "route-flown-casing",
       "route-flown",
     ]);
+  });
+
+  it("ends on the night style when the sun sets while the day style loads", async () => {
+    const flight = chicago();
+    vi.setSystemTime(Date.parse("2026-11-19T12:00:00-05:00"));
+    renderTracker(flight);
+    vi.setSystemTime(Date.parse("2026-11-20T02:00:00-05:00"));
+    renderTracker(flight);
+    const map = await mapCreated();
+    expect(styleName(map.options.style), "built on the day style").toBe(
+      DAY_STYLE,
+    );
+    await vi.waitFor(() =>
+      expect(
+        map.styles.map((s) => styleName(s.style)),
+        "restyled to night once built",
+      ).toEqual([NIGHT_STYLE]),
+    );
   });
 });
 

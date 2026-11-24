@@ -1,6 +1,7 @@
 import type { MapOptions } from "maplibre-gl";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { positionAt } from "@/lib/flight/engine";
+import { stubStyleFetch } from "@/test/fakeMapLibre";
 import { MapView, type MapViewProps } from "./MapView";
 
 const lib = vi.hoisted(() => {
@@ -127,6 +128,7 @@ beforeEach(() => {
   lib.calls.length = 0;
   lib.liveMarkers.clear();
   lib.markerAt.length = 0;
+  stubStyleFetch(vi);
   vi.stubGlobal("requestAnimationFrame", () => 1);
   vi.stubGlobal("cancelAnimationFrame", () => {});
   vi.stubGlobal(

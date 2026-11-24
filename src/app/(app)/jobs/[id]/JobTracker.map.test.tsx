@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Bird } from "@/components/Bird";
 import { MapView } from "@/components/MapView";
 import type { JobView } from "@/server/services/jobs/get";
+import { stubStyleFetch } from "@/test/fakeMapLibre";
 import { JobTracker } from "./JobTracker";
 
 const lib = vi.hoisted(() => {
@@ -203,6 +204,7 @@ beforeEach(() => {
     routeUpdates: 0,
     cameraUpdates: 0,
   });
+  stubStyleFetch(vi);
   vi.stubGlobal("requestAnimationFrame", () => 1);
   vi.stubGlobal("cancelAnimationFrame", () => {});
   vi.stubGlobal(

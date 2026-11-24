@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { stubStyleFetch, styleName } from "@/test/fakeMapLibre";
 import { DevMap } from "./DevMap";
 import { PLACES } from "./views";
 
@@ -42,7 +43,10 @@ vi.mock("react", async (importOriginal) => ({
   useEffect: lib.setEffect,
 }));
 
+let requested: string[] = [];
+
 beforeEach(() => {
+  requested = stubStyleFetch(vi);
   vi.stubGlobal(
     "ResizeObserver",
     class {
@@ -73,16 +77,15 @@ it("shows the full attribution, not the compact button", async () => {
 
 it("loads the day style at the chosen place and zoom", async () => {
   const { map } = await mount();
-  expect(map.options).toMatchObject({
-    style: "/map/coo-day.style.json",
-    center: capeCod.center,
-    zoom: 15,
-  });
+  expect(requested).toEqual(["/map/coo-day.style.json"]);
+  expect(styleName(map.options.style)).toBe("/map/coo-day.style.json");
+  expect(map.options).toMatchObject({ center: capeCod.center, zoom: 15 });
 });
 
 it("loads the night style in night mode", async () => {
   const { map } = await mount("night");
-  expect(map.options.style).toBe("/map/coo-night.style.json");
+  expect(requested).toEqual(["/map/coo-night.style.json"]);
+  expect(styleName(map.options.style)).toBe("/map/coo-night.style.json");
 });
 
 it("removes the map on unmount", async () => {

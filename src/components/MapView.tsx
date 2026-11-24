@@ -12,6 +12,7 @@ import {
   type LatLon,
 } from "@/lib/flight/engine";
 import { Bird, type GearId, type Look, type Pose } from "./Bird";
+import { loadMapStyle } from "./mapStyle";
 import { mountMap, type MountedMap } from "./mountMap";
 
 export type Place = LatLon & { label: string };
@@ -188,10 +189,16 @@ export function MapView({
   const west = headsWest(from, to);
   const pose = POSE[plan ? state : "scheduled"];
 
+  const restyle = (path: string) =>
+    void loadMapStyle(path).then((loaded) => {
+      if (styleRef.current !== path) return;
+      mapRef.current?.setStyle(loaded, { diff: false });
+    });
+
   useEffect(() => {
     if (styleRef.current === style) return;
     styleRef.current = style;
-    mapRef.current?.setStyle(style, { diff: false });
+    restyle(style);
   }, [style]);
 
   useEffect(() => {
@@ -214,7 +221,10 @@ export function MapView({
           ? { ...to, frac: 1 }
           : positionAt(plan, from, to, now());
 
-    void import("maplibre-gl").then((lib) => {
+    const path = styleRef.current;
+    const loading = loadMapStyle(path);
+    void import("maplibre-gl").then(async (lib) => {
+      const loaded = await loading;
       const { Marker, LngLatBounds } = lib;
       const el = container.current;
       if (cancelled || !el || !birdEl.current) return;
@@ -223,7 +233,7 @@ export function MapView({
         lib,
         el,
         {
-          style: styleRef.current,
+          style: loaded,
           bounds: new LngLatBounds(
             [from.lon, from.lat],
             [from.lon, from.lat],
@@ -245,6 +255,7 @@ export function MapView({
       );
       const m = mounted.map;
       mapRef.current = m;
+      if (styleRef.current !== path) restyle(styleRef.current);
       m.touchZoomRotate.disableRotation();
       m.keyboard.disableRotation();
 
