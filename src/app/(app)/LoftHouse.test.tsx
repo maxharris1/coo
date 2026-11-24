@@ -429,7 +429,11 @@ describe("clouds and motion (ac-3)", () => {
     );
   });
 
-  it("pauses while the tab is hidden", async () => {
+  it.each([
+    ["full motion", false],
+    ["reduced motion", true],
+  ])("pauses while the tab is hidden with %s", async (_, reduced) => {
+    reduce = reduced;
     await mount(awakeIds(flockRooms));
     expect(seen.at(-1)!.paused).toBe(false);
     await act(async () => {

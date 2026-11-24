@@ -47,6 +47,14 @@ function subscribeReducedMotion(onChange: () => void) {
 const prefersReducedMotion = () =>
   globalThis.matchMedia?.(REDUCE).matches ?? false;
 
+function subscribeVisibility(onChange: () => void) {
+  document.addEventListener("visibilitychange", onChange);
+  return () => document.removeEventListener("visibilitychange", onChange);
+}
+
+const tabHidden = () => document.hidden;
+const serverTabHidden = () => false;
+
 export type LoftMotion = {
   reduced: boolean;
   paused: boolean;
@@ -65,7 +73,11 @@ export function useLoftMotion(awake: readonly string[]): LoftMotion {
     prefersReducedMotion,
   );
   const [gestures, setGestures] = useState<Record<string, Gesture>>({});
-  const [paused, setPaused] = useState(false);
+  const paused = useSyncExternalStore(
+    subscribeVisibility,
+    tabHidden,
+    serverTabHidden,
+  );
   const key = awake.join(" ");
 
   useEffect(
@@ -81,7 +93,7 @@ export function useLoftMotion(awake: readonly string[]): LoftMotion {
             else delete next[id];
             return next;
           }),
-        onPause: setPaused,
+        onPause: () => {},
       }),
     [key, reduced],
   );
