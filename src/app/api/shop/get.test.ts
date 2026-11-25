@@ -75,22 +75,22 @@ describe("GET /api/shop", () => {
 
   it("lists every gear item with owned and affordable, the backpack not for sale", async () => {
     const { id, jar } = await onboarded("(555) 123-4567", "Max");
-    await setSeeds(id, 120);
+    await setSeeds(id, 180);
     const { status, json } = await client.get({}, jar);
     expect(status).toBe(200);
-    expect(json.seeds).toBe(120);
+    expect(json.seeds).toBe(180);
     expect(json.gear.map((g: GearRow) => g.id)).toEqual(
       config.gear.items.map((i) => i.id),
     );
     expect(gearOf(json, "bell")).toMatchObject({ owned: true });
     expect(gearOf(json, "goggles")).toMatchObject({
-      price: 120,
+      price: 180,
       forSale: true,
       owned: false,
       affordable: true,
     });
     expect(gearOf(json, "cap")).toMatchObject({
-      price: 160,
+      price: 240,
       owned: false,
       affordable: false,
     });
@@ -101,26 +101,26 @@ describe("GET /api/shop", () => {
     });
   });
 
-  it("sells the night-vision goggles for 200 as buy, short or owned", async () => {
+  it("sells the night-vision goggles for 300 as buy, short or owned", async () => {
     const { id, jar } = await onboarded("(555) 123-4567", "Max");
     const goggleRow = async () => {
       const { json } = await client.get({}, jar);
       return shopRows(json).gear.find((r) => r.itemId === "nightgoggles");
     };
-    await setSeeds(id, 199);
+    await setSeeds(id, 299);
     expect((await goggleRow())?.action).toEqual({
       kind: "short",
-      price: 200,
+      price: 300,
       toGo: 1,
     });
-    await setSeeds(id, 200);
+    await setSeeds(id, 300);
     const row = await goggleRow();
     expect(row).toMatchObject({
       name: "Night-vision goggles",
-      action: { kind: "buy", price: 200 },
+      action: { kind: "buy", price: 300 },
     });
     expect(confirmLine(row as BuyRow)).toBe(
-      "Buy the night-vision goggles for 200 seeds?",
+      "Buy the night-vision goggles for 300 seeds?",
     );
     await deps.db.query(
       "insert into gear_owned (user_id, gear_id, acquired_at) values ($1, 'nightgoggles', now())",
@@ -128,7 +128,7 @@ describe("GET /api/shop", () => {
     );
     expect((await goggleRow())?.action).toEqual({
       kind: "owned",
-      label: "In the closet",
+      label: "Unlocked",
     });
   });
 

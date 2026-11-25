@@ -91,7 +91,7 @@ function choose(itemId: string, owner: Owner): Purchase {
   if (!gear) throw new AppError("invalid", "itemId: not in the shop");
   if (!gear.available) throw new AppError("conflict", "That is not for sale.");
   if (owner.closet.includes(gear.id)) {
-    throw new AppError("conflict", "That is already in the closet.");
+    throw new AppError("conflict", "You already unlocked that.");
   }
   return { kind: "gear", id: gear.id as GearId, price: gear.price };
 }

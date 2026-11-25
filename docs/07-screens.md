@@ -253,10 +253,12 @@ every owned piece the same way. Unowned items show their price and link to the s
 save on tap.
 
 ### Shop (`/shop`)
-As drawn: balance, "More ways" → Earn, gear list (owned items say "In the closet"), loft items,
+As drawn: balance, "More ways" → Earn, gear list (owned items say "Unlocked"), loft items,
 the next perch with "n to go" when short, and the Espresso shot (25 seeds, "One night of
 flying") under "For the loft" with "{n} owned" beside its effect, "0 owned" when the player holds
-none. It stays buyable after each buy. Buying asks once: "Buy the rain hat for 120 seeds?"
+none. It stays buyable after each buy. Buying asks once: "Buy the rain hat for 180 seeds?"
+Buying gear the flock already unlocked is refused with "You already unlocked that." and costs
+nothing.
 
 ### Earn (`/earn`)
 As drawn: the punch card with 10 stamp slots, the pay table, two odd jobs with a "Send {bird}"

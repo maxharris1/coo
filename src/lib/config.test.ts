@@ -104,3 +104,42 @@ describe("config", () => {
     ).toEqual([label, flightNeighbour, cookieJarWithName]);
   });
 });
+
+describe("gear prices", () => {
+  const items = config.gear.items;
+  const byId = new Map(items.map((item) => [item.id, item]));
+
+  it("pins every gear price to the flock-wide unlock table", () => {
+    expect(
+      Object.fromEntries(items.map((item) => [item.id, item.price])),
+    ).toEqual({
+      booties: 60,
+      bell: 70,
+      bow: 90,
+      party: 120,
+      band: 140,
+      beanie: 170,
+      goggles: 180,
+      rainhat: 180,
+      bandana: 200,
+      earmuffs: 210,
+      scarf: 230,
+      cap: 240,
+      nightgoggles: 300,
+      tube: 300,
+      backpack: 450,
+    });
+  });
+
+  it("keeps the backpack off sale and the bell and bow as starters", () => {
+    expect(byId.get("backpack")?.available).toBe(false);
+    expect(byId.get("bell")).toMatchObject({ starter: true, price: 70 });
+    expect(byId.get("bow")).toMatchObject({ starter: true, price: 90 });
+  });
+
+  it("totals 2330 seeds across the twelve purchasable items", () => {
+    const purchasable = items.filter((item) => item.available && !item.starter);
+    expect(purchasable).toHaveLength(12);
+    expect(purchasable.reduce((sum, item) => sum + item.price, 0)).toBe(2330);
+  });
+});

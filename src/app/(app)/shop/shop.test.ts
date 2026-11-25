@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { config } from "@/lib/config";
 import type { Shop } from "@/server/services/shop";
 import {
   buyItem,
@@ -37,13 +38,13 @@ const gear = (
 });
 
 const MOCK: Shop = {
-  seeds: 240,
+  seeds: 300,
   gear: [
-    gear("goggles", "Aviator goggles", 120, { owned: true }),
-    gear("rainhat", "Rain hat", 120),
-    gear("cap", "Captain's cap", 160),
-    gear("tube", "Roomy leg tube", 200),
-    gear("backpack", "Tiny backpack", 300, {
+    gear("goggles", "Aviator goggles", 180, { owned: true }),
+    gear("rainhat", "Rain hat", 180),
+    gear("cap", "Captain's cap", 240),
+    gear("tube", "Roomy leg tube", 300),
+    gear("backpack", "Tiny backpack", 450, {
       forSale: false,
       affordable: false,
     }),
@@ -59,8 +60,14 @@ const MOCK: Shop = {
       affordable: true,
     },
   ],
-  nextPerch: { number: 5, price: 400, toGo: 160, affordable: false },
+  nextPerch: { number: 5, price: 400, toGo: 100, affordable: false },
   consumables: [],
+};
+
+const mockGear = (id: string) => {
+  const item = MOCK.gear.find((entry) => entry.id === id);
+  if (!item) throw new Error(`no mock gear ${id}`);
+  return item;
 };
 
 const buyable = (rows: ShopRow[]) =>
@@ -69,33 +76,42 @@ const buyable = (rows: ShopRow[]) =>
   );
 
 describe("shopRows", () => {
+  it("prices every mock gear item at its config/gear.json price", () => {
+    const configPrice = new Map(
+      config.gear.items.map((item) => [item.id, item.price]),
+    );
+    expect(MOCK.gear.map((item) => [item.id, item.price])).toEqual(
+      MOCK.gear.map((item) => [item.id, configPrice.get(item.id)]),
+    );
+  });
+
   it("turns the mock shop into gear and loft rows", () => {
     const rows = shopRows(MOCK);
-    expect(rows.seeds).toBe(240);
+    expect(rows.seeds).toBe(300);
     expect(rows.gear).toEqual([
       {
         itemId: "goggles",
         name: "Aviator goggles",
         effect: "Aviator goggles effect",
-        action: { kind: "owned", label: "In the closet" },
+        action: { kind: "owned", label: "Unlocked" },
       },
       {
         itemId: "rainhat",
         name: "Rain hat",
         effect: "Rain hat effect",
-        action: { kind: "buy", price: 120 },
+        action: { kind: "buy", price: 180 },
       },
       {
         itemId: "cap",
         name: "Captain's cap",
         effect: "Captain's cap effect",
-        action: { kind: "buy", price: 160 },
+        action: { kind: "buy", price: 240 },
       },
       {
         itemId: "tube",
         name: "Roomy leg tube",
         effect: "Roomy leg tube effect",
-        action: { kind: "buy", price: 200 },
+        action: { kind: "buy", price: 300 },
       },
       {
         itemId: "booties",
@@ -115,7 +131,7 @@ describe("shopRows", () => {
         itemId: "perch",
         name: "Fifth perch",
         effect: "Room for one more bird",
-        action: { kind: "short", price: 400, toGo: 160 },
+        action: { kind: "short", price: 400, toGo: 100 },
       },
     ]);
   });
@@ -151,13 +167,13 @@ describe("shopRows", () => {
     const rows = shopRows({
       ...MOCK,
       seeds: 100,
-      gear: [gear("tube", "Roomy leg tube", 200, { affordable: false })],
+      gear: [{ ...mockGear("tube"), affordable: false }],
       loftItems: [{ ...MOCK.loftItems[0], affordable: false }],
     });
     expect(rows.gear[0].action).toEqual({
       kind: "short",
-      price: 200,
-      toGo: 100,
+      price: 300,
+      toGo: 200,
     });
     expect(rows.loft[0].action).toEqual({
       kind: "short",
@@ -180,31 +196,25 @@ describe("shopRows", () => {
   it("keeps gear no longer for sale when it is already owned", () => {
     const rows = shopRows({
       ...MOCK,
-      gear: [
-        gear("backpack", "Tiny backpack", 300, {
-          forSale: false,
-          owned: true,
-          affordable: false,
-        }),
-      ],
+      gear: [{ ...mockGear("backpack"), owned: true }],
     });
     expect(rows.gear).toEqual([
       {
         itemId: "backpack",
         name: "Tiny backpack",
         effect: "Tiny backpack effect",
-        action: { kind: "owned", label: "In the closet" },
+        action: { kind: "owned", label: "Unlocked" },
       },
     ]);
   });
 });
 
 describe("confirmLine", () => {
-  it("asks to buy the rain hat for 120 seeds", () => {
+  it("asks to buy the rain hat for 180 seeds", () => {
     const [rainhat] = buyable(shopRows(MOCK).gear).filter(
       (row) => row.itemId === "rainhat",
     );
-    expect(confirmLine(rainhat)).toBe("Buy the rain hat for 120 seeds?");
+    expect(confirmLine(rainhat)).toBe("Buy the rain hat for 180 seeds?");
   });
 
   it("lowercases every buyable row's name after the", () => {
@@ -216,9 +226,9 @@ describe("confirmLine", () => {
     expect(
       [...buyable(rows.gear), ...buyable(rows.loft)].map(confirmLine),
     ).toEqual([
-      "Buy the rain hat for 120 seeds?",
-      "Buy the captain's cap for 160 seeds?",
-      "Buy the roomy leg tube for 200 seeds?",
+      "Buy the rain hat for 180 seeds?",
+      "Buy the captain's cap for 240 seeds?",
+      "Buy the roomy leg tube for 300 seeds?",
       "Buy the rain booties for 60 seeds?",
       "Buy the rooftop birdbath for 220 seeds?",
       "Buy the fourth perch for 250 seeds?",
@@ -326,9 +336,14 @@ const RAIN_HAT: BuyRow = {
   itemId: "rainhat",
   name: "Rain hat",
   effect: "Shrugs off downpours",
-  action: { kind: "buy", price: 120 },
+  action: { kind: "buy", price: 180 },
 };
-const CAP: BuyRow = { ...RAIN_HAT, itemId: "cap", name: "Captain's cap" };
+const CAP: BuyRow = {
+  ...RAIN_HAT,
+  itemId: "cap",
+  name: "Captain's cap",
+  action: { kind: "buy", price: 240 },
+};
 
 describe("purchase (part 4 ac-1)", () => {
   const idle: Purchase = { kind: "idle" };
@@ -387,14 +402,29 @@ describe("completeBuy (part 4 ac-2)", () => {
     itemId: "rainhat",
     name: "Rain hat",
     effect: "Rain hat effect",
-    action: { kind: "buy", price: 120 },
+    action: { kind: "buy", price: 180 },
   };
+  const staleHat: BuyRow = { ...hat, action: { kind: "buy", price: 120 } };
+
+  it("prices the purchase fixtures at their config/gear.json prices", () => {
+    const configPrice = new Map(
+      config.gear.items.map((item) => [item.id, item.price]),
+    );
+    expect(
+      [RAIN_HAT, CAP, hat].map((row) => [row.itemId, row.action.price]),
+    ).toEqual(
+      [RAIN_HAT, CAP, hat].map((row) => [
+        row.itemId,
+        configPrice.get(row.itemId),
+      ]),
+    );
+  });
 
   it("bursts from the item, refreshes sync and refetches the shop", async () => {
     const d = deps({ ok: true, data: { me: {} as never, closet: [] } });
     const rows = await completeBuy(hat, before, d);
     expect(d.calls).toEqual([
-      "buy rainhat for 120",
+      "buy rainhat for 180",
       "burst rainhat",
       "refresh",
       "load",
@@ -406,7 +436,7 @@ describe("completeBuy (part 4 ac-2)", () => {
     const d = deps({ ok: false, message: "Not enough seeds for that." });
     const rows = await completeBuy(hat, before, d);
     expect(d.calls).toEqual([
-      "buy rainhat for 120",
+      "buy rainhat for 180",
       "toast Not enough seeds for that.",
     ]);
     expect(rows).toBe(before);
@@ -418,7 +448,7 @@ describe("completeBuy (part 4 ac-2)", () => {
       code: "conflict",
       message: "The price changed. Take another look.",
     });
-    const rows = await completeBuy(hat, before, d);
+    const rows = await completeBuy(staleHat, before, d);
     expect(d.calls).toEqual([
       "buy rainhat for 120",
       "toast The price changed. Take another look.",
@@ -437,7 +467,7 @@ describe("completeBuy (part 4 ac-2)", () => {
       d.calls.push("load");
       return { ok: false, message: "We could not reach the loft. Try again." };
     });
-    const rows = await completeBuy(hat, before, d);
+    const rows = await completeBuy(staleHat, before, d);
     expect(d.calls).toEqual([
       "buy rainhat for 120",
       "toast The price changed. Take another look.",

@@ -3,7 +3,7 @@ import type { Me } from "@/server/rows";
 import type { Shop } from "@/server/services/shop";
 
 export type RowAction =
-  | { kind: "owned"; label: "In the closet" | "In the loft" }
+  | { kind: "owned"; label: "Unlocked" | "In the loft" }
   | { kind: "buy"; price: number }
   | { kind: "short"; price: number; toGo: number };
 
@@ -75,7 +75,7 @@ const priced = (price: number, affordable: boolean, toGo: number): RowAction =>
 const row = (
   { id, name, effect, price, owned, affordable }: Item,
   seeds: number,
-  label: "In the closet" | "In the loft",
+  label: "Unlocked" | "In the loft",
 ): ShopRow => ({
   itemId: id,
   name,
@@ -101,7 +101,7 @@ export function shopRows(shop: Shop): ShopRows {
     seeds,
     gear: shop.gear
       .filter((item) => item.forSale || item.owned)
-      .map((item) => row(item, seeds, "In the closet")),
+      .map((item) => row(item, seeds, "Unlocked")),
     loft: [
       ...shop.loftItems.map((item) => row(item, seeds, "In the loft")),
       ...perch,
@@ -178,7 +178,7 @@ export async function openShop(
 export function settle(rows: ShopRows, bought: BuyRow): ShopRows {
   const seeds = rows.seeds - bought.action.price;
   const reprice =
-    (label: "In the closet" | "In the loft") =>
+    (label: "Unlocked" | "In the loft") =>
     (row: ShopRow): ShopRow[] => {
       const isBought = row.itemId === bought.itemId;
       if (isBought && row.held === undefined)
@@ -195,7 +195,7 @@ export function settle(rows: ShopRows, bought: BuyRow): ShopRows {
     };
   return {
     seeds,
-    gear: rows.gear.flatMap(reprice("In the closet")),
+    gear: rows.gear.flatMap(reprice("Unlocked")),
     loft: rows.loft.flatMap(reprice("In the loft")),
   };
 }

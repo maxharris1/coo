@@ -113,7 +113,7 @@ async function refusal(promise: Promise<unknown>) {
 describe("buy", () => {
   it("scenario 9: buying without enough seeds is insufficient_seeds and changes nothing", async () => {
     const before = await wallet(max);
-    expect(before.seeds).toBeLessThan(120);
+    expect(before.seeds).toBeLessThan(LISTED.get("goggles")!);
     expect(await refusal(buy(deps, max, item("goggles")))).toBe(
       "insufficient_seeds",
     );
@@ -124,7 +124,7 @@ describe("buy", () => {
   });
 
   it("scenario 9: the ledger sums to the balance after every buy and every refusal", async () => {
-    await grant(max, 400);
+    await grant(max, 520);
     const steps = [
       "goggles",
       "birdbath",
@@ -139,40 +139,40 @@ describe("buy", () => {
       expect(after.ledgerSum).toBe(after.seeds);
     }
     const end = await wallet(max);
-    expect(end.seeds).toBe(460 - 120 - 220 - 110);
+    expect(end.seeds).toBe(580 - 180 - 220 - 170);
     expect(end.closet).toEqual(["beanie", "bell", "bow", "goggles"]);
     expect(await shopRows(max)).toEqual([
-      { delta: -120 },
+      { delta: -180 },
       { delta: -220 },
-      { delta: -110 },
+      { delta: -170 },
     ]);
   });
 
   it("charges the gear price once, adds it to the closet and returns the account", async () => {
-    await grant(max, 100);
+    await grant(max, 200);
     const result = await buy(deps, max, item("goggles"));
-    expect(result.me).toMatchObject({ id: max, seeds: 40 });
+    expect(result.me).toMatchObject({ id: max, seeds: 80 });
     expect(result.closet).toEqual(["bell", "bow", "goggles"]);
-    expect(await shopRows(max)).toEqual([{ delta: -120 }]);
+    expect(await shopRows(max)).toEqual([{ delta: -180 }]);
   });
 
-  it("sells the night-vision goggles once for 200 and refuses a short balance", async () => {
+  it("sells the night-vision goggles once for 300 and refuses a short balance", async () => {
     const short = await wallet(max);
-    expect(short.seeds).toBeLessThan(200);
-    expect(await refusal(buy(deps, max, item("nightgoggles", 200)))).toBe(
+    expect(short.seeds).toBeLessThan(300);
+    expect(await refusal(buy(deps, max, item("nightgoggles", 300)))).toBe(
       "insufficient_seeds",
     );
     expect(await wallet(max)).toEqual(short);
 
-    await grant(max, 200);
-    const result = await buy(deps, max, item("nightgoggles", 200));
+    await grant(max, 300);
+    const result = await buy(deps, max, item("nightgoggles", 300));
     expect(result.me).toMatchObject({ seeds: short.seeds });
     expect(result.closet).toEqual(["bell", "bow", "nightgoggles"]);
-    expect(await shopRows(max)).toEqual([{ delta: -200 }]);
+    expect(await shopRows(max)).toEqual([{ delta: -300 }]);
     const after = await wallet(max);
     expect(after.ledgerSum).toBe(after.seeds);
 
-    expect(await refusal(buy(deps, max, item("nightgoggles", 200)))).toBe(
+    expect(await refusal(buy(deps, max, item("nightgoggles", 300)))).toBe(
       "conflict",
     );
     expect(await wallet(max)).toEqual(after);
@@ -195,6 +195,25 @@ describe("buy", () => {
     expect(await refusal(buy(deps, max, item("goggles")))).toBe("conflict");
     expect(await wallet(max)).toEqual(before);
   });
+
+  it.each([
+    ["the for-sale goggles", "goggles", ["goggles"]],
+    ["the starter bell", "bell", []],
+  ])(
+    "refuses %s once unlocked and charges nothing",
+    async (_, itemId, bought) => {
+      await grant(max, 1000);
+      for (const id of bought) await buy(deps, max, item(id));
+      const before = await wallet(max);
+      const ledgerBefore = await shopRows(max);
+      await expect(buy(deps, max, item(itemId))).rejects.toMatchObject({
+        code: "conflict",
+        message: "You already unlocked that.",
+      });
+      expect(await wallet(max)).toEqual(before);
+      expect(await shopRows(max)).toEqual(ledgerBefore);
+    },
+  );
 
   it("refuses a second birdbath as conflict and changes nothing", async () => {
     await grant(max, 1000);

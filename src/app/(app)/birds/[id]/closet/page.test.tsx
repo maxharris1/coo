@@ -257,9 +257,9 @@ describe("/birds/[id]/closet (ac-1)", () => {
   it("shows an unowned item's price and links it to the store", () => {
     const out = html();
     expect(out).toMatch(
-      /<a[^>]*href="\/shop"[^>]*aria-label="Rain hat, 120 seeds in the store"|<a[^>]*aria-label="Rain hat, 120 seeds in the store"[^>]*href="\/shop"/,
+      /<a[^>]*href="\/shop"[^>]*aria-label="Rain hat, 180 seeds in the store"|<a[^>]*aria-label="Rain hat, 180 seeds in the store"[^>]*href="\/shop"/,
     );
-    expect(out).toContain("120 seeds");
+    expect(out).toContain("180 seeds");
   });
 
   it("puts tomorrow's weather tip between the stand and the closet", () => {
