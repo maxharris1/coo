@@ -6,14 +6,12 @@ import type { Outfit } from "@/server/rows";
 
 export type ClosetBird = Pick<
   SyncPayload["birds"][number],
-  "id" | "name" | "status" | "busyUntil" | "gear"
+  "id" | "name" | "gear"
 >;
 
 export type Wardrobe = {
   bird: ClosetBird;
-  birds: readonly ClosetBird[];
   closet: readonly string[];
-  now: number;
 };
 
 type CellBase = { item: GearId; name: string; slot: GearSlot };
@@ -21,7 +19,6 @@ type CellBase = { item: GearId; name: string; slot: GearSlot };
 export type Cell =
   | (CellBase & { kind: "wearing" })
   | (CellBase & { kind: "owned" })
-  | (CellBase & { kind: "on"; birdName: string; takeable: boolean })
   | (CellBase & { kind: "store"; price: number });
 
 type CatalogEntry = {
@@ -44,24 +41,9 @@ const catalog = new Map<string, CatalogEntry>(
   }),
 );
 
-const isHome = (bird: ClosetBird, now: number) =>
-  bird.status === "home" ||
-  (bird.status === "busy" && bird.busyUntil !== null && bird.busyUntil <= now);
-
-const wearerOf = (w: Wardrobe, item: GearId) =>
-  w.birds.find((b) => b.id !== w.bird.id && b.gear.includes(item));
-
 function cellOf(w: Wardrobe, entry: CatalogEntry, owned: boolean): Cell {
   const base = { item: entry.id, name: entry.name, slot: entry.slot };
   if (w.bird.gear.includes(entry.id)) return { kind: "wearing", ...base };
-  const wearer = wearerOf(w, entry.id);
-  if (wearer)
-    return {
-      kind: "on",
-      ...base,
-      birdName: wearer.name,
-      takeable: isHome(wearer, w.now),
-    };
   return owned
     ? { kind: "owned", ...base }
     : { kind: "store", ...base, price: entry.price };
@@ -85,8 +67,6 @@ export function pick(worn: readonly GearId[], cell: Cell): GearId[] | null {
       return worn.filter((i) => i !== cell.item);
     case "owned":
       return wear(worn, cell);
-    case "on":
-      return cell.takeable ? wear(worn, cell) : null;
     case "store":
       return null;
   }
@@ -99,8 +79,6 @@ export function applyOutfit(w: Wardrobe, outfit: Outfit): GearId[] {
     const entry = catalog.get(raw);
     if (!entry?.available || !w.closet.includes(entry.id)) continue;
     if (slots.has(entry.slot)) continue;
-    const wearer = wearerOf(w, entry.id);
-    if (wearer && !isHome(wearer, w.now)) continue;
     slots.add(entry.slot);
     items.push(entry.id);
   }

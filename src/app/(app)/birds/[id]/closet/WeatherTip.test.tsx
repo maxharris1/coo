@@ -14,16 +14,6 @@ import { TipBand } from "./WeatherTip";
 const gerald = (gear: GearId[]): ClosetBird => ({
   id: "g",
   name: "Gerald",
-  status: "home",
-  busyUntil: null,
-  gear,
-});
-
-const brenda = (gear: GearId[]): ClosetBird => ({
-  id: "b",
-  name: "Brenda",
-  status: "flying",
-  busyUntil: null,
   gear,
 });
 
@@ -39,16 +29,9 @@ const band = ({
   forecast = coldFriday,
   worn = [] as GearId[],
   closet = [] as string[],
-  others = [] as ClosetBird[],
   dress = vi.fn(),
 } = {}) => {
-  const bird = gerald(worn);
-  const cells = closetCells({
-    bird,
-    birds: [bird, ...others],
-    closet,
-    now: 0,
-  });
+  const cells = closetCells({ bird: gerald(worn), closet });
   return { pronoun: "he" as const, forecast, cells, worn, dress };
 };
 
@@ -93,18 +76,6 @@ describe("Wardrobe weather tip (ac-2)", () => {
     const dress = vi.fn();
     tap(band({ closet: ["beanie", "scarf"], dress }));
     expect(dress.mock.calls).toEqual([["scarf"]]);
-  });
-
-  it("skips a counter another bird has taken away", () => {
-    const dress = vi.fn();
-    tap(
-      band({
-        closet: ["beanie", "scarf"],
-        others: [brenda(["beanie"])],
-        dress,
-      }),
-    );
-    expect(dress).toHaveBeenCalledWith("scarf");
   });
 
   it("reaches for the rain hat before the goggles in the rain", () => {
@@ -163,8 +134,7 @@ const speedIn = (weather: WeatherSample, gear: readonly GearId[]) => {
 const dressedBy = (props: ReturnType<typeof band>, closet: string[]) => {
   let worn = props.worn;
   const dress = (item: GearId) => {
-    const bird = gerald(worn);
-    const cell = closetCells({ bird, birds: [bird], closet, now: 0 }).find(
+    const cell = closetCells({ bird: gerald(worn), closet }).find(
       (c) => c.item === item,
     );
     worn = (cell && pick(worn, cell)) ?? worn;

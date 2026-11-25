@@ -95,9 +95,7 @@ export default function ClosetPage() {
   const worn = wornIn(saves);
   const wardrobeFor = (gear: GearId[]): Wardrobe => ({
     bird: { ...bird, gear },
-    birds: data.birds,
     closet: data.closet,
-    now: data.serverNow,
   });
   const cells = closetCells(wardrobeFor(worn));
   const effects = effectsFor(worn);
