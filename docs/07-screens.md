@@ -247,8 +247,10 @@ Feed and Bath stay disabled. After waking, the mood and meters follow its energy
 As drawn: the bird on a stand wearing the selection, a "what it does" list for worn items, a
 weather tip built from tomorrow's forecast at the loft when it is cold, wet or snowy, saved
 outfits, and the closet grid. Owned items toggle on and off (one per slot; picking a second
-item in a slot swaps). Items worn by another bird say "On {name}" and can be taken if that bird
-is home. Unowned items show their price and link to the store. Changes save on tap.
+item in a slot swaps). An unlocked item stays tappable when another bird wears it, home or
+away. Tapping it puts it on this bird too, and the other bird keeps it. Saved outfits put on
+every owned piece the same way. Unowned items show their price and link to the store. Changes
+save on tap.
 
 ### Shop (`/shop`)
 As drawn: balance, "More ways" → Earn, gear list (owned items say "In the closet"), loft items,
