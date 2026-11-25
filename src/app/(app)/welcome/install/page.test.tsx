@@ -2,16 +2,13 @@ import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { config } from "@/lib/config";
-import {
-  detectPlatform,
-  type Platform,
-  type PlatformSnapshot,
-} from "@/lib/platform";
+import { detectPlatform, type PlatformSnapshot } from "@/lib/platform";
 import type { UserId } from "@/server/ports/auth";
 import { onboard } from "@/server/services/onboarding";
 import { makeTestDeps } from "@/test/deps";
 import { snapshot, UA } from "@/test/fixtures/platform";
-import { InstallView, installStep, type InstallScreen } from "./Install";
+import { InstallView } from "./Install";
+import { installStep, type InstallState } from "./installFlow";
 
 const { requireUser, redirect } = vi.hoisted(() => ({
   requireUser: vi.fn(),
@@ -22,10 +19,10 @@ const { requireUser, redirect } = vi.hoisted(() => ({
 vi.mock("@/server/auth", () => ({ requireUser }));
 vi.mock("next/navigation", () => ({ redirect, useRouter: () => ({}) }));
 
-const render = (screen: InstallScreen, copied = false) =>
+const render = (state: InstallState, copied = false) =>
   renderToStaticMarkup(
     <InstallView
-      screen={screen}
+      state={state}
       copied={copied}
       onInstall={() => {}}
       onCopy={() => {}}
@@ -34,6 +31,12 @@ const render = (screen: InstallScreen, copied = false) =>
 const css = readFileSync(new URL("./page.module.css", import.meta.url), "utf8");
 const rule = (cls: string) =>
   css.match(new RegExp(`\\.${cls} \\{[^}]*\\}`))?.[0];
+const HEADING = new RegExp(
+  `<h1[^>]*>Put ${config.app.name} on your home screen</h1>`,
+);
+const SKIP =
+  /<a[^>]*href="\/welcome\/loft"[^>]*>Not now. Text me when birds land instead.<\/a>/;
+const MENU_FALLBACK = "Tap your browser's menu, then Install app";
 
 describe("/welcome/install on iOS Safari (ac-4)", () => {
   const html = render({ kind: "ios" });
@@ -81,15 +84,50 @@ describe("/welcome/install on iOS Safari (ac-4)", () => {
   });
 });
 
-describe("/welcome/install on other platforms", () => {
-  it("gives Android Chrome one Install button and no iPhone steps", () => {
+describe("/welcome/install on Android Chrome and Edge (ac-1)", () => {
+  it("gives one Install button and no iPhone steps once the prompt is ready", () => {
     const html = render({ kind: "prompt" });
+    expect(html.match(/<button/g)).toHaveLength(1);
     expect(html).toMatch(/<button[^>]*type="button"[^>]*>Install<\/button>/);
     expect(html).not.toContain("<li");
     expect(html).not.toContain("Share is down here");
-    expect(html).toContain(">Not now. Text me when birds land instead.<");
+    expect(html).toMatch(SKIP);
   });
 
+  it("shows only the heading and skip link while it waits for the prompt", () => {
+    const html = render({ kind: "waiting" });
+    expect(html).toMatch(HEADING);
+    expect(html).toMatch(SKIP);
+    expect(html).not.toContain("<button");
+    expect(html).not.toContain(MENU_FALLBACK);
+  });
+
+  it("shows no Install button when already running standalone", () => {
+    const standalone = snapshot(UA.androidChrome, {
+      displayModeStandalone: true,
+      hasInstallPrompt: true,
+    });
+    expect(render(installStep(detectPlatform(standalone)))).not.toContain(
+      "<button",
+    );
+  });
+});
+
+describe("/welcome/install browser-menu fallback (ac-2)", () => {
+  const html = render({ kind: "menu" });
+
+  it("tells the person to install from the browser menu", () => {
+    expect(html).toContain(MENU_FALLBACK);
+  });
+
+  it("keeps the heading and skip link and drops the dead Install button", () => {
+    expect(html).toMatch(HEADING);
+    expect(html).toMatch(SKIP);
+    expect(html).not.toContain("<button");
+  });
+});
+
+describe("/welcome/install on other platforms", () => {
   it("asks in-app browsers to open Safari first with a copy-link button", () => {
     const html = render({ kind: "in-app", openIn: "Safari" });
     expect(html).toContain("Open this in Safari first");
@@ -111,9 +149,7 @@ describe("/welcome/install on other platforms", () => {
 
   it("renders the heading alone while it detects the platform", () => {
     const html = render({ kind: "detecting" });
-    expect(html).toMatch(
-      new RegExp(`<h1[^>]*>Put ${config.app.name} on your home screen</h1>`),
-    );
+    expect(html).toMatch(HEADING);
     expect(html).not.toContain("<li");
     expect(html).not.toContain("<button");
     expect(html).not.toContain("Share is down here");
@@ -121,20 +157,22 @@ describe("/welcome/install on other platforms", () => {
 });
 
 describe("'Not now. Text me when birds land instead.' (ac-3)", () => {
-  const SKIP =
-    /<a[^>]*href="\/welcome\/loft"[^>]*>Not now. Text me when birds land instead.<\/a>/;
-  const screens: InstallScreen[] = [
+  const states: InstallState[] = [
     { kind: "detecting" },
-    { kind: "ios" },
+    { kind: "waiting" },
     { kind: "prompt" },
+    { kind: "menu" },
+    { kind: "ios" },
     { kind: "in-app", openIn: "Safari" },
+    { kind: "skip" },
+    { kind: "done" },
   ];
 
-  it.each(screens)("skips install from the %o screen", (screen) => {
+  it.each(states)("skips install from the %o state", (state) => {
     let installs = 0;
     const html = renderToStaticMarkup(
       <InstallView
-        screen={screen}
+        state={state}
         copied={false}
         onInstall={() => installs++}
         onCopy={() => {}}
@@ -165,57 +203,39 @@ describe("'Not now. Text me when birds land instead.' (ac-3)", () => {
 });
 
 describe("installStep (ac-4, ac-5)", () => {
-  const cases: [Platform, ReturnType<typeof installStep>][] = [
-    [{ kind: "installed" }, { kind: "skip" }],
-    [{ kind: "other" }, { kind: "skip" }],
-    [{ kind: "ios-safari" }, { kind: "ios" }],
-    [{ kind: "prompt" }, { kind: "prompt" }],
-    [{ kind: "prompt-pending" }, { kind: "wait" }],
+  const SAFARI_FIRST = { kind: "in-app", openIn: "Safari" } as const;
+  const browsers: [string, InstallState, PlatformSnapshot][] = [
+    ["Android Chrome", { kind: "waiting" }, snapshot(UA.androidChrome)],
+    ["desktop Edge", { kind: "skip" }, snapshot(UA.desktopEdge)],
+    ["iPhone Chrome", SAFARI_FIRST, snapshot(UA.iphoneChrome)],
+    ["iPhone Firefox", SAFARI_FIRST, snapshot(UA.iphoneFirefox)],
+    ["iPhone Edge", SAFARI_FIRST, snapshot(UA.iphoneEdge)],
+    ["iPhone Instagram", SAFARI_FIRST, snapshot(UA.iphoneInstagram)],
+    ["iPhone Gmail", SAFARI_FIRST, snapshot(UA.iphoneGmail)],
     [
+      "Android Instagram",
       { kind: "in-app", openIn: "Chrome" },
-      { kind: "in-app", openIn: "Chrome" },
+      snapshot(UA.androidInstagram),
     ],
     [
-      { kind: "in-app", openIn: "Safari" },
-      { kind: "in-app", openIn: "Safari" },
+      "desktop Chrome with an install prompt",
+      { kind: "skip" },
+      snapshot(UA.desktopChrome, { hasInstallPrompt: true }),
+    ],
+    ["desktop Firefox", { kind: "skip" }, snapshot(UA.desktopFirefox)],
+    [
+      "iPad Safari",
+      { kind: "ios" },
+      snapshot(UA.ipadSafari, { maxTouchPoints: 5 }),
+    ],
+    [
+      "iPad Safari asking for the desktop site",
+      { kind: "ios" },
+      snapshot(UA.macSafari, { maxTouchPoints: 5 }),
     ],
   ];
-  it.each(cases)("maps %o to %o", (platform, step) => {
-    expect(installStep(platform)).toEqual(step);
-  });
-
-  const SAFARI_FIRST = { kind: "in-app", openIn: "Safari" } as const;
-  const browsers: [string, ReturnType<typeof installStep>, PlatformSnapshot][] =
-    [
-      ["iPhone Chrome", SAFARI_FIRST, snapshot(UA.iphoneChrome)],
-      ["iPhone Firefox", SAFARI_FIRST, snapshot(UA.iphoneFirefox)],
-      ["iPhone Edge", SAFARI_FIRST, snapshot(UA.iphoneEdge)],
-      ["iPhone Instagram", SAFARI_FIRST, snapshot(UA.iphoneInstagram)],
-      ["iPhone Gmail", SAFARI_FIRST, snapshot(UA.iphoneGmail)],
-      [
-        "Android Instagram",
-        { kind: "in-app", openIn: "Chrome" },
-        snapshot(UA.androidInstagram),
-      ],
-      [
-        "desktop Chrome with an install prompt",
-        { kind: "skip" },
-        snapshot(UA.desktopChrome, { hasInstallPrompt: true }),
-      ],
-      ["desktop Firefox", { kind: "skip" }, snapshot(UA.desktopFirefox)],
-      [
-        "iPad Safari",
-        { kind: "ios" },
-        snapshot(UA.ipadSafari, { maxTouchPoints: 5 }),
-      ],
-      [
-        "iPad Safari asking for the desktop site",
-        { kind: "ios" },
-        snapshot(UA.macSafari, { maxTouchPoints: 5 }),
-      ],
-    ];
-  it.each(browsers)("gives %s the %o step", (_, step, browser) => {
-    expect(installStep(detectPlatform(browser))).toEqual(step);
+  it.each(browsers)("gives %s the %o state", (_, state, browser) => {
+    expect(installStep(detectPlatform(browser))).toEqual(state);
   });
 });
 

@@ -1,51 +1,24 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { config } from "@/lib/config";
-import { detectPlatform, type Platform } from "@/lib/platform";
+import { detectPlatform } from "@/lib/platform";
 import { welcomeStep } from "../steps";
+import {
+  FALLBACK_MS,
+  installFlow,
+  watchInstall,
+  type InstallState,
+} from "./installFlow";
 import styles from "./page.module.css";
 
 const STEP = welcomeStep("/welcome/install");
 const NEXT_STEP = STEP.next;
-const PROMPT_WAIT_MS = 3000;
 const HOP = { animation: "coo-hop 2.6s ease-in-out infinite" };
 const POINT = { animation: "coo-point 0.6s ease-in-out infinite alternate" };
 const FADED_LABEL_WIDTHS = [34, 40, 30, 38, 36, null, 32, 40];
-
-type BeforeInstallPromptEvent = Event & {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
-};
-
-export type InstallScreen =
-  | { kind: "detecting" }
-  | { kind: "ios" }
-  | { kind: "prompt" }
-  | { kind: "in-app"; openIn: "Safari" | "Chrome" };
-
-export type InstallStep =
-  | Exclude<InstallScreen, { kind: "detecting" }>
-  | { kind: "skip" }
-  | { kind: "wait" };
-
-export function installStep(platform: Platform): InstallStep {
-  switch (platform.kind) {
-    case "installed":
-    case "other":
-      return { kind: "skip" };
-    case "ios-safari":
-      return { kind: "ios" };
-    case "prompt":
-      return { kind: "prompt" };
-    case "prompt-pending":
-      return { kind: "wait" };
-    case "in-app":
-      return { kind: "in-app", openIn: platform.openIn };
-  }
-}
 
 function AppIcon() {
   return (
@@ -227,12 +200,12 @@ function SharePointer() {
 }
 
 export function InstallView({
-  screen,
+  state,
   copied,
   onInstall,
   onCopy,
 }: {
-  screen: InstallScreen;
+  state: InstallState;
   copied: boolean;
   onInstall: () => void;
   onCopy: () => void;
@@ -250,15 +223,20 @@ export function InstallView({
         </p>
       </div>
       <HomeScreen />
-      {screen.kind === "ios" && <IosSteps />}
-      {screen.kind === "prompt" && (
+      {state.kind === "ios" && <IosSteps />}
+      {state.kind === "prompt" && (
         <button type="button" className={styles.action} onClick={onInstall}>
           Install
         </button>
       )}
-      {screen.kind === "in-app" && (
+      {state.kind === "menu" && (
+        <p className={styles.openIn}>
+          Tap your browser&apos;s menu, then Install app
+        </p>
+      )}
+      {state.kind === "in-app" && (
         <div className={styles.inApp}>
-          <p className={styles.openIn}>Open this in {screen.openIn} first</p>
+          <p className={styles.openIn}>Open this in {state.openIn} first</p>
           <button type="button" className={styles.copy} onClick={onCopy}>
             {copied ? "Link copied" : "Copy link"}
           </button>
@@ -267,64 +245,46 @@ export function InstallView({
       <Link href={NEXT_STEP} className={styles.skip}>
         Not now. Text me when birds land instead.
       </Link>
-      {screen.kind === "ios" && <SharePointer />}
+      {state.kind === "ios" && <SharePointer />}
     </main>
   );
 }
 
-function snapshot(hasInstallPrompt: boolean) {
+function snapshot() {
   const nav = navigator as Navigator & { standalone?: boolean };
   return {
     userAgent: nav.userAgent,
     displayModeStandalone: window.matchMedia("(display-mode: standalone)")
       .matches,
     navigatorStandalone: nav.standalone === true,
-    hasInstallPrompt,
+    hasInstallPrompt: false,
     maxTouchPoints: nav.maxTouchPoints,
   };
 }
 
 export function Install() {
   const router = useRouter();
-  const [screen, setScreen] = useState<InstallScreen>({ kind: "detecting" });
+  const [state, dispatch] = useReducer(installFlow, { kind: "detecting" });
   const [copied, setCopied] = useState(false);
-  const installPrompt = useRef<BeforeInstallPromptEvent | null>(null);
+  const watcher = useRef<ReturnType<typeof watchInstall>>(null);
 
   useEffect(() => {
-    let waiting: ReturnType<typeof setTimeout> | undefined;
-    const evaluate = () => {
-      const step = installStep(
-        detectPlatform(snapshot(installPrompt.current !== null)),
-      );
-      if (step.kind === "skip") {
-        router.replace(NEXT_STEP);
-      } else if (step.kind === "wait") {
-        waiting ??= setTimeout(() => router.replace(NEXT_STEP), PROMPT_WAIT_MS);
-      } else {
-        clearTimeout(waiting);
-        setScreen(step);
-      }
-    };
-    const onPrompt = (event: Event) => {
-      event.preventDefault();
-      installPrompt.current = event as BeforeInstallPromptEvent;
-      evaluate();
-    };
-    window.addEventListener("beforeinstallprompt", onPrompt);
-    evaluate();
-    return () => {
-      window.removeEventListener("beforeinstallprompt", onPrompt);
-      clearTimeout(waiting);
-    };
-  }, [router]);
+    watcher.current = watchInstall(window, dispatch);
+    dispatch({ type: "detected", platform: detectPlatform(snapshot()) });
+    return watcher.current.stop;
+  }, []);
 
-  const onInstall = async () => {
-    const event = installPrompt.current;
-    if (!event) return;
-    await event.prompt();
-    const { outcome } = await event.userChoice;
-    if (outcome === "accepted") router.replace(NEXT_STEP);
-  };
+  useEffect(() => {
+    if (state.kind === "skip" || state.kind === "done") {
+      router.replace(NEXT_STEP);
+    } else if (state.kind === "waiting") {
+      const timer = setTimeout(
+        () => dispatch({ type: "waitedOut" }),
+        FALLBACK_MS,
+      );
+      return () => clearTimeout(timer);
+    }
+  }, [state.kind, router]);
 
   const onCopy = async () => {
     await navigator.clipboard.writeText(window.location.href);
@@ -333,9 +293,9 @@ export function Install() {
 
   return (
     <InstallView
-      screen={screen}
+      state={state}
       copied={copied}
-      onInstall={() => void onInstall()}
+      onInstall={() => void watcher.current?.install()}
       onCopy={() => void onCopy()}
     />
   );
