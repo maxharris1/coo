@@ -10,20 +10,15 @@ import {
   type Wardrobe,
 } from "./closet";
 
-const NOW = Date.parse("2026-11-20T19:00:00Z");
-
-const bird = (over: Partial<ClosetBird> & Pick<ClosetBird, "id" | "name">) =>
-  ({ status: "home", busyUntil: null, gear: [], ...over }) as ClosetBird;
-
-const gerald = bird({ id: "g", name: "Gerald", gear: ["goggles", "bow"] });
-const pip = bird({ id: "p", name: "Pip", gear: ["band"] });
-const dot = bird({ id: "d", name: "Dot", status: "flying", gear: ["scarf"] });
+const gerald: ClosetBird = {
+  id: "g",
+  name: "Gerald",
+  gear: ["goggles", "bow"],
+};
 
 const wardrobe = (over: Partial<Wardrobe> = {}): Wardrobe => ({
   bird: gerald,
-  birds: [gerald, pip, dot],
   closet: ["goggles", "bow", "bell", "band", "scarf", "beanie"],
-  now: NOW,
   ...over,
 });
 
@@ -48,37 +43,6 @@ describe("closetCells (ac-1)", () => {
   it("marks owned items nobody wears as Owned", () => {
     expect(cellFor(cells, "bell").kind).toBe("owned");
     expect(cellFor(cells, "beanie").kind).toBe("owned");
-  });
-
-  it("marks an item on another home bird as On {name}, takeable", () => {
-    expect(cellFor(cells, "band")).toMatchObject({
-      kind: "on",
-      birdName: "Pip",
-      takeable: true,
-    });
-  });
-
-  it("marks an item on an away bird as On {name}, not takeable", () => {
-    expect(cellFor(cells, "scarf")).toMatchObject({
-      kind: "on",
-      birdName: "Dot",
-      takeable: false,
-    });
-  });
-
-  it("counts a bird whose busy time has ended as home", () => {
-    const napped = bird({
-      id: "d",
-      name: "Dot",
-      status: "busy",
-      busyUntil: NOW - 1,
-      gear: ["scarf"],
-    });
-    const napping = { ...napped, busyUntil: NOW + 60_000 };
-    const on = (b: ClosetBird) =>
-      cellFor(closetCells(wardrobe({ birds: [gerald, pip, b] })), "scarf");
-    expect(on(napped)).toMatchObject({ kind: "on", takeable: true });
-    expect(on(napping)).toMatchObject({ kind: "on", takeable: false });
   });
 
   it("shows unowned items for sale at their config price", () => {
@@ -128,14 +92,6 @@ describe("pick (ac-1)", () => {
     expect(pick(gerald.gear, cell)).toEqual(["bow", "nightgoggles"]);
   });
 
-  it("takes an item off another home bird", () => {
-    expect(tap("band")).toEqual(["goggles", "bow", "band"]);
-  });
-
-  it("refuses an item on an away bird", () => {
-    expect(tap("scarf")).toBeNull();
-  });
-
   it("refuses a store item", () => {
     expect(tap("rainhat")).toBeNull();
   });
@@ -151,20 +107,20 @@ describe("applyOutfit (ac-2)", () => {
     ]);
   });
 
-  it("takes items off other home birds", () => {
+  it("keeps owned items in different slots", () => {
     expect(applyOutfit(wardrobe(), outfit(["goggles", "band"]))).toEqual([
       "goggles",
       "band",
     ]);
   });
 
-  it("skips unowned items, items on away birds and unknown ids", () => {
+  it("skips unowned items and unknown ids", () => {
     expect(
       applyOutfit(
         wardrobe(),
         outfit(["rainhat", "scarf", "bell", "backpack", "nope"]),
       ),
-    ).toEqual(["bell"]);
+    ).toEqual(["scarf", "bell"]);
   });
 
   it("keeps the first item per slot", () => {
