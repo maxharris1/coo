@@ -9,7 +9,12 @@ export const GUTTER = Number(
   )![1],
 );
 
-export type Env = { top: number; bottom: number; height: number };
+export type Env = {
+  top: number;
+  bottom: number;
+  height: number;
+  dvh?: number;
+};
 export type Ref = { file: string; rule: string; prop: string };
 
 export function declaration({ file, rule, prop }: Ref) {
@@ -46,7 +51,7 @@ const TABS_PAD: Ref = {
   prop: "--coo-tabs-pad",
 };
 
-export function px(expr: string, { top, bottom, height }: Env) {
+export function px(expr: string, { top, bottom, height, dvh }: Env) {
   const arithmetic = expr
     .replace(/var\(--coo-tabs-pad\)/g, () => declaration(TABS_PAD))
     .replace(/env\(safe-area-inset-top, 0px\)/g, `${top}px`)
@@ -56,7 +61,11 @@ export function px(expr: string, { top, bottom, height }: Env) {
     .replace(/var\(--coo-safe-\w+(?:, 0px)?\)/g, "0px")
     .replace(/env\(safe-area-inset-\w+(?:, 0px)?\)/g, "0px")
     .replace(/var\(--coo-gutter\)/g, `${GUTTER}px`)
-    .replace(/(\d+(?:\.\d+)?)dvh/g, (_, n) => `${(+n * height) / 100}px`)
+    .replace(/(\d+(?:\.\d+)?)svh/g, (_, n) => `${(+n * height) / 100}px`)
+    .replace(
+      /(\d+(?:\.\d+)?)dvh/g,
+      (_, n) => `${(+n * (dvh ?? height)) / 100}px`,
+    )
     .replace(/(\d+(?:\.\d+)?)px/g, "$1")
     .replace(/calc\(/g, "(");
   if (!/^(?:[\d\s.+\-*/(),]|max|min)*$/.test(arithmetic)) {
