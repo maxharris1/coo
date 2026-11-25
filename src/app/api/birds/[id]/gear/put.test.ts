@@ -154,6 +154,43 @@ describe("PUT /api/birds/[id]/gear", () => {
     expect(await gearOf(kevin.id)).toEqual(["bow"]);
   });
 
+  it.each([
+    ["home", () => setBird(gerald, "status = 'home'")],
+    ["flying", () => setBird(gerald, "status = 'flying'")],
+    ["visiting", () => setBird(gerald, "status = 'visiting'")],
+    ["scheduled", () => setBird(gerald, "status = 'scheduled'")],
+    [
+      "still busy",
+      () =>
+        setBird(
+          gerald,
+          "status = 'busy', busy_kind = 'job', busy_until = to_timestamp($2 / 1000.0)",
+          [deps.clock.now() + HOUR],
+        ),
+    ],
+  ])("dresses a bird that is %s with 200", async (_, leave) => {
+    const jar = await signIn(MAX_PHONE);
+    await leave();
+
+    const { status, json } = await put(gerald, { items: ["goggles"] }, jar);
+
+    expect(status).toBe(200);
+    expect(json.bird.gear).toEqual(["goggles"]);
+    expect(await gearOf(gerald)).toEqual(["goggles"]);
+  });
+
+  it("answers someone else's flying bird with 404 and leaves it unchanged", async () => {
+    const jar = await signIn(MAX_PHONE);
+    const [kevin] = world.priya.birds;
+    await setBird(kevin.id, "status = 'flying', gear = $2", [["bow"]]);
+
+    const { status, json } = await put(kevin.id, { items: ["goggles"] }, jar);
+
+    expect(status).toBe(404);
+    expect(json.error.code).toBe("not_found");
+    expect(await gearOf(kevin.id)).toEqual(["bow"]);
+  });
+
   it("applies a saved outfit and lists the items it skipped (ac-3)", async () => {
     const jar = await signIn(MAX_PHONE);
     await put(brenda, { items: ["bow"] }, jar);

@@ -15,15 +15,6 @@ export type OutfitsInput = {
 
 type Bird = Row<"birds">;
 
-function isHome(bird: Bird, now: number): boolean {
-  if (bird.status === "home") return true;
-  return (
-    bird.status === "busy" &&
-    bird.busy_until !== null &&
-    bird.busy_until.getTime() <= now
-  );
-}
-
 function problemMessage(deps: Deps, problem: GearProblem): string {
   const name = (id: string) =>
     deps.config.gear.items.find((i) => i.id === id)?.name ?? id;
@@ -75,9 +66,6 @@ export async function putGear(
     );
     const target = birds.find((b) => b.id === birdId);
     if (!target) throw new AppError("not_found", "Could not find that bird.");
-    if (!isHome(target, now)) {
-      throw new AppError("conflict", `${target.name} is not home right now.`);
-    }
 
     const owned = await db.query<{ gear_id: GearId }>(
       "select gear_id from gear_owned where user_id = $1",
