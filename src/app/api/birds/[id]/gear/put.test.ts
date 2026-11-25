@@ -101,7 +101,7 @@ describe("PUT /api/birds/[id]/gear", () => {
     expect(await gearOf(gerald)).toEqual([]);
   });
 
-  it("moves an item off another home bird (ac-2)", async () => {
+  it("puts on an item another home bird wears and leaves it there", async () => {
     const jar = await signIn(MAX_PHONE);
     await put(brenda, { items: ["scarf", "bell"] }, jar);
 
@@ -110,23 +110,23 @@ describe("PUT /api/birds/[id]/gear", () => {
     expect(status).toBe(200);
     expect(json.bird.gear).toEqual(["scarf"]);
     expect(await gearOf(gerald)).toEqual(["scarf"]);
-    expect(await gearOf(brenda)).toEqual(["bell"]);
+    expect(await gearOf(brenda)).toEqual(["scarf", "bell"]);
   });
 
-  it("refuses to take an item from a bird that is away as 409 conflict (ac-2)", async () => {
+  it("puts on an item a bird that is away wears and leaves it there", async () => {
     const jar = await signIn(MAX_PHONE);
     await put(brenda, { items: ["scarf"] }, jar);
     await setBird(brenda, "status = 'flying'");
 
     const { status, json } = await put(gerald, { items: ["scarf"] }, jar);
 
-    expect(status).toBe(409);
-    expect(json.error.code).toBe("conflict");
-    expect(await gearOf(gerald)).toEqual([]);
+    expect(status).toBe(200);
+    expect(json.bird.gear).toEqual(["scarf"]);
+    expect(await gearOf(gerald)).toEqual(["scarf"]);
     expect(await gearOf(brenda)).toEqual(["scarf"]);
   });
 
-  it("refuses to take an item from a bird that is still busy as 409 conflict (ac-2)", async () => {
+  it("puts on an item a bird that is still busy wears and leaves it there", async () => {
     const jar = await signIn(MAX_PHONE);
     await put(brenda, { items: ["scarf"] }, jar);
     await setBird(
@@ -137,7 +137,8 @@ describe("PUT /api/birds/[id]/gear", () => {
 
     const { status } = await put(gerald, { items: ["scarf"] }, jar);
 
-    expect(status).toBe(409);
+    expect(status).toBe(200);
+    expect(await gearOf(gerald)).toEqual(["scarf"]);
     expect(await gearOf(brenda)).toEqual(["scarf"]);
   });
 
@@ -164,7 +165,7 @@ describe("PUT /api/birds/[id]/gear", () => {
     expect(json.bird.gear).toEqual(["goggles", "bow"]);
     expect(json.skipped).toEqual(["band"]);
     expect(await gearOf(gerald)).toEqual(["goggles", "bow"]);
-    expect(await gearOf(brenda)).toEqual([]);
+    expect(await gearOf(brenda)).toEqual(["bow"]);
   });
 
   it("answers someone else's outfit with 404 and changes nothing", async () => {

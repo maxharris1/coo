@@ -189,7 +189,7 @@ with `invalid` ("Espresso is for sending now.").
 | `POST /api/birds/[id]/bath` | | Home only. Busy 10 minutes, feathers 100 |
 | `POST /api/birds/[id]/nap` | | Home only. Busy 30 minutes, energy +50 at the end |
 | `POST /api/birds/[id]/wake` | | Owner only, napping birds only. Before `busy_until` it sets the bird home with the energy gained so far and no nap bonus. Once the nap is due it applies the nap (+50) and sets the bird home. Any other bird (home, bath, job, away) is `conflict` and nothing is written |
-| `PUT /api/birds/[id]/gear` | `{ items: string[] }` | Home only. Validates ownership, one per slot, not worn by another bird (taking an item from another home bird is allowed and removes it there) |
+| `PUT /api/birds/[id]/gear` | `{ items: string[] }` or `{ outfitId }` | Home only. Validates ownership and one per slot. May put on an item another of the owner's birds wears; that bird keeps it |
 | `PUT /api/outfits` | `{ outfits: [{ id?, name, items }] }` | Replaces the saved outfits (at most 6) |
 | `GET /api/shop` | | Items with `owned`, `affordable`, plus loft items, the next perch, and `consumables` (`id`, `name`, `effect`, `price`, `held`, `affordable`), where `held` is how many the caller holds, such as `espresso` |
 | `POST /api/shop/buy` | `{ itemId, price, actionId }` | Gear id, `birdbath`, `perch` or `espresso`. `espresso` can be bought again and again; each buy adds one to `profiles.espresso_shots`. `price` is the price the buyer confirmed. If the current price differs, the answer is `conflict` and nothing is charged. `actionId` is a uuid made once per buy. A replay with the same `actionId` changes nothing and returns the current state. See Idempotency. One transaction |

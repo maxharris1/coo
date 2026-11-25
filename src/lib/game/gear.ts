@@ -11,8 +11,7 @@ export type GearProblem =
   | { kind: "duplicate"; item: GearId }
   | { kind: "slot_taken"; item: GearId; slot: GearSlot; by: GearId }
   | { kind: "not_owned"; item: GearId }
-  | { kind: "unavailable"; item: GearId }
-  | { kind: "worn_elsewhere"; item: GearId; birdId: string };
+  | { kind: "unavailable"; item: GearId };
 
 export type OutfitResult =
   | { ok: true; items: GearId[] }
@@ -36,7 +35,6 @@ const catalog = new Map<string, CatalogEntry>(
 export function validateOutfit(
   items: readonly string[],
   closet: readonly GearId[],
-  otherBirds: readonly { id: string; gear: readonly string[] }[],
 ): OutfitResult {
   const problems: GearProblem[] = [];
   const valid: GearId[] = [];
@@ -61,10 +59,6 @@ export function validateOutfit(
     else slots.set(slot, item);
     if (!entry.available) problems.push({ kind: "unavailable", item });
     if (!closet.includes(item)) problems.push({ kind: "not_owned", item });
-    const wearer = otherBirds.find((b) => b.gear.includes(item));
-    if (wearer) {
-      problems.push({ kind: "worn_elsewhere", item, birdId: wearer.id });
-    }
     if (problems.length === before) valid.push(item);
   }
 

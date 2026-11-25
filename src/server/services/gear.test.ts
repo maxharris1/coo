@@ -116,65 +116,74 @@ describe("putGear: one item per slot (ac-1)", () => {
   });
 });
 
-describe("putGear: taking from another home bird (ac-2)", () => {
-  it("moves an item off another home bird", async () => {
-    await putGear(deps, max, brenda, { items: ["scarf", "bell"] });
+describe("putGear: sharing an item between birds", () => {
+  it("two of one user's birds wear the scarf at once", async () => {
+    const [kevin, pip] = world.priya.birds.map((b) => b.id);
+    await own(world.priya.id, "scarf");
+    await setBird(kevin, "gear = $2", [["scarf", "bow"]]);
+    await putGear(deps, max, brenda, { items: ["scarf"] });
+    const priyaRows = async () => ({
+      gear: [await gearOf(kevin), await gearOf(pip)],
+      owned: await deps.db.query(
+        "select * from gear_owned where user_id = $1 order by gear_id",
+        [world.priya.id],
+      ),
+    });
+    const before = await priyaRows();
+
     const { bird } = await putGear(deps, max, gerald, { items: ["scarf"] });
 
     expect(bird.gear).toEqual(["scarf"]);
     expect(await gearOf(gerald)).toEqual(["scarf"]);
-    expect(await gearOf(brenda)).toEqual(["bell"]);
+    expect(await gearOf(brenda)).toEqual(["scarf"]);
+    expect(await priyaRows()).toEqual(before);
   });
 
-  it("gives the same rows when the same move runs twice", async () => {
+  it("dressing bird A leaves bird B unchanged", async () => {
+    await putGear(deps, max, brenda, { items: ["scarf", "bell"] });
+
+    for (const items of [["beanie"], ["scarf"], []]) {
+      await putGear(deps, max, gerald, { items });
+      expect(await gearOf(gerald)).toEqual(items);
+      expect(await gearOf(brenda)).toEqual(["scarf", "bell"]);
+    }
+  });
+
+  it("gives the same rows when the same put runs twice", async () => {
     await putGear(deps, max, brenda, { items: ["scarf", "bell"] });
     await putGear(deps, max, gerald, { items: ["scarf"] });
     await putGear(deps, max, gerald, { items: ["scarf"] });
 
     expect(await gearOf(gerald)).toEqual(["scarf"]);
-    expect(await gearOf(brenda)).toEqual(["bell"]);
+    expect(await gearOf(brenda)).toEqual(["scarf", "bell"]);
   });
 
-  it("takes from a bird whose busy time has ended, which counts as home", async () => {
-    await putGear(deps, max, brenda, { items: ["scarf"] });
-    await setBird(
-      brenda,
-      "status = 'busy', busy_kind = 'job', busy_until = to_timestamp($2 / 1000.0)",
-      [deps.clock.now() - HOUR],
-    );
-    await putGear(deps, max, gerald, { items: ["scarf"] });
-
-    expect(await gearOf(gerald)).toEqual(["scarf"]);
-    expect(await gearOf(brenda)).toEqual([]);
-  });
-
-  it.each(["flying", "visiting", "scheduled"])(
-    "refuses to take an item from a bird that is %s",
-    async (status) => {
+  it.each([
+    ["flying", () => setBird(brenda, "status = 'flying'")],
+    ["visiting", () => setBird(brenda, "status = 'visiting'")],
+    ["scheduled", () => setBird(brenda, "status = 'scheduled'")],
+    [
+      "still busy",
+      () =>
+        setBird(
+          brenda,
+          "status = 'busy', busy_kind = 'job', busy_until = to_timestamp($2 / 1000.0)",
+          [deps.clock.now() + HOUR],
+        ),
+    ],
+  ])(
+    "puts on the scarf a %s bird wears and leaves it there",
+    async (_, leave) => {
       await putGear(deps, max, brenda, { items: ["scarf"] });
-      await setBird(brenda, `status = '${status}'`);
+      await leave();
 
-      await expect(
-        putGear(deps, max, gerald, { items: ["scarf"] }),
-      ).rejects.toMatchObject({ code: "conflict" });
-      expect(await gearOf(gerald)).toEqual([]);
+      const { bird } = await putGear(deps, max, gerald, { items: ["scarf"] });
+
+      expect(bird.gear).toEqual(["scarf"]);
+      expect(await gearOf(gerald)).toEqual(["scarf"]);
       expect(await gearOf(brenda)).toEqual(["scarf"]);
     },
   );
-
-  it("refuses to take an item from a bird that is still busy", async () => {
-    await putGear(deps, max, brenda, { items: ["scarf"] });
-    await setBird(
-      brenda,
-      "status = 'busy', busy_kind = 'job', busy_until = to_timestamp($2 / 1000.0)",
-      [deps.clock.now() + HOUR],
-    );
-
-    await expect(
-      putGear(deps, max, gerald, { items: ["scarf"] }),
-    ).rejects.toMatchObject({ code: "conflict" });
-    expect(await gearOf(brenda)).toEqual(["scarf"]);
-  });
 
   it("refuses to dress a bird that is away", async () => {
     await setBird(gerald, "status = 'flying'");
@@ -216,7 +225,7 @@ describe("putGear: someone else's bird", () => {
 });
 
 describe("putGear: applying a saved outfit (ac-3)", () => {
-  it("puts on the owned items, takes them off home birds and skips the rest", async () => {
+  it("puts on the owned items, leaves other birds dressed and skips the rest", async () => {
     await putGear(deps, max, brenda, { items: ["bow"] });
     await putGear(deps, max, gerald, { items: ["goggles", "bell"] });
     const outfitId = await addOutfit(world.max.id, "Rainy", [
@@ -231,7 +240,7 @@ describe("putGear: applying a saved outfit (ac-3)", () => {
     expect(bird.gear).toEqual(["goggles", "bow"]);
     expect(skipped).toEqual(["band", "backpack"]);
     expect(await gearOf(gerald)).toEqual(["goggles", "bow"]);
-    expect(await gearOf(brenda)).toEqual([]);
+    expect(await gearOf(brenda)).toEqual(["bow"]);
   });
 
   it("keeps the next owned item for a slot whose first item is skipped", async () => {
@@ -246,15 +255,28 @@ describe("putGear: applying a saved outfit (ac-3)", () => {
     expect(skipped).toEqual(["rainhat"]);
   });
 
-  it("skips an item worn by an away bird instead of refusing", async () => {
+  it("puts the outfit's scarf on the target while a home bird wears it", async () => {
+    await putGear(deps, max, brenda, { items: ["scarf"] });
+    const outfitId = await addOutfit(world.max.id, "Cosy", ["beanie", "scarf"]);
+
+    const { bird, skipped } = await putGear(deps, max, gerald, { outfitId });
+
+    expect(skipped).toEqual([]);
+    expect(bird.gear).toEqual(["beanie", "scarf"]);
+    expect(await gearOf(gerald)).toEqual(["beanie", "scarf"]);
+    expect(await gearOf(brenda)).toEqual(["scarf"]);
+  });
+
+  it("puts the outfit's scarf on the target while an away bird wears it", async () => {
     await putGear(deps, max, brenda, { items: ["scarf"] });
     await setBird(brenda, "status = 'flying'");
     const outfitId = await addOutfit(world.max.id, "Cosy", ["beanie", "scarf"]);
 
     const { bird, skipped } = await putGear(deps, max, gerald, { outfitId });
 
-    expect(bird.gear).toEqual(["beanie"]);
-    expect(skipped).toEqual(["scarf"]);
+    expect(skipped).toEqual([]);
+    expect(bird.gear).toEqual(["beanie", "scarf"]);
+    expect(await gearOf(gerald)).toEqual(["beanie", "scarf"]);
     expect(await gearOf(brenda)).toEqual(["scarf"]);
   });
 
