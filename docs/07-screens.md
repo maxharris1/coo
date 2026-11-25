@@ -37,7 +37,7 @@ filled bottom-left first. Three perches make one floor; at four or five perches 
 two rooms wide sits on top, which makes the house taller. Bird `i` in flock order owns room `i`,
 so a new hatchling never moves anyone. An awake home bird (napping and bathing count as home) sits
 on its room's perch. A tired or napping bird, and every home bird once the sun is down, sleeps on
-its own perch in the `sleep` pose. A bird away (flying, on a sill, on a job, scheduled) leaves one
+its own perch in the `sleep` pose. A bird away (flying, on a sill, on a job) leaves one
 feather on its perch in its wing colour. A free room holds a suitcase while a roommate is owed
 (tap → `/aviary/roommate`), then an egg in a nest when one is due (tap → `/aviary`), otherwise a
 bare perch. With four perches the fifth room is built but not bought and hangs a "TO LET" sign
