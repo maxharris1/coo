@@ -60,7 +60,7 @@ Rooms are in flock order, the same order as the list under the scene. Bird `i` o
 |---|---|---|
 | Bird is home and awake | The bird, `perched` pose, with the existing idle gestures | `/birds/{id}` |
 | Bird is home and tired, napping, or the sun is down | The bird, `sleep` pose. No idle gestures | `/birds/{id}` |
-| Bird is away (flying, on a sill, on a job, scheduled) | No bird. One feather on the perch in that bird's wing colour | `/birds/{id}` |
+| Bird is away (flying, on a sill, on a job) | No bird. One feather on the perch in that bird's wing colour | `/birds/{id}` |
 | No bird, a roommate is owed | A suitcase on the perch | `/aviary/roommate` |
 | No bird, the egg is ready | An egg in a nest, cracked and wobbling | `/aviary` |
 | No bird, the egg is not ready | An egg in a nest, still | `/aviary` |
