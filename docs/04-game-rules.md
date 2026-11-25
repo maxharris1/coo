@@ -195,7 +195,7 @@ Spent:
 | Feed | 3 |
 | Snack for a visiting bird | 5 |
 | Search party | 20 |
-| Gear | 60 to 200, see `config/gear.json` |
+| Gear | 60 to 300, see `config/gear.json` |
 | Rooftop birdbath | 220 |
 | Perch 4, perch 5 | 250, 400 |
 | Espresso shot | 25 each, see `consumables` in `config/game.json` |
