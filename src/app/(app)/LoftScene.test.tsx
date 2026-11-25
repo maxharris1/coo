@@ -138,6 +138,33 @@ describe("room links (ac-1)", () => {
     expect(birdGroups(html).map((g) => g.room)).toEqual([0]);
   });
 
+  it("sends a bird on an odd job out like a flying bird", () => {
+    const featherIn = (look: keyof typeof birdLooks) =>
+      new RegExp(
+        `<g transform="rotate\\(-14 [^"]*"><path d="[^"]*" fill="${birdLooks[look].wing}"`,
+      );
+    const onJob = bird("Brenda", {
+      look: "brenda",
+      status: "busy",
+      busyKind: "job",
+    });
+    const away = { ...kevin, status: "flying" } as Bird;
+    const birds = [gerald, onJob, away];
+    const html = render({ birds, perches: 3 });
+    expect(birdGroups(html).map((g) => g.room)).toEqual([0]);
+    expect(html).toMatch(featherIn("brenda"));
+    expect(html).toMatch(featherIn("kevin"));
+    expect(linkNamed(html, "Brenda, out")).toMatchObject([
+      { href: "/birds/brenda" },
+    ]);
+    expect(linkNamed(html, "Kevin, out")).toMatchObject([
+      { href: "/birds/kevin" },
+    ]);
+    expect(sceneLabel(html)).toBe(
+      "Your rooftop loft. Gerald sits at home. Brenda and Kevin are out.",
+    );
+  });
+
   it("links an owed roommate's room to the roommate page", () => {
     const html = render({ birds: [gerald], perches: 3 });
     expect(linkNamed(html, "A roommate is waiting")).toMatchObject([
