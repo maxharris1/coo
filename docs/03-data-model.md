@@ -58,8 +58,8 @@ Write a helper `pair(x, y)` that orders the ids, and use it everywhere.
 - `status`: `home`, `scheduled` (reserved for a timed send), `flying`, `visiting` (on a sill),
   `busy` (nap, bath or odd job; `busy_kind` and `busy_until` say which and until when).
   A busy bird whose `busy_until` has passed is treated as home and fixed up lazily.
-- `gear`: the item ids the bird is wearing. At most one per slot. An item id appears on at most
-  one of an owner's birds. Both rules are enforced in code (`lib/game/gear.ts`), not SQL.
+- `gear`: the item ids the bird is wearing. At most one per slot. An item id may appear on more
+  than one of an owner's birds. One per slot is enforced in code (`lib/game/gear.ts`), not SQL.
 
 ### gear_owned, outfits
 `gear_owned`: which items a user's closet holds. `outfits`: named sets of item ids
