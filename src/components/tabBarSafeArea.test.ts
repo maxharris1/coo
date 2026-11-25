@@ -24,6 +24,7 @@ const at = (file: string, rule: string, prop: string): Ref => ({
 const BAR_HEIGHT = at(TAB_BAR, "bar", "height");
 const BAR_BOTTOM = at(TAB_BAR, "bar", "bottom");
 const BAR_PADDING = at(TAB_BAR, "bar", "padding");
+const BAR_POSITION = at(TAB_BAR, "bar", "position");
 const TAB_HEIGHT = at(TAB_BAR, "tab", "min-height");
 const SEND_HEIGHT = at(TAB_BAR, "send", "height");
 const SEND_MARGIN = at(TAB_BAR, "send", "margin-top");
@@ -115,4 +116,44 @@ describe("home-indicator inset source", () => {
     expect(declaration(TABS_PAD)).toContain(BOTTOM_ENV);
     expect(read("app/globals.css")).not.toMatch(/:root\s*\{[^}]*--coo-/);
   });
+});
+
+const PINS_TO_DOCUMENT =
+  /(?<![-\w])(transform|translate|scale|rotate|filter|backdrop-filter|perspective|will-change|contain|container-type):/;
+const SCROLLS = /(?<![-\w])overflow(-[xy])?: (?!visible)/;
+const blocks = (file: string, selector: string) =>
+  [
+    ...read(file).matchAll(
+      new RegExp(`(?:^|\\n)\\s*${selector} \\{([^}]*)\\}`, "g"),
+    ),
+  ].map((m) => m[1]);
+
+describe("tab bar while a tab page scrolls", () => {
+  it("is fixed to the bottom of the viewport", () => {
+    expect(declaration(BAR_POSITION)).toBe("fixed");
+    expect(declaration(BAR_BOTTOM)).toBe("0");
+  });
+
+  it("centres without a transform, so iOS keeps it on the viewport", () => {
+    const rules = blocks(TAB_BAR, "\\.bar");
+    expect(rules.length).toBeGreaterThan(0);
+    for (const body of rules) expect(body).not.toMatch(PINS_TO_DOCUMENT);
+  });
+
+  it.each([
+    ["app/globals.css", "html"],
+    ["app/globals.css", "body"],
+    ["components/AppShell.module.css", "\\.column"],
+    ["components/AppShell.module.css", "\\.withTabs"],
+  ])(
+    "has no %s %s ancestor that carries it off with the document",
+    (file, selector) => {
+      const rules = blocks(file, selector);
+      expect(rules.length).toBeGreaterThan(0);
+      for (const body of rules) {
+        expect(body).not.toMatch(PINS_TO_DOCUMENT);
+        expect(body).not.toMatch(SCROLLS);
+      }
+    },
+  );
 });
