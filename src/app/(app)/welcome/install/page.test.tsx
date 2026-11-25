@@ -38,8 +38,14 @@ const render = (state: InstallState, copied = false) =>
     />,
   ).replaceAll("&#x27;", "'");
 const css = readFileSync(new URL("./page.module.css", import.meta.url), "utf8");
-const rule = (cls: string) =>
-  css.match(new RegExp(`\\.${cls} \\{[^}]*\\}`))?.[0];
+const sheetCss = readFileSync(
+  new URL("./InstallSheet.module.css", import.meta.url),
+  "utf8",
+);
+const rule = (cls: string, from = css) =>
+  from.match(new RegExp(`\\.${cls} \\{[^}]*\\}`))?.[0];
+const reducedMotion = (from: string) =>
+  from.match(/@media \(prefers-reduced-motion: reduce\) \{([^@]*)\}\s*$/)?.[1];
 const HEADING = new RegExp(
   `<h1[^>]*>Put ${config.app.name} on your home screen</h1>`,
 );
@@ -414,27 +420,36 @@ describe("/welcome/install page", () => {
 
 describe("/welcome/install styles", () => {
   it("keeps every control at least the 44 px touch size", () => {
-    for (const cls of ["skip", "action", "close"]) {
-      expect(rule(cls), `.${cls}`).toMatch(
+    const controls: [string, string][] = [
+      ["skip", css],
+      ["action", css],
+      ["close", sheetCss],
+    ];
+    for (const [cls, from] of controls) {
+      expect(rule(cls, from), `.${cls}`).toMatch(
         /min-(height|block-size): (var\(--coo-touch\)|4[4-9]px|[5-9]\dpx)/,
       );
     }
   });
 
   it("slides the guide up", () => {
-    const name = rule("sheet")?.match(/animation: ([\w-]+)/)?.[1];
+    const name = rule("sheet", sheetCss)?.match(/animation: ([\w-]+)/)?.[1];
     expect(name).toBeTruthy();
-    expect(css).toContain(`@keyframes ${name} {`);
+    expect(sheetCss).toContain(`@keyframes ${name} {`);
   });
 
   it("stops the hop, the Share pointer and the slide when the person asks for reduced motion", () => {
-    const block = css.match(
-      /@media \(prefers-reduced-motion: reduce\) \{([^@]*)\}\s*$/,
-    )?.[1];
-    for (const cls of ["hop", "point", "sheet"]) {
-      expect(block, `.${cls}`).toMatch(new RegExp(`\\.${cls}\\b`));
+    const blocks: [string[], string][] = [
+      [["hop", "point"], css],
+      [["sheet"], sheetCss],
+    ];
+    for (const [classes, from] of blocks) {
+      const block = reducedMotion(from);
+      for (const cls of classes) {
+        expect(block, `.${cls}`).toMatch(new RegExp(`\\.${cls}\\b`));
+      }
+      expect(block).toContain("animation: none !important");
     }
-    expect(block).toContain("animation: none !important");
   });
 
   it("uses the mock's sky background", () => {

@@ -12,6 +12,7 @@ import {
   watchInstall,
   type InstallState,
 } from "./installFlow";
+import sheet from "./InstallSheet.module.css";
 import styles from "./page.module.css";
 
 const STEP = welcomeStep("/welcome/install");
@@ -220,11 +221,11 @@ export function InstallView({
         Not now. Text me when birds land instead.
       </Link>
       {state.kind === "ios" && state.sheet === "open" && (
-        <div className={styles.layer}>
+        <div className={sheet.layer}>
           <button
             type="button"
             aria-label="Close"
-            className={styles.scrim}
+            className={sheet.scrim}
             onClick={onCloseSheet}
           />
           <div
@@ -233,13 +234,13 @@ export function InstallView({
             aria-modal="true"
             aria-labelledby={titleId}
             tabIndex={-1}
-            className={styles.sheet}
+            className={sheet.sheet}
             onKeyDown={(e) => {
               if (e.key === "Escape") onCloseSheet();
             }}
           >
-            <span aria-hidden="true" className={styles.grab} />
-            <h2 id={titleId} className={styles.sheetTitle}>
+            <span aria-hidden="true" className={sheet.grab} />
+            <h2 id={titleId} className={sheet.title}>
               Add {config.app.name} to your home screen
             </h2>
             <ol className={styles.steps}>
@@ -255,7 +256,7 @@ export function InstallView({
             </ol>
             <button
               type="button"
-              className={styles.close}
+              className={sheet.close}
               onClick={onCloseSheet}
             >
               Close

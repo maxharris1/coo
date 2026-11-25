@@ -1,0 +1,93 @@
+.layer {
+  position: fixed;
+  inset: 0;
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.scrim {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  border: none;
+  background: var(--coo-ink);
+  opacity: 0.35;
+  cursor: pointer;
+}
+
+.sheet {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 480px;
+  max-height: 90%;
+  margin: 0 auto;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px var(--coo-gutter) calc(16px + var(--coo-safe-bottom));
+  background: var(--coo-paper);
+  border: var(--coo-line);
+  border-bottom: none;
+  border-radius: 28px 28px 0 0;
+  animation: coo-sheet-up 0.28s ease-out;
+}
+
+.sheet:focus {
+  outline: none;
+}
+
+.grab {
+  align-self: center;
+  width: 44px;
+  height: 5px;
+  flex-shrink: 0;
+  background: var(--coo-ink);
+  opacity: 0.3;
+  border-radius: var(--coo-radius-pill);
+}
+
+.title {
+  margin: 0;
+  font-family: var(--coo-font-display);
+  font-weight: 400;
+  font-size: 22px;
+  line-height: 1.05;
+}
+
+.close {
+  min-height: 50px;
+  box-sizing: border-box;
+  padding: 0 14px;
+  background: var(--coo-card);
+  border: var(--coo-line);
+  border-radius: var(--coo-radius-card);
+  color: var(--coo-ink);
+  font-family: inherit;
+  font-weight: 900;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.close:focus-visible {
+  outline: 3px solid var(--coo-tomato);
+  outline-offset: 2px;
+}
+
+@keyframes coo-sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet {
+    animation: none !important;
+  }
+}
