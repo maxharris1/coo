@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { config } from "@/lib/config";
 import { metadata, viewport } from "./layout";
@@ -13,8 +13,24 @@ function pngSize(src: string) {
   return `${bytes.readUInt32BE(16)}x${bytes.readUInt32BE(20)}`;
 }
 
-describe("web app manifest", () => {
+describe("web app manifest (ac-7)", () => {
   const m = manifest();
+
+  it("passes Chromium's installability checks", () => {
+    expect(m.name || m.short_name).toBeTruthy();
+    expect(m.start_url).toBeTruthy();
+    expect(["standalone", "fullscreen", "minimal-ui"]).toContain(m.display);
+    expect(m.icons?.map((i) => i.sizes)).toEqual(
+      expect.arrayContaining(["192x192", "512x512"]),
+    );
+    expect(m.prefer_related_applications).not.toBe(true);
+  });
+
+  it("is the only manifest the app serves at /manifest.webmanifest", () => {
+    const files = readdirSync(publicDir, { recursive: true, encoding: "utf8" });
+    expect(files.filter((f) => f.endsWith(".webmanifest"))).toEqual([]);
+    expect([undefined, "/manifest.webmanifest"]).toContain(metadata.manifest);
+  });
 
   it("takes its name, short name and colours from config/app.json", () => {
     expect(m.name).toBe(config.app.name);
@@ -28,7 +44,6 @@ describe("web app manifest", () => {
     expect(m.orientation).toBe("portrait");
     expect(m.scope).toBe("/");
     expect(m.start_url?.startsWith(m.scope ?? "")).toBe(true);
-    expect(m.prefer_related_applications).not.toBe(true);
   });
 
   it("lists 192 and 512 PNG icons and a maskable 512 whose real sizes match", () => {

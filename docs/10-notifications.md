@@ -5,8 +5,9 @@
 Coo is a web app that should feel installed. Notifications on iPhone only work for web apps
 opened from the home screen, so every new sign-up sees install right after naming their first bird.
 
-- `public/manifest.webmanifest` from `assets/`: `display: standalone`, portrait, theme colour sky,
-  background paper, icons 192, 512 and maskable 512. Name and short name from `config/app.json`.
+- `src/app/manifest.ts`, served at `/manifest.webmanifest` and built from `config/app.json`:
+  `display: standalone`, portrait, theme colour sky, background paper, icons 192, 512 and
+  maskable 512.
 - `<link rel="apple-touch-icon">` to the 180 px icon, `apple-mobile-web-app-capable`, status bar
   style `black-translucent` (so content draws under the status bar when installed),
   `viewport-fit=cover`, and safe-area padding on the tab bar and headers. Full-bleed map and
@@ -16,7 +17,9 @@ opened from the home screen, so every new sign-up sees install right after namin
   `navigator.standalone`. When true, set `installed` in settings once.
 - The Install screen (drawn) shows iPhone steps on iOS Safari. On Android Chrome, capture the
   `beforeinstallprompt` event and show one Install button. In an in-app browser (Instagram,
-  Messages preview and so on) say "Open this in Safari first" with a copy-link button.
+  Messages preview and so on) say "Open this in Safari first" with a copy-link button. Chrome,
+  Firefox and Edge on iPhone count as in-app, because they cannot add to the home screen.
+  Desktop browsers skip the step.
 - The service worker (`public/sw.js`, hand-written, no library) does three things: caches the
   app shell and static assets so the app opens offline, shows push notifications, and opens the
   right page when one is tapped. Do not cache API responses.

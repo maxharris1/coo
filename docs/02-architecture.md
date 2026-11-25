@@ -62,12 +62,12 @@ public/
   assets/                    copied from the packet's assets/
   map/coo-day.style.json     map style (packet assets/map)
   sw.js                      service worker
-  manifest.webmanifest
 src/
   app/
     (public)/                /welcome, /sign-in, /b/[slug], /join/[code]
     (app)/                   everything behind sign-in; layout holds the tab bar and the sync provider
     api/**/route.ts          thin: check the user, validate with zod, call a service, return JSON
+    manifest.ts              /manifest.webmanifest, built from config/app.json
   components/                Button, Card, Chip, Header, TabBar, Sheet, Bird, GearIcon, MapView, ...
   lib/
     flight/engine.ts         the reference engine, unchanged

@@ -15,15 +15,19 @@ export type Platform =
   | { kind: "other" };
 
 const IN_APP = [
+  // Chrome, Firefox and Edge on iOS cannot add a web app to the home screen.
+  /CriOS|FxiOS|EdgiOS/,
   /FBAN|FBAV/,
   /Instagram/,
   /Line\//,
   /MicroMessenger/,
   /Snapchat/,
   /TikTok|musical_ly|BytedanceWebview/,
+  /Twitter/,
+  /LinkedInApp/,
+  /GSA\//,
   /; wv\)/,
 ];
-const IOS_OTHER_BROWSER = /CriOS|FxiOS|EdgiOS/;
 
 type DeviceSnapshot = Pick<PlatformSnapshot, "userAgent" | "maxTouchPoints">;
 
@@ -41,16 +45,12 @@ export function detectPlatform(s: PlatformSnapshot): Platform {
   if (s.displayModeStandalone || s.navigatorStandalone) {
     return { kind: "installed" };
   }
+  if (!ios && !/Android/.test(ua)) return { kind: "other" };
   if (IN_APP.some((token) => token.test(ua)) || (ios && !/Safari\//.test(ua))) {
     return { kind: "in-app", openIn: ios ? "Safari" : "Chrome" };
   }
-  if (ios) {
-    return IOS_OTHER_BROWSER.test(ua)
-      ? { kind: "other" }
-      : { kind: "ios-safari" };
-  }
+  if (ios) return { kind: "ios-safari" };
   if (s.hasInstallPrompt) return { kind: "prompt" };
-  if (/Android/.test(ua) && /Chrome\//.test(ua))
-    return { kind: "prompt-pending" };
+  if (/Chrome\//.test(ua)) return { kind: "prompt-pending" };
   return { kind: "other" };
 }

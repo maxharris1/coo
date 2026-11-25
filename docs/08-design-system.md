@@ -138,8 +138,8 @@ its duration, easing and use. `assets/preview/motion.html` and the Motion sheet 
 
 ## App icon and install
 
-`assets/app-icon/` has SVG masters and PNG exports. `assets/manifest.webmanifest` is ready;
-replace its name fields from `config/app.json` at build time. See `docs/10-notifications.md`.
+`assets/app-icon/` has SVG masters and PNG exports. The web manifest is `src/app/manifest.ts`,
+served at `/manifest.webmanifest` and built from `config/app.json`. See `docs/10-notifications.md`.
 
 ## Accessibility
 

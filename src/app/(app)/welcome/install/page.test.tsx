@@ -2,10 +2,15 @@ import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { config } from "@/lib/config";
-import type { Platform } from "@/lib/platform";
+import {
+  detectPlatform,
+  type Platform,
+  type PlatformSnapshot,
+} from "@/lib/platform";
 import type { UserId } from "@/server/ports/auth";
 import { onboard } from "@/server/services/onboarding";
 import { makeTestDeps } from "@/test/deps";
+import { snapshot, UA } from "@/test/fixtures/platform";
 import { InstallView, installStep, type InstallScreen } from "./Install";
 
 const { requireUser, redirect } = vi.hoisted(() => ({
@@ -159,7 +164,7 @@ describe("'Not now. Text me when birds land instead.' (ac-3)", () => {
   });
 });
 
-describe("installStep", () => {
+describe("installStep (ac-4, ac-5)", () => {
   const cases: [Platform, ReturnType<typeof installStep>][] = [
     [{ kind: "installed" }, { kind: "skip" }],
     [{ kind: "other" }, { kind: "skip" }],
@@ -170,9 +175,47 @@ describe("installStep", () => {
       { kind: "in-app", openIn: "Chrome" },
       { kind: "in-app", openIn: "Chrome" },
     ],
+    [
+      { kind: "in-app", openIn: "Safari" },
+      { kind: "in-app", openIn: "Safari" },
+    ],
   ];
   it.each(cases)("maps %o to %o", (platform, step) => {
     expect(installStep(platform)).toEqual(step);
+  });
+
+  const SAFARI_FIRST = { kind: "in-app", openIn: "Safari" } as const;
+  const browsers: [string, ReturnType<typeof installStep>, PlatformSnapshot][] =
+    [
+      ["iPhone Chrome", SAFARI_FIRST, snapshot(UA.iphoneChrome)],
+      ["iPhone Firefox", SAFARI_FIRST, snapshot(UA.iphoneFirefox)],
+      ["iPhone Edge", SAFARI_FIRST, snapshot(UA.iphoneEdge)],
+      ["iPhone Instagram", SAFARI_FIRST, snapshot(UA.iphoneInstagram)],
+      ["iPhone Gmail", SAFARI_FIRST, snapshot(UA.iphoneGmail)],
+      [
+        "Android Instagram",
+        { kind: "in-app", openIn: "Chrome" },
+        snapshot(UA.androidInstagram),
+      ],
+      [
+        "desktop Chrome with an install prompt",
+        { kind: "skip" },
+        snapshot(UA.desktopChrome, { hasInstallPrompt: true }),
+      ],
+      ["desktop Firefox", { kind: "skip" }, snapshot(UA.desktopFirefox)],
+      [
+        "iPad Safari",
+        { kind: "ios" },
+        snapshot(UA.ipadSafari, { maxTouchPoints: 5 }),
+      ],
+      [
+        "iPad Safari asking for the desktop site",
+        { kind: "ios" },
+        snapshot(UA.macSafari, { maxTouchPoints: 5 }),
+      ],
+    ];
+  it.each(browsers)("gives %s the %o step", (_, step, browser) => {
+    expect(installStep(detectPlatform(browser))).toEqual(step);
   });
 });
 
