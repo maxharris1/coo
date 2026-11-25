@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { config } from "@/lib/config";
 import type { ShopRow, ShopRows } from "./shop";
 import { ShopItems, type SeedBurst } from "./ShopItems";
 
@@ -61,6 +62,19 @@ const MOCK: ShopRows = {
   ],
 };
 
+const backpack: ShopRow = {
+  itemId: "backpack",
+  name: "Tiny backpack",
+  effect: "Carries more",
+  action: { kind: "buy", price: 450 },
+};
+const nightgoggles: ShopRow = {
+  itemId: "nightgoggles",
+  name: "Night-vision goggles",
+  effect: "Flies through the night",
+  action: { kind: "buy", price: 300 },
+};
+
 const render = (
   rows: Pick<ShopRows, "gear" | "loft">,
   burst: SeedBurst | null = null,
@@ -78,6 +92,20 @@ const cards = (html: string) =>
   html.match(/<li[^>]*class="[^"]*row[^"]*"[^>]*>.*?<\/li>/g) ?? [];
 
 describe("/shop gear and loft lists (ac-1)", () => {
+  it("prices every gear fixture at its config/gear.json price", () => {
+    const configPrice = new Map(
+      config.gear.items.map((item) => [item.id, item.price]),
+    );
+    const priced = [...MOCK.gear, backpack, nightgoggles].flatMap((row) =>
+      row.action.kind === "buy"
+        ? [{ itemId: row.itemId, price: row.action.price }]
+        : [],
+    );
+    expect(priced).toEqual(
+      priced.map(({ itemId }) => ({ itemId, price: configPrice.get(itemId) })),
+    );
+  });
+
   const html = render(MOCK);
 
   it("heads the gear list Gear for the flock with Any bird can wear it", () => {
@@ -149,24 +177,12 @@ describe("/shop gear and loft lists (ac-1)", () => {
   });
 
   it("falls back to a sky tile for gear the mock does not draw", () => {
-    const backpack: ShopRow = {
-      itemId: "backpack",
-      name: "Tiny backpack",
-      effect: "Carries more",
-      action: { kind: "buy", price: 300 },
-    };
     const [card] = cards(render({ gear: [backpack], loft: [] }));
     expect(card).toMatch(/class="[^"]*tile[^"]*" style="[^"]*--coo-sky/);
     expect(card).toContain('src="/assets/svg/gear/icons/backpack.svg"');
   });
 
   it("draws the night-vision goggles in a lilac tile with their icon", () => {
-    const nightgoggles: ShopRow = {
-      itemId: "nightgoggles",
-      name: "Night-vision goggles",
-      effect: "Flies through the night",
-      action: { kind: "buy", price: 300 },
-    };
     const [card] = cards(render({ gear: [nightgoggles], loft: [] }));
     expect(card).toMatch(/class="[^"]*tile[^"]*" style="[^"]*--coo-lilac/);
     expect(card).toContain('src="/assets/svg/gear/icons/nightgoggles.svg"');

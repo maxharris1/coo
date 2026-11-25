@@ -336,9 +336,14 @@ const RAIN_HAT: BuyRow = {
   itemId: "rainhat",
   name: "Rain hat",
   effect: "Shrugs off downpours",
-  action: { kind: "buy", price: 120 },
+  action: { kind: "buy", price: 180 },
 };
-const CAP: BuyRow = { ...RAIN_HAT, itemId: "cap", name: "Captain's cap" };
+const CAP: BuyRow = {
+  ...RAIN_HAT,
+  itemId: "cap",
+  name: "Captain's cap",
+  action: { kind: "buy", price: 240 },
+};
 
 describe("purchase (part 4 ac-1)", () => {
   const idle: Purchase = { kind: "idle" };
@@ -397,14 +402,29 @@ describe("completeBuy (part 4 ac-2)", () => {
     itemId: "rainhat",
     name: "Rain hat",
     effect: "Rain hat effect",
-    action: { kind: "buy", price: 120 },
+    action: { kind: "buy", price: 180 },
   };
+  const staleHat: BuyRow = { ...hat, action: { kind: "buy", price: 120 } };
+
+  it("prices the purchase fixtures at their config/gear.json prices", () => {
+    const configPrice = new Map(
+      config.gear.items.map((item) => [item.id, item.price]),
+    );
+    expect(
+      [RAIN_HAT, CAP, hat].map((row) => [row.itemId, row.action.price]),
+    ).toEqual(
+      [RAIN_HAT, CAP, hat].map((row) => [
+        row.itemId,
+        configPrice.get(row.itemId),
+      ]),
+    );
+  });
 
   it("bursts from the item, refreshes sync and refetches the shop", async () => {
     const d = deps({ ok: true, data: { me: {} as never, closet: [] } });
     const rows = await completeBuy(hat, before, d);
     expect(d.calls).toEqual([
-      "buy rainhat for 120",
+      "buy rainhat for 180",
       "burst rainhat",
       "refresh",
       "load",
@@ -416,7 +436,7 @@ describe("completeBuy (part 4 ac-2)", () => {
     const d = deps({ ok: false, message: "Not enough seeds for that." });
     const rows = await completeBuy(hat, before, d);
     expect(d.calls).toEqual([
-      "buy rainhat for 120",
+      "buy rainhat for 180",
       "toast Not enough seeds for that.",
     ]);
     expect(rows).toBe(before);
@@ -428,7 +448,7 @@ describe("completeBuy (part 4 ac-2)", () => {
       code: "conflict",
       message: "The price changed. Take another look.",
     });
-    const rows = await completeBuy(hat, before, d);
+    const rows = await completeBuy(staleHat, before, d);
     expect(d.calls).toEqual([
       "buy rainhat for 120",
       "toast The price changed. Take another look.",
@@ -447,7 +467,7 @@ describe("completeBuy (part 4 ac-2)", () => {
       d.calls.push("load");
       return { ok: false, message: "We could not reach the loft. Try again." };
     });
-    const rows = await completeBuy(hat, before, d);
+    const rows = await completeBuy(staleHat, before, d);
     expect(d.calls).toEqual([
       "buy rainhat for 120",
       "toast The price changed. Take another look.",
