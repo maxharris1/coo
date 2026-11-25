@@ -1,6 +1,14 @@
 "use client";
 
-import { useEffect, useId, useReducer, useRef, useState } from "react";
+import {
+  type KeyboardEvent,
+  useEffect,
+  useId,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
+import { flushSync } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { config } from "@/lib/config";
@@ -164,6 +172,7 @@ const STEPS = [
 ];
 
 const focusOnMount = (el: HTMLElement | null) => el?.focus();
+const FOCUSABLE = "button, a[href], [tabindex]:not([tabindex='-1'])";
 
 export function InstallView({
   state,
@@ -181,52 +190,84 @@ export function InstallView({
   onCloseSheet: () => void;
 }) {
   const titleId = useId();
+  const install = useRef<HTMLButtonElement>(null);
+  const sheetOpen = state.kind === "ios" && state.sheet === "open";
+
+  const closeSheet = () => {
+    flushSync(onCloseSheet);
+    install.current?.focus();
+  };
+
+  const onSheetKey = (e: KeyboardEvent<HTMLElement>) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      closeSheet();
+    } else if (e.key === "Tab") {
+      e.preventDefault();
+      const items = [
+        ...e.currentTarget.querySelectorAll<HTMLElement>(FOCUSABLE),
+      ];
+      const at = items.indexOf(e.target as HTMLElement);
+      items
+        .at(e.shiftKey ? Math.max(at, 0) - 1 : (at + 1) % items.length)
+        ?.focus();
+    }
+  };
+
   return (
-    <main className={styles.page}>
-      <p className={styles.pill}>{`Step ${STEP.number} of ${STEP.total}`}</p>
-      <div className={styles.intro}>
-        <h1 className={styles.title}>
-          Put {config.app.name} on your home screen
-        </h1>
-        <p className={styles.subline}>
-          It opens full screen like any other app, and it is how your phone
-          tells you a bird has landed.
-        </p>
-      </div>
-      <HomeScreen />
-      {state.kind === "ios" && (
-        <button type="button" className={styles.action} onClick={onOpenSheet}>
-          Install
-        </button>
-      )}
-      {state.kind === "prompt" && (
-        <button type="button" className={styles.action} onClick={onInstall}>
-          Install
-        </button>
-      )}
-      {state.kind === "menu" && (
-        <p className={styles.openIn}>
-          Tap your browser&apos;s menu, then Install app
-        </p>
-      )}
-      {state.kind === "in-app" && (
-        <div className={styles.inApp}>
-          <p className={styles.openIn}>Open this in {state.openIn} first</p>
-          <button type="button" className={styles.copy} onClick={onCopy}>
-            {copied ? "Link copied" : "Copy link"}
-          </button>
+    <>
+      <main className={styles.page} inert={sheetOpen}>
+        <p className={styles.pill}>{`Step ${STEP.number} of ${STEP.total}`}</p>
+        <div className={styles.intro}>
+          <h1 className={styles.title}>
+            Put {config.app.name} on your home screen
+          </h1>
+          <p className={styles.subline}>
+            It opens full screen like any other app, and it is how your phone
+            tells you a bird has landed.
+          </p>
         </div>
-      )}
-      <Link href={NEXT_STEP} className={styles.skip}>
-        Not now. Text me when birds land instead.
-      </Link>
-      {state.kind === "ios" && state.sheet === "open" && (
-        <div className={sheet.layer}>
+        <HomeScreen />
+        {state.kind === "ios" && (
+          <button
+            ref={install}
+            type="button"
+            className={styles.action}
+            onClick={onOpenSheet}
+          >
+            Install
+          </button>
+        )}
+        {state.kind === "prompt" && (
+          <button type="button" className={styles.action} onClick={onInstall}>
+            Install
+          </button>
+        )}
+        {state.kind === "menu" && (
+          <p className={styles.openIn}>
+            Tap your browser&apos;s menu, then Install app
+          </p>
+        )}
+        {state.kind === "in-app" && (
+          <div className={styles.inApp}>
+            <p className={styles.openIn}>Open this in {state.openIn} first</p>
+            <button type="button" className={styles.copy} onClick={onCopy}>
+              {copied ? "Link copied" : "Copy link"}
+            </button>
+          </div>
+        )}
+        <Link href={NEXT_STEP} className={styles.skip}>
+          Not now. Text me when birds land instead.
+        </Link>
+      </main>
+      {sheetOpen && (
+        <div className={sheet.layer} onKeyDown={onSheetKey}>
           <button
             type="button"
             aria-label="Close"
+            tabIndex={-1}
             className={sheet.scrim}
-            onClick={onCloseSheet}
+            onClick={closeSheet}
           />
           <div
             ref={focusOnMount}
@@ -235,9 +276,6 @@ export function InstallView({
             aria-labelledby={titleId}
             tabIndex={-1}
             className={sheet.sheet}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") onCloseSheet();
-            }}
           >
             <span aria-hidden="true" className={sheet.grab} />
             <h2 id={titleId} className={sheet.title}>
@@ -254,17 +292,13 @@ export function InstallView({
                 </li>
               ))}
             </ol>
-            <button
-              type="button"
-              className={sheet.close}
-              onClick={onCloseSheet}
-            >
+            <button type="button" className={sheet.close} onClick={closeSheet}>
               Close
             </button>
           </div>
         </div>
       )}
-    </main>
+    </>
   );
 }
 

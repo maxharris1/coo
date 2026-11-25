@@ -71,12 +71,21 @@ function dialogOf(html: string) {
   throw new Error("no dialog in markup");
 }
 
+type Focusable = { focus: () => void };
+type Key = {
+  key: string;
+  shiftKey?: boolean;
+  target?: unknown;
+  currentTarget?: { querySelectorAll: () => Focusable[] };
+  preventDefault?: () => void;
+};
 type El = ReactElement<{
   children?: ReactNode;
   role?: string;
   "aria-label"?: string;
   onClick?: () => void;
-  onKeyDown?: (e: { key: string }) => void;
+  onKeyDown?: (e: Key) => void;
+  ref?: { current: Focusable | null };
 }>;
 
 function find(node: ReactNode, hit: (el: El) => boolean): El | undefined {
@@ -210,11 +219,109 @@ describe("/welcome/install on iOS Safari (ac-3)", () => {
 
     it("closes the guide on Escape and ignores other keys", () => {
       const { node, onCloseSheet } = spies("open");
-      const dialog = find(node, (el) => el.props.role === "dialog");
-      dialog?.props.onKeyDown?.({ key: "Tab" });
+      const layer = find(node, (el) => el.props.onKeyDown !== undefined);
+      layer?.props.onKeyDown?.({ key: "Enter" });
       expect(onCloseSheet).not.toHaveBeenCalled();
-      dialog?.props.onKeyDown?.({ key: "Escape" });
+      layer?.props.onKeyDown?.({ key: "Escape", preventDefault: () => {} });
       expect(onCloseSheet).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe("as a keyboard modal", () => {
+    const open = render({ kind: "ios", sheet: "open" });
+    const behind = (html: string) =>
+      html.match(/<main[^>]*>.*?<\/main>/s)?.[0] ?? "";
+
+    it("makes the page behind the open guide inert", () => {
+      const page = behind(open);
+      expect(page).toMatch(/^<main[^>]*\binert=""/);
+      expect(page).toMatch(/<button[^>]*>Install<\/button>/);
+      expect(page).toMatch(SKIP);
+      expect(page).not.toContain('role="dialog"');
+    });
+
+    it("leaves the page live once the guide is closed", () => {
+      expect(behind(render({ kind: "ios", sheet: "closed" }))).not.toContain(
+        "inert",
+      );
+    });
+
+    it("keeps the backdrop out of the Tab order", () => {
+      expect(open).toMatch(/<button[^>]*aria-label="Close"[^>]*tabindex="-1"/);
+    });
+
+    const keyboard = () => {
+      const onCloseSheet = vi.fn();
+      const node = tree({
+        state: { kind: "ios", sheet: "open" },
+        copied: false,
+        onInstall: () => {},
+        onCopy: () => {},
+        onOpenSheet: () => {},
+        onCloseSheet,
+      });
+      const install = { focus: vi.fn() };
+      const ref = find(node, (el) => el.props.children === "Install")?.props
+        .ref;
+      if (ref) ref.current = install;
+      const layer = find(node, (el) => el.props.onKeyDown !== undefined);
+      const items = [{ focus: vi.fn() }, { focus: vi.fn() }];
+      const press = (key: string, target: unknown, shiftKey = false) => {
+        const preventDefault = vi.fn();
+        layer?.props.onKeyDown?.({
+          key,
+          shiftKey,
+          target,
+          currentTarget: { querySelectorAll: () => items },
+          preventDefault,
+        });
+        return preventDefault;
+      };
+      return { node, onCloseSheet, install, items, press };
+    };
+
+    it("wraps Tab from the last control to the first", () => {
+      const { items, press } = keyboard();
+      expect(press("Tab", items[1])).toHaveBeenCalled();
+      expect(items[0].focus).toHaveBeenCalledOnce();
+    });
+
+    it("wraps Shift+Tab from the first control to the last", () => {
+      const { items, press } = keyboard();
+      expect(press("Tab", items[0], true)).toHaveBeenCalled();
+      expect(items[1].focus).toHaveBeenCalledOnce();
+    });
+
+    it("keeps Shift+Tab from the sheet itself inside the sheet", () => {
+      const { items, press } = keyboard();
+      expect(press("Tab", {}, true)).toHaveBeenCalled();
+      expect(items[1].focus).toHaveBeenCalledOnce();
+      expect(items[0].focus).not.toHaveBeenCalled();
+    });
+
+    it.each<[string, (k: ReturnType<typeof keyboard>) => void]>([
+      ["Escape", ({ press }) => press("Escape", {})],
+      [
+        "the backdrop",
+        ({ node }) =>
+          find(
+            node,
+            (el) => el.props["aria-label"] === "Close",
+          )?.props.onClick?.(),
+      ],
+      [
+        "the Close button",
+        ({ node }) =>
+          find(node, (el) => el.props.children === "Close")?.props.onClick?.(),
+      ],
+    ])("returns focus to Install after closing with %s", (_, dismiss) => {
+      const k = keyboard();
+      dismiss(k);
+      expect(k.onCloseSheet).toHaveBeenCalledOnce();
+      expect(k.install.focus).toHaveBeenCalledOnce();
+      expect(k.onCloseSheet.mock.invocationCallOrder[0]).toBeLessThan(
+        k.install.focus.mock.invocationCallOrder[0],
+      );
     });
   });
 });
