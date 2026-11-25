@@ -32,7 +32,7 @@ A human developer can use it the same way.
 | `reference/flight-engine/` | The flight engine in TypeScript, working and tested, with 28 worked examples. Port it unchanged. |
 | `reference/screens/` | All 29 designed screens as PNG and as standalone HTML you can open and click through. |
 | `reference/sheets/` | The 10 design reference sheets: tokens, components, icons, birds, gear, illustrations, map, motion, app icon, voice. |
-| `assets/` | Production assets: SVG birds in every pose, gear, icons, illustrations, map style, fonts, motion CSS, tokens, web manifest. |
+| `assets/` | Production assets: SVG birds in every pose, gear, icons, illustrations, map style, fonts, motion CSS, tokens. |
 
 ## What has been checked, and what has not
 
