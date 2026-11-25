@@ -18,25 +18,25 @@ const MOCK: ShopRows = {
       itemId: "goggles",
       name: "Aviator goggles",
       effect: "Holds full speed in rain",
-      action: { kind: "owned", label: "In the closet" },
+      action: { kind: "owned", label: "Unlocked" },
     },
     {
       itemId: "rainhat",
       name: "Rain hat",
       effect: "Shrugs off downpours",
-      action: { kind: "buy", price: 120 },
+      action: { kind: "buy", price: 180 },
     },
     {
       itemId: "cap",
       name: "Captain's cap",
       effect: "Steadier in a headwind",
-      action: { kind: "buy", price: 160 },
+      action: { kind: "buy", price: 240 },
     },
     {
       itemId: "tube",
       name: "Roomy leg tube",
       effect: "Notes up to 280 characters",
-      action: { kind: "buy", price: 200 },
+      action: { kind: "buy", price: 300 },
     },
     {
       itemId: "booties",
@@ -165,16 +165,16 @@ describe("/shop gear and loft lists (ac-1)", () => {
       itemId: "nightgoggles",
       name: "Night-vision goggles",
       effect: "Flies through the night",
-      action: { kind: "buy", price: 200 },
+      action: { kind: "buy", price: 300 },
     };
     const [card] = cards(render({ gear: [nightgoggles], loft: [] }));
     expect(card).toMatch(/class="[^"]*tile[^"]*" style="[^"]*--coo-lilac/);
     expect(card).toContain('src="/assets/svg/gear/icons/nightgoggles.svg"');
   });
 
-  it("shows In the closet as a mint chip on owned gear", () => {
+  it("shows Unlocked as a mint chip on owned gear", () => {
     const [goggles] = cards(html);
-    expect(goggles).toMatch(/class="[^"]*chip[^"]*">In the closet</);
+    expect(goggles).toMatch(/class="[^"]*chip[^"]*">Unlocked</);
     expect(goggles).not.toContain("<button");
     expect(rule("chip")).toMatch(/background:\s*var\(--coo-mint\)/);
   });
@@ -191,7 +191,7 @@ describe("/shop gear and loft lists (ac-1)", () => {
   it("shows a seed price button on buyable rows", () => {
     const rainhat = cards(html)[1];
     expect(rainhat).toMatch(
-      /<button type="button"[^>]*class="[^"]*price[^"]*"[^>]*><svg[^>]*aria-hidden="true"[^>]*>.*<\/svg><span>120<\/span><\/button>/,
+      /<button type="button"[^>]*class="[^"]*price[^"]*"[^>]*><svg[^>]*aria-hidden="true"[^>]*>.*<\/svg><span>180<\/span><\/button>/,
     );
     expect(rule("price")).toMatch(/background:\s*var\(--coo-sun\)/);
     expect(rule("price")).toMatch(/box-shadow:\s*var\(--coo-shadow-1\)/);
@@ -279,9 +279,9 @@ describe("/shop price buttons (ac-2)", () => {
       (m) => m[1],
     );
     expect(labels).toEqual([
-      "Buy Rain hat for 120 seeds",
-      "Buy Captain's cap for 160 seeds",
-      "Buy Roomy leg tube for 200 seeds",
+      "Buy Rain hat for 180 seeds",
+      "Buy Captain's cap for 240 seeds",
+      "Buy Roomy leg tube for 300 seeds",
       "Buy Rain booties for 60 seeds",
       "Buy Rooftop birdbath for 220 seeds",
     ]);

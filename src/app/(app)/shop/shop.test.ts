@@ -77,7 +77,7 @@ describe("shopRows", () => {
         itemId: "goggles",
         name: "Aviator goggles",
         effect: "Aviator goggles effect",
-        action: { kind: "owned", label: "In the closet" },
+        action: { kind: "owned", label: "Unlocked" },
       },
       {
         itemId: "rainhat",
@@ -193,7 +193,7 @@ describe("shopRows", () => {
         itemId: "backpack",
         name: "Tiny backpack",
         effect: "Tiny backpack effect",
-        action: { kind: "owned", label: "In the closet" },
+        action: { kind: "owned", label: "Unlocked" },
       },
     ]);
   });
