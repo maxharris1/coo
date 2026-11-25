@@ -185,13 +185,27 @@ describe("putGear: sharing an item between birds", () => {
     },
   );
 
-  it("refuses to dress a bird that is away", async () => {
-    await setBird(gerald, "status = 'flying'");
+  it.each([
+    ["home", () => setBird(gerald, "status = 'home'")],
+    ["flying", () => setBird(gerald, "status = 'flying'")],
+    ["visiting", () => setBird(gerald, "status = 'visiting'")],
+    ["scheduled", () => setBird(gerald, "status = 'scheduled'")],
+    [
+      "still busy",
+      () =>
+        setBird(
+          gerald,
+          "status = 'busy', busy_kind = 'job', busy_until = to_timestamp($2 / 1000.0)",
+          [deps.clock.now() + HOUR],
+        ),
+    ],
+  ])("dresses a bird that is %s", async (_, leave) => {
+    await leave();
 
-    await expect(
-      putGear(deps, max, gerald, { items: ["goggles"] }),
-    ).rejects.toMatchObject({ code: "conflict" });
-    expect(await gearOf(gerald)).toEqual([]);
+    const { bird } = await putGear(deps, max, gerald, { items: ["goggles"] });
+
+    expect(bird.gear).toEqual(["goggles"]);
+    expect(await gearOf(gerald)).toEqual(["goggles"]);
   });
 });
 
@@ -199,6 +213,16 @@ describe("putGear: someone else's bird", () => {
   it("answers not_found for another user's bird and leaves it unchanged", async () => {
     const [kevin] = world.priya.birds;
     await setBird(kevin.id, "gear = $2", [["bow"]]);
+
+    await expect(
+      putGear(deps, max, kevin.id, { items: ["goggles"] }),
+    ).rejects.toMatchObject({ code: "not_found" });
+    expect(await gearOf(kevin.id)).toEqual(["bow"]);
+  });
+
+  it("answers not_found for another user's flying bird and leaves it unchanged", async () => {
+    const [kevin] = world.priya.birds;
+    await setBird(kevin.id, "status = 'flying', gear = $2", [["bow"]]);
 
     await expect(
       putGear(deps, max, kevin.id, { items: ["goggles"] }),
@@ -306,14 +330,15 @@ describe("putGear: applying a saved outfit (ac-3)", () => {
     expect(await gearOf(gerald)).toEqual(["beanie"]);
   });
 
-  it("refuses to dress a bird that is away", async () => {
+  it("applies an outfit to a bird that is flying", async () => {
     const outfitId = await addOutfit(world.max.id, "Cosy", ["beanie"]);
     await setBird(gerald, "status = 'flying'");
 
-    await expect(
-      putGear(deps, max, gerald, { outfitId }),
-    ).rejects.toMatchObject({ code: "conflict" });
-    expect(await gearOf(gerald)).toEqual([]);
+    const { bird, skipped } = await putGear(deps, max, gerald, { outfitId });
+
+    expect(skipped).toEqual([]);
+    expect(bird.gear).toEqual(["beanie"]);
+    expect(await gearOf(gerald)).toEqual(["beanie"]);
   });
 });
 

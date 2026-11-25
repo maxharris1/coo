@@ -209,9 +209,10 @@ Example: Brooklyn to Philadelphia is 81 miles. 10 + floor(81 / 25) = 13 seeds.
 
 Fourteen items for sale, fifteen in the catalog (the tiny backpack is coming later), four slots
 (head, neck, leg, back), one item per slot per bird.
-The closet belongs to the user. Any of their birds can wear any item, several birds at once.
-Gear can be changed only on a bird that is `home`. Exact effects are the `rule` field in
-`config/gear.json`; the engine implements the ones marked `engine:`.
+The closet belongs to the user. Any of their birds can wear any item they own, and every bird
+can wear the same owned item at once. Gear can be changed on any of the owner's birds at any
+time, whatever the bird is doing. Exact effects are the `rule` field in `config/gear.json`; the
+engine implements the ones marked `engine:`.
 
 Note the two neck items that matter in bad weather cannot be combined with each other, and
 neither can the beanie and either pair of goggles. Choosing is the game.
