@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useReducer, useRef, useState } from "react";
+import { useEffect, useId, useReducer, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { config } from "@/lib/config";
@@ -98,9 +98,16 @@ function HomeScreen() {
 
 const STEPS = [
   {
-    text: "Tap Share in your browser's toolbar",
+    text: "Tap Share. If you don't see it, tap ••• first. Share is at the bottom in portrait and at the top right in landscape.",
     icon: (
-      <svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true">
+      <svg
+        width="28"
+        height="28"
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+        className={styles.point}
+        style={POINT}
+      >
         <path
           d="M8 10 H6 V21 H18 V10 H16 M12 15 V3 M8 7 L12 3 L16 7"
           fill="none"
@@ -113,7 +120,7 @@ const STEPS = [
     ),
   },
   {
-    text: "Choose Add to Home Screen",
+    text: "Choose Add to Home Screen. Tap View More or scroll if it's hidden.",
     icon: (
       <svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true">
         <rect
@@ -136,80 +143,43 @@ const STEPS = [
     ),
   },
   {
-    text: `Open ${config.app.name} from the new icon and say yes to notifications`,
+    text: "Leave Open as Web App on, then tap Add.",
     icon: (
       <svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true">
-        <path
-          d="M12 4 Q18 5 18 13 L20 17 H4 L6 13 Q6 5 12 4 Z"
-          fill="none"
+        <rect
+          x="2"
+          y="7"
+          width="20"
+          height="10"
+          rx="5"
+          fill="#7FD6B6"
           stroke="#2A2140"
           strokeWidth="2.2"
-          strokeLinejoin="round"
         />
-        <path
-          d="M10 20 Q12 22 14 20"
-          fill="none"
-          stroke="#2A2140"
-          strokeWidth="2.2"
-          strokeLinecap="round"
-        />
+        <circle cx="17" cy="12" r="3" fill="#2A2140" />
       </svg>
     ),
   },
 ];
 
-function IosSteps() {
-  return (
-    <ol className={styles.steps}>
-      {STEPS.map((step, i) => (
-        <li key={step.text} className={styles.step}>
-          <div aria-hidden="true" className={styles.stepNumber}>
-            {i + 1}
-          </div>
-          <div className={styles.stepText}>{step.text}</div>
-          {step.icon}
-        </li>
-      ))}
-    </ol>
-  );
-}
-
-function SharePointer() {
-  return (
-    <div className={styles.pointer}>
-      <div className={styles.pointerLabel}>Share is down here</div>
-      <svg
-        width="34"
-        height="34"
-        viewBox="0 0 24 24"
-        aria-hidden="true"
-        className={styles.point}
-        style={POINT}
-      >
-        <path
-          d="M12 3 V19 M5 13 L12 20 L19 13"
-          fill="none"
-          stroke="#2A2140"
-          strokeWidth="3.2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    </div>
-  );
-}
+const focusOnMount = (el: HTMLElement | null) => el?.focus();
 
 export function InstallView({
   state,
   copied,
   onInstall,
   onCopy,
+  onOpenSheet,
+  onCloseSheet,
 }: {
   state: InstallState;
   copied: boolean;
   onInstall: () => void;
   onCopy: () => void;
+  onOpenSheet: () => void;
+  onCloseSheet: () => void;
 }) {
+  const titleId = useId();
   return (
     <main className={styles.page}>
       <p className={styles.pill}>{`Step ${STEP.number} of ${STEP.total}`}</p>
@@ -223,7 +193,11 @@ export function InstallView({
         </p>
       </div>
       <HomeScreen />
-      {state.kind === "ios" && <IosSteps />}
+      {state.kind === "ios" && (
+        <button type="button" className={styles.action} onClick={onOpenSheet}>
+          Install
+        </button>
+      )}
       {state.kind === "prompt" && (
         <button type="button" className={styles.action} onClick={onInstall}>
           Install
@@ -245,7 +219,50 @@ export function InstallView({
       <Link href={NEXT_STEP} className={styles.skip}>
         Not now. Text me when birds land instead.
       </Link>
-      {state.kind === "ios" && <SharePointer />}
+      {state.kind === "ios" && state.sheet === "open" && (
+        <div className={styles.layer}>
+          <button
+            type="button"
+            aria-label="Close"
+            className={styles.scrim}
+            onClick={onCloseSheet}
+          />
+          <div
+            ref={focusOnMount}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
+            tabIndex={-1}
+            className={styles.sheet}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") onCloseSheet();
+            }}
+          >
+            <span aria-hidden="true" className={styles.grab} />
+            <h2 id={titleId} className={styles.sheetTitle}>
+              Add {config.app.name} to your home screen
+            </h2>
+            <ol className={styles.steps}>
+              {STEPS.map((step, i) => (
+                <li key={step.text} className={styles.step}>
+                  <div aria-hidden="true" className={styles.stepNumber}>
+                    {i + 1}
+                  </div>
+                  <div className={styles.stepText}>{step.text}</div>
+                  {step.icon}
+                </li>
+              ))}
+            </ol>
+            <button
+              type="button"
+              className={styles.close}
+              onClick={onCloseSheet}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
@@ -297,6 +314,8 @@ export function Install() {
       copied={copied}
       onInstall={() => void watcher.current?.install()}
       onCopy={() => void onCopy()}
+      onOpenSheet={() => dispatch({ type: "openSheet" })}
+      onCloseSheet={() => dispatch({ type: "closeSheet" })}
     />
   );
 }
