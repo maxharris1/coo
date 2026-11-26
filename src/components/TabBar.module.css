@@ -4,14 +4,18 @@
   bottom: 0;
   left: 0;
   z-index: 10;
+  width: 100%;
+  margin: 0 auto;
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 34px);
+  background: var(--coo-paper);
+}
+
+.band {
   display: flex;
   align-items: flex-start;
   justify-content: space-around;
-  width: 100%;
-  height: calc(84px + env(safe-area-inset-bottom, 0px));
-  margin: 0 auto;
-  padding: 8px 8px env(safe-area-inset-bottom, 0px);
-  background: var(--coo-paper);
+  height: 84px;
+  padding: 8px 8px 0;
   border-top: var(--coo-line);
 }
 

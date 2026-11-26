@@ -9,6 +9,7 @@ import {
   px,
   read,
   type Ref,
+  tabControls,
   tokens,
 } from "../app/safeArea.testkit";
 import { chromeFor } from "./shell";
@@ -46,7 +47,9 @@ function shell(env: Env) {
   const bodyPadding = tokens(
     declaration(at("app/globals.css", "body", "padding")),
   );
-  const barHeight = value(at(BAR, "bar", "height"), env);
+  const barHeight =
+    value(at(BAR, "band", "height"), env) +
+    value(at(BAR, "bar", "padding-bottom"), env);
   return {
     bodyMin: value(at("app/globals.css", "body", "min-height"), env),
     bodyTop: px(bodyPadding[0], env),
@@ -191,6 +194,47 @@ function depth(markup: string) {
 }
 
 const TAB_ROUTES = routes().filter((path) => chromeFor(path) === "tabs");
+
+const TOOLBAR_COLLAPSE = [0, 50, 83];
+
+describe("the shell while the browser toolbar collapses", () => {
+  describe.each(VIEWPORTS)("on $name", ({ height }) => {
+    describe.each(INSETS)("with a %ipx home indicator", (bottom) => {
+      it.each(TOOLBAR_COLLAPSE)(
+        "keeps its size and the bar's top when the viewport grows by %ipx",
+        (grow) => {
+          const stable: Env = { top: STATUS_BAR, bottom, height };
+          expect(shell({ ...stable, dvh: height + grow })).toEqual(
+            shell(stable),
+          );
+        },
+      );
+
+      it.each(TOOLBAR_COLLAPSE)(
+        "keeps the icons and Send at one offset from the viewport bottom when the viewport grows by %ipx",
+        (grow) => {
+          const fromBottom = (env: Env) => {
+            const { viewport, iconTop, sendTop } = tabControls(env);
+            return [iconTop - viewport, sendTop - viewport];
+          };
+          const stable: Env = { top: STATUS_BAR, bottom, height };
+          expect(fromBottom({ ...stable, dvh: height + grow })).toEqual(
+            fromBottom(stable),
+          );
+        },
+      );
+    });
+  });
+
+  it.each([
+    ["app/globals.css", "body"],
+    [SHELL, "column"],
+  ])("%s .%s sizes to the small viewport", (file, rule) => {
+    const min = declaration(at(file, rule, "min-height"));
+    expect(min).toContain("svh");
+    expect(min).not.toContain("dvh");
+  });
+});
 
 describe("every tab page", () => {
   it("covers the tab routes", () => {

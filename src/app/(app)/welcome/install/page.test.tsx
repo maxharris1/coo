@@ -1,13 +1,15 @@
 import { readFileSync } from "node:fs";
 import {
+  act,
   Children,
   type ComponentProps,
   isValidElement,
   type ReactElement,
   type ReactNode,
 } from "react";
+import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { config } from "@/lib/config";
 import { detectPlatform, type PlatformSnapshot } from "@/lib/platform";
 import type { UserId } from "@/server/ports/auth";
@@ -25,6 +27,13 @@ const { requireUser, redirect } = vi.hoisted(() => ({
 }));
 vi.mock("@/server/auth", () => ({ requireUser }));
 vi.mock("next/navigation", () => ({ redirect, useRouter: () => ({}) }));
+vi.mock("next/link", () => ({
+  default: ({ href, children, ...rest }: ComponentProps<"a">) => (
+    <a href={href} {...rest}>
+      {children}
+    </a>
+  ),
+}));
 
 const render = (state: InstallState, copied = false) =>
   renderToStaticMarkup(
@@ -76,7 +85,6 @@ type Key = {
   key: string;
   shiftKey?: boolean;
   target?: unknown;
-  currentTarget?: { querySelectorAll: () => Focusable[] };
   preventDefault?: () => void;
 };
 type El = ReactElement<{
@@ -85,7 +93,7 @@ type El = ReactElement<{
   "aria-label"?: string;
   onClick?: () => void;
   onKeyDown?: (e: Key) => void;
-  ref?: { current: Focusable | null };
+  ref?: { current: Focusable | null } | ((el: unknown) => void);
 }>;
 
 function find(node: ReactNode, hit: (el: El) => boolean): El | undefined {
@@ -96,6 +104,136 @@ function find(node: ReactNode, hit: (el: El) => boolean): El | undefined {
     if (found) return found;
   }
   return undefined;
+}
+
+type DomNode = EventTarget & {
+  nodeType: number;
+  tagName?: string;
+  textContent?: string;
+  attrs: Record<string, string>;
+  childNodes: DomNode[];
+  parentNode: DomNode | null;
+  contains: (other: unknown) => boolean;
+  focus: () => void;
+};
+
+const ATTR = /\[([\w-]+)(?:='([^']*)')?\]/g;
+const matches = (n: DomNode, selector: string) =>
+  n.nodeType === 1 &&
+  selector.split(",").some((part) => {
+    const [, tag, rest] = part.trim().match(/^([a-z]*)(.*)$/)!;
+    const [must, not] = rest.split(":not(");
+    const has = (attrs: string) =>
+      [...attrs.matchAll(ATTR)].every(([, name, value]) =>
+        value === undefined ? name in n.attrs : n.attrs[name] === value,
+      );
+    return (
+      (!tag || n.tagName === tag.toUpperCase()) &&
+      has(must) &&
+      (not === undefined || !has(not))
+    );
+  });
+
+const descendants = (n: DomNode): DomNode[] =>
+  n.childNodes.flatMap((c) => [c, ...descendants(c)]);
+
+function domNode(nodeType: number, tagName?: string, nodeValue?: string) {
+  const self: DomNode = Object.assign(new EventTarget(), {
+    nodeType,
+    nodeName: tagName,
+    tagName,
+    nodeValue,
+    ownerDocument: document,
+    style: { setProperty() {}, removeProperty() {} },
+    attrs: {} as Record<string, string>,
+    childNodes: [] as DomNode[],
+    parentNode: null,
+    setAttribute: (name: string, value: unknown) =>
+      void (self.attrs[name] = String(value)),
+    removeAttribute: (name: string) => void delete self.attrs[name],
+    appendChild(child: DomNode) {
+      child.parentNode = self;
+      self.childNodes.push(child);
+      return child;
+    },
+    insertBefore(child: DomNode, before: DomNode) {
+      child.parentNode = self;
+      self.childNodes.splice(self.childNodes.indexOf(before), 0, child);
+      return child;
+    },
+    removeChild(child: DomNode) {
+      self.childNodes.splice(self.childNodes.indexOf(child), 1);
+      return child;
+    },
+    contains: (other: unknown) =>
+      other === self || descendants(self).includes(other as DomNode),
+    querySelectorAll: (selector: string) =>
+      descendants(self).filter((d) => matches(d, selector)),
+    focus: () => Object.assign(document, { activeElement: self }),
+  });
+  return Object.defineProperties(self, {
+    firstChild: { get: () => self.childNodes[0] ?? null },
+    lastChild: { get: () => self.childNodes.at(-1) ?? null },
+  });
+}
+
+async function mountOpenSheet(onCloseSheet = () => {}) {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  vi.stubGlobal(
+    "window",
+    Object.assign(new EventTarget(), { HTMLIFrameElement: class {} }),
+  );
+  vi.stubGlobal(
+    "document",
+    Object.assign(new EventTarget(), {
+      activeElement: null,
+      createElement: (tag: string) => domNode(1, tag.toUpperCase()),
+      createElementNS: (_ns: string, tag: string) => domNode(1, tag),
+      createTextNode: (text: string) => domNode(3, undefined, text),
+    }),
+  );
+  const container = domNode(1, "DIV");
+  const root = createRoot(container as unknown as Element);
+  onTestFinished(async () => {
+    await act(async () => root.unmount());
+    vi.unstubAllGlobals();
+  });
+  await act(async () =>
+    root.render(
+      <InstallView
+        state={{ kind: "ios", sheet: "open" }}
+        copied={false}
+        onInstall={() => {}}
+        onCopy={() => {}}
+        onOpenSheet={() => {}}
+        onCloseSheet={onCloseSheet}
+      />,
+    ),
+  );
+  const all = descendants(container);
+  const dispatch = async (
+    type: string,
+    target: unknown,
+    init: Record<string, unknown> = {},
+  ) => {
+    const event = Object.assign(
+      new Event(type, { bubbles: true, cancelable: true }),
+      init,
+    );
+    Object.defineProperty(event, "target", { value: target });
+    await act(async () => container.dispatchEvent(event));
+    return event.defaultPrevented;
+  };
+  const key = (key: string, shiftKey = false) =>
+    dispatch("keydown", document.activeElement, { key, shiftKey });
+  return {
+    dialog: all.find((n) => n.attrs.role === "dialog")!,
+    close: all.find((n) => n.textContent === "Close")!,
+    backdrop: all.find((n) => n.attrs["aria-label"] === "Close")!,
+    dispatch,
+    key,
+    tab: (shiftKey: boolean) => key("Tab", shiftKey),
+  };
 }
 
 const tree = (props: ComponentProps<typeof InstallView>) => {
@@ -263,16 +401,19 @@ describe("/welcome/install on iOS Safari (ac-3)", () => {
       const install = { focus: vi.fn() };
       const ref = find(node, (el) => el.props.children === "Install")?.props
         .ref;
-      if (ref) ref.current = install;
+      if (typeof ref === "object") ref.current = install;
       const layer = find(node, (el) => el.props.onKeyDown !== undefined);
       const items = [{ focus: vi.fn() }, { focus: vi.fn() }];
+      const mountDialog = find(node, (el) => el.props.role === "dialog")?.props
+        .ref;
+      if (typeof mountDialog === "function")
+        mountDialog({ focus: () => {}, querySelectorAll: () => items });
       const press = (key: string, target: unknown, shiftKey = false) => {
         const preventDefault = vi.fn();
         layer?.props.onKeyDown?.({
           key,
           shiftKey,
           target,
-          currentTarget: { querySelectorAll: () => items },
           preventDefault,
         });
         return preventDefault;
@@ -297,6 +438,46 @@ describe("/welcome/install on iOS Safari (ac-3)", () => {
       expect(press("Tab", {}, true)).toHaveBeenCalled();
       expect(items[1].focus).toHaveBeenCalledOnce();
       expect(items[0].focus).not.toHaveBeenCalled();
+    });
+
+    it("moves Tab and Shift+Tab focus to the dialog's Close button, never the backdrop", async () => {
+      const { dialog, close, tab } = await mountOpenSheet();
+      expect(document.activeElement).toBe(dialog);
+      for (const shiftKey of [false, false, true, true, false]) {
+        expect(await tab(shiftKey)).toBe(true);
+        expect(dialog.contains(document.activeElement)).toBe(true);
+        expect(document.activeElement).toBe(close);
+      }
+    });
+
+    it("keeps keys inside the dialog after a press on the backdrop is dragged onto the sheet", async () => {
+      const onCloseSheet = vi.fn();
+      const { dialog, close, backdrop, dispatch, key } =
+        await mountOpenSheet(onCloseSheet);
+      if (!(await dispatch("mousedown", backdrop))) backdrop.focus();
+      await dispatch("mouseup", dialog);
+      for (const shiftKey of [true, false]) {
+        expect(await key("Tab", shiftKey)).toBe(true);
+        expect(dialog.contains(document.activeElement)).toBe(true);
+        expect(document.activeElement).toBe(close);
+      }
+      expect(await key("Escape")).toBe(true);
+      expect(onCloseSheet).toHaveBeenCalledOnce();
+    });
+
+    it("keeps Tab, Shift+Tab and Escape working while the backdrop holds focus", async () => {
+      const onCloseSheet = vi.fn();
+      const { dialog, close, backdrop, key } =
+        await mountOpenSheet(onCloseSheet);
+      for (const shiftKey of [true, false]) {
+        backdrop.focus();
+        expect(await key("Tab", shiftKey)).toBe(true);
+        expect(dialog.contains(document.activeElement)).toBe(true);
+        expect(document.activeElement).toBe(close);
+      }
+      backdrop.focus();
+      expect(await key("Escape")).toBe(true);
+      expect(onCloseSheet).toHaveBeenCalledOnce();
     });
 
     it.each<[string, (k: ReturnType<typeof keyboard>) => void]>([

@@ -70,51 +70,58 @@ export function TabBar() {
 
   return (
     <nav aria-label="Main" className={styles.bar}>
-      {TABS.map((tab) =>
-        tab.icon === null ? (
-          <Link
-            key={tab.href}
-            href={tab.href}
-            aria-label={tab.label}
-            className={styles.send}
-          >
-            <svg width="32" height="32" viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                d="M3 14 C7 6 13 4 21 5 C20 9 17 12 13 13 C15 14 16 15 18 15 C14 19 7 19 3 14 Z"
-                fill="var(--coo-card)"
-                stroke="var(--coo-ink)"
-                strokeWidth="2"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M3 14 C8 12 12 10 16 8"
-                fill="none"
-                stroke="var(--coo-ink)"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-              />
-            </svg>
-          </Link>
-        ) : (
-          <Link
-            key={tab.href}
-            href={tab.href}
-            aria-current={isCurrentTab(tab.href, path) ? "page" : undefined}
-            className={styles.tab}
-          >
-            <span className={styles.icon}>
-              {tab.icon}
+      <div className={styles.band}>
+        {TABS.map((tab) =>
+          tab.icon === null ? (
+            <Link
+              key={tab.href}
+              href={tab.href}
+              aria-label={tab.label}
+              className={styles.send}
+            >
+              <svg
+                width="32"
+                height="32"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path
+                  d="M3 14 C7 6 13 4 21 5 C20 9 17 12 13 13 C15 14 16 15 18 15 C14 19 7 19 3 14 Z"
+                  fill="var(--coo-card)"
+                  stroke="var(--coo-ink)"
+                  strokeWidth="2"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M3 14 C8 12 12 10 16 8"
+                  fill="none"
+                  stroke="var(--coo-ink)"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </Link>
+          ) : (
+            <Link
+              key={tab.href}
+              href={tab.href}
+              aria-current={isCurrentTab(tab.href, path) ? "page" : undefined}
+              className={styles.tab}
+            >
+              <span className={styles.icon}>
+                {tab.icon}
+                {tab.href === "/sill" && birdWaiting && (
+                  <span className={styles.dot} />
+                )}
+              </span>
+              <span>{tab.label}</span>
               {tab.href === "/sill" && birdWaiting && (
-                <span className={styles.dot} />
+                <span className="srOnly">, a bird is waiting</span>
               )}
-            </span>
-            <span>{tab.label}</span>
-            {tab.href === "/sill" && birdWaiting && (
-              <span className="srOnly">, a bird is waiting</span>
-            )}
-          </Link>
-        ),
-      )}
+            </Link>
+          ),
+        )}
+      </div>
     </nav>
   );
 }

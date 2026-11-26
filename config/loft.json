@@ -123,6 +123,10 @@
       "sunDownBelow": -0.833,
       "nightBelow": -6
     },
+    "noLoftNight": {
+      "fromHour": 22,
+      "untilHour": 5
+    },
     "risingCheckMs": 600000,
     "recheckMs": 60000,
     "crossFadeMs": 2000,
