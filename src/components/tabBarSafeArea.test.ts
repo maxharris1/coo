@@ -91,6 +91,12 @@ describe.each(VIEWPORTS)("tab bar on $name", ({ height }) => {
     expect(shift(notched)).toEqual(shift(flat));
   });
 
+  it("pads tab pages by the bar height plus a 12px gap", () => {
+    for (const env of [flat, notched]) {
+      expect(value(TABS_PAD, env) - value(BAR_HEIGHT, env)).toBe(12);
+    }
+  });
+
   it("clears the bar by the same margin with or without the inset", () => {
     for (const ref of [SPACER, RECIPIENTS_BAR]) {
       expect(value(ref, notched) - value(BAR_HEIGHT, notched), ref.file).toBe(
