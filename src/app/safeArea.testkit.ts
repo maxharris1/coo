@@ -9,7 +9,12 @@ export const GUTTER = Number(
   )![1],
 );
 
-export type Env = { top: number; bottom: number; height: number };
+export type Env = {
+  top: number;
+  bottom: number;
+  height: number;
+  dvh?: number;
+};
 export type Ref = { file: string; rule: string; prop: string };
 
 type Decl = { prop: string; value: string; important: boolean };
@@ -66,7 +71,14 @@ function applies(media: string | null, width: number) {
     });
 }
 
-export function declaration({ file, rule, prop }: Ref, width = 390) {
+export function blocks(file: string, rule: string) {
+  const selector = rule === "body" ? "\\nbody" : `\\.${rule}`;
+  return [
+    ...read(file).matchAll(new RegExp(`${selector} \\{([^}]*)\\}`, "g")),
+  ].map((m) => m[1]);
+}
+
+export function optionalDeclaration({ file, rule, prop }: Ref, width = 390) {
   const selector = rule === "body" ? "body" : `.${rule}`;
   const matching = rules(file).filter((r) => r.selectors.includes(selector));
   if (matching.length === 0) throw new Error(`no ${rule} rule in ${file}`);
@@ -75,8 +87,14 @@ export function declaration({ file, rule, prop }: Ref, width = 390) {
     .flatMap((r) => r.decls)
     .filter((d) => d.prop === prop);
   const winner = found.findLast((d) => d.important) ?? found[found.length - 1];
-  if (winner === undefined) throw new Error(`no ${prop} on ${rule} in ${file}`);
-  return winner.value;
+  return winner?.value;
+}
+
+export function declaration(ref: Ref, width = 390) {
+  const v = optionalDeclaration(ref, width);
+  if (v === undefined)
+    throw new Error(`no ${ref.prop} on ${ref.rule} in ${ref.file}`);
+  return v;
 }
 
 export function tokens(shorthand: string) {
@@ -103,7 +121,7 @@ const TABS_PAD: Ref = {
   prop: "--coo-tabs-pad",
 };
 
-export function px(expr: string, { top, bottom, height }: Env) {
+export function px(expr: string, { top, bottom, height, dvh }: Env) {
   const arithmetic = expr
     .replace(/var\(--coo-tabs-pad\)/g, () => declaration(TABS_PAD))
     .replace(/env\(safe-area-inset-top, 0px\)/g, `${top}px`)
@@ -113,7 +131,11 @@ export function px(expr: string, { top, bottom, height }: Env) {
     .replace(/var\(--coo-safe-\w+(?:, 0px)?\)/g, "0px")
     .replace(/env\(safe-area-inset-\w+(?:, 0px)?\)/g, "0px")
     .replace(/var\(--coo-gutter\)/g, `${GUTTER}px`)
-    .replace(/(\d+(?:\.\d+)?)dvh/g, (_, n) => `${(+n * height) / 100}px`)
+    .replace(/(\d+(?:\.\d+)?)svh/g, (_, n) => `${(+n * height) / 100}px`)
+    .replace(
+      /(\d+(?:\.\d+)?)dvh/g,
+      (_, n) => `${(+n * (dvh ?? height)) / 100}px`,
+    )
     .replace(/(\d+(?:\.\d+)?)px/g, "$1")
     .replace(/calc\(/g, "(");
   if (!/^(?:[\d\s.+\-*/(),]|max|min)*$/.test(arithmetic)) {
@@ -122,4 +144,43 @@ export function px(expr: string, { top, bottom, height }: Env) {
   return Function(
     `return ${arithmetic.replace(/\b(max|min)\(/g, "Math.$1(")};`,
   )() as number;
+}
+
+const TAB_BAR = "components/TabBar.module.css";
+const bar = (rule: string, prop: string, env: Env) =>
+  px(declaration({ file: TAB_BAR, rule, prop }), env);
+
+function shiftY(rule: string, env: Env) {
+  const transform = optionalDeclaration({
+    file: TAB_BAR,
+    rule,
+    prop: "transform",
+  });
+  if (transform === undefined || transform === "none") return 0;
+  const y = transform.match(/^translateY\((.+)\)$/)?.[1];
+  if (y === undefined)
+    throw new Error(`cannot place .${rule} transform: ${transform}`);
+  return px(y, env);
+}
+
+export function tabControls(env: Env) {
+  const viewport = env.dvh ?? env.height;
+  const barTop =
+    viewport -
+    bar("bar", "bottom", env) -
+    bar("band", "height", env) -
+    bar("bar", "padding-bottom", env) +
+    shiftY("bar", env);
+  const padding = declaration({ file: TAB_BAR, rule: "band", prop: "padding" });
+  const contentTop = barTop + shiftY("band", env) + px(tokens(padding)[0], env);
+  const tabTop = contentTop + shiftY("tab", env);
+  const sendTop =
+    contentTop + bar("send", "margin-top", env) + shiftY("send", env);
+  return {
+    viewport,
+    iconTop: tabTop + shiftY("icon", env),
+    tabBottom: tabTop + bar("tab", "min-height", env),
+    sendTop,
+    sendBottom: sendTop + bar("send", "height", env),
+  };
 }
