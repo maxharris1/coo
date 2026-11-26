@@ -14,6 +14,7 @@ export type Env = {
   bottom: number;
   height: number;
   dvh?: number;
+  banner?: number;
 };
 export type Ref = { file: string; rule: string; prop: string };
 
@@ -121,9 +122,10 @@ const TABS_PAD: Ref = {
   prop: "--coo-tabs-pad",
 };
 
-export function px(expr: string, { top, bottom, height, dvh }: Env) {
+export function px(expr: string, { top, bottom, height, dvh, banner }: Env) {
   const arithmetic = expr
     .replace(/var\(--coo-tabs-pad\)/g, () => declaration(TABS_PAD))
+    .replace(/var\(--coo-offline-banner, 0px\)/g, `${banner ?? 0}px`)
     .replace(/env\(safe-area-inset-top, 0px\)/g, `${top}px`)
     .replace(/var\(--coo-safe-top\)/g, `${top}px`)
     .replace(/env\(safe-area-inset-bottom, 0px\)/g, `${bottom}px`)

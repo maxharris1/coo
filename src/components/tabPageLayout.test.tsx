@@ -324,18 +324,12 @@ const OFFLINE_BANNER = 54.375;
 const ENV: Env = { top: STATUS_BAR, bottom: HOME_INDICATOR, height: 844 };
 
 function mapBox(file: string, env: Env, banner: number, width: number) {
-  const prop = (prop: string) =>
-    optionalDeclaration(at(file, "tracker", prop), width);
-  const top =
-    shell(env).bodyTop + banner + value(at(file, "tracker", "margin-top"), env);
-  if (prop("position") === "absolute" && prop("bottom") !== undefined) {
-    return { top, bottom: env.height - px(prop("bottom")!, env) };
-  }
-  const height = Math.max(
-    px(prop("height") ?? "0px", env),
-    px(prop("min-height") ?? "0px", env),
-  );
-  return { top, bottom: top + height };
+  const prop = (prop: string) => declaration(at(file, "tracker", prop), width);
+  expect(prop("position")).toBe("absolute");
+  return {
+    top: px(prop("top"), { ...env, banner }),
+    bottom: env.height - px(prop("bottom"), env),
+  };
 }
 
 describe.each([

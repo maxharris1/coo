@@ -1,11 +1,11 @@
 .tracker {
   position: absolute;
+  top: var(--coo-offline-banner, 0px);
   right: var(--coo-safe-right);
   bottom: calc(84px + max(env(safe-area-inset-bottom, 0px), 34px));
   left: var(--coo-safe-left);
   display: flex;
   flex-direction: column;
-  margin-top: calc(-1 * env(safe-area-inset-top, 0px));
   overflow: hidden;
   background: #d4ebb0;
   color: var(--coo-ink);
@@ -26,7 +26,8 @@
 
 .map {
   position: relative;
-  flex: 1 0 40%;
+  flex: 1 1 0;
+  min-height: max(120px, 45%);
   margin-bottom: -28px;
 }
 
@@ -107,6 +108,7 @@
 .tracker .card {
   position: relative;
   z-index: 3;
+  flex: 0 1 auto;
   min-height: 0;
   overflow-y: auto;
   border-width: 0;

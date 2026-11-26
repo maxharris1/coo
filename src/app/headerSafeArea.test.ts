@@ -48,12 +48,10 @@ function bleedingHero(screen: string, file: string, box: string, pad = box) {
 }
 
 function mapTracker(screen: string, file: string): Row {
-  const bleed = [BODY, at(file, "tracker", "margin-top")];
   return {
     screen,
     file,
-    bleed,
-    chain: [...bleed, at(file, "top", "top")],
+    chain: [at(file, "tracker", "top"), at(file, "top", "top")],
     tracker: at(file, "tracker", "bottom"),
   };
 }

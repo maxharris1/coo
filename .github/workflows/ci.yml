@@ -38,6 +38,7 @@ jobs:
         run: |
           if [ -f package.json ]; then
             npm ci
+            npx playwright install --with-deps chromium
             npm run typecheck
             npm run lint
             npm test

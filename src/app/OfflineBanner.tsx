@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useSyncExternalStore } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import emptyStates from "../../assets/copy/empty-states.json";
 import styles from "./OfflineBanner.module.css";
 
@@ -20,9 +20,31 @@ export const onlineStore = {
   getServerSnapshot: () => true,
 };
 
+export const BANNER_HEIGHT_VAR = "--coo-offline-banner";
+
 export function OfflineLine() {
+  const line = useRef<HTMLParagraphElement>(null);
+
+  useEffect(() => {
+    const el = line.current;
+    if (!el) return;
+    const body = document.body.style;
+    const publish = () =>
+      body.setProperty(
+        BANNER_HEIGHT_VAR,
+        `${el.getBoundingClientRect().height}px`,
+      );
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      body.removeProperty(BANNER_HEIGHT_VAR);
+    };
+  }, []);
+
   return (
-    <p role="status" className={styles.line}>
+    <p ref={line} role="status" className={styles.line}>
       {OFFLINE_LINE}
     </p>
   );
