@@ -12,6 +12,7 @@ import { config } from "@/lib/config";
 import type { Units } from "@/lib/format";
 import type { Me } from "@/server/rows";
 import type { SettingsInput } from "@/server/services/settings";
+import { InstallView, type InstallControls } from "../welcome/install/Install";
 import type { PlaceResult } from "../welcome/loft/roost";
 import styles from "./Settings.module.css";
 import sheetStyles from "./SettingsSheet.module.css";
@@ -35,12 +36,13 @@ export type Change = Partial<
   Pick<SettingsInput, SwitchKey | "units" | keyof Quiet>
 >;
 
-export type Sheet = "travel" | "delete" | null;
+export type Sheet = "travel" | "delete" | "install" | null;
 
 export type SettingsViewProps = {
   me: Me;
   sheet: Sheet;
   places: PlaceResult[];
+  install: InstallControls;
   onSave: (change: Change) => void;
   onRename: (name: string) => Promise<string | null>;
   onSignOut: () => void;
@@ -146,6 +148,24 @@ function ButtonRow({
       </span>
     </button>
   );
+}
+
+function HomeScreenRow({
+  installed,
+  state,
+  onInstall,
+}: {
+  installed: boolean;
+  state: InstallControls["state"];
+  onInstall: () => void;
+}) {
+  const title = "On your home screen";
+  if (installed || state.kind === "done")
+    return <Row title={title} value="Yes" />;
+  if (state.kind === "detecting" || state.kind === "skip") {
+    return <Row title={title} value="No" />;
+  }
+  return <ButtonRow title={title} value="Install" onClick={onInstall} />;
 }
 
 function Switch({
@@ -535,6 +555,7 @@ export function SettingsView({
   me,
   sheet,
   places,
+  install,
   onSave,
   onRename,
   onSignOut,
@@ -546,139 +567,157 @@ export function SettingsView({
 }: SettingsViewProps) {
   const travelling = me.loft?.travelling ?? false;
   const [edit, dispatch] = useReducer(sheetReducer, CLOSED);
+  const guideOpen = sheet === "install";
   return (
-    <div className={styles.screen}>
-      <header className={styles.header}>
-        <Link
-          href="/more"
-          className={styles.back}
-          aria-label="Back to the post office"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
-            <path
-              d="M15 5 L8 12 L15 19"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </Link>
-        <h1 className={styles.screenTitle}>Settings</h1>
-      </header>
-
-      <Section title="Tell me when">
-        {SWITCHES.map(({ key, label }) => (
-          <Switch
-            key={key}
-            label={label}
-            on={me.settings[key]}
-            onToggle={() => onSave({ [key]: !me.settings[key] })}
-          />
-        ))}
-        <ButtonRow
-          title="Quiet hours"
-          sub={QUIET_LINE}
-          value={quietHours(me.settings)}
-          onClick={() => dispatch({ type: "openQuiet", settings: me.settings })}
-        />
-      </Section>
-
-      <Section title="Where birds find me">
-        <Link href="/friends" className={styles.row}>
-          <Label title="Friends see" sub="Change it per friend in Friends" />
-          <span className={styles.value}>
-            Per friend
-            <Chevron />
-          </span>
-        </Link>
-        <Row
-          title="Home roost"
-          sub="Your address is never stored or shown"
-          value={me.loft?.label ?? "Not set"}
-        />
-        <Switch
-          label="I'm away from home"
-          on={travelling}
-          onToggle={() => (travelling ? onTravel(false) : onSheet("travel"))}
-        />
-      </Section>
-
-      <Section title="App">
-        <div className={styles.row}>
-          <Label title="Distances" />
-          <span
-            className={styles.choices}
-            role="radiogroup"
-            aria-label="Distances"
+    <>
+      <div className={styles.screen} inert={guideOpen}>
+        <header className={styles.header}>
+          <Link
+            href="/more"
+            className={styles.back}
+            aria-label="Back to the post office"
           >
-            {UNITS.map(({ units, label }) => (
-              <button
-                key={units}
-                type="button"
-                role="radio"
-                aria-checked={me.units === units}
-                className={styles.choice}
-                onClick={() => me.units !== units && onSave({ units })}
-              >
-                {label}
-              </button>
-            ))}
-          </span>
-        </div>
-        <Row title="On your home screen" value={me.installed ? "Yes" : "No"} />
-      </Section>
+            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M15 5 L8 12 L15 19"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </Link>
+          <h1 className={styles.screenTitle}>Settings</h1>
+        </header>
 
-      <Section title="Account">
-        <ButtonRow
-          title="Name"
-          value={me.name}
-          onClick={() => dispatch({ type: "openName", name: me.name })}
-        />
-        {me.phoneLast4 && (
-          <Row title="Phone" value={`Ends in ${me.phoneLast4}`} />
-        )}
-        <button
-          type="button"
-          className={`${styles.row} ${styles.delete}`}
-          onClick={() => onSheet("delete")}
-        >
-          <Label title="Delete my account" />
+        <Section title="Tell me when">
+          {SWITCHES.map(({ key, label }) => (
+            <Switch
+              key={key}
+              label={label}
+              on={me.settings[key]}
+              onToggle={() => onSave({ [key]: !me.settings[key] })}
+            />
+          ))}
+          <ButtonRow
+            title="Quiet hours"
+            sub={QUIET_LINE}
+            value={quietHours(me.settings)}
+            onClick={() =>
+              dispatch({ type: "openQuiet", settings: me.settings })
+            }
+          />
+        </Section>
+
+        <Section title="Where birds find me">
+          <Link href="/friends" className={styles.row}>
+            <Label title="Friends see" sub="Change it per friend in Friends" />
+            <span className={styles.value}>
+              Per friend
+              <Chevron />
+            </span>
+          </Link>
+          <Row
+            title="Home roost"
+            sub="Your address is never stored or shown"
+            value={me.loft?.label ?? "Not set"}
+          />
+          <Switch
+            label="I'm away from home"
+            on={travelling}
+            onToggle={() => (travelling ? onTravel(false) : onSheet("travel"))}
+          />
+        </Section>
+
+        <Section title="App">
+          <div className={styles.row}>
+            <Label title="Distances" />
+            <span
+              className={styles.choices}
+              role="radiogroup"
+              aria-label="Distances"
+            >
+              {UNITS.map(({ units, label }) => (
+                <button
+                  key={units}
+                  type="button"
+                  role="radio"
+                  aria-checked={me.units === units}
+                  className={styles.choice}
+                  onClick={() => me.units !== units && onSave({ units })}
+                >
+                  {label}
+                </button>
+              ))}
+            </span>
+          </div>
+          <HomeScreenRow
+            installed={me.installed}
+            state={install.state}
+            onInstall={() => onSheet("install")}
+          />
+        </Section>
+
+        <Section title="Account">
+          <ButtonRow
+            title="Name"
+            value={me.name}
+            onClick={() => dispatch({ type: "openName", name: me.name })}
+          />
+          {me.phoneLast4 && (
+            <Row title="Phone" value={`Ends in ${me.phoneLast4}`} />
+          )}
+          <button
+            type="button"
+            className={`${styles.row} ${styles.delete}`}
+            onClick={() => onSheet("delete")}
+          >
+            <Label title="Delete my account" />
+          </button>
+        </Section>
+
+        <button type="button" className={styles.signOut} onClick={onSignOut}>
+          Sign out
         </button>
-      </Section>
 
-      <button type="button" className={styles.signOut} onClick={onSignOut}>
-        Sign out
-      </button>
+        <footer className={styles.footer}>
+          <p className={styles.credit}>{config.app.mapAttribution}</p>
+          <p className={styles.credit}>{config.app.weatherAttribution}</p>
+          <p className={styles.links}>
+            <Link href="/privacy">Privacy</Link>
+            <Link href="/terms">Terms</Link>
+          </p>
+        </footer>
 
-      <footer className={styles.footer}>
-        <p className={styles.credit}>{config.app.mapAttribution}</p>
-        <p className={styles.credit}>{config.app.weatherAttribution}</p>
-        <p className={styles.links}>
-          <Link href="/privacy">Privacy</Link>
-          <Link href="/terms">Terms</Link>
-        </p>
-      </footer>
-
-      {sheet === "travel" && (
-        <TravelSheet
-          places={places}
-          onTravel={onTravel}
-          onSearch={onSearch}
-          onPlace={onPlace}
-          onSheet={onSheet}
+        {sheet === "travel" && (
+          <TravelSheet
+            places={places}
+            onTravel={onTravel}
+            onSearch={onSearch}
+            onPlace={onPlace}
+            onSheet={onSheet}
+          />
+        )}
+        {sheet === "delete" && (
+          <DeleteSheet
+            handle={me.handle}
+            onDelete={onDelete}
+            onSheet={onSheet}
+          />
+        )}
+        <OpenSheet
+          sheet={edit}
+          dispatch={dispatch}
+          onSave={onSave}
+          onRename={onRename}
         />
+      </div>
+      {guideOpen && (
+        <div className={styles.guide}>
+          <InstallView {...install} onClose={() => onSheet(null)} />
+        </div>
       )}
-      {sheet === "delete" && (
-        <DeleteSheet handle={me.handle} onDelete={onDelete} onSheet={onSheet} />
-      )}
-      <OpenSheet
-        sheet={edit}
-        dispatch={dispatch}
-        onSave={onSave}
-        onRename={onRename}
-      />
-    </div>
+    </>
   );
 }

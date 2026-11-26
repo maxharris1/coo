@@ -1,13 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Loader } from "@/components/Loader";
 import { useSync } from "@/components/SyncProvider";
 import type { SyncPayload } from "@/components/sync";
 import { useToast } from "@/components/Toasts";
 import type { Me } from "@/server/rows";
 import { call } from "../friends/friendsApi";
+import { useInstall } from "../welcome/install/Install";
 import {
   NO_LOCATION,
   position,
@@ -39,6 +40,19 @@ export default function SettingsPage() {
   const [held, setHeld] = useState<Held>({ base: null, change: {} });
   const [sheet, setSheet] = useState<Sheet>(null);
   const [places, setPlaces] = useState<PlaceResult[]>([]);
+  const install = useInstall();
+  const account = data?.me.id;
+  const unrecorded =
+    install.state.kind === "done" && data?.me.installed === false;
+
+  useEffect(() => {
+    if (!unrecorded) return;
+    void call(fetch, "/api/settings", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ installed: true, account }),
+    }).then((r) => r.ok && refresh());
+  }, [unrecorded, account, refresh]);
 
   if (!data) return <Loader />;
   const base = data;
@@ -130,8 +144,13 @@ export default function SettingsPage() {
   return (
     <SettingsView
       me={me}
-      sheet={sheet}
+      sheet={
+        sheet === "install" && (me.installed || install.state.kind === "done")
+          ? null
+          : sheet
+      }
       places={places}
+      install={install}
       onSave={onSave}
       onRename={onRename}
       onSignOut={onSignOut}

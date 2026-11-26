@@ -119,6 +119,19 @@ const ROWS: Row[] = [
     "app/(app)/welcome/install/page.module.css",
     "page",
   ),
+  {
+    screen: "Settings install guide",
+    file: "app/(app)/settings/Settings.module.css",
+    bleed: [
+      at("app/(app)/settings/Settings.module.css", "guide", "padding"),
+      at("app/(app)/welcome/install/page.module.css", "page", "margin-top"),
+    ],
+    chain: [
+      at("app/(app)/settings/Settings.module.css", "guide", "padding"),
+      at("app/(app)/welcome/install/page.module.css", "page", "margin-top"),
+      at("app/(app)/welcome/install/page.module.css", "page", "padding"),
+    ],
+  },
   bleedingHero("Sign-in and join", "app/(public)/auth.module.css", "page"),
   bleedingHero("Guest link", "app/(public)/b/[slug]/Guest.module.css", "page"),
   bleedingHero(

@@ -9,6 +9,16 @@
   font-family: var(--coo-font-body);
 }
 
+.guide {
+  position: fixed;
+  inset: 0;
+  z-index: 12;
+  overflow-y: auto;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
+    env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+  background: var(--coo-sky);
+}
+
 .header {
   display: flex;
   align-items: center;

@@ -1,10 +1,12 @@
 import { act } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SyncContext, type SyncState } from "@/components/SyncProvider";
 import type { SyncPayload } from "@/components/sync";
 import { snap } from "@/lib/game/privacy";
 import type { Me } from "@/server/rows";
+import type * as SettingsViewModule from "./SettingsView";
 import type { SettingsViewProps } from "./SettingsView";
 import SettingsPage from "./page";
 
@@ -114,6 +116,21 @@ async function mount() {
 
 const shown = () => view.props!.me;
 
+function stubWindow() {
+  const tab = new Map<string, string>();
+  vi.stubGlobal(
+    "window",
+    Object.assign(new EventTarget(), {
+      HTMLIFrameElement: class {},
+      matchMedia: () => ({ matches: false }),
+      sessionStorage: {
+        getItem: (k: string) => tab.get(k) ?? null,
+        setItem: (k: string, v: string) => void tab.set(k, v),
+      },
+    }),
+  );
+}
+
 beforeEach(() => {
   events = [];
   bodies = [];
@@ -125,10 +142,7 @@ beforeEach(() => {
   deleteResponse = () => Response.json({ deleted: true });
   searchResponse = () => Response.json({ results: PLACES });
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-  vi.stubGlobal(
-    "window",
-    Object.assign(new EventTarget(), { HTMLIFrameElement: class {} }),
-  );
+  stubWindow();
   vi.stubGlobal("fetch", vi.fn(fakeFetch));
 });
 
@@ -449,5 +463,116 @@ describe("/settings delete my account (ac-2)", () => {
     expect(view.toasts).toEqual(["confirm: type your handle to delete"]);
     expect(view.pushed).toEqual([]);
     expect(view.props!.sheet).toBe("delete");
+  });
+});
+
+describe("/settings home screen install (ac-6)", () => {
+  it("detects the platform after mount, and a desktop browser cannot install", async () => {
+    await mount();
+    expect(view.props!.install.state.kind).toBe("skip");
+  });
+
+  it("closes the install guide once the app is installed", async () => {
+    await mount();
+    await render(syncWith({ ...ME, installed: false }));
+    await act(async () => view.props!.onSheet("install"));
+    expect(view.props!.sheet).toBe("install");
+    await act(async () => window.dispatchEvent(new Event("appinstalled")));
+    expect(view.props!.install.state.kind).toBe("done");
+    expect(view.props!.sheet).toBeNull();
+  });
+});
+
+describe("/settings home screen once installed (ac-6)", () => {
+  const ANDROID_CHROME =
+    "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36";
+  const IPHONE_SAFARI =
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1";
+  const NOT_INSTALLED = { ...ME, installed: false };
+
+  const onPhone = (userAgent: string) =>
+    vi.stubGlobal("navigator", { userAgent, maxTouchPoints: 5 });
+
+  const viewText = async () => {
+    const { SettingsView } =
+      await vi.importActual<typeof SettingsViewModule>("./SettingsView");
+    const html = renderToStaticMarkup(<SettingsView {...view.props!} />);
+    return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+  };
+
+  const homeScreenRow = async () =>
+    (await viewText()).match(/On your home screen (\w+)/)?.[1];
+
+  const blockedStorage = () =>
+    Object.defineProperty(window, "sessionStorage", {
+      configurable: true,
+      get: () => {
+        throw new DOMException("The operation is insecure.", "SecurityError");
+      },
+    });
+
+  const fullStorage = () =>
+    Object.defineProperty(window, "sessionStorage", {
+      configurable: true,
+      value: {
+        getItem: () => null,
+        setItem: () => {
+          throw new DOMException(
+            "The quota has been exceeded.",
+            "QuotaExceededError",
+          );
+        },
+      },
+    });
+
+  it("records the install on the profile and still shows Yes after leaving Settings and coming back", async () => {
+    onPhone(ANDROID_CHROME);
+    await mount();
+    await render(syncWith(NOT_INSTALLED));
+    expect(await homeScreenRow()).toBe("Install");
+
+    await act(async () => window.dispatchEvent(new Event("appinstalled")));
+    expect(await homeScreenRow()).toBe("Yes");
+    expect(bodies).toEqual([{ installed: true, account: "me-1" }]);
+    expect(events).toEqual(["PATCH /api/settings", "refresh"]);
+
+    await act(async () => root.unmount());
+    await mount();
+    await render(syncWith(NOT_INSTALLED));
+    expect(await homeScreenRow()).toBe("Yes");
+    expect(view.props!.install.state.kind).toBe("done");
+  });
+
+  it("closes the open guide when sync brings an installed profile", async () => {
+    onPhone(IPHONE_SAFARI);
+    await mount();
+    await render(syncWith(NOT_INSTALLED));
+    await act(async () => view.props!.onSheet("install"));
+    expect(view.props!.sheet).toBe("install");
+
+    await render(syncWith(ME));
+    expect(view.props!.sheet).toBeNull();
+    expect(await homeScreenRow()).toBe("Yes");
+  });
+
+  it("still renders Settings and Yes for an installed profile when storage is blocked", async () => {
+    onPhone(ANDROID_CHROME);
+    blockedStorage();
+    await mount();
+    expect(await viewText()).toContain(" Settings ");
+    expect(await homeScreenRow()).toBe("Yes");
+    expect(view.props!.install.state.kind).toBe("waiting");
+  });
+
+  it("still renders Settings and Yes in standalone mode when the storage write hits the quota", async () => {
+    onPhone(ANDROID_CHROME);
+    fullStorage();
+    window.matchMedia = () => ({ matches: true }) as MediaQueryList;
+    await mount();
+    await render(syncWith(NOT_INSTALLED));
+    expect(await viewText()).toContain(" Settings ");
+    expect(await homeScreenRow()).toBe("Yes");
+    expect(view.props!.install.state.kind).toBe("done");
+    expect(bodies).toEqual([{ installed: true, account: "me-1" }]);
   });
 });

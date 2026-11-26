@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { config } from "@/lib/config";
 import type { Me } from "@/server/rows";
+import type { InstallState } from "../welcome/install/installFlow";
 import type { PlaceResult } from "../welcome/loft/roost";
 import {
   NameSheet,
@@ -55,12 +56,27 @@ const PLACES: PlaceResult[] = [
   },
 ];
 
-const render = (me: Me = ME, sheet: Sheet = null, places: PlaceResult[] = []) =>
+const SKIP: InstallState = { kind: "skip" };
+
+const render = (
+  me: Me = ME,
+  sheet: Sheet = null,
+  places: PlaceResult[] = [],
+  state: InstallState = SKIP,
+) =>
   renderToStaticMarkup(
     <SettingsView
       me={me}
       sheet={sheet}
       places={places}
+      install={{
+        state,
+        copied: false,
+        onInstall: () => {},
+        onCopy: () => {},
+        onOpenSheet: () => {},
+        onCloseSheet: () => {},
+      }}
       onSearch={() => {}}
       onPlace={() => {}}
       onSave={() => {}}
@@ -410,5 +426,70 @@ describe("Settings sheets (ac-1, ac-2)", () => {
       />,
     );
     expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Save<\/button>/);
+  });
+});
+
+describe("SettingsView home screen install (ac-6)", () => {
+  const NOT_INSTALLED = { ...ME, installed: false };
+  const HEADING = `>Put ${config.app.name} on your home screen</h1>`;
+  const installButton = (html: string) =>
+    html.match(
+      /<button[^>]*>(?:(?!<\/button>).)*On your home screen(?:(?!<\/button>).)*<\/button>/,
+    )?.[0];
+
+  it.each<InstallState>([
+    { kind: "prompt" },
+    { kind: "ios", sheet: "closed" },
+    { kind: "menu" },
+    { kind: "in-app", openIn: "Safari" },
+  ])(
+    "offers Install on the row when the person can install ($kind)",
+    (state) => {
+      const row = installButton(render(NOT_INSTALLED, null, [], state));
+      expect(row).toBeDefined();
+      expect(text(row!)).toContain("On your home screen Install");
+    },
+  );
+
+  it("shows No with no Install on desktop and other browsers", () => {
+    const html = render(NOT_INSTALLED, null, [], SKIP);
+    expect(text(html)).toContain("On your home screen No");
+    expect(installButton(html)).toBeUndefined();
+    expect(text(html)).not.toContain("Install");
+  });
+
+  it("shows a read-only Yes once installed or running standalone", () => {
+    for (const html of [
+      render(ME, null, [], { kind: "prompt" }),
+      render(NOT_INSTALLED, null, [], { kind: "done" }),
+    ]) {
+      expect(text(html)).toContain("On your home screen Yes");
+      expect(installButton(html)).toBeUndefined();
+      expect(text(html)).not.toContain("Install");
+    }
+  });
+
+  it("opens the install guide without the onboarding step pill or loft skip link", () => {
+    const html = render(NOT_INSTALLED, "install", [], {
+      kind: "ios",
+      sheet: "closed",
+    });
+    expect(html).toContain(HEADING);
+    expect(html).toMatch(/<button[^>]*type="button"[^>]*>Install<\/button>/);
+    expect(html).toMatch(/<button[^>]*type="button"[^>]*>Not now<\/button>/);
+    expect(html).not.toContain("Step ");
+    expect(html).not.toContain('href="/welcome/loft"');
+  });
+
+  it("makes the settings screen inert while the guide is open", () => {
+    const open = render(NOT_INSTALLED, "install", [], { kind: "prompt" });
+    expect(open).toMatch(/<div[^>]*inert=""[^>]*>\s*<header/);
+    const closed = render(NOT_INSTALLED, null, [], { kind: "prompt" });
+    expect(closed).not.toContain("inert");
+  });
+
+  it("keeps the guide closed until the person asks for it", () => {
+    const html = render(NOT_INSTALLED, null, [], { kind: "prompt" });
+    expect(html).not.toContain(HEADING);
   });
 });
