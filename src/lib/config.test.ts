@@ -143,3 +143,20 @@ describe("gear prices", () => {
     expect(purchasable.reduce((sum, item) => sum + item.price, 0)).toBe(2330);
   });
 });
+
+describe("loft add-ons", () => {
+  it("lists the birdbath then the three new add-ons with their prices", () => {
+    expect(config.game.loftItems.map(({ id, price }) => [id, price])).toEqual([
+      ["birdbath", 220],
+      ["flower-boxes", 90],
+      ["weathervane", 140],
+      ["espresso-cart", 260],
+    ]);
+  });
+
+  it("keeps the espresso shot as its own consumable beside the espresso cart", () => {
+    expect(
+      config.game.consumables.find((item) => item.id === "espresso"),
+    ).toMatchObject({ name: "Espresso shot", price: 25 });
+  });
+});

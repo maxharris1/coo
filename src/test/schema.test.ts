@@ -454,6 +454,27 @@ describe("schema", () => {
     expect(rows).toEqual([{ user_id: max }]);
   });
 
+  it("profiles.loft_items: a required text array that starts empty", async () => {
+    const cols = await db.query(
+      `select data_type, udt_name, is_nullable, column_default
+         from information_schema.columns
+        where table_schema = 'public' and table_name = 'profiles' and column_name = 'loft_items'`,
+    );
+    expect(cols).toEqual([
+      {
+        data_type: "ARRAY",
+        udt_name: "_text",
+        is_nullable: "NO",
+        column_default: "'{}'::text[]",
+      },
+    ]);
+    const row = await one<{ loft_items: string[] }>(
+      "select loft_items from profiles where id = $1",
+      [max],
+    );
+    expect(row.loft_items).toEqual([]);
+  });
+
   it("bug_reports: columns", async () => {
     const cols = await db.query(
       `select column_name, data_type, is_nullable, column_default

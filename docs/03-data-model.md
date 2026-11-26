@@ -31,6 +31,7 @@ One per user. `id` equals the Supabase Auth user id.
 - `seeds`: the balance. Changed only by `apply_seeds`.
 - `perches` (3 to 5), `has_birdbath`.
 - `espresso_shots`: Espresso shots held, bought in the Shop. Integer, default 0, never negative.
+- `loft_items`: ids of the loft add-ons owned, bought in the Shop (`flower-boxes`, `weathervane`, `espresso-cart`). Text array, default empty, each id at most once. Never holds the birdbath, which stays `has_birdbath`.
 - `deliveries_count`: lifetime deliveries landed. Drives eggs.
 - `home_*`: the loft. `home_lat`/`home_lon` are already snapped to the roost grid; the exact
   position is never stored. `home_label` is a neighbourhood ("Williamsburg"). `home_city` and

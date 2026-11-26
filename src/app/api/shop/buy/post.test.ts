@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { config } from "@/lib/config";
 import type { UserId } from "@/server/ports/auth";
 import { onboard } from "@/server/services/onboarding";
 import { makeTestDeps, type TestDeps } from "@/test/deps";
@@ -38,6 +39,9 @@ async function onboarded(number: string, name: string, seeds = 0) {
   }
   return session;
 }
+
+const loftPrice = (itemId: string) =>
+  config.game.loftItems.find((item) => item.id === itemId)!.price;
 
 async function balance(id: string) {
   const [row] = await deps.db.query<{ seeds: number; ledger: number }>(
@@ -226,10 +230,11 @@ describe("POST /api/shop/buy", () => {
       seeds: number;
       espresso_shots: number;
       perches: number;
+      loft_items: string[];
       gear: number;
       entries: number;
     }>(
-      `select seeds, espresso_shots, perches,
+      `select seeds, espresso_shots, perches, loft_items,
          (select count(*)::int from gear_owned where user_id = $1) as gear,
          (select count(*)::int from seed_ledger where user_id = $1 and reason = 'shop') as entries
        from profiles where id = $1`,
@@ -243,6 +248,7 @@ describe("POST /api/shop/buy", () => {
     ["a perch", "perch", 250],
     ["gear", "goggles", 180],
     ["the birdbath", "birdbath", 220],
+    ["the weathervane", "weathervane", loftPrice("weathervane")],
   ])(
     "answers a replay of %s with 200 and the first committed state",
     async (_, itemId, price) => {
@@ -263,6 +269,65 @@ describe("POST /api/shop/buy", () => {
       expect(ledger).toEqual([{ delta: -price, ref_id: body.actionId }]);
     },
   );
+
+  it("sells the flower boxes once, then answers a second buy with 409 conflict", async () => {
+    const { id, jar } = await onboarded("(555) 123-4567", "Max", 1000);
+    const price = loftPrice("flower-boxes");
+    const before = await holdings(id);
+    const first = await client.post(
+      { itemId: "flower-boxes", price, actionId: crypto.randomUUID() },
+      jar,
+    );
+    expect(first.status).toBe(200);
+    expect(first.json.me).toMatchObject({ id, seeds: before.seeds - price });
+    const bought = await holdings(id);
+    expect(bought).toEqual({
+      ...before,
+      seeds: before.seeds - price,
+      loft_items: ["flower-boxes"],
+      entries: 1,
+    });
+    const second = await client.post(
+      { itemId: "flower-boxes", price, actionId: crypto.randomUUID() },
+      jar,
+    );
+    expect(second.status).toBe(409);
+    expect(second.json.error).toEqual({
+      code: "conflict",
+      message: config.copy.shop.loftOwned,
+    });
+    expect(await holdings(id)).toEqual(bought);
+  });
+
+  it("leaves another player's loft, shots, seeds and shop entries alone when the caller buys the espresso cart", async () => {
+    const other = await onboarded("(555) 765-4321", "Brenda", 1000);
+    const { id, jar } = await onboarded("(555) 123-4567", "Max", 1000);
+    const theirs = await holdings(other.id);
+    const { status, json } = await client.post(
+      {
+        itemId: "espresso-cart",
+        price: loftPrice("espresso-cart"),
+        actionId: crypto.randomUUID(),
+      },
+      jar,
+    );
+    expect(status).toBe(200);
+    expect(json.me.id).toBe(id);
+    expect((await holdings(id)).loft_items).toEqual(["espresso-cart"]);
+    expect(await holdings(other.id)).toEqual(theirs);
+  });
+
+  it("answers an add-on that is not in the shop with 400 invalid and changes nothing", async () => {
+    const { id, jar } = await onboarded("(555) 123-4567", "Max", 1000);
+    const before = await holdings(id);
+    const { status, json } = await client.post(
+      { itemId: "hot-tub", price: 300, actionId: crypto.randomUUID() },
+      jar,
+    );
+    expect(status).toBe(400);
+    expect(json.error.code).toBe("invalid");
+    expect(await holdings(id)).toEqual(before);
+  });
 
   it("charges once for the same buy sent twice at once", async () => {
     const { id, jar } = await onboarded("(555) 123-4567", "Max", 1000);

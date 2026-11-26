@@ -41,7 +41,11 @@ async function wallet(user: string) {
     seeds: number;
     has_birdbath: boolean;
     perches: number;
-  }>("select seeds, has_birdbath, perches from profiles where id = $1", [user]);
+    loft_items: string[];
+  }>(
+    "select seeds, has_birdbath, perches, loft_items from profiles where id = $1",
+    [user],
+  );
   const [{ sum, rows }] = await deps.db.query<{ sum: number; rows: number }>(
     "select coalesce(sum(delta), 0)::int as sum, count(*)::int as rows from seed_ledger where user_id = $1",
     [user],
@@ -56,6 +60,13 @@ async function wallet(user: string) {
     ledgerRows: rows,
     closet: closet.map((c) => c.gear_id),
   };
+}
+
+async function shopRefs(user: string) {
+  return deps.db.query<{ delta: number; ref_id: string }>(
+    "select delta, ref_id from seed_ledger where user_id = $1 and reason = 'shop' order by id",
+    [user],
+  );
 }
 
 async function shopRows(user: string) {
@@ -96,6 +107,8 @@ const LISTED = new Map<string, number>(
     item.price,
   ]),
 );
+
+const LOFT_ADDONS = ["flower-boxes", "weathervane", "espresso-cart"];
 
 const item = (itemId: string, price = LISTED.get(itemId) ?? 0) => ({
   itemId,
@@ -287,7 +300,7 @@ describe("buy", () => {
     ).toEqual(birdsBefore);
   });
 
-  it.each(["goggles", "birdbath"])(
+  it.each(["goggles", "birdbath", ...LOFT_ADDONS])(
     "charges once when two buys of %s arrive at once",
     async (itemId) => {
       await grant(max, 1000);
@@ -301,6 +314,8 @@ describe("buy", () => {
       expect(await shopRows(max)).toHaveLength(1);
       const after = await wallet(max);
       expect(after.ledgerSum).toBe(after.seeds);
+      if (LOFT_ADDONS.includes(itemId))
+        expect(after.loft_items).toEqual([itemId]);
     },
   );
 
@@ -308,6 +323,7 @@ describe("buy", () => {
     ["the fourth perch at a stale price", "perch", 400],
     ["gear at a stale price", "goggles", 100],
     ["the birdbath at a stale price", "birdbath", 0],
+    ["the weathervane at a stale price", "weathervane", 0],
   ])("refuses %s as conflict and charges nothing", async (_, itemId, price) => {
     await grant(max, 1000);
     const before = await wallet(max);
@@ -479,6 +495,47 @@ describe("buy", () => {
       after,
     );
   });
+});
+
+describe("buy loft add-ons", () => {
+  it.each(LOFT_ADDONS)(
+    "sells %s once at its config price into loft_items",
+    async (itemId) => {
+      const price = LISTED.get(itemId)!;
+      await grant(max, price);
+      const before = await wallet(max);
+      const first = item(itemId);
+      await buy(deps, max, first);
+      const after = await wallet(max);
+      expect(after).toMatchObject({
+        seeds: before.seeds - price,
+        ledgerRows: before.ledgerRows + 1,
+        loft_items: [itemId],
+      });
+      expect(await shopRefs(max)).toEqual([
+        { delta: -price, ref_id: first.actionId },
+      ]);
+
+      expect(await refusal(buy(deps, max, item(itemId)))).toBe("conflict");
+      expect(await wallet(max)).toEqual(after);
+    },
+  );
+
+  it.each(LOFT_ADDONS)(
+    "refuses %s one seed short as insufficient_seeds and changes nothing",
+    async (itemId) => {
+      const price = LISTED.get(itemId)!;
+      const { seeds } = await wallet(max);
+      await grant(max, price - 1 - seeds);
+      const before = await wallet(max);
+      expect(before.seeds).toBe(price - 1);
+      expect(await refusal(buy(deps, max, item(itemId)))).toBe(
+        "insufficient_seeds",
+      );
+      expect(await wallet(max)).toEqual(before);
+      expect(before.loft_items).toEqual([]);
+    },
+  );
 });
 
 describe("buy espresso", () => {

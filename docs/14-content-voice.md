@@ -54,6 +54,7 @@ phrase is the date and the dated column: "Monday, December 7, in the afternoon".
 | `config/copy/flight-log.json` | Flight log lines by event kind, with tokens |
 | `config/copy/notifications.json` | Push and in-app notifications |
 | `config/copy/sms.json` | Text messages and the share template |
+| `config/copy/shop.json` | Shop refusals shown as a toast |
 | `config/jobs.json`, `found-objects.json`, `badges.json`, `quirks.json` | Their own text |
 | `assets/copy/empty-states.json` | Empty and offline states |
 | The screen mocks | Every label, button and helper line on drawn screens |
