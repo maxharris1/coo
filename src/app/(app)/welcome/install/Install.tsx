@@ -171,6 +171,8 @@ const STEPS = [
   },
 ];
 
+const INSTALLED_IN_TAB = "coo:installed";
+
 const focusOnMount = (el: HTMLElement | null) => el?.focus();
 const FOCUSABLE = "button, a[href], [tabindex]:not([tabindex='-1'])";
 
@@ -334,9 +336,18 @@ export function useInstall(): InstallControls {
 
   useEffect(() => {
     watcher.current = watchInstall(window, dispatch);
-    dispatch({ type: "detected", platform: detectPlatform(snapshot()) });
+    dispatch(
+      window.sessionStorage.getItem(INSTALLED_IN_TAB)
+        ? { type: "installed" }
+        : { type: "detected", platform: detectPlatform(snapshot()) },
+    );
     return watcher.current.stop;
   }, []);
+
+  useEffect(() => {
+    if (state.kind === "done")
+      window.sessionStorage.setItem(INSTALLED_IN_TAB, "1");
+  }, [state.kind]);
 
   useEffect(() => {
     if (state.kind !== "waiting") return;
