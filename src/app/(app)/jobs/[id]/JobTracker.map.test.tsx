@@ -58,6 +58,7 @@ const lib = vi.hoisted(() => {
     getContainer() {
       return { clientWidth: 400, clientHeight: 800 };
     }
+    // A stand-in to place clouds with; it does not invert project.
     unproject([x, y]: [number, number]) {
       return { lng: x / 1000, lat: -y / 1000 };
     }

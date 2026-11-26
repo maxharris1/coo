@@ -1103,10 +1103,9 @@ describe("clouds drift over the map, anchored to it (#968 ac-4)", () => {
     { top: 0.42, rest: 0.85 },
     { top: 0.64, rest: 0.6 },
   ];
-  const DRIFT_S = [44, 58, 50];
+  const CROSS_S = [32, 42, 36];
   /** Pixels a cloud drifts east on screen in one 200 ms frame. */
-  const stepPx = (map: FakeMap, i: number) =>
-    ((map.width + 2 * 74) / DRIFT_S[i]) * 0.2;
+  const stepPx = (map: FakeMap, i: number) => (map.width / CROSS_S[i]) * 0.2;
 
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"] });
@@ -1280,28 +1279,78 @@ describe("clouds drift over the map, anchored to it (#968 ac-4)", () => {
     }
   });
 
-  it("drift east at a steady screen speed at any zoom, crossing the view in 30 to 50 s", async () => {
+  it("drift east at a steady screen speed at any width and zoom, crossing the view in 30 to 50 s", async () => {
     const { map } = await clouds();
-    for (const zoom of [5, 8, 11, 3, 5]) {
-      map.camera = { ...map.camera!, zoom };
-      map.fire("zoom");
-      for (let t = 0; t < 5000; t += 200) frame();
-      const before = onScreen(map);
-      for (let t = 0; t < 1000; t += 200) frame();
-      const perSec = onScreen(map).map((p, i) => p.x - before[i].x);
-      const steady = perSec.filter((d) => d > 0);
-      expect(
-        steady.length,
-        `zoom ${zoom}: clouds that did not wrap`,
-      ).toBeGreaterThan(0);
-      for (const d of steady) {
-        expect(map.width / d, `zoom ${zoom}`).toBeGreaterThanOrEqual(30);
-        expect(map.width / d, `zoom ${zoom}`).toBeLessThanOrEqual(50);
+    for (const width of [300, 390, 430, 1280, 1920]) {
+      map.width = width;
+      map.fire("resize");
+      for (const zoom of [5, 8, 11, 3]) {
+        const at = `${width} px at zoom ${zoom}`;
+        map.camera = { ...map.camera!, zoom };
+        map.fire("zoom");
+        for (let t = 0; t < 5000; t += 200) frame();
+        const before = onScreen(map);
+        for (let t = 0; t < 1000; t += 200) frame();
+        const perSec = onScreen(map).map((p, i) => p.x - before[i].x);
+        const steady = perSec.filter((d) => d > 0);
+        expect(
+          steady.length,
+          `${at}: clouds that did not wrap`,
+        ).toBeGreaterThan(0);
+        for (const d of steady) {
+          expect(width / d, at).toBeGreaterThanOrEqual(30);
+          expect(width / d, at).toBeLessThanOrEqual(50);
+        }
+        expect(new Set(perSec.map((d) => d.toFixed(3))).size, at).toBe(3);
       }
-      expect(new Set(perSec.map((d) => d.toFixed(3))).size, "own speeds").toBe(
-        3,
-      );
     }
+  });
+
+  it("read the map's size only at load and on resize, never per frame", async () => {
+    const { map } = await clouds();
+    const reads = vi.spyOn(map, "getContainer");
+    for (let t = 0; t < 2000; t += 200) frame();
+    expect(reads, "no layout read in the frame loop").not.toHaveBeenCalled();
+    map.width = 300;
+    for (let t = 0; t < 400; t += 200) frame();
+    expect(reads).not.toHaveBeenCalled();
+    map.fire("resize");
+    // Read again on resize (the pin pills read it then too).
+    expect(reads).toHaveBeenCalled();
+    reads.mockClear();
+    const before = onScreen(map);
+    frame();
+    expect(reads).not.toHaveBeenCalled();
+    onScreen(map).forEach((p, i) => {
+      if (p.x > before[i].x) {
+        expect(p.x - before[i].x, "speed for the new width").toBeCloseTo(
+          (300 / CROSS_S[i]) * 0.2,
+          6,
+        );
+      }
+    });
+  });
+
+  it("write a cloud's fade and size only when they change", async () => {
+    const { map, imgs, hosts } = await clouds();
+    frame();
+    let writes = 0;
+    for (const el of [...imgs, ...hosts()]) {
+      el.style = new Proxy(el.style, {
+        set(target, key, value) {
+          writes++;
+          return Reflect.set(target, key, value);
+        },
+      });
+    }
+    // All three sit well inside the view, so each frame's fade is still 1.
+    for (let t = 0; t < 2000; t += 200) frame();
+    expect(writes, "nothing changed").toBe(0);
+    map.fire("zoom");
+    expect(writes, "same zoom, same size and display").toBe(0);
+    map.camera = { ...map.camera!, zoom: OPEN.zoom + 1 };
+    map.fire("zoom");
+    expect(writes, "a new size for each picture").toBe(3);
   });
 
   it("come back in only off the view, after a zoom out, a pan and a resize", async () => {
@@ -1402,6 +1451,12 @@ describe("clouds drift over the map, anchored to it (#968 ac-4)", () => {
     map.width = 400;
     map.height = 800;
     nextFrame();
+    expect(
+      cloudMarkers(),
+      "none until MapLibre reports the resize",
+    ).toHaveLength(0);
+    map.fire("resize");
+    nextFrame();
     expect(cloudMarkers()).toHaveLength(3);
     onScreen(map).forEach((p, i) => {
       expect(p.x).toBeCloseTo(SPOTS[i].rest * 400, 6);
@@ -1450,6 +1505,31 @@ describe("clouds drift over the map, anchored to it (#968 ac-4)", () => {
     map.fire("move");
     frame();
     places().forEach(([lng], i) => expect(lng).toBeGreaterThan(still[i][0]));
+  });
+
+  it("keep fading with the view under reduced motion, so a cloud that just came back in does not stay invisible", async () => {
+    const reduce = { matches: false };
+    vi.stubGlobal("matchMedia", (q: string) =>
+      q === "(prefers-reduced-motion: reduce)" ? reduce : { matches: false },
+    );
+    const { map, imgs } = await clouds();
+    let t = 0;
+    while (imgs[1].style.opacity !== "0.000" && t < 60_000) {
+      frame();
+      t += 200;
+    }
+    expect(imgs[1].style.opacity, "came back in off the west edge").toBe(
+      "0.000",
+    );
+    reduce.matches = true;
+    const still = places();
+    const degPx = (512 * 2 ** OPEN.zoom) / 360;
+    map.camera = { ...map.camera!, lng: map.camera!.lng - 200 / degPx };
+    map.fire("move");
+    frame();
+    expect(places(), "no drift").toEqual(still);
+    expect(onScreen(map)[1].x).toBeGreaterThan(74);
+    expect(imgs[1].style.opacity, "panned into view, shown").toBe("1.000");
   });
 
   it("show at zoom 11 and below, hide and hold still at street zoom, and grow gently from the zoom they were placed at", async () => {

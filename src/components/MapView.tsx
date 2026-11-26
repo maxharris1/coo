@@ -141,12 +141,12 @@ const CLOUD_W = 74;
 const CLOUD_H = 36;
 // Each cloud is a map marker. It is placed on the view the first time clouds
 // can show (a share of the map's width and height) and drifts east at a steady
-// speed on screen: one view wide plus a cloud each side in `drift` seconds, at
-// any zoom. Past the view's east edge it comes back in just off the west edge.
+// speed on screen: across the view in `cross` seconds, at any width and zoom.
+// Past the view's east edge it comes back in just off the west edge.
 const CLOUDS = [
-  { top: 0.18, rest: 0.35, drift: 44 },
-  { top: 0.42, rest: 0.85, drift: 58 },
-  { top: 0.64, rest: 0.6, drift: 50 },
+  { top: 0.18, rest: 0.35, cross: 32 },
+  { top: 0.42, rest: 0.85, cross: 42 },
+  { top: 0.64, rest: 0.6, cross: 36 },
 ] as const;
 // A cloud that is far off the view (more than a view west of it, or above or
 // below it) comes back in off the west edge too, this far apart (a share of
@@ -578,22 +578,43 @@ export function MapView({
             img: HTMLElement;
             lng: number;
             lat: number;
+            opacity: string;
           };
           let clouds: Cloud[] | null = null;
           let zoom0 = 0;
+          // The map's size, read once and again on each resize, so no frame
+          // reads layout right after the bird's marker moved.
+          const readSize = () => {
+            const box = m.getContainer();
+            return { w: box.clientWidth, h: box.clientHeight };
+          };
+          let size = readSize();
+          m.on("resize", () => {
+            size = readSize();
+          });
+          let shown = { display: "", transform: "" };
           const fitClouds = () => {
             if (!clouds) return;
             const zoom = m.getZoom();
-            const scale = `scale(${cloudScale(zoom, zoom0).toFixed(3)})`;
+            const next = {
+              display: zoom <= CLOUD_MAX_ZOOM ? "block" : "none",
+              transform: `scale(${cloudScale(zoom, zoom0).toFixed(3)})`,
+            };
             for (const c of clouds) {
-              c.host.style.display = zoom <= CLOUD_MAX_ZOOM ? "block" : "none";
-              c.img.style.transform = scale;
+              if (next.display !== shown.display) {
+                c.host.style.display = next.display;
+              }
+              if (next.transform !== shown.transform) {
+                c.img.style.transform = next.transform;
+              }
             }
+            shown = next;
           };
           const placeClouds = () => {
-            const { clientWidth: w, clientHeight: h } = m.getContainer();
             const zoom = m.getZoom();
-            if (!w || !h || zoom > CLOUD_MAX_ZOOM) return;
+            if (zoom > CLOUD_MAX_ZOOM) return;
+            const { w, h } = size;
+            if (!w || !h) return;
             zoom0 = zoom;
             clouds = CLOUDS.flatMap((c, i) => {
               const host = hosts[i][0].current;
@@ -611,7 +632,15 @@ export function MapView({
               m.getCanvas().after(host);
               markers.push(cloud);
               return [
-                { i, marker: cloud, host, img, lng: at.lng, lat: at.lat },
+                {
+                  i,
+                  marker: cloud,
+                  host,
+                  img,
+                  lng: at.lng,
+                  lat: at.lat,
+                  opacity: "",
+                },
               ];
             });
             fitClouds();
@@ -620,7 +649,8 @@ export function MapView({
           m.on("zoom", fitClouds);
 
           // Drift only while the tab shows, clouds show and motion is welcome;
-          // under reduced motion the clouds stay put where they were placed.
+          // under reduced motion the clouds stay put where they are, though
+          // their fade still follows the view.
           const reduce = globalThis.matchMedia?.(REDUCE_MOTION);
           let last = Date.now();
           driftClouds = () => {
@@ -628,10 +658,11 @@ export function MapView({
             const step = Math.min(Math.max(t - last, 0), CLOUD_MAX_STEP_MS);
             last = t;
             if (!clouds) placeClouds();
-            if (!clouds || document.hidden || reduce?.matches) return;
+            if (!clouds || document.hidden) return;
             const zoom = m.getZoom();
-            const { clientWidth: w, clientHeight: h } = m.getContainer();
+            const { w, h } = size;
             if (zoom > CLOUD_MAX_ZOOM || !w || !h) return;
+            const moving = !reduce?.matches;
             const scale = cloudScale(zoom, zoom0);
             const cw = CLOUD_W * scale;
             const ch = CLOUD_H * scale;
@@ -639,25 +670,30 @@ export function MapView({
             for (const c of clouds) {
               c.lng = nearLon(c.lng, centre);
               let { x, y } = m.project([c.lng, c.lat]);
-              const pxPerDeg = m.project([c.lng + 1, c.lat]).x - x;
-              const px =
-                ((w + 2 * CLOUD_W) / CLOUDS[c.i].drift) * (step / 1000);
-              if (pxPerDeg > 0) {
-                c.lng += px / pxPerDeg;
-                x += px;
+              if (moving) {
+                const pxPerDeg = m.project([c.lng + 1, c.lat]).x - x;
+                const px = (w / CLOUDS[c.i].cross) * (step / 1000);
+                if (pxPerDeg > 0) {
+                  c.lng += px / pxPerDeg;
+                  x += px;
+                }
+                const lost = y < -ch || y > h + ch || x < -w - cw;
+                if (lost || x > w + cw) {
+                  // Off the view: come back in just off its west edge, at the
+                  // cloud's own height if that is on the view.
+                  if (y < 0 || y > h) y = CLOUDS[c.i].top * h;
+                  x = -cw - (lost ? CLOUD_STAGGER[c.i] * w : 0);
+                  const at = m.unproject([x, y]);
+                  c.lng = at.lng;
+                  c.lat = at.lat;
+                }
+                c.marker.setLngLat([c.lng, c.lat]);
               }
-              const lost = y < -ch || y > h + ch || x < -w - cw;
-              if (lost || x > w + cw) {
-                // Off the view: come back in just off its west edge, at the
-                // cloud's own height if that is on the view.
-                if (y < 0 || y > h) y = CLOUDS[c.i].top * h;
-                x = -cw - (lost ? CLOUD_STAGGER[c.i] * w : 0);
-                const at = m.unproject([x, y]);
-                c.lng = at.lng;
-                c.lat = at.lat;
+              const opacity = cloudFade(x, w, cw).toFixed(3);
+              if (opacity !== c.opacity) {
+                c.opacity = opacity;
+                c.img.style.opacity = opacity;
               }
-              c.img.style.opacity = cloudFade(x, w, cw).toFixed(3);
-              c.marker.setLngLat([c.lng, c.lat]);
             }
           };
         }

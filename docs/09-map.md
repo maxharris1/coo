@@ -188,9 +188,9 @@ is pinned to the screen; only the controls (the Find button, the card and the ma
   never take a tap. They show at zoom 11 and below and hide at street zoom (12 and up), and
   grow gently as the map zooms in from the zoom they were placed at (double every 4 levels,
   held between 0.75x and 1.5x).
-  Each drifts east at its own latitude at a steady speed on screen, whatever the zoom: the
-  current view's width plus a cloud each side in 44, 58 and 50 s, so it crosses the view in
-  about 32 to 42 s. A pan or zoom never moves a cloud's place; only the drift does. Wrapping
+  Each drifts east at its own latitude at a steady speed on screen, crossing the current view
+  in 32, 42 and 36 s whatever its width or the zoom. A pan or zoom never moves a cloud's place;
+  only the drift does. The map's size is read at load and on each resize, never per frame. Wrapping
   follows the current view: a cloud more than a cloud width past its east edge comes back in
   just off its west edge, at its own height if that is on the view, otherwise at its 18/42/64%
   height. A cloud far off the view (more than a view west of it, or above or below it, as after
@@ -199,8 +199,9 @@ is pinned to the screen; only the controls (the Find button, the card and the ma
   only ever jumps while it is wholly off the view, and the picture also fades over one cloud
   width at each edge as a safety net. The drift runs on the bird's animation frame, moves at
   most 250 ms per frame, stops while the tab is hidden or the clouds are hidden at street
-  zoom, and does not jump when it starts again. Under reduced motion they stay where they were
-  placed, still shown and still anchored. Preview maps have no clouds.
+  zoom, and does not jump when it starts again. Under reduced motion they stay where they are,
+  still shown, still anchored and still fading at the view's edges. Preview maps have no
+  clouds.
 - **Night:** when the sun is down at the bird's position (use `isDaylight` from the engine),
   switch to the night style. `MapView` loads it through `loadMapStyle` and swaps it in with
   `setStyle`, so the route layers are re-added on `style.load` and the pins and bird stay put
