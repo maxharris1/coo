@@ -135,10 +135,13 @@ const blocks = (file: string, selector: string) =>
   ].map((m) => m[1]);
 
 describe("tab bar while a tab page scrolls", () => {
-  it("is fixed to the bottom of the viewport", () => {
-    expect(declaration(BAR_POSITION)).toBe("fixed");
-    expect(declaration(BAR_BOTTOM)).toBe("0");
-  });
+  it.each([320, 390, 430, 599, 600, 1024])(
+    "is fixed to the bottom of a %ipx-wide viewport",
+    (width) => {
+      expect(declaration(BAR_POSITION, width)).toBe("fixed");
+      expect(declaration(BAR_BOTTOM, width)).toBe("0");
+    },
+  );
 
   it("centres without a transform, so iOS keeps it on the viewport", () => {
     const rules = blocks(TAB_BAR, "\\.bar");
