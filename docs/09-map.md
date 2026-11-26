@@ -187,8 +187,9 @@ is pinned to the screen; only the controls (the Find button, the card and the ma
   visible map instead: the card hides clouds, the header (floating pills) does not, and map
   shows beside the card's 28 pt rounded top corners. Whether there is a card comes from
   `controlsBottom` (the card's height, set by the tracker and the odd-job tracker); a map with
-  none, like the guest page, hides a cloud only once it is wholly below the map's bottom edge. Clouds may drift under the header's pills
-  or behind the card. They are placed the first time the map can show
+  none, like the guest page, hides a cloud only once it is wholly below the map's bottom edge.
+  Clouds may drift under the header's pills or behind the card. They are placed the first time
+  the map can show
   them (zoom 11 or below, with a size and a clear area taller than 0; a short route that opens
   at street zoom places them when the user zooms out), at 18%, 42% and 64% down the clear area
   and 35%, 85% and 60% across. Each marker element moves to just above the
@@ -205,8 +206,7 @@ is pinned to the screen; only the controls (the Find button, the card and the ma
   18/42/64% height in it (or in the map above the card, if the card and header leave no clear
   area). A cloud far off the view (more than a view west of it, wholly above the map, or
   wholly behind the card below its rounded corners or below a cardless map, as after a pan or
-  after
-  the follow camera zooms in on the bird) comes back in the same way, off the west edge and
+  after the follow camera zooms in on the bird) comes back in the same way, off the west edge and
   staggered (0, 50% and 25% of a view further west), so it drifts back into sight. So a cloud
   only ever jumps while it is wholly out of sight, and the picture also fades over one cloud
   width at each edge as a safety net. The drift runs on the bird's animation frame, moves at

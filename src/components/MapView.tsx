@@ -65,7 +65,11 @@ export type MapViewProps = {
   bottomPadding: number;
   /** Camera room kept clear at the top, for the header and a pin under it. */
   topPadding?: number;
-  /** How far up to lift the map's credit: the height of the card over it. */
+  /**
+   * The height of the opaque card over the map, 0 when there is none. It lifts the
+   * map's credit, and tells the clouds where the card hides them (with no card they
+   * count as hidden only past the map's bottom edge).
+   */
   controlsBottom?: number;
   /** A name for the map picture. The credit stays outside it. */
   mapLabel?: string;
