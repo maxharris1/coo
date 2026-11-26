@@ -1,4 +1,11 @@
 import { readFileSync } from "node:fs";
+import {
+  Children,
+  type ComponentProps,
+  isValidElement,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { config } from "@/lib/config";
@@ -26,11 +33,19 @@ const render = (state: InstallState, copied = false) =>
       copied={copied}
       onInstall={() => {}}
       onCopy={() => {}}
+      onOpenSheet={() => {}}
+      onCloseSheet={() => {}}
     />,
   ).replaceAll("&#x27;", "'");
 const css = readFileSync(new URL("./page.module.css", import.meta.url), "utf8");
-const rule = (cls: string) =>
-  css.match(new RegExp(`\\.${cls} \\{[^}]*\\}`))?.[0];
+const sheetCss = readFileSync(
+  new URL("./InstallSheet.module.css", import.meta.url),
+  "utf8",
+);
+const rule = (cls: string, from = css) =>
+  from.match(new RegExp(`\\.${cls} \\{[^}]*\\}`))?.[0];
+const reducedMotion = (from: string) =>
+  from.match(/@media \(prefers-reduced-motion: reduce\) \{([^@]*)\}\s*$/)?.[1];
 const HEADING = new RegExp(
   `<h1[^>]*>Put ${config.app.name} on your home screen</h1>`,
 );
@@ -38,49 +53,276 @@ const SKIP =
   /<a[^>]*href="\/welcome\/loft"[^>]*>Not now. Text me when birds land instead.<\/a>/;
 const MENU_FALLBACK = "Tap your browser's menu, then Install app";
 
-describe("/welcome/install on iOS Safari (ac-4)", () => {
-  const html = render({ kind: "ios" });
+const IOS_STEPS = [
+  "Tap Share. If you don't see it, tap ••• first. Share is at the bottom in portrait and at the top right in landscape.",
+  "Choose Add to Home Screen. Tap View More or scroll if it's hidden.",
+  "Leave Open as Web App on, then tap Add.",
+];
 
-  it("shows the Install mock's heading and subline", () => {
-    expect(html).toContain(">Step 2 of 3<");
-    expect(html).toMatch(
-      new RegExp(`<h1[^>]*>Put ${config.app.name} on your home screen</h1>`),
-    );
-    expect(html).toContain(
-      "It opens full screen like any other app, and it is how your phone tells you a bird has landed.",
-    );
+function dialogOf(html: string) {
+  const start = html.lastIndexOf("<div", html.indexOf('role="dialog"'));
+  const tags = /<(\/?)div\b[^>]*>/g;
+  tags.lastIndex = start;
+  let depth = 0;
+  for (let m = tags.exec(html); m; m = tags.exec(html)) {
+    depth += m[1] ? -1 : 1;
+    if (depth === 0) return html.slice(start, tags.lastIndex);
+  }
+  throw new Error("no dialog in markup");
+}
+
+type Focusable = { focus: () => void };
+type Key = {
+  key: string;
+  shiftKey?: boolean;
+  target?: unknown;
+  currentTarget?: { querySelectorAll: () => Focusable[] };
+  preventDefault?: () => void;
+};
+type El = ReactElement<{
+  children?: ReactNode;
+  role?: string;
+  "aria-label"?: string;
+  onClick?: () => void;
+  onKeyDown?: (e: Key) => void;
+  ref?: { current: Focusable | null };
+}>;
+
+function find(node: ReactNode, hit: (el: El) => boolean): El | undefined {
+  if (!isValidElement<El["props"]>(node)) return undefined;
+  if (hit(node)) return node;
+  for (const child of Children.toArray(node.props.children)) {
+    const found = find(child, hit);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+const tree = (props: ComponentProps<typeof InstallView>) => {
+  let out: ReactNode = null;
+  function Probe() {
+    out = InstallView(props);
+    return null;
+  }
+  renderToStaticMarkup(<Probe />);
+  return out;
+};
+
+describe("/welcome/install on iOS Safari (ac-3)", () => {
+  describe("with the guide closed", () => {
+    const html = render({ kind: "ios", sheet: "closed" });
+
+    it("shows the Install mock's heading and subline", () => {
+      expect(html).toContain(">Step 2 of 3<");
+      expect(html).toMatch(HEADING);
+      expect(html).toContain(
+        "It opens full screen like any other app, and it is how your phone tells you a bird has landed.",
+      );
+    });
+
+    it("draws the home screen with the app icon as one labelled picture", () => {
+      expect(html).toContain(
+        `role="img" aria-label="The ${config.app.name} icon sitting on a phone home screen among other apps"`,
+      );
+      expect(html).toMatch(new RegExp(`>${config.app.name}</[a-z]+>`));
+    });
+
+    it("offers one Install button and the skip link", () => {
+      expect(html.match(/<button/g)).toHaveLength(1);
+      expect(html).toMatch(/<button[^>]*type="button"[^>]*>Install<\/button>/);
+      expect(html).toMatch(SKIP);
+    });
+
+    it("keeps the steps and the old Share pointer off the page", () => {
+      expect(html).not.toContain('role="dialog"');
+      expect(html).not.toContain("<li");
+      expect(html).not.toContain("Share is down here");
+    });
   });
 
-  it("draws the home screen with the app icon as one labelled picture", () => {
-    expect(html).toContain(
-      `role="img" aria-label="The ${config.app.name} icon sitting on a phone home screen among other apps"`,
-    );
-    expect(html).toMatch(new RegExp(`>${config.app.name}</[a-z]+>`));
+  describe("with the guide open", () => {
+    const html = render({ kind: "ios", sheet: "open" });
+    const dialog = dialogOf(html);
+
+    it("opens a modal dialog titled for the home screen", () => {
+      expect(dialog).toContain('aria-modal="true"');
+      const id = dialog.match(/aria-labelledby="([^"]+)"/)?.[1];
+      expect(id).toBeTruthy();
+      expect(dialog).toContain(`<h2 id="${id}"`);
+      expect(dialog).toMatch(
+        new RegExp(`<h2[^>]*>Add ${config.app.name} to your home screen</h2>`),
+      );
+    });
+
+    it("lists the three iPhone steps in order with their icons", () => {
+      const steps = [...dialog.matchAll(/<li[^>]*>.*?<\/li>/gs)].map(
+        (m) => m[0],
+      );
+      expect(steps).toHaveLength(3);
+      steps.forEach((step, i) => {
+        expect(step).toContain(IOS_STEPS[i]);
+        expect(step).toContain("<svg");
+      });
+    });
+
+    it("points at the Share icon in the first step", () => {
+      const share = dialog.match(/<li[^>]*>.*?<\/li>/s)?.[0];
+      expect(share).toContain("animation:coo-point");
+    });
+
+    it("closes from the backdrop or a visible Close button", () => {
+      expect(html).toMatch(
+        /<button type="button" aria-label="Close"[^>]*><\/button>/,
+      );
+      expect(dialog).toMatch(/<button[^>]*type="button"[^>]*>Close<\/button>/);
+    });
+
+    it("keeps the Install button and the skip link outside the sheet", () => {
+      expect(html).toMatch(/<button[^>]*>Install<\/button>/);
+      expect(html).toMatch(SKIP);
+      expect(dialog).not.toMatch(SKIP);
+      expect(dialog).not.toContain(">Install<");
+    });
   });
 
-  it("lists the three iPhone steps in order with their icons", () => {
-    const steps = [...html.matchAll(/<li[^>]*>.*?<\/li>/gs)].map((m) => m[0]);
-    expect(steps).toHaveLength(3);
-    expect(steps[0]).toContain("Tap Share in your browser's toolbar");
-    expect(steps[1]).toContain("Choose Add to Home Screen");
-    expect(steps[2]).toContain(
-      `Open ${config.app.name} from the new icon and say yes to notifications`,
-    );
-    for (const step of steps) expect(step).toContain("<svg");
+  describe("wiring", () => {
+    const spies = (sheet: "open" | "closed") => {
+      const onOpenSheet = vi.fn();
+      const onCloseSheet = vi.fn();
+      const node = tree({
+        state: { kind: "ios", sheet },
+        copied: false,
+        onInstall: () => {},
+        onCopy: () => {},
+        onOpenSheet,
+        onCloseSheet,
+      });
+      return { node, onOpenSheet, onCloseSheet };
+    };
+
+    it("opens the guide from Install", () => {
+      const { node, onOpenSheet, onCloseSheet } = spies("closed");
+      find(node, (el) => el.props.children === "Install")?.props.onClick?.();
+      expect(onOpenSheet).toHaveBeenCalledOnce();
+      expect(onCloseSheet).not.toHaveBeenCalled();
+    });
+
+    it.each<[string, (el: El) => boolean]>([
+      ["the backdrop", (el) => el.props["aria-label"] === "Close"],
+      ["the Close button", (el) => el.props.children === "Close"],
+    ])("closes the guide from %s", (_, hit) => {
+      const { node, onOpenSheet, onCloseSheet } = spies("open");
+      find(node, hit)?.props.onClick?.();
+      expect(onCloseSheet).toHaveBeenCalledOnce();
+      expect(onOpenSheet).not.toHaveBeenCalled();
+    });
+
+    it("closes the guide on Escape and ignores other keys", () => {
+      const { node, onCloseSheet } = spies("open");
+      const layer = find(node, (el) => el.props.onKeyDown !== undefined);
+      layer?.props.onKeyDown?.({ key: "Enter" });
+      expect(onCloseSheet).not.toHaveBeenCalled();
+      layer?.props.onKeyDown?.({ key: "Escape", preventDefault: () => {} });
+      expect(onCloseSheet).toHaveBeenCalledOnce();
+    });
   });
 
-  it("points at the Share button", () => {
-    expect(html).toContain(">Share is down here<");
-  });
+  describe("as a keyboard modal", () => {
+    const open = render({ kind: "ios", sheet: "open" });
+    const behind = (html: string) =>
+      html.match(/<main[^>]*>.*?<\/main>/s)?.[0] ?? "";
 
-  it("offers the skip link to the next step", () => {
-    expect(html).toMatch(
-      /<a[^>]*href="\/welcome\/loft"[^>]*>Not now. Text me when birds land instead.<\/a>/,
-    );
-  });
+    it("makes the page behind the open guide inert", () => {
+      const page = behind(open);
+      expect(page).toMatch(/^<main[^>]*\binert=""/);
+      expect(page).toMatch(/<button[^>]*>Install<\/button>/);
+      expect(page).toMatch(SKIP);
+      expect(page).not.toContain('role="dialog"');
+    });
 
-  it("shows no install or copy button", () => {
-    expect(html).not.toContain("<button");
+    it("leaves the page live once the guide is closed", () => {
+      expect(behind(render({ kind: "ios", sheet: "closed" }))).not.toContain(
+        "inert",
+      );
+    });
+
+    it("keeps the backdrop out of the Tab order", () => {
+      expect(open).toMatch(/<button[^>]*aria-label="Close"[^>]*tabindex="-1"/);
+    });
+
+    const keyboard = () => {
+      const onCloseSheet = vi.fn();
+      const node = tree({
+        state: { kind: "ios", sheet: "open" },
+        copied: false,
+        onInstall: () => {},
+        onCopy: () => {},
+        onOpenSheet: () => {},
+        onCloseSheet,
+      });
+      const install = { focus: vi.fn() };
+      const ref = find(node, (el) => el.props.children === "Install")?.props
+        .ref;
+      if (ref) ref.current = install;
+      const layer = find(node, (el) => el.props.onKeyDown !== undefined);
+      const items = [{ focus: vi.fn() }, { focus: vi.fn() }];
+      const press = (key: string, target: unknown, shiftKey = false) => {
+        const preventDefault = vi.fn();
+        layer?.props.onKeyDown?.({
+          key,
+          shiftKey,
+          target,
+          currentTarget: { querySelectorAll: () => items },
+          preventDefault,
+        });
+        return preventDefault;
+      };
+      return { node, onCloseSheet, install, items, press };
+    };
+
+    it("wraps Tab from the last control to the first", () => {
+      const { items, press } = keyboard();
+      expect(press("Tab", items[1])).toHaveBeenCalled();
+      expect(items[0].focus).toHaveBeenCalledOnce();
+    });
+
+    it("wraps Shift+Tab from the first control to the last", () => {
+      const { items, press } = keyboard();
+      expect(press("Tab", items[0], true)).toHaveBeenCalled();
+      expect(items[1].focus).toHaveBeenCalledOnce();
+    });
+
+    it("keeps Shift+Tab from the sheet itself inside the sheet", () => {
+      const { items, press } = keyboard();
+      expect(press("Tab", {}, true)).toHaveBeenCalled();
+      expect(items[1].focus).toHaveBeenCalledOnce();
+      expect(items[0].focus).not.toHaveBeenCalled();
+    });
+
+    it.each<[string, (k: ReturnType<typeof keyboard>) => void]>([
+      ["Escape", ({ press }) => press("Escape", {})],
+      [
+        "the backdrop",
+        ({ node }) =>
+          find(
+            node,
+            (el) => el.props["aria-label"] === "Close",
+          )?.props.onClick?.(),
+      ],
+      [
+        "the Close button",
+        ({ node }) =>
+          find(node, (el) => el.props.children === "Close")?.props.onClick?.(),
+      ],
+    ])("returns focus to Install after closing with %s", (_, dismiss) => {
+      const k = keyboard();
+      dismiss(k);
+      expect(k.onCloseSheet).toHaveBeenCalledOnce();
+      expect(k.install.focus).toHaveBeenCalledOnce();
+      expect(k.onCloseSheet.mock.invocationCallOrder[0]).toBeLessThan(
+        k.install.focus.mock.invocationCallOrder[0],
+      );
+    });
   });
 });
 
@@ -162,7 +404,8 @@ describe("'Not now. Text me when birds land instead.' (ac-3)", () => {
     { kind: "waiting" },
     { kind: "prompt" },
     { kind: "menu" },
-    { kind: "ios" },
+    { kind: "ios", sheet: "closed" },
+    { kind: "ios", sheet: "open" },
     { kind: "in-app", openIn: "Safari" },
     { kind: "skip" },
     { kind: "done" },
@@ -176,6 +419,8 @@ describe("'Not now. Text me when birds land instead.' (ac-3)", () => {
         copied={false}
         onInstall={() => installs++}
         onCopy={() => {}}
+        onOpenSheet={() => {}}
+        onCloseSheet={() => {}}
       />,
     );
     expect(html).toMatch(SKIP);
@@ -225,12 +470,12 @@ describe("installStep (ac-4, ac-5)", () => {
     ["desktop Firefox", { kind: "skip" }, snapshot(UA.desktopFirefox)],
     [
       "iPad Safari",
-      { kind: "ios" },
+      { kind: "ios", sheet: "closed" },
       snapshot(UA.ipadSafari, { maxTouchPoints: 5 }),
     ],
     [
       "iPad Safari asking for the desktop site",
-      { kind: "ios" },
+      { kind: "ios", sheet: "closed" },
       snapshot(UA.macSafari, { maxTouchPoints: 5 }),
     ],
   ];
@@ -282,17 +527,36 @@ describe("/welcome/install page", () => {
 
 describe("/welcome/install styles", () => {
   it("keeps every control at least the 44 px touch size", () => {
-    for (const cls of ["skip", "action"]) {
-      expect(rule(cls), `.${cls}`).toMatch(
+    const controls: [string, string][] = [
+      ["skip", css],
+      ["action", css],
+      ["close", sheetCss],
+    ];
+    for (const [cls, from] of controls) {
+      expect(rule(cls, from), `.${cls}`).toMatch(
         /min-(height|block-size): (var\(--coo-touch\)|4[4-9]px|[5-9]\dpx)/,
       );
     }
   });
 
-  it("stops the hop and the pointer when the person asks for reduced motion", () => {
-    expect(css).toMatch(
-      /@media \(prefers-reduced-motion: reduce\) \{[^@]*animation: none/,
-    );
+  it("slides the guide up", () => {
+    const name = rule("sheet", sheetCss)?.match(/animation: ([\w-]+)/)?.[1];
+    expect(name).toBeTruthy();
+    expect(sheetCss).toContain(`@keyframes ${name} {`);
+  });
+
+  it("stops the hop, the Share pointer and the slide when the person asks for reduced motion", () => {
+    const blocks: [string[], string][] = [
+      [["hop", "point"], css],
+      [["sheet"], sheetCss],
+    ];
+    for (const [classes, from] of blocks) {
+      const block = reducedMotion(from);
+      for (const cls of classes) {
+        expect(block, `.${cls}`).toMatch(new RegExp(`\\.${cls}\\b`));
+      }
+      expect(block).toContain("animation: none !important");
+    }
   });
 
   it("uses the mock's sky background", () => {

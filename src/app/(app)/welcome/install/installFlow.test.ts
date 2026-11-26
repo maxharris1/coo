@@ -13,7 +13,7 @@ describe("installStep", () => {
   const cases: [Platform, InstallState][] = [
     [{ kind: "installed" }, { kind: "done" }],
     [{ kind: "other" }, { kind: "skip" }],
-    [{ kind: "ios-safari" }, { kind: "ios" }],
+    [{ kind: "ios-safari" }, { kind: "ios", sheet: "closed" }],
     [{ kind: "prompt" }, { kind: "prompt" }],
     [{ kind: "prompt-pending" }, { kind: "waiting" }],
     [
@@ -114,13 +114,38 @@ describe("installFlow fallback to the browser menu (ac-2)", () => {
   );
 
   it("leaves iOS and in-app screens alone when a stray prompt arrives", () => {
-    expect(run({ kind: "ios" }, { type: "promptReady" })).toEqual({
-      kind: "ios",
-    });
+    expect(
+      run({ kind: "ios", sheet: "closed" }, { type: "promptReady" }),
+    ).toEqual({ kind: "ios", sheet: "closed" });
     expect(
       run({ kind: "in-app", openIn: "Chrome" }, { type: "promptReady" }),
     ).toEqual({ kind: "in-app", openIn: "Chrome" });
   });
+});
+
+describe("installFlow guided sheet on iOS Safari (ac-3)", () => {
+  it("opens the sheet from the Install button", () => {
+    expect(
+      run({ kind: "ios", sheet: "closed" }, { type: "openSheet" }),
+    ).toEqual({ kind: "ios", sheet: "open" });
+  });
+
+  it("closes the sheet", () => {
+    expect(run({ kind: "ios", sheet: "open" }, { type: "closeSheet" })).toEqual(
+      { kind: "ios", sheet: "closed" },
+    );
+  });
+
+  it.each<InstallAction>([{ type: "openSheet" }, { type: "closeSheet" }])(
+    "ignores %o outside iOS Safari",
+    (action) => {
+      expect(run({ kind: "prompt" }, action)).toEqual({ kind: "prompt" });
+      expect(run({ kind: "in-app", openIn: "Safari" }, action)).toEqual({
+        kind: "in-app",
+        openIn: "Safari",
+      });
+    },
+  );
 });
 
 const promptEvent = (outcome: "accepted" | "dismissed") =>

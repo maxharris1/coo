@@ -12,7 +12,7 @@ export type InstallState =
   | { kind: "waiting" }
   | { kind: "prompt" }
   | { kind: "menu" }
-  | { kind: "ios" }
+  | { kind: "ios"; sheet: "open" | "closed" }
   | { kind: "in-app"; openIn: "Safari" | "Chrome" }
   | { kind: "skip" }
   | { kind: "done" };
@@ -22,7 +22,9 @@ export type InstallAction =
   | { type: "promptReady" }
   | { type: "waitedOut" }
   | { type: "dismissed" }
-  | { type: "installed" };
+  | { type: "installed" }
+  | { type: "openSheet" }
+  | { type: "closeSheet" };
 
 export function installStep(platform: Platform): InstallState {
   switch (platform.kind) {
@@ -31,7 +33,7 @@ export function installStep(platform: Platform): InstallState {
     case "other":
       return { kind: "skip" };
     case "ios-safari":
-      return { kind: "ios" };
+      return { kind: "ios", sheet: "closed" };
     case "prompt":
       return { kind: "prompt" };
     case "prompt-pending":
@@ -58,6 +60,10 @@ export function installFlow(
       return state.kind === "prompt" ? { kind: "menu" } : state;
     case "installed":
       return { kind: "done" };
+    case "openSheet":
+      return state.kind === "ios" ? { kind: "ios", sheet: "open" } : state;
+    case "closeSheet":
+      return state.kind === "ios" ? { kind: "ios", sheet: "closed" } : state;
   }
 }
 
