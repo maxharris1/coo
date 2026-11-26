@@ -73,7 +73,7 @@ const ROOSTS = ["A barn", "A water tower", "A ledge"];
 const COUNTS = ["one", "two", "three", "four", "five", "six", "seven"];
 const TICK_MS = 10_000;
 const SHORT_FLIGHT_MS = 10 * 60_000;
-const CARD_PX = 260;
+const CARD_OVERLAP_PX = 28;
 
 function position(
   flight: Flight,
@@ -333,7 +333,7 @@ export function Tracker({
             distanceMi={totalMi(flight)}
             bird={flight.bird}
             offsetMs={offsetMs}
-            bottomPadding={CARD_PX}
+            bottomPadding={CARD_OVERLAP_PX}
             night={view.night}
             loftLabel={view.loftLabel}
             sillLabel={view.sillLabel}
@@ -411,9 +411,7 @@ export function Tracker({
           <div className={styles.ends}>
             <span className="coo-truncate">{view.fromLabel}</span>
             <span className={styles.miles}>{view.progress.text}</span>
-            <span className={`${styles.to} coo-truncate`}>
-              {view.toLabel}
-            </span>
+            <span className={`${styles.to} coo-truncate`}>{view.toLabel}</span>
           </div>
         </div>
         <div className={styles.stats}>

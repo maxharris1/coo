@@ -54,7 +54,7 @@ function mapTracker(screen: string, file: string): Row {
     file,
     bleed,
     chain: [...bleed, at(file, "top", "top")],
-    tracker: at(file, "tracker", "height"),
+    tracker: at(file, "tracker", "bottom"),
   };
 }
 
@@ -150,7 +150,10 @@ const ROWS: Row[] = [
   {
     screen: "Flights title and filter chips",
     file: "app/(app)/flights/Flights.module.css",
-    chain: [BODY, at("app/(app)/flights/Flights.module.css", "screen", "padding")],
+    chain: [
+      BODY,
+      at("app/(app)/flights/Flights.module.css", "screen", "padding"),
+    ],
   },
   {
     screen: "Friends back button and title",
@@ -230,7 +233,7 @@ describe.each(CASES.filter((row) => row.tracker))(
     it("keeps the header inside the map", () => {
       const island = { top: ISLAND, bottom: 0, height: row.height };
       expect(controlTop(row, island)).toBeLessThan(
-        sum(row.bleed!, island) + top(row.tracker!, island),
+        island.height - top(row.tracker!, island),
       );
     });
   },
