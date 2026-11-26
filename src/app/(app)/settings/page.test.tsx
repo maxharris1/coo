@@ -493,15 +493,37 @@ describe("/settings home screen once installed (ac-6)", () => {
   const onPhone = (userAgent: string) =>
     vi.stubGlobal("navigator", { userAgent, maxTouchPoints: 5 });
 
-  const homeScreenRow = async () => {
+  const viewText = async () => {
     const { SettingsView } =
       await vi.importActual<typeof SettingsViewModule>("./SettingsView");
     const html = renderToStaticMarkup(<SettingsView {...view.props!} />);
-    return html
-      .replace(/<[^>]+>/g, " ")
-      .replace(/\s+/g, " ")
-      .match(/On your home screen (\w+)/)?.[1];
+    return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
   };
+
+  const homeScreenRow = async () =>
+    (await viewText()).match(/On your home screen (\w+)/)?.[1];
+
+  const blockedStorage = () =>
+    Object.defineProperty(window, "sessionStorage", {
+      configurable: true,
+      get: () => {
+        throw new DOMException("The operation is insecure.", "SecurityError");
+      },
+    });
+
+  const fullStorage = () =>
+    Object.defineProperty(window, "sessionStorage", {
+      configurable: true,
+      value: {
+        getItem: () => null,
+        setItem: () => {
+          throw new DOMException(
+            "The quota has been exceeded.",
+            "QuotaExceededError",
+          );
+        },
+      },
+    });
 
   it("records the install on the profile and still shows Yes after leaving Settings and coming back", async () => {
     onPhone(ANDROID_CHROME);
@@ -531,5 +553,26 @@ describe("/settings home screen once installed (ac-6)", () => {
     await render(syncWith(ME));
     expect(view.props!.sheet).toBeNull();
     expect(await homeScreenRow()).toBe("Yes");
+  });
+
+  it("still renders Settings and Yes for an installed profile when storage is blocked", async () => {
+    onPhone(ANDROID_CHROME);
+    blockedStorage();
+    await mount();
+    expect(await viewText()).toContain(" Settings ");
+    expect(await homeScreenRow()).toBe("Yes");
+    expect(view.props!.install.state.kind).toBe("waiting");
+  });
+
+  it("still renders Settings and Yes in standalone mode when the storage write hits the quota", async () => {
+    onPhone(ANDROID_CHROME);
+    fullStorage();
+    window.matchMedia = () => ({ matches: true }) as MediaQueryList;
+    await mount();
+    await render(syncWith(NOT_INSTALLED));
+    expect(await viewText()).toContain(" Settings ");
+    expect(await homeScreenRow()).toBe("Yes");
+    expect(view.props!.install.state.kind).toBe("done");
+    expect(bodies).toEqual([{ installed: true, account: "me-1" }]);
   });
 });

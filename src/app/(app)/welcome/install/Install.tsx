@@ -329,6 +329,14 @@ function snapshot() {
   };
 }
 
+function bestEffort<T>(run: () => T, fallback: T): T {
+  try {
+    return run();
+  } catch {
+    return fallback;
+  }
+}
+
 export function useInstall(): InstallControls {
   const [state, dispatch] = useReducer(installFlow, { kind: "detecting" });
   const [copied, setCopied] = useState(false);
@@ -337,7 +345,7 @@ export function useInstall(): InstallControls {
   useEffect(() => {
     watcher.current = watchInstall(window, dispatch);
     dispatch(
-      window.sessionStorage.getItem(INSTALLED_IN_TAB)
+      bestEffort(() => window.sessionStorage.getItem(INSTALLED_IN_TAB), null)
         ? { type: "installed" }
         : { type: "detected", platform: detectPlatform(snapshot()) },
     );
@@ -346,7 +354,10 @@ export function useInstall(): InstallControls {
 
   useEffect(() => {
     if (state.kind === "done")
-      window.sessionStorage.setItem(INSTALLED_IN_TAB, "1");
+      bestEffort(
+        () => window.sessionStorage.setItem(INSTALLED_IN_TAB, "1"),
+        undefined,
+      );
   }, [state.kind]);
 
   useEffect(() => {
