@@ -261,7 +261,7 @@ export function InstallView({
         </Link>
       </main>
       {sheetOpen && (
-        <div className={sheet.layer} onKeyDown={onSheetKey}>
+        <div className={sheet.layer}>
           <button
             type="button"
             aria-label="Close"
@@ -276,6 +276,7 @@ export function InstallView({
             aria-labelledby={titleId}
             tabIndex={-1}
             className={sheet.sheet}
+            onKeyDown={onSheetKey}
           >
             <span aria-hidden="true" className={sheet.grab} />
             <h2 id={titleId} className={sheet.title}>
