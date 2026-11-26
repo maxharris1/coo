@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { DevFlight } from "./DevFlight";
 import { DevMap } from "./DevMap";
+import { parseFake } from "./fakeFlight";
 import {
   MODES,
   MODE_LABELS,
@@ -17,7 +19,14 @@ export default async function DevMapPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const view = parseView(await searchParams);
+  const params = await searchParams;
+  // ?flight=1 shows the real tracker (map, header and bottom card) on a fixed
+  // fake flight, so the map, its labels and its credit can be checked against
+  // the card without the API. ?night=1 forces night, ?progress=0..1 moves the
+  // bird, ?preview=1 shows the flights-list preview instead. It lives here
+  // rather than at its own route so it stays a public dev page.
+  if (params.flight === "1") return <DevFlight params={parseFake(params)} />;
+  const view = parseView(params);
   const { place, zoom, mode } = view;
   return (
     <main className={styles.page}>

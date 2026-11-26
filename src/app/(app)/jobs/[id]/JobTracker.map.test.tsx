@@ -36,6 +36,9 @@ const lib = vi.hoisted(() => {
     on() {
       return this;
     }
+    off() {
+      return this;
+    }
     getSource() {
       return {
         setData() {
@@ -54,6 +57,13 @@ const lib = vi.hoisted(() => {
     }
     getContainer() {
       return { clientWidth: 400, clientHeight: 800 };
+    }
+    // A stand-in to place clouds with; it does not invert project.
+    unproject([x, y]: [number, number]) {
+      return { lng: x / 1000, lat: -y / 1000 };
+    }
+    getCenter() {
+      return { lng: -74, lat: 41 };
     }
     easeTo() {
       counts.cameraUpdates++;
@@ -93,6 +103,11 @@ vi.mock("maplibre-gl", () => ({
   Marker: lib.FakeMarker,
   LngLatBounds: lib.FakeBounds,
   setWorkerUrl: () => {},
+}));
+
+vi.mock("@/components/mapStyle", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/components/mapStyle")>()),
+  ...(await import("@/test/fakeMapLibre")).fakeMapStyle,
 }));
 
 vi.mock("react", async (importOriginal) => ({

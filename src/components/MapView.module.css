@@ -1,36 +1,97 @@
-.clouds {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
+/*
+ * A cloud is a map marker (MapView.tsx), anchored to a place so it pans and
+ * zooms with the map, drifting slowly east. It never takes a tap or a drag.
+ * MapView fades the picture (not the marker, whose opacity MapLibre sets) at
+ * the view's edges.
+ */
+.cloud {
   pointer-events: none;
 }
 
-.lane {
-  position: absolute;
-  left: 0;
-  width: 100%;
-  transform: translateX(var(--rest));
-  animation: coo-map-cloud var(--drift) linear var(--start) infinite;
-  animation-play-state: inherit;
-}
-
-.lane img {
-  position: absolute;
-  right: 100%;
+.cloud img {
   display: block;
 }
 
-@keyframes coo-map-cloud {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(calc(100% + 74px));
-  }
+/*
+ * The map's credit (OpenFreeMap, OpenMapTiles, OpenStreetMap). It is a licence
+ * requirement, so it is never hidden: it opens in full when the map draws,
+ * folds to a small (i) after 5 s or the first pan, zoom or tap (attribution.ts),
+ * and a tap on (i) reopens it. It sits just above the bottom card, in the
+ * corner the camera keeps clear of the bird.
+ */
+.frame :global(.maplibregl-ctrl-bottom-right),
+.frame :global(.maplibregl-ctrl-bottom-left) {
+  bottom: var(--coo-map-bottom, 0px);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .lane {
-    animation: none;
-  }
+.frame :global(.maplibregl-ctrl-attrib.maplibregl-compact) {
+  min-height: 24px;
+  margin: 8px;
+  padding: 0 24px 0 0;
+  background: var(--coo-card);
+  border: var(--coo-line-thin);
+  border-radius: var(--coo-radius-tile);
+  color: var(--coo-ink);
+  font: 700 11px/24px var(--coo-font-body);
+}
+
+.frame :global(.maplibregl-ctrl-attrib.maplibregl-compact-show) {
+  padding: 0 28px 0 10px;
+}
+
+.frame :global(.maplibregl-ctrl-attrib a) {
+  color: var(--coo-ink);
+}
+
+.frame :global(.maplibregl-ctrl-attrib-button) {
+  top: 0;
+  right: 0;
+  width: 24px;
+  height: 24px;
+  background-color: transparent;
+  border-radius: var(--coo-radius-pill);
+}
+
+/* A 44 pt tap target around the 24 pt (i). */
+.frame :global(.maplibregl-ctrl-attrib-button)::before {
+  content: "";
+  position: absolute;
+  inset: -10px;
+}
+
+.frame
+  :global(
+    .maplibregl-ctrl-attrib.maplibregl-compact-show
+      .maplibregl-ctrl-attrib-button
+  ) {
+  background-color: transparent;
+}
+
+.frame :global(.maplibregl-ctrl-attrib-button:focus) {
+  box-shadow: none;
+}
+
+.frame :global(.maplibregl-ctrl-attrib-button:focus-visible) {
+  outline: 2px solid var(--coo-ink);
+  outline-offset: 2px;
+}
+
+/*
+ * A preview (140 px, inside a card link) keeps its credit open: one short
+ * line of small text with no (i), so it never covers the pins.
+ */
+.frame[data-preview] :global(.maplibregl-ctrl-attrib.maplibregl-compact),
+.frame[data-preview] :global(.maplibregl-ctrl-attrib.maplibregl-compact-show) {
+  min-height: 16px;
+  max-width: calc(100% - 8px);
+  margin: 4px;
+  padding: 0 8px;
+  overflow: hidden;
+  font: 700 9px/16px var(--coo-font-body);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.frame[data-preview] :global(.maplibregl-ctrl-attrib-button) {
+  display: none;
 }

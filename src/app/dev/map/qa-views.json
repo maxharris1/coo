@@ -5,25 +5,30 @@
       "feature": "parks",
       "place": "new-york",
       "zoom": 9,
-      "layers": ["park", "green"]
+      "layers": ["green"]
     },
-    { "feature": "parks", "place": "rural-pa", "zoom": 6, "layers": ["park"] },
+    {
+      "feature": "parks",
+      "place": "rural-pa",
+      "zoom": 6,
+      "layers": ["green"]
+    },
     {
       "feature": "parks",
       "place": "cape-cod",
       "zoom": 12,
-      "layers": ["park", "green"]
+      "layers": ["park", "green", "city-park"]
     },
     {
       "feature": "parks",
       "place": "new-york",
       "zoom": 15,
-      "layers": ["green"]
+      "layers": ["green", "city-park", "park-outline"]
     },
     {
       "feature": "major-roads",
       "place": "cape-cod",
-      "zoom": 6,
+      "zoom": 9,
       "layers": ["road", "road-casing"]
     },
     {
@@ -44,7 +49,12 @@
       "zoom": 17,
       "layers": ["road", "road-casing"]
     },
-    { "feature": "water", "place": "cape-cod", "zoom": 6, "layers": ["water"] },
+    {
+      "feature": "water",
+      "place": "cape-cod",
+      "zoom": 6,
+      "layers": ["water"]
+    },
     {
       "feature": "water",
       "place": "new-york",
@@ -63,5 +73,6 @@
       "zoom": 15,
       "layers": ["water", "shoreline"]
     }
-  ]
+  ],
+  "note": "Which layers draw each feature at each place and zoom. Major roads at Cape Cod moved from z6 to z9 on 2026-11-24: the illustrated day style draws no roads below z8 (STYLE.md: sparse regional look). Parks at New York z9 and rural Pennsylvania z6 are drawn by green alone since 2026-11-24: protected areas (park) start at z12 so whole regions are not tinted mint."
 }

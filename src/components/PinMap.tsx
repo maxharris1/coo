@@ -4,12 +4,11 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef } from "react";
 import type { KeyboardEvent } from "react";
 import type { Marker } from "maplibre-gl";
+import { STOCK_STYLE } from "@/components/mapStyle";
 import { mountMap, type MountedMap } from "@/components/mountMap";
 import { config } from "@/lib/config";
 import type { Point } from "@/lib/game/privacy";
 import styles from "./PinMap.module.css";
-
-export const STOCK_STYLE = "https://tiles.openfreemap.org/styles/liberty";
 
 const BLOCK_ZOOM = 15;
 

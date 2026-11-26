@@ -4,7 +4,20 @@ type Handler = (e: object) => void;
 type Effect = { deps?: unknown[]; cleanup?: (() => void) | void };
 
 export const maps: FakeMap[] = [];
+/** Every path the fake style loader was asked for, in order. */
+export const styleLoads: string[] = [];
+/** Paths the fake style loader fails on. */
+export const styleFailures = new Set<string>();
 export const markers: FakeMarker[] = [];
+/**
+ * How the next FakeMap opens: a camera already set (as MapLibre's fit at
+ * construction would) and the container's size. Cleared by resetFakes.
+ */
+export const nextMap: {
+  camera?: { lng: number; lat?: number; zoom: number };
+  width?: number;
+  height?: number;
+} = {};
 export const frames: FrameRequestCallback[] = [];
 
 const hooks = {
@@ -16,6 +29,25 @@ const hooks = {
   state: 0,
   effect: 0,
 };
+
+/** Enough of a DOM element for the attributes and listeners the map sets. */
+export class FakeElement {
+  style = {};
+  offsetWidth = 0;
+  attributes: Record<string, string> = {};
+  listeners: { type: string; fn: (e: Event) => void; capture: boolean }[] = [];
+  setAttribute(name: string, value: string) {
+    this.attributes[name] = value;
+  }
+  addEventListener(type: string, fn: (e: Event) => void, capture = false) {
+    this.listeners.push({ type, fn, capture });
+  }
+  removeEventListener(type: string, fn: (e: Event) => void, capture = false) {
+    this.listeners = this.listeners.filter(
+      (l) => !(l.type === type && l.fn === fn && l.capture === capture),
+    );
+  }
+}
 
 export class FakeMap {
   handlers: Record<string, Handler[]> = {};
@@ -29,15 +61,24 @@ export class FakeMap {
   touchZoomRotate = { disableRotation() {} };
   constructor(readonly options: Record<string, unknown>) {
     maps.push(this);
+    if (nextMap.camera) this.camera = { ...nextMap.camera };
+    if (nextMap.width !== undefined) this.width = nextMap.width;
+    if (nextMap.height !== undefined) this.height = nextMap.height;
   }
+  styles: { style: unknown; options: unknown }[] = [];
   on(event: string, fn: Handler) {
     (this.handlers[event] ??= []).push(fn);
     return this;
   }
-  fire(event: string) {
-    for (const fn of this.handlers[event] ?? []) fn({});
+  off(event: string, fn: Handler) {
+    this.handlers[event] = (this.handlers[event] ?? []).filter((f) => f !== fn);
+    return this;
   }
-  setStyle() {
+  fire(event: string, e: object = {}) {
+    for (const fn of this.handlers[event] ?? []) fn(e);
+  }
+  setStyle(style: unknown, options: unknown) {
+    this.styles.push({ style, options });
     return this;
   }
   addSource(id: string, source: { data: unknown }) {
@@ -62,6 +103,7 @@ export class FakeMap {
   point = { x: 0, y: 0 };
   camera: { lng: number; lat?: number; zoom: number } | undefined;
   width = 400;
+  height = 800;
   getZoom() {
     return this.camera?.zoom ?? 0;
   }
@@ -73,17 +115,46 @@ export class FakeMap {
       Math.log(Math.tan(Math.PI / 4 + (l * Math.PI) / 360)) / (2 * Math.PI);
     return {
       x: this.width / 2 + ((lng - this.camera.lng) / 360) * worldPx,
-      y: 400 + (mercY(this.camera.lat ?? 0) - mercY(lat)) * worldPx,
+      y: this.height / 2 + (mercY(this.camera.lat ?? 0) - mercY(lat)) * worldPx,
+    };
+  }
+  /**
+   * The inverse of project. With no camera set yet it reads the map as if it
+   * sat at zoom 0 over 0, 0, which is where a cloud is placed at mount.
+   */
+  unproject([x, y]: [number, number]) {
+    const camera = this.camera ?? { lng: 0, lat: 0, zoom: 0 };
+    const worldPx = 512 * 2 ** camera.zoom;
+    const mercY = (l: number) =>
+      Math.log(Math.tan(Math.PI / 4 + (l * Math.PI) / 360)) / (2 * Math.PI);
+    const merc = mercY(camera.lat ?? 0) - (y - this.height / 2) / worldPx;
+    return {
+      lng: camera.lng + ((x - this.width / 2) / worldPx) * 360,
+      lat:
+        (Math.atan(Math.exp(2 * Math.PI * merc)) - Math.PI / 4) *
+        (360 / Math.PI),
     };
   }
   getCanvas() {
     return { after: (el: unknown) => this.afterCanvas.push(el) };
   }
+  canvasContainer = new FakeElement();
+  getCanvasContainer() {
+    return this.canvasContainer;
+  }
   getContainer() {
-    return { clientWidth: this.width, clientHeight: 800 };
+    return { clientWidth: this.width, clientHeight: this.height };
+  }
+  getCenter() {
+    return { lng: this.camera?.lng ?? 0, lat: this.camera?.lat ?? 0 };
   }
   easeTo() {
     this.eased++;
+  }
+  fitted: { bounds: unknown; options: unknown }[] = [];
+  fitBounds(bounds: unknown, options: unknown) {
+    this.fitted.push({ bounds, options });
+    return this;
   }
   remove() {
     this.removed = true;
@@ -92,7 +163,8 @@ export class FakeMap {
 
 export class FakeMarker {
   lngLat: [number, number] | undefined;
-  constructor() {
+  removed = false;
+  constructor(readonly options: Record<string, unknown> = {}) {
     markers.push(this);
   }
   setLngLat(lngLat: [number, number]) {
@@ -115,6 +187,7 @@ export class FakeMarker {
     this.lngLat = [lng, this.lngLat[1]];
   }
   remove() {
+    this.removed = true;
     return this;
   }
 }
@@ -124,6 +197,20 @@ class FakeBounds {
     return this;
   }
 }
+
+/** What the fake style loader resolves a path to. */
+export function stubStyle(path: string) {
+  return { version: 8, name: path, sources: {}, layers: [] };
+}
+
+/** Stands in for loadMapStyle in src/components/mapStyle.ts, with no fetch. */
+export const fakeMapStyle = {
+  loadMapStyle: async (path: string) => {
+    styleLoads.push(path);
+    if (styleFailures.has(path)) throw new Error(`Map style ${path} failed`);
+    return stubStyle(path);
+  },
+};
 
 export const fakeMaplibre = {
   Map: FakeMap,
@@ -137,7 +224,7 @@ export function fakeReact(react: typeof import("react")) {
     ...react,
     useRef: <T>(initial: T) =>
       (hooks.refs[hooks.ref++] ??= {
-        current: initial ?? { style: {}, offsetWidth: 0 },
+        current: initial ?? new FakeElement(),
       }) as {
         current: T;
       },
@@ -189,7 +276,12 @@ export function resetFakes() {
   hooks.effects = [];
   maps.length = 0;
   markers.length = 0;
+  styleLoads.length = 0;
+  styleFailures.clear();
   frames.length = 0;
+  delete nextMap.camera;
+  delete nextMap.width;
+  delete nextMap.height;
   fakeDocument.hidden = false;
   fakeDocument.listeners = {};
 }

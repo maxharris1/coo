@@ -27,11 +27,24 @@ const lib = vi.hoisted(() => {
     on() {
       return this;
     }
+    off() {
+      return this;
+    }
     getZoom() {
       return 0;
     }
     getCanvas() {
       return { after() {} };
+    }
+    getContainer() {
+      return { clientWidth: 390, clientHeight: 800 };
+    }
+    // A stand-in to place clouds with; it does not invert project.
+    unproject([x, y]: [number, number]) {
+      return { lng: -74 + x / 1000, lat: 41 - y / 1000 };
+    }
+    getCenter() {
+      return { lng: -74, lat: 41 };
     }
     remove() {
       this.removed = true;
@@ -84,6 +97,11 @@ vi.mock("maplibre-gl", () => ({
   Marker: lib.FakeMarker,
   LngLatBounds: lib.FakeBounds,
   setWorkerUrl: lib.setWorkerUrl,
+}));
+
+vi.mock("@/components/mapStyle", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/components/mapStyle")>()),
+  ...(await import("@/test/fakeMapLibre")).fakeMapStyle,
 }));
 
 vi.mock("react", async (importOriginal) => ({
@@ -156,7 +174,10 @@ afterEach(() => {
 it("removes every marker it added when the effect cleans up", async () => {
   for (let cycle = 0; cycle < 3; cycle++) {
     const { map, cleanup } = await mountMap();
-    expect(lib.liveMarkers.size, "loft, sill and bird on the map").toBe(3);
+    expect(
+      lib.liveMarkers.size,
+      "loft, sill, bird and three clouds on the map",
+    ).toBe(6);
     cleanup();
     expect(map.removed, "map removed").toBe(true);
     expect(lib.liveMarkers.size, "markers left after cleanup").toBe(0);

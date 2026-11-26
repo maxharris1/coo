@@ -1,8 +1,19 @@
 "use client";
 
 import "maplibre-gl/dist/maplibre-gl.css";
-import type { GeoJSONSource, Map as MapLibreMap, Marker } from "maplibre-gl";
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import type {
+  GeoJSONSource,
+  Map as MapLibreMap,
+  Marker,
+  StyleSpecification,
+} from "maplibre-gl";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type RefObject,
+} from "react";
 import {
   bearingDeg,
   interpolate,
@@ -11,7 +22,9 @@ import {
   type FlightPlan,
   type LatLon,
 } from "@/lib/flight/engine";
+import { collapseAttributionSoon, keepCreditOpen } from "./attribution";
 import { Bird, type GearId, type Look, type Pose } from "./Bird";
+import { MAP_STYLES, STOCK_STYLE, loadMapStyle } from "./mapStyle";
 import styles from "./MapView.module.css";
 import { mountMap, type MountedMap } from "./mountMap";
 import { bubbleSide, startBubble } from "./speechBubble";
@@ -50,6 +63,16 @@ export type MapViewProps = {
   bird: BirdLite;
   offsetMs: number;
   bottomPadding: number;
+  /** Camera room kept clear at the top, for the header and a pin under it. */
+  topPadding?: number;
+  /**
+   * The height of the opaque card over the map, 0 when there is none. It lifts the
+   * map's credit, and tells the clouds where the card hides them (with no card they
+   * count as hidden only past the map's bottom edge).
+   */
+  controlsBottom?: number;
+  /** A name for the map picture. The credit stays outside it. */
+  mapLabel?: string;
   night: boolean;
   loftLabel: string;
   sillLabel: string;
@@ -68,10 +91,7 @@ export const ZOOM_BANDS: readonly { underMi: number; zoom: number }[] = [
 ];
 export const FAR_ZOOM = 4.5;
 
-const MAP_STYLES = {
-  day: "https://tiles.openfreemap.org/styles/liberty",
-  night: "/map/coo-night.style.json",
-} as const;
+type StylePath = (typeof MAP_STYLES)[keyof typeof MAP_STYLES];
 const INK = "#2A2140";
 const TOMATO = "#F4623F";
 const DOT_WIDTH = 3.5;
@@ -89,7 +109,14 @@ const FOLLOW_EVERY_MS = 5000;
 const EDGE_MARGIN = 0.2;
 const LEAD_PX = 60;
 const BIRD_PX = 82;
-const PREVIEW_PADDING = { top: 16, left: 16, right: 16, bottom: 16 };
+// A preview is 140 px tall: room above for a pin (40 px tall, standing on its
+// point) and below for the always-open credit, so both pins show.
+const PREVIEW_PADDING = { top: 46, left: 24, right: 24, bottom: 34 };
+const SIDE_PADDING = 48;
+// The camera keeps a row clear above the card for the map credit (24 px tall
+// with an 8 px margin) and a little air, so the credit, open or folded, never
+// covers the bird or a pin, and a pin never sits flush on the card.
+const CREDIT_ROW_PX = 40;
 const LABEL_PAD = 16;
 const PIN_GAP = 4;
 const PIN_HALF_WIDTH = 16;
@@ -112,12 +139,33 @@ const PIN_LABEL = {
   boxSizing: "border-box",
 } as const;
 const NO_LINES: readonly string[] = [];
+const REDUCE_MOTION = "(prefers-reduced-motion: reduce)";
 const CLOUD_MAX_ZOOM = 11;
+const CLOUD_W = 74;
+const CLOUD_H = 36;
+// Each cloud is a map marker. It is placed on the view the first time clouds
+// can show (a share of the map's width and height) and drifts east at a steady
+// speed on screen: across the view in `cross` seconds, at any width and zoom.
+// Past the view's east edge it comes back in just off the west edge.
 const CLOUDS = [
-  { top: "18%", drift: 34, start: 0, rest: "35%" },
-  { top: "42%", drift: 46, start: -15, rest: "85%" },
-  { top: "64%", drift: 40, start: -28, rest: "60%" },
+  { top: 0.18, rest: 0.35, cross: 32 },
+  { top: 0.42, rest: 0.85, cross: 42 },
+  { top: 0.64, rest: 0.6, cross: 36 },
 ] as const;
+// A cloud that is far off the view (more than a view west of it, or wholly
+// above the map or hidden below it) comes back in off the west edge too, this
+// far apart (a share of the view's width), so the three do not enter in one
+// column.
+const CLOUD_STAGGER = [0, 0.5, 0.25] as const;
+// The card's top corners are rounded this much (Tracker.module.css), so map
+// shows beside them: a cloud is wholly behind the card only this far below its
+// top edge. A map with no card (controlsBottom 0) hides nothing above its
+// bottom edge.
+const CARD_CORNER_PX = 28;
+const CLOUD_MAX_STEP_MS = 250;
+// Clouds grow a little as the map zooms in (double every 4 levels), within limits.
+const CLOUD_GROWTH = 0.25;
+const CLOUD_SCALE = { min: 0.75, max: 1.5 } as const;
 const BUBBLE_BOX = {
   position: "absolute",
   bottom: "100%",
@@ -178,6 +226,22 @@ export function routeFractions(distanceMi: number): number[] {
   return Array.from({ length: steps + 1 }, (_, i) => i / steps);
 }
 
+/**
+ * How opaque a cloud is with its centre at `x` on a view `width` wide: it
+ * fades over one cloud width `cloudPx` around each edge, so a cloud that comes
+ * back in, or leaves, never pops.
+ */
+export function cloudFade(x: number, width: number, cloudPx: number): number {
+  const fromEdge = Math.min(x + cloudPx, width + cloudPx - x);
+  return Math.min(1, Math.max(0, fromEdge / cloudPx));
+}
+
+/** How big a cloud draws at `zoom`, for a map that opened at `zoom0`. */
+export function cloudScale(zoom: number, zoom0: number): number {
+  const grown = 2 ** ((zoom - zoom0) * CLOUD_GROWTH);
+  return Math.min(CLOUD_SCALE.max, Math.max(CLOUD_SCALE.min, grown));
+}
+
 function nearLon(lon: number, ref: number): number {
   return lon + 360 * Math.round((ref - lon) / 360);
 }
@@ -226,14 +290,70 @@ export function dotsStart(
   return Math.min(at + (DOT_GAP_PX / px) * step, 1);
 }
 
-function nearEdge(map: MapLibreMap, p: LatLon): boolean {
+type StyleKind = "day" | "night" | "stock";
+type Applied = { path: StylePath | typeof STOCK_STYLE; kind: StyleKind };
+
+const kindOf = (path: StylePath): StyleKind =>
+  path === MAP_STYLES.night ? "night" : "day";
+
+/**
+ * The style a new map opens with: ours with its sprite made absolute, or the
+ * stock style if ours fails, with the kind that actually loaded.
+ */
+function resolveStyle(
+  path: StylePath,
+): Promise<{ style: StyleSpecification | string; applied: Applied }> {
+  return loadMapStyle(path).then(
+    (style) => ({ style, applied: { path, kind: kindOf(path) } }),
+    () => ({
+      style: STOCK_STYLE,
+      applied: { path: STOCK_STYLE, kind: "stock" as const },
+    }),
+  );
+}
+
+/**
+ * Restyles the open map in place, so the route, pins and bird stay put. It
+ * does nothing when that style is already on the map. A style that resolves
+ * after the map closed or after a newer swap is dropped, and one that fails to
+ * load leaves the current style in place.
+ */
+function swapStyle(
+  m: MapLibreMap,
+  path: StylePath,
+  current: {
+    map: RefObject<MapLibreMap | null>;
+    style: RefObject<StylePath>;
+    applied: RefObject<Applied>;
+  },
+) {
+  if (current.applied.current.path === path) return;
+  loadMapStyle(path).then(
+    (next) => {
+      if (current.map.current !== m || current.style.current !== path) return;
+      if (current.applied.current.path === path) return;
+      current.applied.current = { path, kind: kindOf(path) };
+      m.setStyle(next, { diff: false });
+    },
+    () => {},
+  );
+}
+
+type Insets = { top: number; bottom: number };
+
+/** Near an edge of the part of the map the header and card leave clear. */
+export function nearEdge(
+  map: Pick<MapLibreMap, "project" | "getContainer">,
+  p: LatLon,
+  clear: Insets,
+): boolean {
   const { x, y } = map.project([p.lon, p.lat]);
   const { clientWidth: w, clientHeight: h } = map.getContainer();
   return (
     x < w * EDGE_MARGIN ||
     x > w * (1 - EDGE_MARGIN) ||
-    y < h * EDGE_MARGIN ||
-    y > h * (1 - EDGE_MARGIN)
+    y < Math.max(h * EDGE_MARGIN, clear.top) ||
+    y > Math.min(h * (1 - EDGE_MARGIN), h - clear.bottom)
   );
 }
 
@@ -246,6 +366,9 @@ export function MapView({
   bird,
   offsetMs,
   bottomPadding,
+  topPadding = 80,
+  controlsBottom = 0,
+  mapLabel,
   night,
   loftLabel,
   sillLabel,
@@ -262,13 +385,27 @@ export function MapView({
   const sillLabelEl = useRef<HTMLSpanElement>(null);
   const bubbleEl = useRef<HTMLDivElement>(null);
   const bubbleTextEl = useRef<HTMLSpanElement>(null);
-  const cloudsEl = useRef<HTMLDivElement>(null);
+  const cloudEl0 = useRef<HTMLDivElement>(null);
+  const cloudEl1 = useRef<HTMLDivElement>(null);
+  const cloudEl2 = useRef<HTMLDivElement>(null);
+  const cloudImg0 = useRef<HTMLImageElement>(null);
+  const cloudImg1 = useRef<HTMLImageElement>(null);
+  const cloudImg2 = useRef<HTMLImageElement>(null);
   const linesRef = useRef(bubbleLines);
   const followRef = useRef(true);
   const recentre = useRef<() => void>(() => {});
+  const refit = useRef<() => void>(() => {});
+  const insetsRef = useRef<Insets>({ top: topPadding, bottom: bottomPadding });
+  // The height of the card over the map, if there is one; 0 for a map with
+  // no card, such as the guest page.
+  const cardRef = useRef(controlsBottom);
   const [following, setFollowing] = useState(true);
-  const style = MAP_STYLES[night ? "night" : "day"];
-  const styleRef = useRef(style);
+  // Until MapLibre's canvas carries the map's name (or if it never draws),
+  // the frame carries it, so the map always has an accessible name.
+  const [canvasNamed, setCanvasNamed] = useState(false);
+  const style: StylePath = MAP_STYLES[night ? "night" : "day"];
+  const styleRef = useRef<StylePath>(style);
+  const appliedRef = useRef<Applied>({ path: style, kind: kindOf(style) });
   const mapRef = useRef<MapLibreMap | null>(null);
   const stateRef = useRef(state);
   const markerRef = useRef<Marker | null>(null);
@@ -280,12 +417,32 @@ export function MapView({
   useEffect(() => {
     if (styleRef.current === style) return;
     styleRef.current = style;
-    mapRef.current?.setStyle(style, { diff: false });
+    const m = mapRef.current;
+    if (m) {
+      swapStyle(m, style, {
+        map: mapRef,
+        style: styleRef,
+        applied: appliedRef,
+      });
+    }
   }, [style]);
 
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
+
+  // The header and card can change height (a measured card, a new log line)
+  // without rebuilding the map: keep the camera clear of them instead.
+  useEffect(() => {
+    const prev = insetsRef.current;
+    if (prev.top === topPadding && prev.bottom === bottomPadding) return;
+    insetsRef.current = { top: topPadding, bottom: bottomPadding };
+    refit.current();
+  }, [topPadding, bottomPadding]);
+
+  useEffect(() => {
+    cardRef.current = controlsBottom;
+  }, [controlsBottom]);
 
   useEffect(() => {
     westRef.current = west;
@@ -331,7 +488,7 @@ export function MapView({
     let frame = 0;
     let timer: ReturnType<typeof setInterval> | undefined;
     let cancelled = false;
-    let stopClouds = () => {};
+    let stopCredit = () => {};
     const fracs = routeFractions(distanceMi);
     const now = () => Date.now() + offsetMs;
     const bearing = bearingDeg(from, to) * (Math.PI / 180);
@@ -342,194 +499,388 @@ export function MapView({
           ? { ...to, frac: 1 }
           : positionAt(plan, from, to, now());
 
-    void import("maplibre-gl").then((lib) => {
-      const { Marker, LngLatBounds } = lib;
-      const el = container.current;
-      if (cancelled || !el || !birdEl.current) return;
-      if (!loftEl.current || !sillEl.current) return;
-      mounted = mountMap(
-        lib,
-        el,
-        {
-          style: styleRef.current,
-          bounds: new LngLatBounds(
-            [from.lon, from.lat],
-            [from.lon, from.lat],
-          ).extend([to.lon, to.lat]),
-          fitBoundsOptions: {
-            padding: preview
-              ? PREVIEW_PADDING
-              : { top: 80, left: 48, right: 48, bottom: bottomPadding },
+    const firstStyle = styleRef.current;
+    void Promise.all([import("maplibre-gl"), resolveStyle(firstStyle)]).then(
+      ([lib, loaded]) => {
+        const { Marker, LngLatBounds } = lib;
+        const el = container.current;
+        if (cancelled || !el || !birdEl.current) return;
+        if (!loftEl.current || !sillEl.current) return;
+        const bounds = new LngLatBounds(
+          [from.lon, from.lat],
+          [from.lon, from.lat],
+        ).extend([to.lon, to.lat]);
+        const clearArea = (): Insets => ({
+          top: insetsRef.current.top,
+          bottom: insetsRef.current.bottom + CREDIT_ROW_PX,
+        });
+        const fitPadding = () =>
+          preview
+            ? PREVIEW_PADDING
+            : { ...clearArea(), left: SIDE_PADDING, right: SIDE_PADDING };
+        mounted = mountMap(
+          lib,
+          el,
+          {
+            style: loaded.style,
+            bounds,
+            fitBoundsOptions: { padding: fitPadding() },
+            ...(preview && { interactive: false }),
+            minZoom: 3,
+            maxZoom: 17,
+            maxPitch: 0,
+            dragRotate: false,
+            pitchWithRotate: false,
+            touchPitch: false,
           },
-          ...(preview && { interactive: false }),
-          minZoom: 3,
-          maxZoom: 17,
-          maxPitch: 0,
-          dragRotate: false,
-          pitchWithRotate: false,
-          touchPitch: false,
-        },
-        { compact: true },
-      );
-      const m = mounted.map;
-      mapRef.current = m;
-      m.touchZoomRotate.disableRotation();
-      m.keyboard.disableRotation();
-
-      const [loftPin, sillPin] = loftAt === "to" ? [to, from] : [from, to];
-      const loft = new Marker({ element: loftEl.current, anchor: "bottom" })
-        .setLngLat([loftPin.lon, loftPin.lat])
-        .addTo(m);
-      const sill = new Marker({ element: sillEl.current, anchor: "bottom" })
-        .setLngLat([sillPin.lon, sillPin.lat])
-        .addTo(m);
-      const start = where();
-      const marker = new Marker({ element: birdEl.current })
-        .setLngLat([start.lon, start.lat])
-        .addTo(m);
-      markers = [loft, sill, marker];
-      markerRef.current = marker;
-
-      const clouds = cloudsEl.current;
-      if (!preview && clouds) {
-        m.getCanvas().after(clouds);
-        const showClouds = () => {
-          clouds.style.display =
-            m.getZoom() <= CLOUD_MAX_ZOOM ? "block" : "none";
-        };
-        const pauseClouds = () => {
-          clouds.style.animationPlayState = document.hidden
-            ? "paused"
-            : "running";
-        };
-        showClouds();
-        pauseClouds();
-        m.on("zoom", showClouds);
-        document.addEventListener("visibilitychange", pauseClouds);
-        stopClouds = () =>
-          document.removeEventListener("visibilitychange", pauseClouds);
-      }
-
-      const clampLabels = () => {
-        const mapWidth = m.getContainer().clientWidth;
-        for (const [pin, label, cap] of [
-          [loft, loftLabelEl.current, PILL_CAP.loft],
-          [sill, sillLabelEl.current, PILL_CAP.sill],
-        ] as const) {
-          if (!label) continue;
-          const { side, maxWidth } = pinLabelShift({
-            pinX: m.project(pin.getLngLat()).x,
-            pinHalfWidth: PIN_HALF_WIDTH,
-            mapWidth,
-            cap,
-            pad: LABEL_PAD,
-            gap: PIN_GAP,
+          { compact: true },
+        );
+        const m = mounted.map;
+        mapRef.current = m;
+        appliedRef.current = loaded.applied;
+        // Name or hide the picture (canvas and markers) but not the credit,
+        // which MapLibre keeps beside it, so screen readers still reach it.
+        if (preview) m.getCanvasContainer().setAttribute("aria-hidden", "true");
+        if (mapLabel) {
+          const canvas = m.getCanvasContainer();
+          canvas.setAttribute("role", "img");
+          canvas.setAttribute("aria-label", mapLabel);
+          setCanvasNamed(true);
+        }
+        // A preview sits inside a link and nobody can pan it, so its credit
+        // stays open; a tap on the credit neither folds it nor opens the link.
+        stopCredit = preview
+          ? keepCreditOpen(el)
+          : collapseAttributionSoon(m, el);
+        if (styleRef.current !== firstStyle) {
+          swapStyle(m, styleRef.current, {
+            map: mapRef,
+            style: styleRef,
+            applied: appliedRef,
           });
-          label.style.left = side === "right" ? PIN_BESIDE : "auto";
-          label.style.right = side === "left" ? PIN_BESIDE : "auto";
-          label.style.maxWidth = `${maxWidth}px`;
         }
-      };
-      if (!preview) {
-        for (const e of ["load", "move", "resize"] as const) {
-          m.on(e, clampLabels);
+        m.touchZoomRotate.disableRotation();
+        m.keyboard.disableRotation();
+
+        const [loftPin, sillPin] = loftAt === "to" ? [to, from] : [from, to];
+        const loft = new Marker({ element: loftEl.current, anchor: "bottom" })
+          .setLngLat([loftPin.lon, loftPin.lat])
+          .addTo(m);
+        const sill = new Marker({ element: sillEl.current, anchor: "bottom" })
+          .setLngLat([sillPin.lon, sillPin.lat])
+          .addTo(m);
+        const start = where();
+        const marker = new Marker({ element: birdEl.current })
+          .setLngLat([start.lon, start.lat])
+          .addTo(m);
+        markers = [loft, sill, marker];
+        markerRef.current = marker;
+
+        // Clouds are markers too, anchored to places on the map so they pan
+        // and zoom with it. They are placed on the view the first time it can
+        // show them (zoom 11 or below, with a size) and drift slowly east at a
+        // steady speed on screen. Each element moves to just above the canvas,
+        // below the pins and the bird; the credit and buttons sit above it.
+        let driftClouds = () => {};
+        if (!preview) {
+          const hosts = [
+            [cloudEl0, cloudImg0],
+            [cloudEl1, cloudImg1],
+            [cloudEl2, cloudImg2],
+          ] as const;
+          type Cloud = {
+            i: number;
+            marker: Marker;
+            host: HTMLElement;
+            img: HTMLElement;
+            lng: number;
+            lat: number;
+            opacity: string;
+          };
+          let clouds: Cloud[] | null = null;
+          let zoom0 = 0;
+          // The map's size, read once and again on each resize, so no frame
+          // reads layout right after the bird's marker moved.
+          const readSize = () => {
+            const box = m.getContainer();
+            return { w: box.clientWidth, h: box.clientHeight };
+          };
+          let size = readSize();
+          m.on("resize", () => {
+            size = readSize();
+          });
+          // The part of the map clouds live in: between the header and the
+          // card (with the credit's row), the same clear area the camera
+          // keeps. A ref, so reading it each frame costs no layout.
+          const clear = () => {
+            const { top, bottom } = clearArea();
+            return {
+              top,
+              bottom: size.h - bottom,
+              height: size.h - bottom - top,
+            };
+          };
+          let shown = { display: "", transform: "" };
+          const fitClouds = () => {
+            if (!clouds) return;
+            const zoom = m.getZoom();
+            const next = {
+              display: zoom <= CLOUD_MAX_ZOOM ? "block" : "none",
+              transform: `scale(${cloudScale(zoom, zoom0).toFixed(3)})`,
+            };
+            for (const c of clouds) {
+              if (next.display !== shown.display) {
+                c.host.style.display = next.display;
+              }
+              if (next.transform !== shown.transform) {
+                c.img.style.transform = next.transform;
+              }
+            }
+            shown = next;
+          };
+          const placeClouds = () => {
+            const zoom = m.getZoom();
+            if (zoom > CLOUD_MAX_ZOOM) return;
+            const { w, h } = size;
+            const area = clear();
+            if (!w || !h || area.height <= 0) return;
+            zoom0 = zoom;
+            clouds = CLOUDS.flatMap((c, i) => {
+              const host = hosts[i][0].current;
+              const img = hosts[i][1].current;
+              if (!host || !img) return [];
+              const at = m.unproject([
+                c.rest * w,
+                area.top + c.top * area.height,
+              ]);
+              const cloud = new Marker({
+                element: host,
+                rotationAlignment: "map",
+                pitchAlignment: "map",
+                subpixelPositioning: true,
+              })
+                .setLngLat([at.lng, at.lat])
+                .addTo(m);
+              m.getCanvas().after(host);
+              markers.push(cloud);
+              return [
+                {
+                  i,
+                  marker: cloud,
+                  host,
+                  img,
+                  lng: at.lng,
+                  lat: at.lat,
+                  opacity: "",
+                },
+              ];
+            });
+            fitClouds();
+          };
+          placeClouds();
+          m.on("zoom", fitClouds);
+
+          // Drift only while the tab shows, clouds show and motion is welcome;
+          // under reduced motion the clouds stay put where they are, though
+          // their fade still follows the view.
+          const reduce = globalThis.matchMedia?.(REDUCE_MOTION);
+          let last = Date.now();
+          driftClouds = () => {
+            const t = Date.now();
+            const step = Math.min(Math.max(t - last, 0), CLOUD_MAX_STEP_MS);
+            last = t;
+            if (!clouds) placeClouds();
+            if (!clouds || document.hidden) return;
+            const zoom = m.getZoom();
+            const { w, h } = size;
+            const area = clear();
+            if (zoom > CLOUD_MAX_ZOOM || !w || !h) return;
+            // Clouds come back in inside the clear area, or anywhere above the
+            // card (the bottom inset) while the card and header leave none.
+            const above = h - insetsRef.current.bottom;
+            const entry =
+              area.height > 0
+                ? area
+                : { top: 0, bottom: above, height: Math.max(above, 0) };
+            // Below this a cloud is hidden: under the card, past its rounded
+            // corners, or off the bottom of a map with no card.
+            const hiddenBelow =
+              cardRef.current > 0 ? h - cardRef.current + CARD_CORNER_PX : h;
+            const moving = !reduce?.matches;
+            const scale = cloudScale(zoom, zoom0);
+            const cw = CLOUD_W * scale;
+            const ch = CLOUD_H * scale;
+            const centre = m.getCenter().lng;
+            for (const c of clouds) {
+              const lng = nearLon(c.lng, centre);
+              let { x, y } = m.project([lng, c.lat]);
+              if (moving) {
+                c.lng = lng;
+                const pxPerDeg = m.project([c.lng + 1, c.lat]).x - x;
+                const px = (w / CLOUDS[c.i].cross) * (step / 1000);
+                if (pxPerDeg > 0) {
+                  c.lng += px / pxPerDeg;
+                  x += px;
+                }
+                // Lost means wholly hidden: above the map, behind the card or
+                // below a cardless map (the header's pills hide nothing), or
+                // far west of the view.
+                const lost = y < -ch || y > hiddenBelow + ch || x < -w - cw;
+                if (lost || x > w + cw) {
+                  // Off the view: come back in just off its west edge, at the
+                  // cloud's own height if that is in the entry area (the clear
+                  // area, or the map above the card when there is none).
+                  if (y < entry.top || y > entry.bottom) {
+                    y = entry.top + CLOUDS[c.i].top * entry.height;
+                  }
+                  x = -cw - (lost ? CLOUD_STAGGER[c.i] * w : 0);
+                  const at = m.unproject([x, y]);
+                  c.lng = at.lng;
+                  c.lat = at.lat;
+                }
+                c.marker.setLngLat([c.lng, c.lat]);
+              }
+              const opacity = cloudFade(x, w, cw).toFixed(3);
+              if (opacity !== c.opacity) {
+                c.opacity = opacity;
+                c.img.style.opacity = opacity;
+              }
+            }
+          };
         }
-      }
 
-      const route = (frac: number) =>
-        splitRoute(from, to, fracs, frac, dotsStart(m, from, to, frac));
+        const clampLabels = () => {
+          const mapWidth = m.getContainer().clientWidth;
+          for (const [pin, label, cap] of [
+            [loft, loftLabelEl.current, PILL_CAP.loft],
+            [sill, sillLabelEl.current, PILL_CAP.sill],
+          ] as const) {
+            if (!label) continue;
+            const { side, maxWidth } = pinLabelShift({
+              pinX: m.project(pin.getLngLat()).x,
+              pinHalfWidth: PIN_HALF_WIDTH,
+              mapWidth,
+              cap,
+              pad: LABEL_PAD,
+              gap: PIN_GAP,
+            });
+            label.style.left = side === "right" ? PIN_BESIDE : "auto";
+            label.style.right = side === "left" ? PIN_BESIDE : "auto";
+            label.style.maxWidth = `${maxWidth}px`;
+          }
+        };
+        if (!preview) {
+          for (const e of ["load", "move", "resize"] as const) {
+            m.on(e, clampLabels);
+          }
+        }
 
-      m.on("style.load", () => {
-        const { flown, left } = route(where().frac);
-        m.addSource("route-flown", { type: "geojson", data: flown });
-        m.addSource("route-left", { type: "geojson", data: left });
-        m.addLayer({
-          id: "route-left",
-          type: "line",
-          source: "route-left",
-          layout: { "line-cap": "round" },
-          paint: {
-            ...ROUTE_LEFT_PAINT[
-              styleRef.current === MAP_STYLES.night ? "night" : "day"
-            ],
-            "line-width": DOT_WIDTH,
-            "line-dasharray": DOT_DASH,
-          },
+        const route = (frac: number) =>
+          splitRoute(from, to, fracs, frac, dotsStart(m, from, to, frac));
+
+        m.on("style.load", () => {
+          const { flown, left } = route(where().frac);
+          m.addSource("route-flown", { type: "geojson", data: flown });
+          m.addSource("route-left", { type: "geojson", data: left });
+          m.addLayer({
+            id: "route-left",
+            type: "line",
+            source: "route-left",
+            layout: { "line-cap": "round" },
+            paint: {
+              ...ROUTE_LEFT_PAINT[
+                appliedRef.current.kind === "night" ? "night" : "day"
+              ],
+              "line-width": DOT_WIDTH,
+              "line-dasharray": DOT_DASH,
+            },
+          });
+          m.addLayer({
+            id: "route-flown-casing",
+            type: "line",
+            source: "route-flown",
+            layout: { "line-cap": "round", "line-join": "round" },
+            paint: { "line-color": INK, "line-width": 8 },
+          });
+          m.addLayer({
+            id: "route-flown",
+            type: "line",
+            source: "route-flown",
+            layout: { "line-cap": "round", "line-join": "round" },
+            paint: { "line-color": TOMATO, "line-width": 5 },
+          });
         });
-        m.addLayer({
-          id: "route-flown-casing",
-          type: "line",
-          source: "route-flown",
-          layout: { "line-cap": "round", "line-join": "round" },
-          paint: { "line-color": INK, "line-width": 8 },
-        });
-        m.addLayer({
-          id: "route-flown",
-          type: "line",
-          source: "route-flown",
-          layout: { "line-cap": "round", "line-join": "round" },
-          paint: { "line-color": TOMATO, "line-width": 5 },
-        });
-      });
 
-      let drawn = { frac: NaN, zoom: NaN };
-      const drawRoute = (frac: number) => {
-        const flownSource = m.getSource<GeoJSONSource>("route-flown");
-        const leftSource = m.getSource<GeoJSONSource>("route-left");
-        if (!flownSource || !leftSource) return;
-        const zoom = m.getZoom();
-        if (frac === drawn.frac && zoom === drawn.zoom) return;
-        drawn = { frac, zoom };
-        const { flown, left } = route(frac);
-        flownSource.setData(flown);
-        leftSource.setData(left);
-      };
+        let drawn = { frac: NaN, zoom: NaN };
+        const drawRoute = (frac: number) => {
+          const flownSource = m.getSource<GeoJSONSource>("route-flown");
+          const leftSource = m.getSource<GeoJSONSource>("route-left");
+          if (!flownSource || !leftSource) return;
+          const zoom = m.getZoom();
+          if (frac === drawn.frac && zoom === drawn.zoom) return;
+          drawn = { frac, zoom };
+          const { flown, left } = route(frac);
+          flownSource.setData(flown);
+          leftSource.setData(left);
+        };
 
-      const tick = () => {
-        const p = where();
-        marker.setLngLat([p.lon, p.lat]);
-        drawRoute(p.frac);
+        const tick = () => {
+          const p = where();
+          marker.setLngLat([p.lon, p.lat]);
+          drawRoute(p.frac);
+          driftClouds();
+          frame = requestAnimationFrame(tick);
+        };
         frame = requestAnimationFrame(tick);
-      };
-      frame = requestAnimationFrame(tick);
 
-      const follow = (always: boolean) => {
-        const p = where();
-        if (preview || !followRef.current) return;
-        if (!always && !nearEdge(m, p)) return;
-        m.easeTo({
-          center: [p.lon, p.lat],
-          zoom: zoomForDistance(distanceMi * (1 - p.frac)),
-          offset: [-Math.sin(bearing) * LEAD_PX, Math.cos(bearing) * LEAD_PX],
-          duration: 1500,
+        // Until the camera first follows the bird it shows the whole route,
+        // refitted whenever the header or card changes height.
+        let followed = false;
+        const follow = (always: boolean) => {
+          const p = where();
+          if (preview || !followRef.current) return;
+          if (!always && !nearEdge(m, p, clearArea())) return;
+          followed = true;
+          m.easeTo({
+            center: [p.lon, p.lat],
+            zoom: zoomForDistance(distanceMi * (1 - p.frac)),
+            offset: [-Math.sin(bearing) * LEAD_PX, Math.cos(bearing) * LEAD_PX],
+            padding: { ...clearArea(), left: 0, right: 0 },
+            duration: 1500,
+          });
+        };
+        timer = setInterval(() => follow(false), FOLLOW_EVERY_MS);
+        if (preview) return;
+        recentre.current = () => follow(true);
+        refit.current = () => {
+          if (followed || !followRef.current) return;
+          m.fitBounds(bounds, { padding: fitPadding(), duration: 300 });
+        };
+
+        const stopFollowing = (e: { originalEvent?: unknown }) => {
+          if (!e.originalEvent) return;
+          followRef.current = false;
+          setFollowing(false);
+        };
+        m.on("dragstart", (e) => {
+          draggingRef.current = true;
+          if (bubbleEl.current) bubbleEl.current.style.display = "none";
+          stopFollowing(e);
         });
-      };
-      timer = setInterval(() => follow(false), FOLLOW_EVERY_MS);
-      if (preview) return;
-      recentre.current = () => follow(true);
-
-      const stopFollowing = (e: { originalEvent?: unknown }) => {
-        if (!e.originalEvent) return;
-        followRef.current = false;
-        setFollowing(false);
-      };
-      m.on("dragstart", (e) => {
-        draggingRef.current = true;
-        if (bubbleEl.current) bubbleEl.current.style.display = "none";
-        stopFollowing(e);
-      });
-      m.on("dragend", () => {
-        draggingRef.current = false;
-      });
-      m.on("zoomstart", stopFollowing);
-    });
+        m.on("dragend", () => {
+          draggingRef.current = false;
+        });
+        m.on("zoomstart", stopFollowing);
+      },
+    );
 
     return () => {
       cancelled = true;
-      stopClouds();
+      stopCredit();
       cancelAnimationFrame(frame);
       clearInterval(timer);
       recentre.current = () => {};
+      refit.current = () => {};
       for (const m of markers) m.remove();
       mounted?.dispose();
       mapRef.current = null;
@@ -543,9 +894,9 @@ export function MapView({
     plan,
     distanceMi,
     offsetMs,
-    bottomPadding,
     loftAt,
     preview,
+    mapLabel,
   ]);
 
   const findBird = () => {
@@ -556,8 +907,18 @@ export function MapView({
 
   return (
     <div
-      aria-hidden={preview || undefined}
-      style={{ position: "relative", width: "100%", height: "100%" }}
+      className={styles.frame}
+      data-preview={preview || undefined}
+      role={mapLabel && !canvasNamed ? "img" : undefined}
+      aria-label={mapLabel && !canvasNamed ? mapLabel : undefined}
+      style={
+        {
+          position: "relative",
+          width: "100%",
+          height: "100%",
+          "--coo-map-bottom": `${controlsBottom}px`,
+        } as CSSProperties
+      }
     >
       <div ref={container} style={{ position: "absolute", inset: 0 }} />
       <div style={{ display: "none" }}>
@@ -648,30 +1009,22 @@ export function MapView({
             )}
           </div>
         </div>
-        <div ref={cloudsEl} className={styles.clouds}>
-          {CLOUDS.map((c) => (
-            <div
-              key={c.top}
-              className={styles.lane}
-              style={
-                {
-                  top: c.top,
-                  "--drift": `${c.drift}s`,
-                  "--start": `${c.start}s`,
-                  "--rest": c.rest,
-                } as CSSProperties
-              }
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={`/assets/svg/map/${night ? "night/" : ""}cloud.svg`}
-                alt=""
-                width={74}
-                height={36}
-              />
-            </div>
-          ))}
-        </div>
+        {CLOUDS.map((c, i) => (
+          <div
+            key={c.top}
+            ref={[cloudEl0, cloudEl1, cloudEl2][i]}
+            className={styles.cloud}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              ref={[cloudImg0, cloudImg1, cloudImg2][i]}
+              src={`/assets/svg/map/${night ? "night/" : ""}cloud.svg`}
+              alt=""
+              width={CLOUD_W}
+              height={CLOUD_H}
+            />
+          </div>
+        ))}
       </div>
       {!preview && !following && (
         <button

@@ -9,8 +9,21 @@ import { GuestView, guestCopy } from "./GuestView";
 
 vi.mock("@/components/MapView", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/components/MapView")>()),
-  MapView: ({ state }: { state?: string }) => (
-    <div data-map="true" data-state={state} />
+  MapView: ({
+    state,
+    mapLabel,
+    controlsBottom,
+  }: {
+    state?: string;
+    mapLabel?: string;
+    controlsBottom?: number;
+  }) => (
+    <div
+      data-map="true"
+      data-state={state}
+      data-label={mapLabel}
+      data-controls-bottom={controlsBottom}
+    />
   ),
 }));
 
@@ -160,6 +173,29 @@ describe("Guest page, live map bird (#846 ac-4)", () => {
     const html = render(guestFlying());
     expect(text(html)).toContain("Over Trenton");
     expect(html).toContain('data-state="flying"');
+  });
+});
+
+describe("Guest page, live map credit", () => {
+  it("names the map picture inside MapView, so the credit stays outside it", () => {
+    const html = render(guestFlying());
+    const map = html.match(/<div class="[^"]*map[^"]*"[^>]*>(?=<div data-map)/);
+    expect(map?.[0], "the wrapper is not an image").not.toContain("role=");
+    expect(html).toContain(
+      'data-label="Live map. Gerald is flying from Brooklyn to Philadelphia."',
+    );
+  });
+
+  it("names the map box itself when there is no route to draw", () => {
+    const g = guestFlying();
+    const html = render({ ...g, flight: { ...g.flight, plan: undefined } });
+    expect(html).toMatch(
+      /<div class="[^"]*map[^"]*" role="img" aria-label="Live map\. Gerald is flying from Brooklyn to Philadelphia\."/,
+    );
+  });
+
+  it("leaves the credit at the bottom of the map, not lifted by camera padding", () => {
+    expect(render(guestFlying())).not.toContain("data-controls-bottom");
   });
 });
 

@@ -2,10 +2,18 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
-  --sheet: min(1180px, 100vw);
+  /* Wider than the 430 px app column, but never wider than the viewport
+     less a classic scrollbar, so the page doesn't scroll sideways. */
+  --sheet: min(1180px, calc(100vw - 16px));
   width: var(--sheet);
   margin-inline: calc((100% - var(--sheet)) / 2);
   padding: 24px var(--coo-gutter) 48px;
+}
+
+@media (max-width: 599.98px) {
+  .page {
+    --sheet: 100%;
+  }
 }
 
 .title {
