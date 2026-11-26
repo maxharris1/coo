@@ -296,7 +296,7 @@ export function isAway(status: BirdStatus): boolean {
 
 const hourFormatters = new Map<string, Intl.DateTimeFormat>();
 
-function hourIn(nowMs: number, timeZone: string): number {
+export function hourIn(nowMs: number, timeZone: string): number {
   let f = hourFormatters.get(timeZone);
   if (!f) {
     f = new Intl.DateTimeFormat("en-US", {
