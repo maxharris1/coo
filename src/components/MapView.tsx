@@ -592,6 +592,17 @@ export function MapView({
           m.on("resize", () => {
             size = readSize();
           });
+          // The part of the map clouds live in: between the header and the
+          // card (with the credit's row), the same clear area the camera
+          // keeps. A ref, so reading it each frame costs no layout.
+          const clear = () => {
+            const { top, bottom } = clearArea();
+            return {
+              top,
+              bottom: size.h - bottom,
+              height: size.h - bottom - top,
+            };
+          };
           let shown = { display: "", transform: "" };
           const fitClouds = () => {
             if (!clouds) return;
@@ -614,13 +625,17 @@ export function MapView({
             const zoom = m.getZoom();
             if (zoom > CLOUD_MAX_ZOOM) return;
             const { w, h } = size;
-            if (!w || !h) return;
+            const area = clear();
+            if (!w || !h || area.height <= 0) return;
             zoom0 = zoom;
             clouds = CLOUDS.flatMap((c, i) => {
               const host = hosts[i][0].current;
               const img = hosts[i][1].current;
               if (!host || !img) return [];
-              const at = m.unproject([c.rest * w, c.top * h]);
+              const at = m.unproject([
+                c.rest * w,
+                area.top + c.top * area.height,
+              ]);
               const cloud = new Marker({
                 element: host,
                 rotationAlignment: "map",
@@ -661,27 +676,32 @@ export function MapView({
             if (!clouds || document.hidden) return;
             const zoom = m.getZoom();
             const { w, h } = size;
-            if (zoom > CLOUD_MAX_ZOOM || !w || !h) return;
+            const area = clear();
+            if (zoom > CLOUD_MAX_ZOOM || !w || !h || area.height <= 0) return;
             const moving = !reduce?.matches;
             const scale = cloudScale(zoom, zoom0);
             const cw = CLOUD_W * scale;
             const ch = CLOUD_H * scale;
             const centre = m.getCenter().lng;
             for (const c of clouds) {
-              c.lng = nearLon(c.lng, centre);
-              let { x, y } = m.project([c.lng, c.lat]);
+              const lng = nearLon(c.lng, centre);
+              let { x, y } = m.project([lng, c.lat]);
               if (moving) {
+                c.lng = lng;
                 const pxPerDeg = m.project([c.lng + 1, c.lat]).x - x;
                 const px = (w / CLOUDS[c.i].cross) * (step / 1000);
                 if (pxPerDeg > 0) {
                   c.lng += px / pxPerDeg;
                   x += px;
                 }
-                const lost = y < -ch || y > h + ch || x < -w - cw;
+                const lost =
+                  y < area.top - ch || y > area.bottom + ch || x < -w - cw;
                 if (lost || x > w + cw) {
                   // Off the view: come back in just off its west edge, at the
-                  // cloud's own height if that is on the view.
-                  if (y < 0 || y > h) y = CLOUDS[c.i].top * h;
+                  // cloud's own height if that is in the clear area.
+                  if (y < area.top || y > area.bottom) {
+                    y = area.top + CLOUDS[c.i].top * area.height;
+                  }
                   x = -cw - (lost ? CLOUD_STAGGER[c.i] * w : 0);
                   const at = m.unproject([x, y]);
                   c.lng = at.lng;

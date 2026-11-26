@@ -1124,6 +1124,10 @@ describe("clouds drift over the map, anchored to it (#968 ac-4)", () => {
     open: typeof nextMap = { camera: OPEN },
   ) {
     Object.assign(nextMap, open);
+    pads = {
+      top: over.topPadding ?? 80,
+      bottom: over.bottomPadding ?? props().bottomPadding,
+    };
     const { tree, map } = await mounted(props(over));
     const hosts = () => markers.slice(3).map((c) => c.options.element as Host);
     return { map, imgs: cloudImgsIn(tree), hosts };
@@ -1152,16 +1156,29 @@ describe("clouds drift over the map, anchored to it (#968 ac-4)", () => {
   const places = () => cloudMarkers().map((c) => c.lngLat!);
   const onScreen = (map: FakeMap) =>
     cloudMarkers().map((c) => map.project(c.getLngLat()));
-  /** The whole cloud box, at its size for this zoom, is off the view. */
+  /** The header and card insets the map was last rendered with. */
+  let pads = { top: 80, bottom: 260 };
+  /** The clear area clouds live in: below the header, above card and credit. */
+  const area = (map: FakeMap) => ({
+    top: pads.top,
+    bottom: map.height - pads.bottom - 40,
+  });
+  /** Where cloud `i` is placed, or comes back in when off the area. */
+  const spotY = (map: FakeMap, i: number) => {
+    const { top, bottom } = area(map);
+    return top + SPOTS[i].top * (bottom - top);
+  };
+  /** The whole cloud box, at its size for this zoom, is off the clear area. */
   const offView = (map: FakeMap, p: Point) => {
     const scale = cloudScale(map.getZoom(), OPEN.zoom);
     const w = 74 * scale;
     const h = 36 * scale;
+    const { top, bottom } = area(map);
     return (
       p.x + w / 2 <= 0 ||
       p.x - w / 2 >= map.width ||
-      p.y + h / 2 <= 0 ||
-      p.y - h / 2 >= map.height
+      p.y + h / 2 <= top ||
+      p.y - h / 2 >= bottom
     );
   };
 
@@ -1242,7 +1259,7 @@ describe("clouds drift over the map, anchored to it (#968 ac-4)", () => {
         0,
       );
       expect(at.x - SPOTS[i].rest * 400, `cloud ${i} x`).toBeLessThan(2);
-      expect(at.y, `cloud ${i} y`).toBeCloseTo(SPOTS[i].top * 800, 6);
+      expect(at.y, `cloud ${i} y`).toBeCloseTo(spotY(map, i), 6);
     });
     for (const host of hosts()) {
       expect(host.style, "no screen-space transform or animation").toEqual({
@@ -1315,20 +1332,25 @@ describe("clouds drift over the map, anchored to it (#968 ac-4)", () => {
     for (let t = 0; t < 400; t += 200) frame();
     expect(reads).not.toHaveBeenCalled();
     map.fire("resize");
-    // Read again on resize (the pin pills read it then too).
-    expect(reads).toHaveBeenCalled();
+    // Read again on resize: once for the clouds, once for the pin pills.
+    expect(reads).toHaveBeenCalledTimes(2);
     reads.mockClear();
     const before = onScreen(map);
     frame();
     expect(reads).not.toHaveBeenCalled();
+    let checked = 0;
     onScreen(map).forEach((p, i) => {
       if (p.x > before[i].x) {
+        checked++;
         expect(p.x - before[i].x, "speed for the new width").toBeCloseTo(
           (300 / CROSS_S[i]) * 0.2,
           6,
         );
       }
     });
+    expect(checked, "clouds that drifted rather than wrapped").toBeGreaterThan(
+      0,
+    );
   });
 
   it("write a cloud's fade and size only when they change", async () => {
@@ -1395,7 +1417,7 @@ describe("clouds drift over the map, anchored to it (#968 ac-4)", () => {
         -cw - [0, 0.5, 0.25][i] * map.width,
         6,
       );
-      expect(p.y, `cloud ${i}`).toBeCloseTo(SPOTS[i].top * map.height, 6);
+      expect(p.y, `cloud ${i}`).toBeCloseTo(spotY(map, i), 6);
     });
     const seen = [false, false, false];
     for (let t = 0; t < 60_000; t += 200) {
@@ -1439,7 +1461,7 @@ describe("clouds drift over the map, anchored to it (#968 ac-4)", () => {
     expect(cloudMarkers()).toHaveLength(3);
     onScreen(map).forEach((p, i) => {
       expect(p.x).toBeCloseTo(SPOTS[i].rest * 400, 6);
-      expect(p.y).toBeCloseTo(SPOTS[i].top * 800, 6);
+      expect(p.y).toBeCloseTo(spotY(map, i), 6);
     });
     expect(map.afterCanvas).toHaveLength(3);
   });
@@ -1460,8 +1482,99 @@ describe("clouds drift over the map, anchored to it (#968 ac-4)", () => {
     expect(cloudMarkers()).toHaveLength(3);
     onScreen(map).forEach((p, i) => {
       expect(p.x).toBeCloseTo(SPOTS[i].rest * 400, 6);
-      expect(p.y).toBeCloseTo(SPOTS[i].top * 800, 6);
+      expect(p.y).toBeCloseTo(spotY(map, i), 6);
     });
+  });
+
+  it("live in the clear area between the header and the card", async () => {
+    // A 400 x 800 map whose card (and credit row) covers all but 80..360.
+    const { map } = await clouds({ bottomPadding: 400 });
+    expect(area(map)).toEqual({ top: 80, bottom: 360 });
+    onScreen(map).forEach((p, i) => {
+      expect(p.y, `cloud ${i}`).toBeCloseTo(80 + SPOTS[i].top * 280, 6);
+      expect(p.y).toBeGreaterThan(80);
+      expect(p.y).toBeLessThan(360);
+    });
+  });
+
+  it("bring back a cloud that is only below the clear area, inside it", async () => {
+    const { map } = await clouds();
+    // Pan north 200 px: cloud 2 (64% down the 80..500 area, y 349) lands at
+    // y 549, still on the map but under the card; clouds 0 and 1 stay clear.
+    const north = map.unproject([200, 200]);
+    map.camera = { ...map.camera!, lat: north.lat };
+    map.fire("move");
+    const under = onScreen(map);
+    expect(under[2].y).toBeGreaterThan(area(map).bottom + 36);
+    expect(under[2].y).toBeLessThan(map.height);
+    expect(under.slice(0, 2).every((p) => !offView(map, p))).toBe(true);
+    frame();
+    const back = onScreen(map);
+    expect(back[2].x, "staggered off the west edge").toBeCloseTo(
+      -74 - 0.25 * map.width,
+      6,
+    );
+    expect(back[2].y, "back inside the clear area").toBeCloseTo(
+      spotY(map, 2),
+      6,
+    );
+    [0, 1].forEach((i) =>
+      expect(back[i].x - under[i].x, `cloud ${i} only drifts`).toBeCloseTo(
+        stepPx(map, i),
+        6,
+      ),
+    );
+  });
+
+  it("follow the clear area when the card changes height", async () => {
+    const { map } = await clouds(
+      {},
+      { camera: { lng: -75, lat: 40, zoom: 14 } },
+    );
+    // The card grows before the clouds are placed.
+    pads = { top: 80, bottom: 400 };
+    renderWithEffects(MapView, props({ bottomPadding: 400 }));
+    expect(maps, "same map").toHaveLength(1);
+    map.camera = { lng: -75, lat: 40, zoom: 9 };
+    map.fire("zoom");
+    nextFrame();
+    expect(cloudMarkers()).toHaveLength(3);
+    onScreen(map).forEach((p, i) =>
+      expect(p.y, `placed cloud ${i}`).toBeCloseTo(80 + SPOTS[i].top * 280, 6),
+    );
+    // Then the card grows again, to 80..240: cloud 2 (y 259) is now under it.
+    pads = { top: 80, bottom: 520 };
+    renderWithEffects(MapView, props({ bottomPadding: 520 }));
+    expect(area(map)).toEqual({ top: 80, bottom: 240 });
+    const was = onScreen(map);
+    expect(was[2].y).toBeGreaterThan(240);
+    // A pan throws all three far off the view, so all three come back in:
+    // 0 and 1 at their own heights, still clear, and 2 at its spot in the
+    // new area.
+    map.camera = { ...map.camera, lng: map.camera.lng + 30 };
+    map.fire("move");
+    frame();
+    const back = onScreen(map);
+    expect(back[0].y).toBeCloseTo(was[0].y, 6);
+    expect(back[1].y).toBeCloseTo(was[1].y, 6);
+    expect(back[2].y, "inside the new area").toBeCloseTo(
+      80 + SPOTS[2].top * 160,
+      6,
+    );
+    back.forEach((p, i) =>
+      expect(p.x, `cloud ${i} off the west edge`).toBeLessThan(0),
+    );
+  });
+
+  it("wait to be placed while the card leaves no clear area", async () => {
+    const { map } = await clouds({ bottomPadding: 700 });
+    for (let t = 0; t < 1000; t += 200) frame();
+    expect(cloudMarkers(), "card and header cover the map").toHaveLength(0);
+    pads = { top: 80, bottom: 260 };
+    renderWithEffects(MapView, props({ bottomPadding: 260 }));
+    nextFrame();
+    expect(cloudMarkers()).toHaveLength(3);
+    onScreen(map).forEach((p, i) => expect(p.y).toBeCloseTo(spotY(map, i), 6));
   });
 
   it("pause while the tab is hidden and resume without a jump", async () => {

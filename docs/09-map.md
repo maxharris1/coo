@@ -180,9 +180,14 @@ is pinned to the screen; only the controls (the Find button, the card and the ma
 - **Clouds:** three `assets/svg/map/cloud.svg` (night: `night/cloud.svg`), 74 x 36, as HTML
   markers anchored to places on the map, so they pan and zoom with it like everything else
   (the product owner's call, 2026-11-26; `reference/map/STYLE.md` still says screen space).
-  They are placed the first time the map can show them (zoom 11 or below, with a size; a short
-  route that opens at street zoom places them when the user zooms out), on that view at 18%,
-  42% and 64% down and 35%, 85% and 60% across. Each marker element moves to just above the
+  For clouds, "the view" is the map's clear area: its full width, and from below the header
+  (the top inset) down to just above the card and the credit's row (the bottom inset plus
+  40 pt), the same area the camera keeps clear. It follows the insets when the header or card
+  changes height. Clouds may drift partly under the header or card, which draw over them, but
+  are never placed or brought back in there. They are placed the first time the map can show
+  them (zoom 11 or below, with a size and a clear area taller than 0; a short route that opens
+  at street zoom places them when the user zooms out), at 18%, 42% and 64% down the clear area
+  and 35%, 85% and 60% across. Each marker element moves to just above the
   map canvas and below every other marker, so a cloud can pass under the bird, a pin, a pill or
   the speech bubble but never over them, and never over the map credit or the buttons. They
   never take a tap. They show at zoom 11 and below and hide at street zoom (12 and up), and
@@ -192,8 +197,9 @@ is pinned to the screen; only the controls (the Find button, the card and the ma
   in 32, 42 and 36 s whatever its width or the zoom. A pan or zoom never moves a cloud's place;
   only the drift does. The map's size is read at load and on each resize, never per frame. Wrapping
   follows the current view: a cloud more than a cloud width past its east edge comes back in
-  just off its west edge, at its own height if that is on the view, otherwise at its 18/42/64%
-  height. A cloud far off the view (more than a view west of it, or above or below it, as after
+  just off its west edge, at its own height if that is in the clear area, otherwise at its
+  18/42/64% height in it. A cloud far off the view (more than a view west of it, or more than
+  a cloud's height above or below the clear area, as under the card or after
   the follow camera zooms in on the bird) comes back in the same way, off the west edge and
   staggered (0, 50% and 25% of a view further west), so it drifts back into sight. So a cloud
   only ever jumps while it is wholly off the view, and the picture also fades over one cloud
