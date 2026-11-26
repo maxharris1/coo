@@ -1,11 +1,13 @@
 import { readFileSync } from "node:fs";
 import {
+  act,
   Children,
   type ComponentProps,
   isValidElement,
   type ReactElement,
   type ReactNode,
 } from "react";
+import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { config } from "@/lib/config";
@@ -25,6 +27,13 @@ const { requireUser, redirect } = vi.hoisted(() => ({
 }));
 vi.mock("@/server/auth", () => ({ requireUser }));
 vi.mock("next/navigation", () => ({ redirect, useRouter: () => ({}) }));
+vi.mock("next/link", () => ({
+  default: ({ href, children, ...rest }: ComponentProps<"a">) => (
+    <a href={href} {...rest}>
+      {children}
+    </a>
+  ),
+}));
 
 const render = (state: InstallState, copied = false) =>
   renderToStaticMarkup(
@@ -81,8 +90,6 @@ type Key = {
 };
 type El = ReactElement<{
   children?: ReactNode;
-  href?: string;
-  tabIndex?: number;
   role?: string;
   "aria-label"?: string;
   onClick?: () => void;
@@ -100,40 +107,124 @@ function find(node: ReactNode, hit: (el: El) => boolean): El | undefined {
   return undefined;
 }
 
-type FakeNode = {
-  el: El;
-  parent?: FakeNode;
-  kids: FakeNode[];
-  focus: () => void;
+type DomNode = EventTarget & {
+  nodeType: number;
+  tagName?: string;
+  textContent?: string;
+  attrs: Record<string, string>;
+  childNodes: DomNode[];
+  parentNode: DomNode | null;
   contains: (other: unknown) => boolean;
-  find: (hit: (n: FakeNode) => boolean) => FakeNode | undefined;
-  querySelectorAll: () => FakeNode[];
 };
 
-function fakeDom(el: El, parent?: FakeNode): FakeNode {
-  const self: FakeNode = {
-    el,
-    parent,
-    kids: [],
+const ATTR = /\[([\w-]+)(?:='([^']*)')?\]/g;
+const matches = (n: DomNode, selector: string) =>
+  n.nodeType === 1 &&
+  selector.split(",").some((part) => {
+    const [, tag, rest] = part.trim().match(/^([a-z]*)(.*)$/)!;
+    const [must, not] = rest.split(":not(");
+    const has = (attrs: string) =>
+      [...attrs.matchAll(ATTR)].every(([, name, value]) =>
+        value === undefined ? name in n.attrs : n.attrs[name] === value,
+      );
+    return (
+      (!tag || n.tagName === tag.toUpperCase()) &&
+      has(must) &&
+      (not === undefined || !has(not))
+    );
+  });
+
+const descendants = (n: DomNode): DomNode[] =>
+  n.childNodes.flatMap((c) => [c, ...descendants(c)]);
+
+function domNode(nodeType: number, tagName?: string, nodeValue?: string) {
+  const self: DomNode = Object.assign(new EventTarget(), {
+    nodeType,
+    nodeName: tagName,
+    tagName,
+    nodeValue,
+    ownerDocument: document,
+    style: { setProperty() {}, removeProperty() {} },
+    attrs: {} as Record<string, string>,
+    childNodes: [] as DomNode[],
+    parentNode: null,
+    setAttribute: (name: string, value: unknown) =>
+      void (self.attrs[name] = String(value)),
+    removeAttribute: (name: string) => void delete self.attrs[name],
+    appendChild(child: DomNode) {
+      child.parentNode = self;
+      self.childNodes.push(child);
+      return child;
+    },
+    insertBefore(child: DomNode, before: DomNode) {
+      child.parentNode = self;
+      self.childNodes.splice(self.childNodes.indexOf(before), 0, child);
+      return child;
+    },
+    removeChild(child: DomNode) {
+      self.childNodes.splice(self.childNodes.indexOf(child), 1);
+      return child;
+    },
+    contains: (other: unknown) =>
+      other === self || descendants(self).includes(other as DomNode),
+    querySelectorAll: (selector: string) =>
+      descendants(self).filter((d) => matches(d, selector)),
     focus: () => Object.assign(document, { activeElement: self }),
-    contains: (other) =>
-      other === self || self.kids.some((k) => k.contains(other)),
-    find: (hit) =>
-      hit(self) ? self : self.kids.map((k) => k.find(hit)).find(Boolean),
-    querySelectorAll: () =>
-      self.kids.flatMap((k) => [
-        ...(k.el.type === "button" ||
-        (k.el.type === "a" && k.el.props.href !== undefined) ||
-        (k.el.props.tabIndex !== undefined && k.el.props.tabIndex !== -1)
-          ? [k]
-          : []),
-        ...k.querySelectorAll(),
-      ]),
+  });
+  return Object.defineProperties(self, {
+    firstChild: { get: () => self.childNodes[0] ?? null },
+    lastChild: { get: () => self.childNodes.at(-1) ?? null },
+  });
+}
+
+async function mountOpenSheet() {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  vi.stubGlobal(
+    "window",
+    Object.assign(new EventTarget(), { HTMLIFrameElement: class {} }),
+  );
+  vi.stubGlobal(
+    "document",
+    Object.assign(new EventTarget(), {
+      activeElement: null,
+      createElement: (tag: string) => domNode(1, tag.toUpperCase()),
+      createElementNS: (_ns: string, tag: string) => domNode(1, tag),
+      createTextNode: (text: string) => domNode(3, undefined, text),
+    }),
+  );
+  const container = domNode(1, "DIV");
+  const root = createRoot(container as unknown as Element);
+  onTestFinished(async () => {
+    await act(async () => root.unmount());
+    vi.unstubAllGlobals();
+  });
+  await act(async () =>
+    root.render(
+      <InstallView
+        state={{ kind: "ios", sheet: "open" }}
+        copied={false}
+        onInstall={() => {}}
+        onCopy={() => {}}
+        onOpenSheet={() => {}}
+        onCloseSheet={() => {}}
+      />,
+    ),
+  );
+  const all = descendants(container);
+  const tab = async (shiftKey: boolean) => {
+    const event = Object.assign(
+      new Event("keydown", { bubbles: true, cancelable: true }),
+      { key: "Tab", shiftKey },
+    );
+    Object.defineProperty(event, "target", { value: document.activeElement });
+    await act(async () => container.dispatchEvent(event));
+    return event.defaultPrevented;
   };
-  self.kids = Children.toArray(el.props.children)
-    .filter((c) => isValidElement<El["props"]>(c))
-    .map((c) => fakeDom(c as El, self));
-  return self;
+  return {
+    dialog: all.find((n) => n.attrs.role === "dialog")!,
+    close: all.find((n) => n.textContent === "Close")!,
+    tab,
+  };
 }
 
 const tree = (props: ComponentProps<typeof InstallView>) => {
@@ -337,36 +428,13 @@ describe("/welcome/install on iOS Safari (ac-3)", () => {
       expect(items[0].focus).not.toHaveBeenCalled();
     });
 
-    it("cycles Tab and Shift+Tab only through controls inside the dialog", () => {
-      vi.stubGlobal("document", { activeElement: null });
-      onTestFinished(() => {
-        vi.unstubAllGlobals();
-      });
-      const layer = fakeDom(
-        find(keyboard().node, (el) =>
-          Children.toArray(el.props.children).some(
-            (c) => isValidElement<El["props"]>(c) && c.props.role === "dialog",
-          ),
-        )!,
-      );
-      const dialog = layer.find((n) => n.el.props.role === "dialog")!;
-      const backdrop = layer.find((n) => n.el.props["aria-label"] === "Close")!;
-      dialog.focus();
-      for (const shiftKey of [false, false, false, true, true, true]) {
-        const target = document.activeElement as unknown as FakeNode;
-        const preventDefault = vi.fn();
-        for (let n: FakeNode | undefined = target; n; n = n.parent) {
-          n.el.props.onKeyDown?.({
-            key: "Tab",
-            shiftKey,
-            target,
-            currentTarget: n,
-            preventDefault,
-          });
-        }
-        expect(preventDefault).toHaveBeenCalled();
+    it("moves Tab and Shift+Tab focus to the dialog's Close button, never the backdrop", async () => {
+      const { dialog, close, tab } = await mountOpenSheet();
+      expect(document.activeElement).toBe(dialog);
+      for (const shiftKey of [false, false, true, true, false]) {
+        expect(await tab(shiftKey)).toBe(true);
         expect(dialog.contains(document.activeElement)).toBe(true);
-        expect(document.activeElement).not.toBe(backdrop);
+        expect(document.activeElement).toBe(close);
       }
     });
 
