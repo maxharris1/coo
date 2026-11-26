@@ -61,7 +61,7 @@ or doodle, until it has landed.
 First runs the tick steps for rows that belong to or are aimed at this user. Then returns:
 
 ```ts
-{ serverNow, me: { id, name, handle, inviteCode, seeds, perches, hasBirdbath, espressoShots, units, timezone,
+{ serverNow, me: { id, name, handle, inviteCode, seeds, perches, hasBirdbath, espressoShots, loftItems, units, timezone,
     loft: Place & { city: string, travelling: boolean }, installed, settings: {...} },
   birds: Bird[], closet: string[], outfits: Outfit[],
   flights: Flight[],            // scheduled or flying, mine and incoming; plus landed in the last 24 h
@@ -72,6 +72,9 @@ First runs the tick steps for rows that belong to or are aimed at this user. The
   found: string[],              // ids of my untraded finds
   unread: number, friendsCount: number }
 ```
+
+`me.loftItems` is `profiles.loft_items`: the ids of the loft add-ons bought in the Shop
+(`flower-boxes`, `weathervane`, `espresso-cart`), in the order bought, or `[]`.
 
 Also updates `profiles.timezone` if the request header `X-Timezone` differs.
 
@@ -191,7 +194,7 @@ with `invalid` ("Espresso is for sending now.").
 | `POST /api/birds/[id]/wake` | | Owner only, napping birds only. Before `busy_until` it sets the bird home with the energy gained so far and no nap bonus. Once the nap is due it applies the nap (+50) and sets the bird home. Any other bird (home, bath, job, away) is `conflict` and nothing is written |
 | `PUT /api/birds/[id]/gear` | `{ items: string[] }` or `{ outfitId }` | Any of the owner's birds, whatever its status. Validates ownership and one per slot. May put on an item another of the owner's birds wears; that bird keeps it, so every bird can wear an owned item at once |
 | `PUT /api/outfits` | `{ outfits: [{ id?, name, items }] }` | Replaces the saved outfits (at most 6) |
-| `GET /api/shop` | | Items with `owned`, `affordable`, plus loft items, the next perch, and `consumables` (`id`, `name`, `effect`, `price`, `held`, `affordable`), where `held` is how many the caller holds, such as `espresso` |
+| `GET /api/shop` | | Items with `owned`, `affordable`, plus loft items with `owned` (`birdbath` from `profiles.has_birdbath`, the rest from `profiles.loft_items`) and `affordable`, the next perch, and `consumables` (`id`, `name`, `effect`, `price`, `held`, `affordable`), where `held` is how many the caller holds, such as `espresso` |
 | `POST /api/shop/buy` | `{ itemId, price, actionId }` | Gear id, `birdbath`, `flower-boxes`, `weathervane`, `espresso-cart`, `perch` or `espresso`. `flower-boxes`, `weathervane` and `espresso-cart` are each bought once and appended to `profiles.loft_items`; a second buy is `conflict`. `espresso` can be bought again and again; each buy adds one to `profiles.espresso_shots`. `price` is the price the buyer confirmed. If the current price differs, the answer is `conflict` and nothing is charged. `actionId` is a uuid made once per buy. A replay with the same `actionId` changes nothing and returns the current state. See Idempotency. One transaction |
 | `GET /api/earn` | | Punch card, pay table, today's two job offers with jobs left today and current pay, found objects. An offer the owner has a bird running on leaves the list until that job is done, so the list can hold one offer or none |
 | `POST /api/jobs` | `{ jobId, birdId }` | Starts an offered job. `conflict` "{bird} is already on that job." while another of the owner's birds is on the same job, and nothing is written |

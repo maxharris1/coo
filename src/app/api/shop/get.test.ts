@@ -164,6 +164,42 @@ describe("GET /api/shop", () => {
     expect(json.loftItems[0]).toMatchObject({ owned: true });
   });
 
+  it("marks the three loft add-ons owned from profiles.loft_items, each with affordable", async () => {
+    const { id, jar } = await onboarded("(555) 123-4567", "Max");
+    await setSeeds(id, 140);
+    const addOns = async () => {
+      const { json } = await client.get({}, jar);
+      return json.loftItems.slice(1);
+    };
+    expect(await addOns()).toEqual([
+      expect.objectContaining({
+        id: "flower-boxes",
+        price: 90,
+        owned: false,
+        affordable: true,
+      }),
+      expect.objectContaining({
+        id: "weathervane",
+        price: 140,
+        owned: false,
+        affordable: true,
+      }),
+      expect.objectContaining({
+        id: "espresso-cart",
+        price: 260,
+        owned: false,
+        affordable: false,
+      }),
+    ]);
+    await deps.db.query(
+      "update profiles set loft_items = '{weathervane,espresso-cart}' where id = $1",
+      [id],
+    );
+    expect(
+      (await addOns()).map((item: { owned: boolean }) => item.owned),
+    ).toEqual([false, true, true]);
+  });
+
   it("shows the next perch with its price and how many seeds to go", async () => {
     const { id, jar } = await onboarded("(555) 123-4567", "Max");
     await setSeeds(id, 100);
@@ -200,7 +236,7 @@ describe("GET /api/shop", () => {
       [other.id],
     );
     await deps.db.query(
-      "update profiles set has_birdbath = true, perches = 5 where id = $1",
+      "update profiles set has_birdbath = true, perches = 5, loft_items = '{flower-boxes,weathervane,espresso-cart}' where id = $1",
       [other.id],
     );
     const { id, jar } = await onboarded("(555) 123-4567", "Max");
@@ -211,7 +247,9 @@ describe("GET /api/shop", () => {
       owned: false,
       affordable: false,
     });
-    expect(json.loftItems[0]).toMatchObject({ owned: false });
+    expect(
+      json.loftItems.map((item: { owned: boolean }) => item.owned),
+    ).toEqual([false, false, false, false]);
     expect(json.nextPerch).toMatchObject({ number: 4, toGo: 240 });
   });
 

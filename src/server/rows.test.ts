@@ -96,6 +96,7 @@ describe("mappers", () => {
       seeds: start.seeds,
       perches: start.perches,
       espressoShots: 0,
+      loftItems: [],
       hasBirdbath: false,
       units: "mi",
       timezone: "America/New_York",
