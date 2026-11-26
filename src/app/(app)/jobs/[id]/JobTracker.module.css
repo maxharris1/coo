@@ -1,9 +1,7 @@
 .tracker {
   position: relative;
   margin-top: calc(-1 * env(safe-area-inset-top, 0px));
-  height: calc(
-    100dvh - 84px - var(--coo-safe-bottom, 0px) + env(safe-area-inset-top, 0px)
-  );
+  height: calc(100dvh - 84px - max(env(safe-area-inset-bottom, 0px), 34px));
   min-height: 480px;
   overflow: hidden;
   background: #d4ebb0;

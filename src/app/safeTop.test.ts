@@ -72,12 +72,6 @@ const HEROES: { file: string; box: string; pads: Pad[] }[] = [
     box: "tracker",
     pads: [
       {
-        rule: "tracker",
-        prop: "height",
-        now: "calc(100dvh - 84px - var(--coo-safe-bottom, 0px) + env(safe-area-inset-top, 0px))",
-        before: "calc(100dvh - 84px - var(--coo-safe-bottom, 0px))",
-      },
-      {
         rule: "top",
         prop: "top",
         now: "calc(var(--coo-gutter) + env(safe-area-inset-top, 0px))",
@@ -89,12 +83,6 @@ const HEROES: { file: string; box: string; pads: Pad[] }[] = [
     file: "app/(app)/jobs/[id]/JobTracker.module.css",
     box: "tracker",
     pads: [
-      {
-        rule: "tracker",
-        prop: "height",
-        now: "calc(100dvh - 84px - var(--coo-safe-bottom, 0px) + env(safe-area-inset-top, 0px))",
-        before: "calc(100dvh - 84px - var(--coo-safe-bottom, 0px))",
-      },
       {
         rule: "top",
         prop: "top",

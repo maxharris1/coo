@@ -312,3 +312,29 @@ describe("every tab page", () => {
     }
   });
 });
+
+describe.each([
+  ["Tracker", "components/Tracker.module.css"],
+  ["JobTracker", "app/(app)/jobs/[id]/JobTracker.module.css"],
+])("the %s map", (_, file) => {
+  describe.each(VIEWPORTS)("on $name", ({ height }) => {
+    describe.each(INSETS)("with a %ipx home indicator", (bottom) => {
+      it.each(TOOLBAR_COLLAPSE)(
+        "ends at the tab bar's top when the viewport grows by %ipx",
+        (grow) => {
+          const env: Env = {
+            top: STATUS_BAR,
+            bottom,
+            height,
+            dvh: height + grow,
+          };
+          const mapTop =
+            shell(env).bodyTop + value(at(file, "tracker", "margin-top"), env);
+          const mapBottom = mapTop + value(at(file, "tracker", "height"), env);
+          expect(mapTop).toBe(0);
+          expect(mapBottom).toBe(shell(env).barTop + grow);
+        },
+      );
+    });
+  });
+});
