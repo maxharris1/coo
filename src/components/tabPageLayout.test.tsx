@@ -9,6 +9,7 @@ import {
   px,
   read,
   type Ref,
+  tabControls,
   tokens,
 } from "../app/safeArea.testkit";
 import { chromeFor } from "./shell";
@@ -193,6 +194,20 @@ describe("the shell while the browser toolbar collapses", () => {
           const stable: Env = { top: STATUS_BAR, bottom, height };
           expect(shell({ ...stable, dvh: height + grow })).toEqual(
             shell(stable),
+          );
+        },
+      );
+
+      it.each(TOOLBAR_COLLAPSE)(
+        "keeps the icons and Send at one offset from the viewport bottom when the viewport grows by %ipx",
+        (grow) => {
+          const fromBottom = (env: Env) => {
+            const { viewport, iconTop, sendTop } = tabControls(env);
+            return [iconTop - viewport, sendTop - viewport];
+          };
+          const stable: Env = { top: STATUS_BAR, bottom, height };
+          expect(fromBottom({ ...stable, dvh: height + grow })).toEqual(
+            fromBottom(stable),
           );
         },
       );

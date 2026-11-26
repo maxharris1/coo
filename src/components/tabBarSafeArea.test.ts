@@ -1,11 +1,13 @@
 import { readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
+  blocks,
   declaration,
   type Env,
   px,
   read,
   type Ref,
+  tabControls,
   tokens,
 } from "../app/safeArea.testkit";
 
@@ -24,12 +26,8 @@ const at = (file: string, rule: string, prop: string): Ref => ({
   prop,
 });
 const BAND_HEIGHT = at(TAB_BAR, "band", "height");
-const BAND_PADDING = at(TAB_BAR, "band", "padding");
 const BAR_BOTTOM = at(TAB_BAR, "bar", "bottom");
 const BAR_INSET = at(TAB_BAR, "bar", "padding-bottom");
-const TAB_HEIGHT = at(TAB_BAR, "tab", "min-height");
-const SEND_HEIGHT = at(TAB_BAR, "send", "height");
-const SEND_MARGIN = at(TAB_BAR, "send", "margin-top");
 const SPACER = at(
   "components/AppShell.module.css",
   "withTabs",
@@ -45,29 +43,15 @@ const TABS_PAD = at("app/globals.css", "body", "--coo-tabs-pad");
 
 const value = (ref: Ref, env: Env) => px(declaration(ref), env);
 const barHeight = (env: Env) => value(BAND_HEIGHT, env) + value(BAR_INSET, env);
-const rule = (name: string) =>
-  read(TAB_BAR).match(new RegExp(`\\.${name} \\{([^}]*)\\}`))![1];
-
-function layout(env: Env) {
-  const barTop = env.height - value(BAR_BOTTOM, env) - barHeight(env);
-  const contentTop = barTop + px(tokens(declaration(BAND_PADDING))[0], env);
-  const sendTop = contentTop + value(SEND_MARGIN, env);
-  return {
-    contentTop,
-    tabBottom: contentTop + value(TAB_HEIGHT, env),
-    sendTop,
-    sendBottom: sendTop + value(SEND_HEIGHT, env),
-  };
-}
+const rule = (name: string) => blocks(TAB_BAR, name).join("\n");
 
 describe.each(VIEWPORTS)("tab bar on $name", ({ height }) => {
   const flat: Env = { top: 0, bottom: 0, height };
   const notched: Env = { top: 0, bottom: HOME_INDICATOR, height };
 
-  it("is an 84px band over a 96px content spacer with no inset", () => {
+  it("is an 84px band with content cleared 12px above the bar", () => {
     expect(value(BAND_HEIGHT, flat)).toBe(84);
-    expect(barHeight(flat)).toBe(84);
-    expect(value(SPACER, flat)).toBe(96);
+    expect(value(SPACER, flat) - barHeight(flat)).toBe(12);
   });
 
   it("paints down to the screen edge across the home-indicator band", () => {
@@ -77,31 +61,30 @@ describe.each(VIEWPORTS)("tab bar on $name", ({ height }) => {
   });
 
   it("keeps the tab labels above the home indicator", () => {
-    expect(layout(notched).tabBottom).toBeLessThanOrEqual(
+    expect(tabControls(notched).tabBottom).toBeLessThanOrEqual(
       height - HOME_INDICATOR,
     );
   });
 
   it("keeps the Send button on screen and above the home indicator", () => {
-    const { sendTop, sendBottom } = layout(notched);
+    const { sendTop, sendBottom } = tabControls(notched);
     expect(sendTop).toBeGreaterThanOrEqual(0);
     expect(sendBottom).toBeLessThanOrEqual(height - HOME_INDICATOR);
   });
 
-  it("lays out the tabs and Send button the same with or without the inset", () => {
-    const shift = (env: Env) => {
-      const { tabBottom, sendTop } = layout(env);
-      return [tabBottom - height + env.bottom, sendTop - height + env.bottom];
-    };
-    expect(shift(notched)).toEqual(shift(flat));
-  });
-
-  it("keeps the icon row and Send button at one height above the inset for any inset", () => {
-    const rows = INSETS.map((bottom) => {
+  it.each(INSETS)(
+    "paints the bar down to the screen edge over a %ipx inset",
+    (bottom) => {
       const env: Env = { top: 0, bottom, height };
-      const { contentTop, sendTop } = layout(env);
-      const base = height - bottom;
-      return [contentTop - base, sendTop - base];
+      expect(value(BAR_BOTTOM, env)).toBe(0);
+      expect(value(BAR_INSET, env)).toBeGreaterThanOrEqual(bottom);
+    },
+  );
+
+  it("keeps the icon row and Send button at one offset from the screen bottom for any inset", () => {
+    const rows = INSETS.map((bottom) => {
+      const { iconTop, sendTop } = tabControls({ top: 0, bottom, height });
+      return [iconTop - height, sendTop - height];
     });
     for (const row of rows) expect(row).toEqual(rows[0]);
   });
@@ -117,7 +100,7 @@ describe.each(VIEWPORTS)("tab bar on $name", ({ height }) => {
 
 describe("home-indicator inset source", () => {
   it("pads the tab bar with env(safe-area-inset-bottom) directly", () => {
-    expect(declaration(BAR_INSET)).toBe(BOTTOM_ENV);
+    expect(declaration(BAR_INSET)).toContain(BOTTOM_ENV);
   });
 
   it("keeps the icon band a constant 84px, independent of the inset", () => {

@@ -17,14 +17,29 @@ export type Env = {
 };
 export type Ref = { file: string; rule: string; prop: string };
 
-export function declaration({ file, rule, prop }: Ref) {
-  const css = read(file);
+export function blocks(file: string, rule: string) {
   const selector = rule === "body" ? "\\nbody" : `\\.${rule}`;
-  const body = css.match(new RegExp(`${selector} \\{([^}]*)\\}`))?.[1];
-  if (body === undefined) throw new Error(`no ${rule} rule in ${file}`);
-  const v = body.match(new RegExp(`(?<![\\w-])${prop}: ([^;]+);`))?.[1];
-  if (v === undefined) throw new Error(`no ${prop} on ${rule} in ${file}`);
-  return v.replace(/\s+/g, " ").trim();
+  return [
+    ...read(file).matchAll(new RegExp(`${selector} \\{([^}]*)\\}`, "g")),
+  ].map((m) => m[1]);
+}
+
+export function optionalDeclaration({ file, rule, prop }: Ref) {
+  const all = blocks(file, rule);
+  if (all.length === 0) throw new Error(`no ${rule} rule in ${file}`);
+  const values = all.flatMap((body) =>
+    [...body.matchAll(new RegExp(`(?<![\\w-])${prop}: ([^;]+);`, "g"))].map(
+      (m) => m[1].replace(/\s+/g, " ").trim(),
+    ),
+  );
+  return values.at(-1);
+}
+
+export function declaration(ref: Ref) {
+  const v = optionalDeclaration(ref);
+  if (v === undefined)
+    throw new Error(`no ${ref.prop} on ${ref.rule} in ${ref.file}`);
+  return v;
 }
 
 export function tokens(shorthand: string) {
@@ -74,4 +89,43 @@ export function px(expr: string, { top, bottom, height, dvh }: Env) {
   return Function(
     `return ${arithmetic.replace(/\b(max|min)\(/g, "Math.$1(")};`,
   )() as number;
+}
+
+const TAB_BAR = "components/TabBar.module.css";
+const bar = (rule: string, prop: string, env: Env) =>
+  px(declaration({ file: TAB_BAR, rule, prop }), env);
+
+function shiftY(rule: string, env: Env) {
+  const transform = optionalDeclaration({
+    file: TAB_BAR,
+    rule,
+    prop: "transform",
+  });
+  if (transform === undefined || transform === "none") return 0;
+  const y = transform.match(/^translateY\((.+)\)$/)?.[1];
+  if (y === undefined)
+    throw new Error(`cannot place .${rule} transform: ${transform}`);
+  return px(y, env);
+}
+
+export function tabControls(env: Env) {
+  const viewport = env.dvh ?? env.height;
+  const barTop =
+    viewport -
+    bar("bar", "bottom", env) -
+    bar("band", "height", env) -
+    bar("bar", "padding-bottom", env) +
+    shiftY("bar", env);
+  const padding = declaration({ file: TAB_BAR, rule: "band", prop: "padding" });
+  const contentTop = barTop + shiftY("band", env) + px(tokens(padding)[0], env);
+  const tabTop = contentTop + shiftY("tab", env);
+  const sendTop =
+    contentTop + bar("send", "margin-top", env) + shiftY("send", env);
+  return {
+    viewport,
+    iconTop: tabTop + shiftY("icon", env),
+    tabBottom: tabTop + bar("tab", "min-height", env),
+    sendTop,
+    sendBottom: sendTop + bar("send", "height", env),
+  };
 }
