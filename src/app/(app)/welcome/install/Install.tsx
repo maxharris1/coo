@@ -174,6 +174,15 @@ const STEPS = [
 const focusOnMount = (el: HTMLElement | null) => el?.focus();
 const FOCUSABLE = "button, a[href], [tabindex]:not([tabindex='-1'])";
 
+export type InstallControls = {
+  state: InstallState;
+  copied: boolean;
+  onInstall: () => void;
+  onCopy: () => void;
+  onOpenSheet: () => void;
+  onCloseSheet: () => void;
+};
+
 export function InstallView({
   state,
   copied,
@@ -181,14 +190,8 @@ export function InstallView({
   onCopy,
   onOpenSheet,
   onCloseSheet,
-}: {
-  state: InstallState;
-  copied: boolean;
-  onInstall: () => void;
-  onCopy: () => void;
-  onOpenSheet: () => void;
-  onCloseSheet: () => void;
-}) {
+  onClose,
+}: InstallControls & { onClose?: () => void }) {
   const titleId = useId();
   const install = useRef<HTMLButtonElement>(null);
   const sheetOpen = state.kind === "ios" && state.sheet === "open";
@@ -217,7 +220,11 @@ export function InstallView({
   return (
     <>
       <main className={styles.page} inert={sheetOpen}>
-        <p className={styles.pill}>{`Step ${STEP.number} of ${STEP.total}`}</p>
+        {!onClose && (
+          <p
+            className={styles.pill}
+          >{`Step ${STEP.number} of ${STEP.total}`}</p>
+        )}
         <div className={styles.intro}>
           <h1 className={styles.title}>
             Put {config.app.name} on your home screen
@@ -256,9 +263,15 @@ export function InstallView({
             </button>
           </div>
         )}
-        <Link href={NEXT_STEP} className={styles.skip}>
-          Not now. Text me when birds land instead.
-        </Link>
+        {onClose ? (
+          <button type="button" className={styles.skip} onClick={onClose}>
+            Not now
+          </button>
+        ) : (
+          <Link href={NEXT_STEP} className={styles.skip}>
+            Not now. Text me when birds land instead.
+          </Link>
+        )}
       </main>
       {sheetOpen && (
         <div className={sheet.layer} onKeyDown={onSheetKey}>
@@ -314,8 +327,7 @@ function snapshot() {
   };
 }
 
-export function Install() {
-  const router = useRouter();
+export function useInstall(): InstallControls {
   const [state, dispatch] = useReducer(installFlow, { kind: "detecting" });
   const [copied, setCopied] = useState(false);
   const watcher = useRef<ReturnType<typeof watchInstall>>(null);
@@ -327,30 +339,37 @@ export function Install() {
   }, []);
 
   useEffect(() => {
-    if (state.kind === "skip" || state.kind === "done") {
-      router.replace(NEXT_STEP);
-    } else if (state.kind === "waiting") {
-      const timer = setTimeout(
-        () => dispatch({ type: "waitedOut" }),
-        FALLBACK_MS,
-      );
-      return () => clearTimeout(timer);
-    }
-  }, [state.kind, router]);
+    if (state.kind !== "waiting") return;
+    const timer = setTimeout(
+      () => dispatch({ type: "waitedOut" }),
+      FALLBACK_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [state.kind]);
 
   const onCopy = async () => {
     await navigator.clipboard.writeText(window.location.href);
     setCopied(true);
   };
 
-  return (
-    <InstallView
-      state={state}
-      copied={copied}
-      onInstall={() => void watcher.current?.install()}
-      onCopy={() => void onCopy()}
-      onOpenSheet={() => dispatch({ type: "openSheet" })}
-      onCloseSheet={() => dispatch({ type: "closeSheet" })}
-    />
-  );
+  return {
+    state,
+    copied,
+    onInstall: () => void watcher.current?.install(),
+    onCopy: () => void onCopy(),
+    onOpenSheet: () => dispatch({ type: "openSheet" }),
+    onCloseSheet: () => dispatch({ type: "closeSheet" }),
+  };
+}
+
+export function Install() {
+  const router = useRouter();
+  const install = useInstall();
+  const { kind } = install.state;
+
+  useEffect(() => {
+    if (kind === "skip" || kind === "done") router.replace(NEXT_STEP);
+  }, [kind, router]);
+
+  return <InstallView {...install} />;
 }

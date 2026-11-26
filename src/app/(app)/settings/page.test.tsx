@@ -127,7 +127,10 @@ beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal(
     "window",
-    Object.assign(new EventTarget(), { HTMLIFrameElement: class {} }),
+    Object.assign(new EventTarget(), {
+      HTMLIFrameElement: class {},
+      matchMedia: () => ({ matches: false }),
+    }),
   );
   vi.stubGlobal("fetch", vi.fn(fakeFetch));
 });
@@ -449,5 +452,21 @@ describe("/settings delete my account (ac-2)", () => {
     expect(view.toasts).toEqual(["confirm: type your handle to delete"]);
     expect(view.pushed).toEqual([]);
     expect(view.props!.sheet).toBe("delete");
+  });
+});
+
+describe("/settings home screen install (ac-6)", () => {
+  it("detects the platform after mount, and a desktop browser cannot install", async () => {
+    await mount();
+    expect(view.props!.install.state.kind).toBe("skip");
+  });
+
+  it("closes the install guide once the app is installed", async () => {
+    await mount();
+    await act(async () => view.props!.onSheet("install"));
+    expect(view.props!.sheet).toBe("install");
+    await act(async () => window.dispatchEvent(new Event("appinstalled")));
+    expect(view.props!.install.state.kind).toBe("done");
+    expect(view.props!.sheet).toBeNull();
   });
 });

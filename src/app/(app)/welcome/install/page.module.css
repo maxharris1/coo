@@ -199,10 +199,15 @@
   min-height: var(--coo-touch);
   display: flex;
   align-items: center;
+  padding: 0;
+  background: none;
+  border: 0;
   color: var(--coo-ink);
+  font-family: inherit;
   font-weight: 900;
   font-size: 14.5px;
   text-align: center;
+  cursor: pointer;
 }
 
 .action:focus-visible,
