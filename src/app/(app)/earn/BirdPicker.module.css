@@ -90,7 +90,9 @@
 }
 
 .avatar {
-  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
   width: 42px;
   height: 42px;
@@ -98,12 +100,6 @@
   border: var(--coo-line-thin);
   border-radius: 50%;
   overflow: hidden;
-}
-
-.avatarBird {
-  position: absolute;
-  left: -43px;
-  top: -15px;
 }
 
 .name {

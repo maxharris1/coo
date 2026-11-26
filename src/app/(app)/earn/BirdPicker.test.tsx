@@ -233,9 +233,9 @@ describe("BirdPicker lists the home birds (ac-1)", () => {
     const bird = rule("avatarBird");
     const [left, top] = ["left", "top"].map((p) => px(bird, p));
     for (const row of rowsIn(markupOf([pip("a", { gear: ["booties"] })]))) {
-      const [, svgW, svgH] = svgOf(row)!.match(
-        /<svg[^>]*width="(\d+)"[^>]*height="(\d+)"/,
-      )!.map(Number);
+      const [, svgW, svgH] = svgOf(row)!
+        .match(/<svg[^>]*width="(\d+)"[^>]*height="(\d+)"/)!
+        .map(Number);
       expect(left).toBeGreaterThanOrEqual(0);
       expect(top).toBeGreaterThanOrEqual(0);
       expect(left + svgW).toBeLessThanOrEqual(w);
@@ -248,7 +248,9 @@ describe("BirdPicker lists the home birds (ac-1)", () => {
       markupOf([pip("a"), pip("b", { gear: ["booties"] })]),
     );
     expect(labelOf(plain)).toBe("Pip, looks like Gerald");
-    expect(labelOf(booted)).toBe("Pip, looks like Gerald, wearing Rain booties");
+    expect(labelOf(booted)).toBe(
+      "Pip, looks like Gerald, wearing Rain booties",
+    );
     expect(svgOf(plain)).not.toBe(svgOf(booted));
   });
 
@@ -302,7 +304,7 @@ describe("rowLabel (ac-1)", () => {
     expect(twins.map((b) => rowLabel(b, twins))).toEqual([
       "Pip, looks like Gerald, wearing Wool beanie and Aviator goggles, 1 of 2",
       "Pip, looks like Brenda",
-      "Pip, looks like Gerald, wearing Wool beanie and Aviator goggles, 2 of 2",
+      "Pip, looks like Gerald, wearing Aviator goggles and Wool beanie, 2 of 2",
       " pip, looks like Gerald",
     ]);
   });
