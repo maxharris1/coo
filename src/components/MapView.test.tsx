@@ -1124,11 +1124,17 @@ describe("clouds drift over the map, anchored to it (#968 ac-4)", () => {
     open: typeof nextMap = { camera: OPEN },
   ) {
     Object.assign(nextMap, open);
+    // A Tracker-shaped map by default: the card over it is the bottom inset.
+    const p = props({
+      controlsBottom: over.bottomPadding ?? props().bottomPadding,
+      ...over,
+    });
     pads = {
-      top: over.topPadding ?? 80,
-      bottom: over.bottomPadding ?? props().bottomPadding,
+      top: p.topPadding ?? 80,
+      bottom: p.bottomPadding,
+      card: p.controlsBottom ?? 0,
     };
-    const { tree, map } = await mounted(props(over));
+    const { tree, map } = await mounted(p);
     const hosts = () => markers.slice(3).map((c) => c.options.element as Host);
     return { map, imgs: cloudImgsIn(tree), hosts };
   }
@@ -1157,7 +1163,7 @@ describe("clouds drift over the map, anchored to it (#968 ac-4)", () => {
   const onScreen = (map: FakeMap) =>
     cloudMarkers().map((c) => map.project(c.getLngLat()));
   /** The header and card insets the map was last rendered with. */
-  let pads = { top: 80, bottom: 260 };
+  let pads = { top: 80, bottom: 260, card: 260 };
   /** The clear area clouds live in: below the header, above card and credit. */
   const area = (map: FakeMap) => ({
     top: pads.top,
@@ -1179,12 +1185,13 @@ describe("clouds drift over the map, anchored to it (#968 ac-4)", () => {
     const scale = cloudScale(map.getZoom(), OPEN.zoom);
     const w = 74 * scale;
     const h = 36 * scale;
-    const cardTop = map.height - pads.bottom;
+    const hiddenBelow =
+      pads.card > 0 ? map.height - pads.card + 28 : map.height;
     return (
       p.x + w / 2 <= 0 ||
       p.x - w / 2 >= map.width ||
       p.y + h / 2 <= 0 ||
-      p.y - h / 2 >= cardTop + 28
+      p.y - h / 2 >= hiddenBelow
     );
   };
   /** Pans the fake camera so the map content moves down `px` on screen. */
@@ -1578,13 +1585,55 @@ describe("clouds drift over the map, anchored to it (#968 ac-4)", () => {
     }
   });
 
+  it("never jump a cloud that straddles the credit strip and the card's top edge", async () => {
+    const { map } = await clouds();
+    // Pan down 200 px: cloud 2 (y 349) sits at y 549, its top edge (531)
+    // still showing above the card's top (540), below the clear area (500).
+    panDown(map, 200);
+    const before = onScreen(map);
+    expect(before[2].y - 18).toBeLessThan(map.height - pads.card);
+    expect(before[2].y).toBeGreaterThan(map.height - pads.card);
+    expect(before[2].y).toBeGreaterThan(area(map).bottom + 36);
+    for (let t = 0; t < 2000; t += 200) {
+      const was = onScreen(map);
+      frame();
+      onlyDrifted(map, was, "straddling the card");
+    }
+  });
+
+  it("never jump a cloud at the bottom edge of a map with no card, as on the guest page", async () => {
+    // No card (controlsBottom 0) and a 60 px bottom inset: the map shows to
+    // its bottom edge, so a cloud is hidden only once it is wholly below it.
+    const { map } = await clouds({ bottomPadding: 60, controlsBottom: 0 });
+    expect(area(map)).toEqual({ top: 80, bottom: 700 });
+    // Pan down so cloud 2 (64% down 80..700, y 477) sits at y 810: its top
+    // edge (792) still shows above the map's bottom edge.
+    panDown(map, 810 - spotY(map, 2));
+    const before = onScreen(map);
+    expect(before[2].y - 18).toBeLessThan(map.height);
+    expect(before[2].y).toBeGreaterThan(map.height - 60 + 28 + 36);
+    for (let t = 0; t < 2000; t += 200) {
+      const was = onScreen(map);
+      frame();
+      onlyDrifted(map, was, "cardless map");
+    }
+    // Once wholly below the map, it comes back in inside the clear area.
+    panDown(map, 40);
+    expect(offView(map, onScreen(map)[2])).toBe(true);
+    frame();
+    expect(onScreen(map)[2].y).toBeCloseTo(spotY(map, 2), 6);
+  });
+
   it("leave a partly showing cloud in place when the card grows over it", async () => {
     const { map } = await clouds();
     frame();
     // The card grows so its top sits at 350, just over cloud 2 (y 349); the
     // clear area shrinks to 80..310, so cloud 2 is well below it.
-    pads = { top: 80, bottom: 450 };
-    renderWithEffects(MapView, props({ bottomPadding: 450 }));
+    pads = { top: 80, bottom: 450, card: 450 };
+    renderWithEffects(
+      MapView,
+      props({ bottomPadding: 450, controlsBottom: 450 }),
+    );
     const before = onScreen(map);
     expect(before[2].y).toBeGreaterThan(area(map).bottom + 36);
     expect(offView(map, before[2]), "partly showing").toBe(false);
@@ -1600,12 +1649,16 @@ describe("clouds drift over the map, anchored to it (#968 ac-4)", () => {
     frame();
     // The card grows to leave y 0..115 showing and no clear area at all
     // (its top inset is 80, and 115 less the 40 px credit row is 75).
-    pads = { top: 80, bottom: 685 };
-    renderWithEffects(MapView, props({ bottomPadding: 685 }));
+    pads = { top: 80, bottom: 685, card: 685 };
+    renderWithEffects(
+      MapView,
+      props({ bottomPadding: 685, controlsBottom: 685 }),
+    );
     expect(area(map).bottom - area(map).top).toBeLessThan(0);
     const was = onScreen(map);
-    // Cloud 0 (y 156) still shows beside the card's corner; 1 and 2 are
-    // wholly behind the card.
+    // Cloud 0 (y 156, top edge 138) is behind the straight part of the card,
+    // whose top is at 115, but within the 28 px kept for its rounded corners,
+    // so it is not yet counted as hidden; 1 and 2 are wholly behind the card.
     expect(offView(map, was[0])).toBe(false);
     expect(offView(map, was[1]) && offView(map, was[2])).toBe(true);
     frame();
@@ -1624,8 +1677,11 @@ describe("clouds drift over the map, anchored to it (#968 ac-4)", () => {
       { camera: { lng: -75, lat: 40, zoom: 14 } },
     );
     // The card grows before the clouds are placed.
-    pads = { top: 80, bottom: 400 };
-    renderWithEffects(MapView, props({ bottomPadding: 400 }));
+    pads = { top: 80, bottom: 400, card: 400 };
+    renderWithEffects(
+      MapView,
+      props({ bottomPadding: 400, controlsBottom: 400 }),
+    );
     expect(maps, "same map").toHaveLength(1);
     map.camera = { lng: -75, lat: 40, zoom: 9 };
     map.fire("zoom");
@@ -1635,8 +1691,11 @@ describe("clouds drift over the map, anchored to it (#968 ac-4)", () => {
       expect(p.y, `placed cloud ${i}`).toBeCloseTo(80 + SPOTS[i].top * 280, 6),
     );
     // Then the card grows again, to 80..240: cloud 2 (y 259) is now under it.
-    pads = { top: 80, bottom: 520 };
-    renderWithEffects(MapView, props({ bottomPadding: 520 }));
+    pads = { top: 80, bottom: 520, card: 520 };
+    renderWithEffects(
+      MapView,
+      props({ bottomPadding: 520, controlsBottom: 520 }),
+    );
     expect(area(map)).toEqual({ top: 80, bottom: 240 });
     const was = onScreen(map);
     expect(was[2].y).toBeGreaterThan(240);
@@ -1662,8 +1721,11 @@ describe("clouds drift over the map, anchored to it (#968 ac-4)", () => {
     const { map } = await clouds({ bottomPadding: 700 });
     for (let t = 0; t < 1000; t += 200) frame();
     expect(cloudMarkers(), "card and header cover the map").toHaveLength(0);
-    pads = { top: 80, bottom: 260 };
-    renderWithEffects(MapView, props({ bottomPadding: 260 }));
+    pads = { top: 80, bottom: 260, card: 260 };
+    renderWithEffects(
+      MapView,
+      props({ bottomPadding: 260, controlsBottom: 260 }),
+    );
     nextFrame();
     expect(cloudMarkers()).toHaveLength(3);
     onScreen(map).forEach((p, i) => expect(p.y).toBeCloseTo(spotY(map, i), 6));

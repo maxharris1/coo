@@ -148,13 +148,15 @@ const CLOUDS = [
   { top: 0.42, rest: 0.85, cross: 42 },
   { top: 0.64, rest: 0.6, cross: 36 },
 ] as const;
-// A cloud that is far off the view (more than a view west of it, or above or
-// below it) comes back in off the west edge too, this far apart (a share of
-// the view's width), so the three do not enter in one column.
+// A cloud that is far off the view (more than a view west of it, or wholly
+// above the map or hidden below it) comes back in off the west edge too, this
+// far apart (a share of the view's width), so the three do not enter in one
+// column.
 const CLOUD_STAGGER = [0, 0.5, 0.25] as const;
 // The card's top corners are rounded this much (Tracker.module.css), so map
 // shows beside them: a cloud is wholly behind the card only this far below its
-// top edge.
+// top edge. A map with no card (controlsBottom 0) hides nothing above its
+// bottom edge.
 const CARD_CORNER_PX = 28;
 const CLOUD_MAX_STEP_MS = 250;
 // Clouds grow a little as the map zooms in (double every 4 levels), within limits.
@@ -390,6 +392,9 @@ export function MapView({
   const recentre = useRef<() => void>(() => {});
   const refit = useRef<() => void>(() => {});
   const insetsRef = useRef<Insets>({ top: topPadding, bottom: bottomPadding });
+  // The height of the card over the map, if there is one; 0 for a map with
+  // no card, such as the guest page.
+  const cardRef = useRef(controlsBottom);
   const [following, setFollowing] = useState(true);
   // Until MapLibre's canvas carries the map's name (or if it never draws),
   // the frame carries it, so the map always has an accessible name.
@@ -430,6 +435,10 @@ export function MapView({
     insetsRef.current = { top: topPadding, bottom: bottomPadding };
     refit.current();
   }, [topPadding, bottomPadding]);
+
+  useEffect(() => {
+    cardRef.current = controlsBottom;
+  }, [controlsBottom]);
 
   useEffect(() => {
     westRef.current = west;
@@ -683,12 +692,16 @@ export function MapView({
             const area = clear();
             if (zoom > CLOUD_MAX_ZOOM || !w || !h) return;
             // Clouds come back in inside the clear area, or anywhere above the
-            // card while the card and header leave none.
-            const cardTop = h - insetsRef.current.bottom;
+            // card (the bottom inset) while the card and header leave none.
+            const above = h - insetsRef.current.bottom;
             const entry =
               area.height > 0
                 ? area
-                : { top: 0, bottom: cardTop, height: Math.max(cardTop, 0) };
+                : { top: 0, bottom: above, height: Math.max(above, 0) };
+            // Below this a cloud is hidden: under the card, past its rounded
+            // corners, or off the bottom of a map with no card.
+            const hiddenBelow =
+              cardRef.current > 0 ? h - cardRef.current + CARD_CORNER_PX : h;
             const moving = !reduce?.matches;
             const scale = cloudScale(zoom, zoom0);
             const cw = CLOUD_W * scale;
@@ -705,13 +718,14 @@ export function MapView({
                   c.lng += px / pxPerDeg;
                   x += px;
                 }
-                // Lost means wholly hidden: above the map, behind the card
-                // (the header's pills hide nothing), or far west of the view.
-                const lost =
-                  y < -ch || y > cardTop + CARD_CORNER_PX + ch || x < -w - cw;
+                // Lost means wholly hidden: above the map, behind the card or
+                // below a cardless map (the header's pills hide nothing), or
+                // far west of the view.
+                const lost = y < -ch || y > hiddenBelow + ch || x < -w - cw;
                 if (lost || x > w + cw) {
                   // Off the view: come back in just off its west edge, at the
-                  // cloud's own height if that is in the clear area.
+                  // cloud's own height if that is in the entry area (the clear
+                  // area, or the map above the card when there is none).
                   if (y < entry.top || y > entry.bottom) {
                     y = entry.top + CLOUDS[c.i].top * entry.height;
                   }
