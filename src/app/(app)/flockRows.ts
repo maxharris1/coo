@@ -167,7 +167,8 @@ const SLOT_ROOM: Record<PerchSlot, Room> = {
 };
 
 function birdRoom(bird: FlockBird): Room {
-  if (isAway(bird.status)) return { kind: "away", bird };
+  const onJob = bird.status === "busy" && bird.busyKind === "job";
+  if (isAway(bird.status) || onJob) return { kind: "away", bird };
   const napping = bird.status === "busy" && bird.busyKind === "nap";
   return { kind: "home", bird, asleep: bird.tired || napping };
 }

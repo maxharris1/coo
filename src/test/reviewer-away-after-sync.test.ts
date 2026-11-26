@@ -56,7 +56,7 @@ const gearOf = async (id: string) =>
     )
   )[0].gear;
 
-it("applies the eligible items when a wearer leaves after sync", async () => {
+it("applies the whole outfit when a wearer leaves after sync", async () => {
   await deps.db.query("update birds set status = 'flying' where id = $1", [
     other,
   ]);
@@ -67,12 +67,12 @@ it("applies the eligible items when a wearer leaves after sync", async () => {
     serverFetch,
   );
 
-  expect(await gearOf(target)).toEqual(["beanie"]);
-  expect(skipped).toEqual(["scarf"]);
+  expect(await gearOf(target)).toEqual(["beanie", "scarf"]);
+  expect(skipped).toEqual([]);
   expect(await gearOf(other)).toEqual(["scarf"]);
 });
 
-it("still takes an item off a wearer who stays home", async () => {
+it("leaves the item on a wearer who stays home", async () => {
   const { skipped } = await clientPutGear(
     target,
     { outfitId: outfit.id },
@@ -81,5 +81,5 @@ it("still takes an item off a wearer who stays home", async () => {
 
   expect(await gearOf(target)).toEqual(["beanie", "scarf"]);
   expect(skipped).toEqual([]);
-  expect(await gearOf(other)).toEqual([]);
+  expect(await gearOf(other)).toEqual(["scarf"]);
 });

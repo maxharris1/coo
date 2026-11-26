@@ -10,8 +10,6 @@ const statusOf = (cell: Exclude<Cell, { kind: "store" }>) => {
       return "Wearing";
     case "owned":
       return "Owned";
-    case "on":
-      return `On ${cell.birdName}`;
   }
 };
 

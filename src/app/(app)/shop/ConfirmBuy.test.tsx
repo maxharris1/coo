@@ -13,7 +13,7 @@ const RAIN_HAT: BuyRow = {
   itemId: "rainhat",
   name: "Rain hat",
   effect: "Shrugs off downpours",
-  action: { kind: "buy", price: 120 },
+  action: { kind: "buy", price: 180 },
 };
 
 const render = (busy: boolean) =>
@@ -37,7 +37,7 @@ describe("/shop confirm step (part 4 ac-1)", () => {
     const id = html.match(/aria-labelledby="([^"]+)"/)![1];
     expect(html).toContain(`id="${id}"`);
     expect(html).toMatch(
-      new RegExp(`id="${id}"[^>]*>Buy the rain hat for 120 seeds\\?<`),
+      new RegExp(`id="${id}"[^>]*>Buy the rain hat for 180 seeds\\?<`),
     );
   });
 

@@ -212,23 +212,6 @@
   outline-offset: 2px;
 }
 
-.pointer {
-  margin-top: auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-}
-
-.pointerLabel {
-  padding: 4px 14px;
-  background: var(--coo-sun);
-  border: var(--coo-line);
-  border-radius: var(--coo-radius-pill);
-  font-weight: 900;
-  font-size: 14px;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .hop,
   .point {

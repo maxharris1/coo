@@ -16,9 +16,10 @@ fix this document.
 - `coo_app` has no access to schema `auth`. Its only paths to `auth.users` are security definer
   functions only `coo_app` may execute: `sync_phone_last4(p_user)` copies the last four digits of
   the Auth phone to `profiles.phone_last4`, `guest_links_for_phone(p_user)` lists the active guest
-  links sent to that phone, and `lock_auth_user(p_user)` takes a key-share lock on the user row
+  links sent to that phone, `lock_auth_user(p_user)` takes a key-share lock on the user row
   for the rest of the transaction and returns whether the user still exists, so a place search
-  can never write a held place for a deleted account.
+  can never write a held place for a deleted account, and `sms_phone(p_user)` returns the Auth
+  phone (or null) so the SMS fallback can text it.
 
 ## Tables
 
@@ -57,8 +58,8 @@ Write a helper `pair(x, y)` that orders the ids, and use it everywhere.
 - `status`: `home`, `scheduled` (reserved for a timed send), `flying`, `visiting` (on a sill),
   `busy` (nap, bath or odd job; `busy_kind` and `busy_until` say which and until when).
   A busy bird whose `busy_until` has passed is treated as home and fixed up lazily.
-- `gear`: the item ids the bird is wearing. At most one per slot. An item id appears on at most
-  one of an owner's birds. Both rules are enforced in code (`lib/game/gear.ts`), not SQL.
+- `gear`: the item ids the bird is wearing. At most one per slot. An item id may appear on more
+  than one of an owner's birds. One per slot is enforced in code (`lib/game/gear.ts`), not SQL.
 
 ### gear_owned, outfits
 `gear_owned`: which items a user's closet holds. `outfits`: named sets of item ids

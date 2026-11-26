@@ -240,6 +240,69 @@ describe("schema", () => {
     ).toEqual([{ live: false }]);
   });
 
+  it("sms_phone is a definer function only coo_app may run, and it returns one user's phone", async () => {
+    const fn = "public.sms_phone(uuid)";
+    const privileges = await one(
+      `select has_function_privilege('coo_app', $1, 'execute') as app,
+              has_function_privilege('anon', $1, 'execute') as anon,
+              has_function_privilege('authenticated', $1, 'execute') as authenticated,
+              exists (
+                select from pg_proc p, aclexplode(p.proacl) a
+                 where p.oid = $1::regprocedure and a.grantee = 0
+              ) as public,
+              has_schema_privilege('coo_app', 'auth', 'usage') as auth_usage`,
+      [fn],
+    );
+    expect(privileges).toEqual({
+      app: true,
+      anon: false,
+      authenticated: false,
+      public: false,
+      auth_usage: false,
+    });
+    expect(
+      await one(
+        `select prosecdef, proconfig, proretset,
+                pg_get_function_result(oid) as result,
+                pg_get_function_identity_arguments(oid) as args
+           from pg_proc where oid = $1::regprocedure`,
+        [fn],
+      ),
+    ).toEqual({
+      prosecdef: true,
+      proconfig: ['search_path=""'],
+      proretset: false,
+      result: "text",
+      args: "p_user uuid",
+    });
+    for (const role of ["anon", "authenticated"])
+      await expect(
+        db.tx(async (t) => {
+          await t.query(`set local role ${role}`);
+          await t.query("select public.sms_phone($1)", [max]);
+        }),
+      ).rejects.toThrow(/permission denied/);
+
+    await db.query(
+      "update auth.users set phone = '15550000001' where id = $1",
+      [max],
+    );
+    await db.query(
+      "update auth.users set phone = '15550000002' where id = $1",
+      [priya],
+    );
+    const sam = await user("sam");
+    const app = asRole(db, "coo_app");
+    const phone = (id: string) =>
+      app.query("select public.sms_phone($1) as phone", [id]);
+    expect(await phone(max)).toEqual([{ phone: "15550000001" }]);
+    expect(await phone(priya)).toEqual([{ phone: "15550000002" }]);
+    expect(await phone(sam)).toEqual([{ phone: null }]);
+    expect(await phone(await uuid())).toEqual([{ phone: null }]);
+    await db.query("delete from auth.users where id = $1", [priya]);
+    expect(await phone(priya)).toEqual([{ phone: null }]);
+  });
+
   it("seeds: earn, spend, never below zero, never twice", async () => {
     const ref = await uuid();
     expect(await seeds(max, 60, "welcome")).toBe(60);

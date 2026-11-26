@@ -52,7 +52,7 @@ describe("POST /api/shop/buy", () => {
   it("refuses a request without a session as 401", async () => {
     const { status, json } = await client.post({
       itemId: "goggles",
-      price: 120,
+      price: 180,
       actionId: crypto.randomUUID(),
     });
     expect(status).toBe(401);
@@ -62,7 +62,7 @@ describe("POST /api/shop/buy", () => {
   it("refuses a user who has not finished onboarding as 409 not_onboarded", async () => {
     const { jar } = await withProfile("(555) 123-4567", "Max");
     const { status, json } = await client.post(
-      { itemId: "goggles", price: 120, actionId: crypto.randomUUID() },
+      { itemId: "goggles", price: 180, actionId: crypto.randomUUID() },
       jar,
     );
     expect(status).toBe(409);
@@ -71,15 +71,15 @@ describe("POST /api/shop/buy", () => {
 
   it.each([
     ["an empty body", {}],
-    ["an unknown key", { itemId: "goggles", price: 120, userId: "someone" }],
+    ["an unknown key", { itemId: "goggles", price: 180, userId: "someone" }],
     ["an unknown item", { itemId: "rocket", price: 0 }],
     ["a missing price", { itemId: "goggles" }],
-    ["a fractional price", { itemId: "goggles", price: 119.5 }],
-    ["a negative price", { itemId: "goggles", price: -120 }],
-    ["a missing actionId", { itemId: "goggles", price: 120 }],
+    ["a fractional price", { itemId: "goggles", price: 179.5 }],
+    ["a negative price", { itemId: "goggles", price: -180 }],
+    ["a missing actionId", { itemId: "goggles", price: 180 }],
     [
       "an actionId that is not a uuid",
-      { itemId: "goggles", price: 120, actionId: "again" },
+      { itemId: "goggles", price: 180, actionId: "again" },
     ],
   ])("answers %s with 400 invalid", async (_, body) => {
     const { jar } = await onboarded("(555) 123-4567", "Max", 1000);
@@ -104,11 +104,11 @@ describe("POST /api/shop/buy", () => {
     const { id, jar } = await onboarded("(555) 123-4567", "Max", 1000);
     const before = await balance(id);
     const { status, json } = await client.post(
-      { itemId: "goggles", price: 120, actionId: crypto.randomUUID() },
+      { itemId: "goggles", price: 180, actionId: crypto.randomUUID() },
       jar,
     );
     expect(status).toBe(200);
-    expect(json.me).toMatchObject({ id, seeds: before.seeds - 120 });
+    expect(json.me).toMatchObject({ id, seeds: before.seeds - 180 });
     expect(json.closet).toContain("goggles");
     const after = await balance(id);
     expect(after.ledger).toBe(after.seeds);
@@ -194,11 +194,11 @@ describe("POST /api/shop/buy", () => {
     const statuses = (
       await Promise.all([
         client.post(
-          { itemId: "goggles", price: 120, actionId: crypto.randomUUID() },
+          { itemId: "goggles", price: 180, actionId: crypto.randomUUID() },
           jar,
         ),
         client.post(
-          { itemId: "goggles", price: 120, actionId: crypto.randomUUID() },
+          { itemId: "goggles", price: 180, actionId: crypto.randomUUID() },
           jar,
         ),
       ])
@@ -206,7 +206,7 @@ describe("POST /api/shop/buy", () => {
       .map((r) => r.status)
       .sort();
     expect(statuses).toEqual([200, 409]);
-    expect((await balance(id)).seeds).toBe(before.seeds - 120);
+    expect((await balance(id)).seeds).toBe(before.seeds - 180);
   });
 
   it("charges only the caller, never someone else", async () => {
@@ -241,7 +241,7 @@ describe("POST /api/shop/buy", () => {
   it.each([
     ["an espresso shot", "espresso", 25],
     ["a perch", "perch", 250],
-    ["gear", "goggles", 120],
+    ["gear", "goggles", 180],
     ["the birdbath", "birdbath", 220],
   ])(
     "answers a replay of %s with 200 and the first committed state",

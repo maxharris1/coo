@@ -223,22 +223,43 @@ describe("/birds/[id]/closet (ac-1)", () => {
     expect(text(tile("goggles"))).toContain("Wearing");
     expect(tile("beanie").props["aria-pressed"]).toBe(false);
     expect(text(tile("beanie"))).toContain("Owned");
-    expect(text(tile("scarf"))).toContain("On Kevin");
-    expect(text(tile("bell"))).toContain("On Brenda");
+    expect(text(tile("scarf"))).toContain("Owned");
+    expect(text(tile("bell"))).toContain("Owned");
   });
 
-  it("will not take an item from a bird that is away", () => {
+  it("enables an item an away bird wears", () => {
     syncWith(payload([gerald, kevin, brenda], CLOSET));
-    expect(tile("bell").props.disabled).toBe(true);
+    expect(tile("bell").props.disabled).toBeFalsy();
     expect(tile("scarf").props.disabled).toBeFalsy();
+  });
+
+  it("tapping an item a flying bird wears PUTs it for this bird only", async () => {
+    const fetchMock = vi.fn(async () =>
+      Response.json({ bird: {}, skipped: [] }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const kevinFlying = bird({ ...kevin, status: "flying" });
+    syncWith(payload([gerald, kevinFlying], CLOSET));
+    tile("scarf").props.onClick?.();
+    await flush();
+    expect(fetchMock.mock.calls).toEqual([
+      [
+        "/api/birds/g/gear",
+        {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ items: ["goggles", "band", "scarf"] }),
+        },
+      ],
+    ]);
   });
 
   it("shows an unowned item's price and links it to the store", () => {
     const out = html();
     expect(out).toMatch(
-      /<a[^>]*href="\/shop"[^>]*aria-label="Rain hat, 120 seeds in the store"|<a[^>]*aria-label="Rain hat, 120 seeds in the store"[^>]*href="\/shop"/,
+      /<a[^>]*href="\/shop"[^>]*aria-label="Rain hat, 180 seeds in the store"|<a[^>]*aria-label="Rain hat, 180 seeds in the store"[^>]*href="\/shop"/,
     );
-    expect(out).toContain("120 seeds");
+    expect(out).toContain("180 seeds");
   });
 
   it("puts tomorrow's weather tip between the stand and the closet", () => {
@@ -732,14 +753,14 @@ describe("/birds/[id]/closet (ac-1)", () => {
       expect(refresh).toHaveBeenCalledOnce();
     });
 
-    it("previews the outfit without an unowned item or an item on a bird that is away", () => {
+    it("previews the outfit with an item a bird that is away wears", () => {
       okFetch();
       withOutfits(outfit("Cold snap", ["rainhat", "beanie", "bell"]));
       chip("Cold snap").props.onClick?.();
-      expect(stand().gear).toEqual(["beanie"]);
+      expect(stand().gear).toEqual(["beanie", "bell"]);
     });
 
-    it("previews an item taken off a bird that is home", () => {
+    it("previews an item a bird that is home wears", () => {
       okFetch();
       withOutfits(outfit("Cosy", ["scarf"]));
       chip("Cosy").props.onClick?.();
@@ -775,15 +796,15 @@ describe("/birds/[id]/closet (ac-1)", () => {
       expect(chip("Just goggles").props["aria-pressed"]).toBe(false);
     });
 
-    it("cannot wear an outfit with nothing free to put on", () => {
+    it("cannot wear an outfit with nothing owned to put on", () => {
       const fetchMock = okFetch();
       syncWith(
         payload([bird({ gear: [] }), brenda], CLOSET, [
-          outfit("Away", ["rainhat", "bell"]),
+          outfit("Wish list", ["rainhat", "cap"]),
         ]),
       );
-      expect(chip("Away").props["aria-pressed"]).toBe(false);
-      expect(chip("Away").props.disabled).toBe(true);
+      expect(chip("Wish list").props["aria-pressed"]).toBe(false);
+      expect(chip("Wish list").props.disabled).toBe(true);
       expect(fetchMock).not.toHaveBeenCalled();
     });
   });

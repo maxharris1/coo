@@ -306,17 +306,41 @@ describe("loftRooms", () => {
     ]);
   });
 
-  it("sends flying and visiting birds out and keeps other busy birds awake at home", () => {
+  it("sends flying, visiting and odd-job birds out and keeps other busy birds awake at home", () => {
     const flying = bird({ id: "f", status: "flying" });
     const visiting = bird({ id: "v", status: "visiting" });
+    const onJob = bird({ id: "j", status: "busy", busyKind: "job" });
     const bathing = bird({ id: "b", status: "busy", busyKind: "bath" });
     const scheduled = bird({ id: "s", status: "scheduled" });
-    expect(loftRooms([flying, visiting, bathing, scheduled], 4, null)).toEqual([
+    expect(
+      loftRooms([flying, visiting, onJob, bathing, scheduled], 5, null),
+    ).toEqual([
       { kind: "away", bird: flying },
       { kind: "away", bird: visiting },
+      { kind: "away", bird: onJob },
       { kind: "home", bird: bathing, asleep: false },
       { kind: "home", bird: scheduled, asleep: false },
-      { kind: "tolet" },
+    ]);
+  });
+
+  it("sends a tired odd-job bird out and puts tired busy birds to sleep", () => {
+    const onJob = bird({
+      id: "j",
+      status: "busy",
+      busyKind: "job",
+      tired: true,
+    });
+    const bathing = bird({
+      id: "b",
+      status: "busy",
+      busyKind: "bath",
+      tired: true,
+    });
+    const scheduled = bird({ id: "s", status: "scheduled", tired: true });
+    expect(loftRooms([onJob, bathing, scheduled], 3, null)).toEqual([
+      { kind: "away", bird: onJob },
+      { kind: "home", bird: bathing, asleep: true },
+      { kind: "home", bird: scheduled, asleep: true },
     ]);
   });
 

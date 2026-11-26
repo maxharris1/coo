@@ -22,6 +22,12 @@ const PAGES = [
   "app/(app)/welcome/install/page.module.css",
 ];
 
+const SHEETS = [
+  "app/(app)/friends/FriendSheet.module.css",
+  "app/(app)/settings/SettingsSheet.module.css",
+  "app/(app)/welcome/install/InstallSheet.module.css",
+];
+
 type Pad = { rule: string; prop: string; now: string; before: string };
 
 const HEROES: { file: string; box: string; pads: Pad[] }[] = [
@@ -353,6 +359,28 @@ describe.each(PAGES)("%s page shell", (file) => {
       expect(withoutInsets(value(page, `margin-${side}`))).toBe("0px");
     }
     expect(page).not.toMatch(/(?:^|\s)margin:/);
+  });
+});
+
+describe.each(SHEETS)("%s bottom sheet", (file) => {
+  const css = read(file);
+  const pad = value(rule(css, "sheet"), "padding");
+
+  it("pads the sheet 16px past the bottom inset", () => {
+    expect(pad).toBe(
+      "10px var(--coo-gutter) calc(16px + var(--coo-safe-bottom))",
+    );
+  });
+
+  it("uses the bottom inset exactly once and never bleeds, since the sheet floats over the page", () => {
+    expect(count(css, inset("bottom"))).toBe(1);
+    expect(css).not.toContain(BLEED);
+    expect(css).not.toContain(inset("right"));
+    expect(css).not.toContain(inset("left"));
+  });
+
+  it("lays out as before when the inset is 0", () => {
+    expect(withoutInsets(pad)).toBe("10px var(--coo-gutter) 16px");
   });
 });
 

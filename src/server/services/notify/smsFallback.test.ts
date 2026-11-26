@@ -13,7 +13,8 @@ import { tick } from "../tick";
 import { deliver } from "./deliver";
 import type { Db } from "@/server/db";
 import { SMS_UNSUBSCRIBED, SmsError } from "@/server/ports/sms";
-import { smsText } from "./smsFallback";
+import { asRole } from "@/test/testDb";
+import { smsFallback, smsText } from "./smsFallback";
 
 const MINUTE_MS = 60_000;
 const NOON_NY = Date.UTC(2026, 10, 19, 17);
@@ -194,6 +195,51 @@ describe("SMS fallback", () => {
     await land();
 
     expect(deps.sms.sent).toEqual([]);
+  });
+
+  it("texts a recipient with no push as the coo_app server role and stamps sms_sent_at", async () => {
+    await deps.db.query(
+      "update profiles set sms_fallback = false where id = $1",
+      [world.priya.id],
+    );
+    await land();
+    await deps.db.query(
+      "update profiles set sms_fallback = true where id = $1",
+      [world.priya.id],
+    );
+    const { id } = await landedIn();
+    const app = { ...deps, db: asRole(deps.db, "coo_app") };
+
+    expect(await smsFallback(app, id)).toEqual({ texted: true });
+
+    expect(deps.sms.sent.map((text) => text.to)).toEqual([
+      await phoneOf(world.priya),
+    ]);
+    expect((await landedIn()).sms_sent_at).toEqual(new Date(deps.clock.now()));
+  });
+
+  it("gives no-phone as the coo_app server role when the recipient has no phone", async () => {
+    await deps.db.query(
+      "update profiles set sms_fallback = false where id = $1",
+      [world.priya.id],
+    );
+    await land();
+    await deps.db.query(
+      "update profiles set sms_fallback = true where id = $1",
+      [world.priya.id],
+    );
+    await deps.db.query("update auth.users set phone = null where id = $1", [
+      world.priya.id,
+    ]);
+    const { id } = await landedIn();
+    const app = { ...deps, db: asRole(deps.db, "coo_app") };
+
+    expect(await smsFallback(app, id)).toEqual({
+      texted: false,
+      reason: "no-phone",
+    });
+    expect(deps.sms.sent).toEqual([]);
+    expect((await landedIn()).sms_sent_at).toBeNull();
   });
 
   it.each(["hungry", "delayed"])("%s never produces a text", async (kind) => {

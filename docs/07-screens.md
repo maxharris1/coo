@@ -37,7 +37,7 @@ filled bottom-left first. Three perches make one floor; at four or five perches 
 two rooms wide sits on top, which makes the house taller. Bird `i` in flock order owns room `i`,
 so a new hatchling never moves anyone. An awake home bird (napping and bathing count as home) sits
 on its room's perch. A tired or napping bird, and every home bird once the sun is down, sleeps on
-its own perch in the `sleep` pose. A bird away (flying, on a sill, on a job, scheduled) leaves one
+its own perch in the `sleep` pose. A bird away (flying, on a sill, on a job) leaves one
 feather on its perch in its wing colour. A free room holds a suitcase while a roommate is owed
 (tap → `/aviary/roommate`), then an egg in a nest when one is due (tap → `/aviary`), otherwise a
 bare perch. With four perches the fifth room is built but not bought and hangs a "TO LET" sign
@@ -247,14 +247,18 @@ Feed and Bath stay disabled. After waking, the mood and meters follow its energy
 As drawn: the bird on a stand wearing the selection, a "what it does" list for worn items, a
 weather tip built from tomorrow's forecast at the loft when it is cold, wet or snowy, saved
 outfits, and the closet grid. Owned items toggle on and off (one per slot; picking a second
-item in a slot swaps). Items worn by another bird say "On {name}" and can be taken if that bird
-is home. Unowned items show their price and link to the store. Changes save on tap.
+item in a slot swaps). An unlocked item stays tappable when another bird wears it, home or
+away. Tapping it puts it on this bird too, and the other bird keeps it. Saved outfits put on
+every owned piece the same way. Unowned items show their price and link to the store. Changes
+save on tap.
 
 ### Shop (`/shop`)
-As drawn: balance, "More ways" → Earn, gear list (owned items say "In the closet"), loft items,
+As drawn: balance, "More ways" → Earn, gear list (owned items say "Unlocked"), loft items,
 the next perch with "n to go" when short, and the Espresso shot (25 seeds, "One night of
 flying") under "For the loft" with "{n} owned" beside its effect, "0 owned" when the player holds
-none. It stays buyable after each buy. Buying asks once: "Buy the rain hat for 120 seeds?"
+none. It stays buyable after each buy. Buying asks once: "Buy the rain hat for 180 seeds?"
+Buying gear the flock already unlocked is refused with "You already unlocked that." and costs
+nothing.
 
 ### Earn (`/earn`)
 As drawn: the punch card with 10 stamp slots, the pay table, two odd jobs with a "Send {bird}"

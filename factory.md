@@ -29,6 +29,17 @@ shared_paths:
 feeder:
   max_holders_per_path: 1
 skills: []
+qa:
+  enabled: false
+  gate: report
+  visual_hold: true
+  runners: [local-docker]
+  local_docker:
+    environment: qa-local
+  profile: supabase
+  lane:
+    boot: npm run dev -- --hostname 127.0.0.1 --port 3000
+    base_url: http://127.0.0.1:3000
 ---
 
 ## Review
@@ -48,6 +59,9 @@ Check every PR against `AGENTS.md` (the packet's rules for coding agents) and th
 
 ## Ship
 `ship: merge` applies to PRs into `main`. On APPROVE of the covered head with green CI, squash-merge with `--match-head-commit`. PRs touching `supabase/migrations/**`, `.github/**`, `factory.md`, `src/middleware.ts`, `src/proxy.ts`, `src/server/auth.ts` or `src/app/api/cron/**` are held for Max's OK. Never push to `main` directly.
+
+## QA
+The QA lane runs on the `local-docker` runner. `qa-local` uses the runner's default Playwright image unless replaced with a prepared image name (containing `:` or `/`). `profile: supabase` only labels the result comment's `env=` field: the factory starts no service for any profile. Before turning QA on, set `lane.boot` to a command that starts both the local Supabase stack and the Next.js app at `http://127.0.0.1:3000` (or point `local_docker.environment` at a prepared image containing the required CLIs), add `projects[maxharris1/coo].qa_storage` in `orch.local.yml`, and flip `qa.enabled` to `true`. `gate: report` posts the result and never gates a ship. `visual_hold: true` holds a passing UI-changing PR with screenshots or video in `awaiting-ok` until an approver posts `/ok <sha>`.
 
 ## Context
 - Coo is a pigeon messenger: one Next.js (App Router, strict TypeScript) app on Vercel and one Supabase project (Auth by phone, Postgres, Realtime). The spec packet lives in the repo: `README.md`, `AGENTS.md`, `docs/`, `tickets/`, `config/`, `assets/`, `reference/`, `supabase/`. Each issue names its packet ticket (`Packet ticket: T0NN`); read that ticket and every doc under its "Read first" before coding.

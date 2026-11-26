@@ -15,20 +15,7 @@ export type OutfitsInput = {
 
 type Bird = Row<"birds">;
 
-function isHome(bird: Bird, now: number): boolean {
-  if (bird.status === "home") return true;
-  return (
-    bird.status === "busy" &&
-    bird.busy_until !== null &&
-    bird.busy_until.getTime() <= now
-  );
-}
-
-function problemMessage(
-  deps: Deps,
-  problem: GearProblem,
-  birds: readonly Bird[],
-): string {
+function problemMessage(deps: Deps, problem: GearProblem): string {
   const name = (id: string) =>
     deps.config.gear.items.find((i) => i.id === id)?.name ?? id;
   switch (problem.kind) {
@@ -42,10 +29,6 @@ function problemMessage(
       return `${name(problem.item)} is not in your closet yet.`;
     case "unavailable":
       return `${name(problem.item)} is not available.`;
-    case "worn_elsewhere": {
-      const wearer = birds.find((b) => b.id === problem.birdId)?.name;
-      return `${wearer ?? "Another bird"} is wearing the ${name(problem.item)} and is not home right now.`;
-    }
   }
 }
 
@@ -54,7 +37,6 @@ async function pickFromOutfit(
   userId: string,
   outfitId: string,
   closet: readonly GearId[],
-  away: readonly Bird[],
 ): Promise<{ items: string[]; skipped: string[] }> {
   const [outfit] = await db.query<Row<"outfits">>(
     "select * from outfits where id = $1 and user_id = $2",
@@ -64,7 +46,7 @@ async function pickFromOutfit(
   const items: string[] = [];
   const skipped: string[] = [];
   for (const item of new Set(outfit.items)) {
-    if (validateOutfit([...items, item], closet, away).ok) items.push(item);
+    if (validateOutfit([...items, item], closet).ok) items.push(item);
     else skipped.push(item);
   }
   return { items, skipped };
@@ -84,38 +66,21 @@ export async function putGear(
     );
     const target = birds.find((b) => b.id === birdId);
     if (!target) throw new AppError("not_found", "Could not find that bird.");
-    if (!isHome(target, now)) {
-      throw new AppError("conflict", `${target.name} is not home right now.`);
-    }
 
     const owned = await db.query<{ gear_id: GearId }>(
       "select gear_id from gear_owned where user_id = $1",
       [caller.userId],
     );
     const closet = owned.map((r) => r.gear_id);
-    const away = birds.filter((b) => b.id !== birdId && !isHome(b, now));
     const { items, skipped } =
       "outfitId" in input
-        ? await pickFromOutfit(db, caller.userId, input.outfitId, closet, away)
+        ? await pickFromOutfit(db, caller.userId, input.outfitId, closet)
         : { items: input.items, skipped: [] };
-    const result = validateOutfit(items, closet, away);
+    const result = validateOutfit(items, closet);
     if (!result.ok) {
-      const worn = result.problems.find((p) => p.kind === "worn_elsewhere");
-      throw new AppError(
-        worn ? "conflict" : "invalid",
-        problemMessage(deps, worn ?? result.problems[0], birds),
-      );
+      throw new AppError("invalid", problemMessage(deps, result.problems[0]));
     }
 
-    await db.query(
-      `update birds
-       set gear = array(
-         select g from unnest(gear) with ordinality as u(g, i)
-         where g <> all($3::text[]) order by i
-       )
-       where owner_id = $1 and id <> $2 and gear && $3::text[]`,
-      [caller.userId, birdId, result.items],
-    );
     const [row] = await db.query<Bird>(
       "update birds set gear = $2::text[] where id = $1 returning *",
       [birdId, result.items],
@@ -150,12 +115,11 @@ export async function saveOutfits(
     throw new AppError("invalid", "An outfit is in the list twice.");
   }
   for (const { items } of wanted) {
-    const result = validateOutfit(items, gearIds, []);
+    const result = validateOutfit(items, gearIds);
     const problem = result.ok
       ? undefined
       : result.problems.find((p) => SHAPE_PROBLEMS.has(p.kind));
-    if (problem)
-      throw new AppError("invalid", problemMessage(deps, problem, []));
+    if (problem) throw new AppError("invalid", problemMessage(deps, problem));
   }
 
   return deps.db.tx(async (db) => {
