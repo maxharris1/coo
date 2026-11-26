@@ -85,7 +85,6 @@ type Key = {
   key: string;
   shiftKey?: boolean;
   target?: unknown;
-  currentTarget?: { querySelectorAll: () => Focusable[] };
   preventDefault?: () => void;
 };
 type El = ReactElement<{
@@ -94,7 +93,7 @@ type El = ReactElement<{
   "aria-label"?: string;
   onClick?: () => void;
   onKeyDown?: (e: Key) => void;
-  ref?: { current: Focusable | null };
+  ref?: { current: Focusable | null } | ((el: unknown) => void);
 }>;
 
 function find(node: ReactNode, hit: (el: El) => boolean): El | undefined {
@@ -115,6 +114,7 @@ type DomNode = EventTarget & {
   childNodes: DomNode[];
   parentNode: DomNode | null;
   contains: (other: unknown) => boolean;
+  focus: () => void;
 };
 
 const ATTR = /\[([\w-]+)(?:='([^']*)')?\]/g;
@@ -177,7 +177,7 @@ function domNode(nodeType: number, tagName?: string, nodeValue?: string) {
   });
 }
 
-async function mountOpenSheet() {
+async function mountOpenSheet(onCloseSheet = () => {}) {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal(
     "window",
@@ -206,24 +206,33 @@ async function mountOpenSheet() {
         onInstall={() => {}}
         onCopy={() => {}}
         onOpenSheet={() => {}}
-        onCloseSheet={() => {}}
+        onCloseSheet={onCloseSheet}
       />,
     ),
   );
   const all = descendants(container);
-  const tab = async (shiftKey: boolean) => {
+  const dispatch = async (
+    type: string,
+    target: unknown,
+    init: Record<string, unknown> = {},
+  ) => {
     const event = Object.assign(
-      new Event("keydown", { bubbles: true, cancelable: true }),
-      { key: "Tab", shiftKey },
+      new Event(type, { bubbles: true, cancelable: true }),
+      init,
     );
-    Object.defineProperty(event, "target", { value: document.activeElement });
+    Object.defineProperty(event, "target", { value: target });
     await act(async () => container.dispatchEvent(event));
     return event.defaultPrevented;
   };
+  const key = (key: string, shiftKey = false) =>
+    dispatch("keydown", document.activeElement, { key, shiftKey });
   return {
     dialog: all.find((n) => n.attrs.role === "dialog")!,
     close: all.find((n) => n.textContent === "Close")!,
-    tab,
+    backdrop: all.find((n) => n.attrs["aria-label"] === "Close")!,
+    dispatch,
+    key,
+    tab: (shiftKey: boolean) => key("Tab", shiftKey),
   };
 }
 
@@ -392,16 +401,19 @@ describe("/welcome/install on iOS Safari (ac-3)", () => {
       const install = { focus: vi.fn() };
       const ref = find(node, (el) => el.props.children === "Install")?.props
         .ref;
-      if (ref) ref.current = install;
+      if (typeof ref === "object") ref.current = install;
       const layer = find(node, (el) => el.props.onKeyDown !== undefined);
       const items = [{ focus: vi.fn() }, { focus: vi.fn() }];
+      const mountDialog = find(node, (el) => el.props.role === "dialog")?.props
+        .ref;
+      if (typeof mountDialog === "function")
+        mountDialog({ focus: () => {}, querySelectorAll: () => items });
       const press = (key: string, target: unknown, shiftKey = false) => {
         const preventDefault = vi.fn();
         layer?.props.onKeyDown?.({
           key,
           shiftKey,
           target,
-          currentTarget: { querySelectorAll: () => items },
           preventDefault,
         });
         return preventDefault;
@@ -436,6 +448,36 @@ describe("/welcome/install on iOS Safari (ac-3)", () => {
         expect(dialog.contains(document.activeElement)).toBe(true);
         expect(document.activeElement).toBe(close);
       }
+    });
+
+    it("keeps keys inside the dialog after a press on the backdrop is dragged onto the sheet", async () => {
+      const onCloseSheet = vi.fn();
+      const { dialog, close, backdrop, dispatch, key } =
+        await mountOpenSheet(onCloseSheet);
+      if (!(await dispatch("mousedown", backdrop))) backdrop.focus();
+      await dispatch("mouseup", dialog);
+      for (const shiftKey of [true, false]) {
+        expect(await key("Tab", shiftKey)).toBe(true);
+        expect(dialog.contains(document.activeElement)).toBe(true);
+        expect(document.activeElement).toBe(close);
+      }
+      expect(await key("Escape")).toBe(true);
+      expect(onCloseSheet).toHaveBeenCalledOnce();
+    });
+
+    it("keeps Tab, Shift+Tab and Escape working while the backdrop holds focus", async () => {
+      const onCloseSheet = vi.fn();
+      const { dialog, close, backdrop, key } =
+        await mountOpenSheet(onCloseSheet);
+      for (const shiftKey of [true, false]) {
+        backdrop.focus();
+        expect(await key("Tab", shiftKey)).toBe(true);
+        expect(dialog.contains(document.activeElement)).toBe(true);
+        expect(document.activeElement).toBe(close);
+      }
+      backdrop.focus();
+      expect(await key("Escape")).toBe(true);
+      expect(onCloseSheet).toHaveBeenCalledOnce();
     });
 
     it.each<[string, (k: ReturnType<typeof keyboard>) => void]>([

@@ -2,6 +2,7 @@
 
 import {
   type KeyboardEvent,
+  useCallback,
   useEffect,
   useId,
   useReducer,
@@ -171,7 +172,6 @@ const STEPS = [
   },
 ];
 
-const focusOnMount = (el: HTMLElement | null) => el?.focus();
 const FOCUSABLE = "button, a[href], [tabindex]:not([tabindex='-1'])";
 
 export function InstallView({
@@ -191,6 +191,11 @@ export function InstallView({
 }) {
   const titleId = useId();
   const install = useRef<HTMLButtonElement>(null);
+  const dialog = useRef<HTMLDivElement>(null);
+  const mountDialog = useCallback((el: HTMLDivElement | null) => {
+    dialog.current = el;
+    el?.focus();
+  }, []);
   const sheetOpen = state.kind === "ios" && state.sheet === "open";
 
   const closeSheet = () => {
@@ -205,7 +210,7 @@ export function InstallView({
     } else if (e.key === "Tab") {
       e.preventDefault();
       const items = [
-        ...e.currentTarget.querySelectorAll<HTMLElement>(FOCUSABLE),
+        ...(dialog.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []),
       ];
       const at = items.indexOf(e.target as HTMLElement);
       items
@@ -261,22 +266,22 @@ export function InstallView({
         </Link>
       </main>
       {sheetOpen && (
-        <div className={sheet.layer}>
+        <div className={sheet.layer} onKeyDown={onSheetKey}>
           <button
             type="button"
             aria-label="Close"
             tabIndex={-1}
             className={sheet.scrim}
+            onMouseDown={(e) => e.preventDefault()}
             onClick={closeSheet}
           />
           <div
-            ref={focusOnMount}
+            ref={mountDialog}
             role="dialog"
             aria-modal="true"
             aria-labelledby={titleId}
             tabIndex={-1}
             className={sheet.sheet}
-            onKeyDown={onSheetKey}
           >
             <span aria-hidden="true" className={sheet.grab} />
             <h2 id={titleId} className={sheet.title}>
