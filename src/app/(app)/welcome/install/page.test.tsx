@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { config } from "@/lib/config";
 import { detectPlatform, type PlatformSnapshot } from "@/lib/platform";
 import type { UserId } from "@/server/ports/auth";
@@ -81,6 +81,8 @@ type Key = {
 };
 type El = ReactElement<{
   children?: ReactNode;
+  href?: string;
+  tabIndex?: number;
   role?: string;
   "aria-label"?: string;
   onClick?: () => void;
@@ -96,6 +98,42 @@ function find(node: ReactNode, hit: (el: El) => boolean): El | undefined {
     if (found) return found;
   }
   return undefined;
+}
+
+type FakeNode = {
+  el: El;
+  parent?: FakeNode;
+  kids: FakeNode[];
+  focus: () => void;
+  contains: (other: unknown) => boolean;
+  find: (hit: (n: FakeNode) => boolean) => FakeNode | undefined;
+  querySelectorAll: () => FakeNode[];
+};
+
+function fakeDom(el: El, parent?: FakeNode): FakeNode {
+  const self: FakeNode = {
+    el,
+    parent,
+    kids: [],
+    focus: () => Object.assign(document, { activeElement: self }),
+    contains: (other) =>
+      other === self || self.kids.some((k) => k.contains(other)),
+    find: (hit) =>
+      hit(self) ? self : self.kids.map((k) => k.find(hit)).find(Boolean),
+    querySelectorAll: () =>
+      self.kids.flatMap((k) => [
+        ...(k.el.type === "button" ||
+        (k.el.type === "a" && k.el.props.href !== undefined) ||
+        (k.el.props.tabIndex !== undefined && k.el.props.tabIndex !== -1)
+          ? [k]
+          : []),
+        ...k.querySelectorAll(),
+      ]),
+  };
+  self.kids = Children.toArray(el.props.children)
+    .filter((c) => isValidElement<El["props"]>(c))
+    .map((c) => fakeDom(c as El, self));
+  return self;
 }
 
 const tree = (props: ComponentProps<typeof InstallView>) => {
@@ -297,6 +335,39 @@ describe("/welcome/install on iOS Safari (ac-3)", () => {
       expect(press("Tab", {}, true)).toHaveBeenCalled();
       expect(items[1].focus).toHaveBeenCalledOnce();
       expect(items[0].focus).not.toHaveBeenCalled();
+    });
+
+    it("cycles Tab and Shift+Tab only through controls inside the dialog", () => {
+      vi.stubGlobal("document", { activeElement: null });
+      onTestFinished(() => {
+        vi.unstubAllGlobals();
+      });
+      const layer = fakeDom(
+        find(keyboard().node, (el) =>
+          Children.toArray(el.props.children).some(
+            (c) => isValidElement<El["props"]>(c) && c.props.role === "dialog",
+          ),
+        )!,
+      );
+      const dialog = layer.find((n) => n.el.props.role === "dialog")!;
+      const backdrop = layer.find((n) => n.el.props["aria-label"] === "Close")!;
+      dialog.focus();
+      for (const shiftKey of [false, false, false, true, true, true]) {
+        const target = document.activeElement as unknown as FakeNode;
+        const preventDefault = vi.fn();
+        for (let n: FakeNode | undefined = target; n; n = n.parent) {
+          n.el.props.onKeyDown?.({
+            key: "Tab",
+            shiftKey,
+            target,
+            currentTarget: n,
+            preventDefault,
+          });
+        }
+        expect(preventDefault).toHaveBeenCalled();
+        expect(dialog.contains(document.activeElement)).toBe(true);
+        expect(document.activeElement).not.toBe(backdrop);
+      }
     });
 
     it.each<[string, (k: ReturnType<typeof keyboard>) => void]>([
