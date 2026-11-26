@@ -1168,19 +1168,40 @@ describe("clouds drift over the map, anchored to it (#968 ac-4)", () => {
     const { top, bottom } = area(map);
     return top + SPOTS[i].top * (bottom - top);
   };
-  /** The whole cloud box, at its size for this zoom, is off the clear area. */
+  /**
+   * The whole cloud box, at its size for this zoom, is out of sight: off the
+   * map, or behind the card. The header's pills hide nothing, and the card's
+   * rounded top corners (28 px) leave map showing beside them, so only map
+   * below that counts as hidden. Jumps are judged by this, never by the
+   * clear area.
+   */
   const offView = (map: FakeMap, p: Point) => {
     const scale = cloudScale(map.getZoom(), OPEN.zoom);
     const w = 74 * scale;
     const h = 36 * scale;
-    const { top, bottom } = area(map);
+    const cardTop = map.height - pads.bottom;
     return (
       p.x + w / 2 <= 0 ||
       p.x - w / 2 >= map.width ||
-      p.y + h / 2 <= top ||
-      p.y - h / 2 >= bottom
+      p.y + h / 2 <= 0 ||
+      p.y - h / 2 >= cardTop + 28
     );
   };
+  /** Pans the fake camera so the map content moves down `px` on screen. */
+  const panDown = (map: FakeMap, px: number) => {
+    const at = map.unproject([map.width / 2, map.height / 2 - px]);
+    map.camera = { ...map.camera!, lat: at.lat };
+    map.fire("move");
+  };
+  /** Each cloud only drifted one step east this frame: no jump. */
+  const onlyDrifted = (map: FakeMap, before: Point[], label: string) =>
+    onScreen(map).forEach((p, i) => {
+      expect(p.x - before[i].x, `${label}: cloud ${i}`).toBeCloseTo(
+        stepPx(map, i),
+        6,
+      );
+      expect(p.y, `${label}: cloud ${i}`).toBeCloseTo(before[i].y, 6);
+    });
 
   /** One 200 ms frame, as the browser would draw it. */
   function frame() {
@@ -1497,17 +1518,17 @@ describe("clouds drift over the map, anchored to it (#968 ac-4)", () => {
     });
   });
 
-  it("bring back a cloud that is only below the clear area, inside it", async () => {
+  it("bring back a cloud once it is wholly behind the card, inside the clear area", async () => {
     const { map } = await clouds();
-    // Pan north 200 px: cloud 2 (64% down the 80..500 area, y 349) lands at
-    // y 549, still on the map but under the card; clouds 0 and 1 stay clear.
-    const north = map.unproject([200, 200]);
-    map.camera = { ...map.camera!, lat: north.lat };
-    map.fire("move");
+    // Pan the map down 300 px. Cloud 2 (64% down the 80..500 clear area,
+    // y 349) lands at y 649: wholly behind the card, whose top is at 540.
+    // Cloud 1 (y 256) lands at 556, partly beside the card's corner; cloud 0
+    // (y 156) at 456, in plain sight.
+    panDown(map, 300);
     const under = onScreen(map);
-    expect(under[2].y).toBeGreaterThan(area(map).bottom + 36);
-    expect(under[2].y).toBeLessThan(map.height);
-    expect(under.slice(0, 2).every((p) => !offView(map, p))).toBe(true);
+    expect(offView(map, under[2]), "cloud 2 hidden").toBe(true);
+    expect(offView(map, under[1]), "cloud 1 partly showing").toBe(false);
+    expect(offView(map, under[0]), "cloud 0 showing").toBe(false);
     frame();
     const back = onScreen(map);
     expect(back[2].x, "staggered off the west edge").toBeCloseTo(
@@ -1518,12 +1539,83 @@ describe("clouds drift over the map, anchored to it (#968 ac-4)", () => {
       spotY(map, 2),
       6,
     );
-    [0, 1].forEach((i) =>
+    [0, 1].forEach((i) => {
       expect(back[i].x - under[i].x, `cloud ${i} only drifts`).toBeCloseTo(
         stepPx(map, i),
         6,
-      ),
+      );
+      expect(back[i].y, `cloud ${i} stays`).toBeCloseTo(under[i].y, 6);
+    });
+  });
+
+  it("never jump a cloud in the header band, where the map shows between the pills", async () => {
+    const { map } = await clouds();
+    // Pan up 130 px: cloud 0 (y 156) sits at y 26, above the clear area's
+    // top (80) but on the map, under the header's floating pills.
+    panDown(map, -130);
+    const before = onScreen(map);
+    expect(before[0].y).toBeLessThan(area(map).top - 36);
+    expect(before[0].y).toBeGreaterThan(0);
+    for (let t = 0; t < 2000; t += 200) {
+      const was = onScreen(map);
+      frame();
+      onlyDrifted(map, was, "header band");
+    }
+  });
+
+  it("never jump a cloud in the credit strip just above the card", async () => {
+    const { map } = await clouds();
+    // Pan down 175 px: cloud 2 (y 349) sits at y 524, below the clear area
+    // (to 500) but above the card (540), where the credit row shows.
+    panDown(map, 175);
+    const before = onScreen(map);
+    expect(before[2].y).toBeGreaterThan(area(map).bottom + 18);
+    expect(before[2].y).toBeLessThan(map.height - pads.bottom);
+    for (let t = 0; t < 2000; t += 200) {
+      const was = onScreen(map);
+      frame();
+      onlyDrifted(map, was, "credit strip");
+    }
+  });
+
+  it("leave a partly showing cloud in place when the card grows over it", async () => {
+    const { map } = await clouds();
+    frame();
+    // The card grows so its top sits at 350, just over cloud 2 (y 349); the
+    // clear area shrinks to 80..310, so cloud 2 is well below it.
+    pads = { top: 80, bottom: 450 };
+    renderWithEffects(MapView, props({ bottomPadding: 450 }));
+    const before = onScreen(map);
+    expect(before[2].y).toBeGreaterThan(area(map).bottom + 36);
+    expect(offView(map, before[2]), "partly showing").toBe(false);
+    for (let t = 0; t < 2000; t += 200) {
+      const was = onScreen(map);
+      frame();
+      onlyDrifted(map, was, "card grew");
+    }
+  });
+
+  it("keep drifting if the card later leaves no clear area, coming back in above the card", async () => {
+    const { map } = await clouds();
+    frame();
+    // The card grows to leave y 0..115 showing and no clear area at all
+    // (its top inset is 80, and 115 less the 40 px credit row is 75).
+    pads = { top: 80, bottom: 685 };
+    renderWithEffects(MapView, props({ bottomPadding: 685 }));
+    expect(area(map).bottom - area(map).top).toBeLessThan(0);
+    const was = onScreen(map);
+    // Cloud 0 (y 156) still shows beside the card's corner; 1 and 2 are
+    // wholly behind the card.
+    expect(offView(map, was[0])).toBe(false);
+    expect(offView(map, was[1]) && offView(map, was[2])).toBe(true);
+    frame();
+    const now = onScreen(map);
+    expect(now[0].x - was[0].x, "still drifting").toBeCloseTo(
+      stepPx(map, 0),
+      6,
     );
+    expect(now[1].y, "back above the card").toBeCloseTo(SPOTS[1].top * 115, 6);
+    expect(now[2].y, "back above the card").toBeCloseTo(SPOTS[2].top * 115, 6);
   });
 
   it("follow the clear area when the card changes height", async () => {
