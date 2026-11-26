@@ -61,6 +61,9 @@ const lib = vi.hoisted(() => {
     unproject([x, y]: [number, number]) {
       return { lng: x / 1000, lat: -y / 1000 };
     }
+    getCenter() {
+      return { lng: -74, lat: 41 };
+    }
     easeTo() {
       counts.cameraUpdates++;
     }

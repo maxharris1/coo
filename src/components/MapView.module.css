@@ -1,6 +1,8 @@
 /*
  * A cloud is a map marker (MapView.tsx), anchored to a place so it pans and
  * zooms with the map, drifting slowly east. It never takes a tap or a drag.
+ * MapView fades the picture (not the marker, whose opacity MapLibre sets) at
+ * the view's edges.
  */
 .cloud {
   pointer-events: none;

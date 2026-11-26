@@ -9,6 +9,15 @@ export const styleLoads: string[] = [];
 /** Paths the fake style loader fails on. */
 export const styleFailures = new Set<string>();
 export const markers: FakeMarker[] = [];
+/**
+ * How the next FakeMap opens: a camera already set (as MapLibre's fit at
+ * construction would) and the container's size. Cleared by resetFakes.
+ */
+export const nextMap: {
+  camera?: { lng: number; lat?: number; zoom: number };
+  width?: number;
+  height?: number;
+} = {};
 export const frames: FrameRequestCallback[] = [];
 
 const hooks = {
@@ -52,6 +61,9 @@ export class FakeMap {
   touchZoomRotate = { disableRotation() {} };
   constructor(readonly options: Record<string, unknown>) {
     maps.push(this);
+    if (nextMap.camera) this.camera = { ...nextMap.camera };
+    if (nextMap.width !== undefined) this.width = nextMap.width;
+    if (nextMap.height !== undefined) this.height = nextMap.height;
   }
   styles: { style: unknown; options: unknown }[] = [];
   on(event: string, fn: Handler) {
@@ -91,6 +103,7 @@ export class FakeMap {
   point = { x: 0, y: 0 };
   camera: { lng: number; lat?: number; zoom: number } | undefined;
   width = 400;
+  height = 800;
   getZoom() {
     return this.camera?.zoom ?? 0;
   }
@@ -102,7 +115,7 @@ export class FakeMap {
       Math.log(Math.tan(Math.PI / 4 + (l * Math.PI) / 360)) / (2 * Math.PI);
     return {
       x: this.width / 2 + ((lng - this.camera.lng) / 360) * worldPx,
-      y: 400 + (mercY(this.camera.lat ?? 0) - mercY(lat)) * worldPx,
+      y: this.height / 2 + (mercY(this.camera.lat ?? 0) - mercY(lat)) * worldPx,
     };
   }
   /**
@@ -114,7 +127,7 @@ export class FakeMap {
     const worldPx = 512 * 2 ** camera.zoom;
     const mercY = (l: number) =>
       Math.log(Math.tan(Math.PI / 4 + (l * Math.PI) / 360)) / (2 * Math.PI);
-    const merc = mercY(camera.lat ?? 0) - (y - 400) / worldPx;
+    const merc = mercY(camera.lat ?? 0) - (y - this.height / 2) / worldPx;
     return {
       lng: camera.lng + ((x - this.width / 2) / worldPx) * 360,
       lat:
@@ -130,7 +143,10 @@ export class FakeMap {
     return this.canvasContainer;
   }
   getContainer() {
-    return { clientWidth: this.width, clientHeight: 800 };
+    return { clientWidth: this.width, clientHeight: this.height };
+  }
+  getCenter() {
+    return { lng: this.camera?.lng ?? 0, lat: this.camera?.lat ?? 0 };
   }
   easeTo() {
     this.eased++;
@@ -263,6 +279,9 @@ export function resetFakes() {
   styleLoads.length = 0;
   styleFailures.clear();
   frames.length = 0;
+  delete nextMap.camera;
+  delete nextMap.width;
+  delete nextMap.height;
   fakeDocument.hidden = false;
   fakeDocument.listeners = {};
 }

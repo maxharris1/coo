@@ -42,6 +42,9 @@ const lib = vi.hoisted(() => {
     unproject([x, y]: [number, number]) {
       return { lng: -74 + x / 1000, lat: 41 - y / 1000 };
     }
+    getCenter() {
+      return { lng: -74, lat: 41 };
+    }
     remove() {
       this.removed = true;
     }

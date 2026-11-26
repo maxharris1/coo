@@ -12,6 +12,7 @@ import {
   maps,
   markers,
   nextFrame,
+  nextMap,
   renderWithEffects,
   resetFakes,
   styleFailures,
@@ -25,7 +26,7 @@ import { STOCK_STYLE } from "./mapStyle";
 import {
   FAR_ZOOM,
   MapView,
-  cloudLon,
+  cloudFade,
   cloudScale,
   dotsStart,
   ZOOM_BANDS,
@@ -1094,17 +1095,18 @@ describe("the pigeon's speech bubble (#967 ac-3)", () => {
 
 describe("clouds drift over the map, anchored to it (#968 ac-4)", () => {
   type Host = { style: Record<string, string> };
-  // The fake map is 400 x 800 and reads as zoom 0 over 0, 0 until a camera is
-  // set, so that is the view the clouds are placed on at mount.
-  const AT_MOUNT = { lng: 0, lat: 0, zoom: 0 };
-  const DEG_PER_PX = 360 / 512;
-  const VIEW_DEG = 400 * DEG_PER_PX;
-  const BAND_DEG = (400 + 2 * 74) * DEG_PER_PX;
-  const REST = [
-    { x: 0.35 * 400, y: 0.18 * 800 },
-    { x: 0.85 * 400, y: 0.42 * 800 },
-    { x: 0.6 * 400, y: 0.64 * 800 },
+  type Point = { x: number; y: number };
+  // A map that opens fitted at zoom 5 near the route, 400 x 800.
+  const OPEN = { lng: -75, lat: 40, zoom: 5 };
+  const SPOTS = [
+    { top: 0.18, rest: 0.35 },
+    { top: 0.42, rest: 0.85 },
+    { top: 0.64, rest: 0.6 },
   ];
+  const DRIFT_S = [44, 58, 50];
+  /** Pixels a cloud drifts east on screen in one 200 ms frame. */
+  const stepPx = (map: FakeMap, i: number) =>
+    ((map.width + 2 * 74) / DRIFT_S[i]) * 0.2;
 
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"] });
@@ -1118,13 +1120,14 @@ describe("clouds drift over the map, anchored to it (#968 ac-4)", () => {
     vi.useRealTimers();
   });
 
-  async function clouds(over: Partial<MapViewProps> = {}) {
+  async function clouds(
+    over: Partial<MapViewProps> = {},
+    open: typeof nextMap = { camera: OPEN },
+  ) {
+    Object.assign(nextMap, open);
     const { tree, map } = await mounted(props(over));
-    const cloudMarkers = markers.slice(3);
-    expect(cloudMarkers, "loft, sill, bird, then three clouds").toHaveLength(3);
-    const hosts = cloudMarkers.map((c) => c.options.element as Host);
-    const imgs = cloudImgsIn(tree);
-    return { map, cloudMarkers, hosts, imgs };
+    const hosts = () => markers.slice(3).map((c) => c.options.element as Host);
+    return { map, imgs: cloudImgsIn(tree), hosts };
   }
 
   function cloudImgsIn(node: ReactNode): Host[] {
@@ -1146,15 +1149,61 @@ describe("clouds drift over the map, anchored to it (#968 ac-4)", () => {
     return out;
   }
 
-  const lngs = () => markers.slice(3).map((c) => c.lngLat![0]);
+  const cloudMarkers = () => markers.slice(3);
+  const places = () => cloudMarkers().map((c) => c.lngLat!);
+  const onScreen = (map: FakeMap) =>
+    cloudMarkers().map((c) => map.project(c.getLngLat()));
+  /** The whole cloud box, at its size for this zoom, is off the view. */
+  const offView = (map: FakeMap, p: Point) => {
+    const scale = cloudScale(map.getZoom(), OPEN.zoom);
+    const w = 74 * scale;
+    const h = 36 * scale;
+    return (
+      p.x + w / 2 <= 0 ||
+      p.x - w / 2 >= map.width ||
+      p.y + h / 2 <= 0 ||
+      p.y - h / 2 >= map.height
+    );
+  };
 
-  // Moves the clock on in 200 ms frames, as the browser would draw them.
-  function drift(ms: number, each: () => void = () => {}) {
-    for (let t = 0; t < ms; t += 200) {
-      vi.setSystemTime(Date.now() + 200);
-      nextFrame();
-      each();
-    }
+  /** One 200 ms frame, as the browser would draw it. */
+  function frame() {
+    vi.setSystemTime(Date.now() + 200);
+    nextFrame();
+  }
+
+  /**
+   * Draws one frame and checks every cloud moves only by its steady drift
+   * (same latitude, one step east on screen), or else jumps (comes back in)
+   * with both ends wholly off the view. Returns how many clouds jumped.
+   */
+  function checkedFrame(map: FakeMap, label = ""): number {
+    let jumps = 0;
+    const before = onScreen(map);
+    const was = places();
+    frame();
+    onScreen(map).forEach((after, i) => {
+      const dx = after.x - before[i].x;
+      const steady =
+        Math.abs(dx - stepPx(map, i)) < 0.01 && places()[i][1] === was[i][1];
+      if (steady) return;
+      jumps++;
+      expect(
+        offView(map, before[i]),
+        `${label} cloud ${i} left from view`,
+      ).toBe(true);
+      expect(offView(map, after), `${label} cloud ${i} came back on view`).toBe(
+        true,
+      );
+    });
+    return jumps;
+  }
+
+  /** Runs `ms` of checked frames and returns how many jumps it saw. */
+  function driftChecked(map: FakeMap, ms: number): number {
+    let jumps = 0;
+    for (let t = 0; t < ms; t += 200) jumps += checkedFrame(map);
+    return jumps;
   }
 
   it("draws three day clouds, or night clouds by night, 74 x 36", () => {
@@ -1171,123 +1220,212 @@ describe("clouds drift over the map, anchored to it (#968 ac-4)", () => {
     }
   });
 
-  it("are map markers spread over the first view, just above the canvas and under the pins and bird", async () => {
-    const { map, cloudMarkers, hosts } = await clouds();
-    expect(new Set(hosts).size).toBe(3);
-    for (const c of cloudMarkers) {
+  it("are map markers spread over the opening view, just above the canvas and under the pins and bird", async () => {
+    const { map, hosts } = await clouds();
+    expect(cloudMarkers(), "loft, sill, bird, then three clouds").toHaveLength(
+      3,
+    );
+    expect(new Set(hosts()).size).toBe(3);
+    for (const c of cloudMarkers()) {
       expect(c.options).toMatchObject({
         rotationAlignment: "map",
         pitchAlignment: "map",
         subpixelPositioning: true,
       });
-      expect(c.lngLat, "anchored to a place").toBeDefined();
     }
-    expect(
-      map.afterCanvas,
-      "moved above the canvas, below later markers",
-    ).toEqual(hosts);
+    expect(map.afterCanvas, "above the canvas, below later markers").toEqual(
+      hosts(),
+    );
     // vi.waitFor moves the fake clock on while the map mounts, so the first
     // frame has drifted each cloud east by a fraction of a pixel.
-    map.camera = AT_MOUNT;
-    cloudMarkers.forEach((c, i) => {
-      const at = map.project(c.getLngLat());
-      expect(at.x - REST[i].x, `cloud ${i} x`).toBeGreaterThanOrEqual(0);
-      expect(at.x - REST[i].x, `cloud ${i} x`).toBeLessThan(2);
-      expect(at.y, `cloud ${i} y`).toBeCloseTo(REST[i].y, 6);
+    onScreen(map).forEach((at, i) => {
+      expect(at.x - SPOTS[i].rest * 400, `cloud ${i} x`).toBeGreaterThanOrEqual(
+        0,
+      );
+      expect(at.x - SPOTS[i].rest * 400, `cloud ${i} x`).toBeLessThan(2);
+      expect(at.y, `cloud ${i} y`).toBeCloseTo(SPOTS[i].top * 800, 6);
     });
-    for (const host of hosts) {
+    for (const host of hosts()) {
       expect(host.style, "no screen-space transform or animation").toEqual({
         display: "block",
       });
     }
   });
 
-  it("pan with the map: a pan keeps their places and moves them on screen by the pan", async () => {
-    const { map, cloudMarkers } = await clouds();
-    map.camera = AT_MOUNT;
-    const places = cloudMarkers.map((c) => c.getLngLat());
-    const before = cloudMarkers.map((c) => map.project(c.getLngLat()));
-    map.camera = { lng: 10, lat: 5, zoom: 0 };
+  it("pan and zoom with the map: the camera moves no cloud on view beyond one drift step", async () => {
+    const { map } = await clouds();
+    const at = places();
+    const before = onScreen(map);
+    map.camera = { lng: OPEN.lng + 1, lat: OPEN.lat, zoom: OPEN.zoom };
     map.fire("move");
-    expect(cloudMarkers.map((c) => c.getLngLat())).toEqual(places);
-    const shift = 10 / DEG_PER_PX;
-    cloudMarkers.forEach((c, i) => {
-      const at = map.project(c.getLngLat());
-      expect(before[i].x - at.x, `cloud ${i}`).toBeCloseTo(shift, 6);
-      expect(
-        at.y,
-        `cloud ${i} moves down as the map pans north`,
-      ).toBeGreaterThan(before[i].y);
-    });
-  });
-
-  it("drift slowly east, each at its own speed, crossing the first view in 30 to 60 s", async () => {
-    const { cloudMarkers } = await clouds();
-    const lats = cloudMarkers.map((c) => c.lngLat![1]);
-    const start = lngs();
-    drift(1000);
-    const perSec = lngs().map((lng, i) => lng - start[i]);
-    expect(new Set(perSec.map((d) => d.toFixed(4))).size, "own speeds").toBe(3);
-    for (const d of perSec) {
-      expect(d, "east").toBeGreaterThan(0);
-      expect(VIEW_DEG / d).toBeGreaterThanOrEqual(30);
-      expect(VIEW_DEG / d).toBeLessThanOrEqual(60);
+    expect(places(), "a pan alone moves no cloud").toEqual(at);
+    const degPx = (512 * 2 ** OPEN.zoom) / 360;
+    onScreen(map).forEach((p, i) =>
+      expect(before[i].x - p.x, `cloud ${i}`).toBeCloseTo(degPx, 6),
+    );
+    expect(checkedFrame(map, "after a pan"), "all still on view").toBe(0);
+    // Zooms and pans, small and large. A cloud the camera leaves on view only
+    // drifts; one it throws far off the view may come back in, off the view.
+    for (const camera of [
+      { lng: OPEN.lng, lat: OPEN.lat, zoom: 5.5 },
+      { lng: OPEN.lng, lat: OPEN.lat, zoom: 4 },
+      { lng: OPEN.lng - 2, lat: OPEN.lat + 1, zoom: 4 },
+      { lng: OPEN.lng, lat: OPEN.lat, zoom: 8 },
+      { lng: OPEN.lng, lat: OPEN.lat, zoom: 3 },
+    ]) {
+      map.camera = camera;
+      map.fire("zoom");
+      map.fire("move");
+      checkedFrame(map, `camera ${JSON.stringify(camera)}`);
     }
+  });
+
+  it("drift east at a steady screen speed at any zoom, crossing the view in 30 to 50 s", async () => {
+    const { map } = await clouds();
+    for (const zoom of [5, 8, 11, 3, 5]) {
+      map.camera = { ...map.camera!, zoom };
+      map.fire("zoom");
+      for (let t = 0; t < 5000; t += 200) frame();
+      const before = onScreen(map);
+      for (let t = 0; t < 1000; t += 200) frame();
+      const perSec = onScreen(map).map((p, i) => p.x - before[i].x);
+      const steady = perSec.filter((d) => d > 0);
+      expect(
+        steady.length,
+        `zoom ${zoom}: clouds that did not wrap`,
+      ).toBeGreaterThan(0);
+      for (const d of steady) {
+        expect(map.width / d, `zoom ${zoom}`).toBeGreaterThanOrEqual(30);
+        expect(map.width / d, `zoom ${zoom}`).toBeLessThanOrEqual(50);
+      }
+      expect(new Set(perSec.map((d) => d.toFixed(3))).size, "own speeds").toBe(
+        3,
+      );
+    }
+  });
+
+  it("come back in only off the view, after a zoom out, a pan and a resize", async () => {
+    const { map } = await clouds();
+    let jumps = driftChecked(map, 60_000);
+    expect(jumps, "each wrapped at least once").toBeGreaterThanOrEqual(3);
+    map.camera = { ...map.camera!, zoom: 3 };
+    map.fire("zoom");
+    jumps = driftChecked(map, 60_000);
+    expect(jumps, "zoomed out").toBeGreaterThan(0);
+    map.camera = { ...map.camera!, lng: map.camera!.lng + 20 };
+    map.fire("move");
+    jumps = driftChecked(map, 60_000);
+    expect(jumps, "panned").toBeGreaterThan(0);
+    map.width = 250;
+    map.height = 500;
+    map.fire("resize");
+    jumps = driftChecked(map, 60_000);
+    expect(jumps, "resized").toBeGreaterThan(0);
+    // After all that the clouds still cross the view.
+    const seen = [false, false, false];
+    for (let t = 0; t < 60_000; t += 200) {
+      frame();
+      onScreen(map).forEach((p, i) => (seen[i] ||= !offView(map, p)));
+    }
+    expect(seen).toEqual([true, true, true]);
+  });
+
+  it("bring clouds that are far off the view back in off its west edge, staggered", async () => {
+    const { map } = await clouds();
+    map.camera = { lng: OPEN.lng + 40, lat: OPEN.lat + 15, zoom: 8 };
+    map.fire("move");
+    map.fire("zoom");
     expect(
-      cloudMarkers.map((c) => c.lngLat![1]),
-      "same latitude",
-    ).toEqual(lats);
-  });
-
-  it("wrap back to the west end of their band rather than drifting away", async () => {
-    await clouds();
-    const west = (-74 - 200) * DEG_PER_PX;
-    const wraps = [0, 0, 0];
-    let prev = lngs();
-    drift(60_000, () => {
-      const now = lngs();
-      now.forEach((lng, i) => {
-        expect(lng).toBeGreaterThanOrEqual(west);
-        expect(lng).toBeLessThan(west + BAND_DEG);
-        if (lng < prev[i]) {
-          wraps[i]++;
-          expect(prev[i] - lng, "a jump of one band").toBeGreaterThan(
-            BAND_DEG * 0.9,
-          );
-        }
-      });
-      prev = now;
+      onScreen(map).every((p) => offView(map, p)),
+      "all lost",
+    ).toBe(true);
+    frame();
+    const cw = 74 * cloudScale(8, OPEN.zoom);
+    onScreen(map).forEach((p, i) => {
+      expect(p.x, `cloud ${i}`).toBeCloseTo(
+        -cw - [0, 0.5, 0.25][i] * map.width,
+        6,
+      );
+      expect(p.y, `cloud ${i}`).toBeCloseTo(SPOTS[i].top * map.height, 6);
     });
-    expect(wraps, "each wrapped once in a minute").toEqual([1, 1, 1]);
+    const seen = [false, false, false];
+    for (let t = 0; t < 60_000; t += 200) {
+      frame();
+      onScreen(map).forEach((p, i) => (seen[i] ||= !offView(map, p)));
+    }
+    expect(seen, "each drifts into view").toEqual([true, true, true]);
   });
 
-  it("wraps a longitude into its band (cloudLon)", () => {
-    const band = { west: -10, span: 20, offset: 15, degPerSec: 2 };
-    expect(cloudLon(band, 0)).toBe(5);
-    expect(cloudLon(band, 2)).toBe(9);
-    expect(cloudLon(band, 3)).toBe(-9);
-    expect(cloudLon(band, 13)).toBe(-9);
+  it("keep a cloud near the view across the antimeridian", async () => {
+    const { map } = await clouds(
+      {},
+      { camera: { lng: 179.9, lat: 0, zoom: 5 } },
+    );
+    const before = onScreen(map);
+    // MapLibre reports the centre within -180..180, so a small pan east of
+    // the antimeridian reads as a jump of almost 360 degrees.
+    map.camera = { lng: -179.9, lat: 0, zoom: 5 };
+    map.fire("move");
+    frame();
+    const pxPerDeg = (512 * 2 ** 5) / 360;
+    onScreen(map).forEach((p, i) => {
+      expect(p.x, `cloud ${i}`).toBeCloseTo(
+        before[i].x - 0.2 * pxPerDeg + stepPx(map, i),
+        6,
+      );
+      expect(Math.abs(cloudMarkers()[i].lngLat![0] - -179.9)).toBeLessThan(180);
+    });
+  });
+
+  it("wait to be placed until the map shows them: a short route then a zoom out", async () => {
+    const { map } = await clouds(
+      {},
+      { camera: { lng: -75, lat: 40, zoom: 14 } },
+    );
+    for (let t = 0; t < 2000; t += 200) frame();
+    expect(cloudMarkers(), "none at street zoom").toHaveLength(0);
+    map.camera = { lng: -75.1, lat: 40.1, zoom: 9 };
+    map.fire("zoom");
+    nextFrame();
+    expect(cloudMarkers()).toHaveLength(3);
+    onScreen(map).forEach((p, i) => {
+      expect(p.x).toBeCloseTo(SPOTS[i].rest * 400, 6);
+      expect(p.y).toBeCloseTo(SPOTS[i].top * 800, 6);
+    });
+    expect(map.afterCanvas).toHaveLength(3);
+  });
+
+  it("wait to be placed until the map has a size", async () => {
+    const { map } = await clouds({}, { camera: OPEN, width: 0, height: 0 });
+    for (let t = 0; t < 2000; t += 200) frame();
+    expect(cloudMarkers(), "none on a 0 x 0 map").toHaveLength(0);
+    map.width = 400;
+    map.height = 800;
+    nextFrame();
+    expect(cloudMarkers()).toHaveLength(3);
+    onScreen(map).forEach((p, i) => {
+      expect(p.x).toBeCloseTo(SPOTS[i].rest * 400, 6);
+      expect(p.y).toBeCloseTo(SPOTS[i].top * 800, 6);
+    });
   });
 
   it("pause while the tab is hidden and resume without a jump", async () => {
-    await clouds();
-    drift(1000);
-    const shown = lngs();
+    const { map } = await clouds();
+    frame();
+    const shown = places();
     fakeDocument.hidden = true;
-    fakeDocument.fire("visibilitychange");
-    drift(5000);
-    expect(lngs(), "still while hidden").toEqual(shown);
+    for (let t = 0; t < 5000; t += 200) frame();
+    expect(places(), "still while hidden").toEqual(shown);
     fakeDocument.hidden = false;
-    fakeDocument.fire("visibilitychange");
+    const before = onScreen(map);
     vi.setSystemTime(Date.now() + 60_000);
     nextFrame();
-    const back = lngs();
-    back.forEach((lng, i) => {
-      expect(lng).toBeGreaterThan(shown[i]);
-      expect(lng - shown[i], "at most a quarter second of drift").toBeLessThan(
-        BAND_DEG / 30 / 4 + 1e-9,
-      );
-    });
+    onScreen(map).forEach((p, i) =>
+      expect(p.x - before[i].x, "a quarter second of drift").toBeCloseTo(
+        stepPx(map, i) * 1.25,
+        6,
+      ),
+    );
   });
 
   it("stay put under reduced motion, still shown and anchored, and drift once it is off", async () => {
@@ -1295,38 +1433,66 @@ describe("clouds drift over the map, anchored to it (#968 ac-4)", () => {
     vi.stubGlobal("matchMedia", (q: string) =>
       q === "(prefers-reduced-motion: reduce)" ? reduce : { matches: false },
     );
-    const { map, cloudMarkers, hosts } = await clouds();
-    const still = lngs();
-    drift(10_000);
-    expect(lngs()).toEqual(still);
-    for (const host of hosts) expect(host.style.display).toBe("block");
-    map.camera = AT_MOUNT;
-    cloudMarkers.forEach((c, i) =>
-      expect(map.project(c.getLngLat()).x).toBeCloseTo(REST[i].x, 6),
+    const { map, hosts } = await clouds();
+    const still = places();
+    for (let t = 0; t < 10_000; t += 200) frame();
+    expect(places()).toEqual(still);
+    for (const host of hosts()) expect(host.style.display).toBe("block");
+    onScreen(map).forEach((p, i) =>
+      expect(p.x).toBeCloseTo(SPOTS[i].rest * 400, 6),
     );
+    map.camera = { ...map.camera!, lng: map.camera!.lng - 10 };
+    map.fire("move");
+    frame();
+    expect(places(), "panned off the view, still anchored").toEqual(still);
     reduce.matches = false;
-    drift(1000);
-    lngs().forEach((lng, i) => expect(lng).toBeGreaterThan(still[i]));
+    map.camera = { ...map.camera!, lng: map.camera!.lng + 10 };
+    map.fire("move");
+    frame();
+    places().forEach(([lng], i) => expect(lng).toBeGreaterThan(still[i][0]));
   });
 
-  it("show at zoom 11 and below, hide at street zoom, and grow gently with zoom", async () => {
+  it("show at zoom 11 and below, hide and hold still at street zoom, and grow gently from the zoom they were placed at", async () => {
     const { map, hosts, imgs } = await clouds();
     expect(imgs).toHaveLength(3);
     for (const [zoom, display, scale] of [
+      [5, "block", "1.000"],
+      [7, "block", "1.414"],
+      [3, "block", "0.750"],
       [11, "block", "1.500"],
       [12, "none", "1.500"],
-      [16, "none", "1.500"],
-      [1, "block", "1.189"],
-      [0, "block", "1.000"],
     ] as const) {
-      map.camera = { lng: 0, zoom };
+      map.camera = { ...map.camera!, zoom };
       map.fire("zoom");
-      for (const host of hosts)
+      for (const host of hosts()) {
         expect(host.style.display, `zoom ${zoom}`).toBe(display);
+      }
       for (const img of imgs) {
         expect(img.style.transform, `zoom ${zoom}`).toBe(`scale(${scale})`);
       }
     }
+    const held = places();
+    const setCalls = cloudMarkers().map((c) => vi.spyOn(c, "setLngLat"));
+    for (let t = 0; t < 5000; t += 200) frame();
+    expect(places(), "no drift while hidden at street zoom").toEqual(held);
+    for (const spy of setCalls) expect(spy).not.toHaveBeenCalled();
+    map.camera = { ...map.camera!, zoom: 11 };
+    map.fire("zoom");
+    frame();
+    for (const spy of setCalls) expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it("fade the picture, not the marker, near the view's edges", async () => {
+    const { map, imgs, hosts } = await clouds();
+    frame();
+    // Clouds placed 35%, 85% and 60% across, well inside the view.
+    for (const img of imgs) expect(img.style.opacity).toBe("1.000");
+    for (const host of hosts()) expect(host.style.opacity).toBeUndefined();
+    map.camera = { ...map.camera!, lng: map.camera!.lng + 3 };
+    map.fire("move");
+    frame();
+    const x = onScreen(map)[0].x;
+    expect(imgs[0].style.opacity).toBe(cloudFade(x, 400, 74).toFixed(3));
   });
 
   it("scale with zoom within limits (cloudScale)", () => {
@@ -1336,16 +1502,29 @@ describe("clouds drift over the map, anchored to it (#968 ac-4)", () => {
     expect(cloudScale(2, 6)).toBe(0.75);
   });
 
+  it("fade over one cloud width at each edge (cloudFade)", () => {
+    expect(cloudFade(-74, 400, 74)).toBe(0);
+    expect(cloudFade(-37, 400, 74)).toBe(0.5);
+    expect(cloudFade(0, 400, 74)).toBe(1);
+    expect(cloudFade(200, 400, 74)).toBe(1);
+    expect(cloudFade(437, 400, 74)).toBe(0.5);
+    expect(cloudFade(474, 400, 74)).toBe(0);
+    expect(cloudFade(-200, 400, 74)).toBe(0);
+  });
+
   it("never draw on preview maps", async () => {
     const { map } = await mounted(props({ preview: true }));
+    for (let t = 0; t < 1000; t += 200) frame();
     expect(markers, "loft, sill and bird only").toHaveLength(3);
     expect(map.afterCanvas).toHaveLength(0);
   });
 
   it("leave the map with it", async () => {
-    const { cloudMarkers } = await clouds();
+    await clouds();
+    const made = cloudMarkers();
+    expect(made).toHaveLength(3);
     resetFakes();
-    for (const c of cloudMarkers) expect(c.removed).toBe(true);
+    for (const c of made) expect(c.removed).toBe(true);
   });
 
   it("never take a tap and leave no screen-space overlay behind", () => {

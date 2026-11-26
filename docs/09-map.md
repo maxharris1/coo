@@ -179,20 +179,28 @@ is pinned to the screen; only the controls (the Find button, the card and the ma
   100 pt of a screen edge. Preview maps have no bubble.
 - **Clouds:** three `assets/svg/map/cloud.svg` (night: `night/cloud.svg`), 74 x 36, as HTML
   markers anchored to places on the map, so they pan and zoom with it like everything else
-  (the product owner's call, 2026-11-26; `reference/map/STYLE.md` still says screen space). At
-  mount each one is placed on the first view, 18%, 42% and 64% down and 35%, 85% and 60%
-  across, so they show from the start. Each marker element moves to just above the map canvas
-  and below every other marker, so a cloud can pass under the bird, a pin, a pill or the speech
-  bubble but never over them, and never over the map credit or the buttons. They never take a
-  tap. They show at zoom 11 and below and hide at street zoom (12 and up), and grow gently
-  as the map zooms in from where it opened (double every 4 levels, held between 0.75x and
-  1.5x). Each drifts slowly east at its own latitude across a band as wide as the first view
-  plus one cloud each side, crossing that band in 44, 58 and 50 s (a phone-wide view in about
-  32 to 42 s at the opening zoom), then wraps back to the band's west end, so the clouds never
-  drift away. The drift runs on the bird's animation frame, moves at most 250 ms per frame,
-  pauses while the tab is hidden and does not jump when it shows again. Under reduced motion
-  they stay at their starting places, still shown and still anchored. Preview maps have no
-  clouds.
+  (the product owner's call, 2026-11-26; `reference/map/STYLE.md` still says screen space).
+  They are placed the first time the map can show them (zoom 11 or below, with a size; a short
+  route that opens at street zoom places them when the user zooms out), on that view at 18%,
+  42% and 64% down and 35%, 85% and 60% across. Each marker element moves to just above the
+  map canvas and below every other marker, so a cloud can pass under the bird, a pin, a pill or
+  the speech bubble but never over them, and never over the map credit or the buttons. They
+  never take a tap. They show at zoom 11 and below and hide at street zoom (12 and up), and
+  grow gently as the map zooms in from the zoom they were placed at (double every 4 levels,
+  held between 0.75x and 1.5x).
+  Each drifts east at its own latitude at a steady speed on screen, whatever the zoom: the
+  current view's width plus a cloud each side in 44, 58 and 50 s, so it crosses the view in
+  about 32 to 42 s. A pan or zoom never moves a cloud's place; only the drift does. Wrapping
+  follows the current view: a cloud more than a cloud width past its east edge comes back in
+  just off its west edge, at its own height if that is on the view, otherwise at its 18/42/64%
+  height. A cloud far off the view (more than a view west of it, or above or below it, as after
+  the follow camera zooms in on the bird) comes back in the same way, off the west edge and
+  staggered (0, 50% and 25% of a view further west), so it drifts back into sight. So a cloud
+  only ever jumps while it is wholly off the view, and the picture also fades over one cloud
+  width at each edge as a safety net. The drift runs on the bird's animation frame, moves at
+  most 250 ms per frame, stops while the tab is hidden or the clouds are hidden at street
+  zoom, and does not jump when it starts again. Under reduced motion they stay where they were
+  placed, still shown and still anchored. Preview maps have no clouds.
 - **Night:** when the sun is down at the bird's position (use `isDaylight` from the engine),
   switch to the night style. `MapView` loads it through `loadMapStyle` and swaps it in with
   `setStyle`, so the route layers are re-added on `style.load` and the pins and bird stay put
