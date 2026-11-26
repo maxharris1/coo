@@ -18,7 +18,11 @@ describe("loftTime with a loft", () => {
     [1795126200000, "night"],
     [1795131000000, "night"],
   ])("%i is %s", (nowMs, look) => {
-    expect(loftTime(nowMs, LOFT, ZONE)).toBe(look);
+    expect(loftTime(nowMs, LOFT)).toBe(look);
+  });
+
+  it("ignores the user's zone when there is a loft", () => {
+    expect(loftTime(1795089300000, LOFT, "Asia/Tokyo")).toBe("sunrise");
   });
 });
 
@@ -39,5 +43,10 @@ describe("loftTime with no loft", () => {
     const tokyoNoon = Date.UTC(2026, 10, 25, 3, 0);
     expect(loftTime(tokyoNoon, null, "Asia/Tokyo")).toBe("day");
     expect(loftTime(tokyoNoon, null, ZONE)).toBe("night");
+  });
+
+  it("needs the user's zone", () => {
+    // @ts-expect-error the no-loft fallback reads the hour in the user's zone
+    expect(() => loftTime(Date.UTC(2026, 10, 25, 3, 0), null)).toThrow();
   });
 });
