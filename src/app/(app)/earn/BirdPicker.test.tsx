@@ -112,24 +112,25 @@ async function mountPicker(birds = BIRDS) {
     await act(async () => root.unmount());
     vi.unstubAllGlobals();
   });
-  await act(async () =>
-    root.render(
-      <BirdPicker
-        birds={birds}
-        opener={opener as unknown as HTMLElement}
-        onChoose={onChoose}
-        onClose={onClose}
-      />,
-    ),
-  );
+  const render = (birds: PickableBird[]) =>
+    act(async () =>
+      root.render(
+        <BirdPicker
+          birds={birds}
+          opener={opener as unknown as HTMLElement}
+          onChoose={onChoose}
+          onClose={onClose}
+        />,
+      ),
+    );
+  await render(birds);
   const all = descendants(container);
   const dialog = all.find((n) => n.attrs.role === "dialog")!;
   const close = all.find(
     (n) => n.tagName === "BUTTON" && n.textContent === "Close",
   )!;
-  const rows = descendants(dialog).filter(
-    (n) => n.tagName === "BUTTON" && n !== close,
-  );
+  const rowsOf = () =>
+    descendants(dialog).filter((n) => n.tagName === "BUTTON" && n !== close);
   const dispatch = async (
     type: string,
     target: unknown,
@@ -140,7 +141,10 @@ async function mountPicker(birds = BIRDS) {
       init,
     );
     Object.defineProperty(event, "target", { value: target });
-    await act(async () => container.dispatchEvent(event));
+    await act(async () => {
+      if (container.contains(target)) container.dispatchEvent(event);
+      document.dispatchEvent(event);
+    });
     return event.defaultPrevented;
   };
   const key = (key: string, shiftKey = false) =>
@@ -151,7 +155,9 @@ async function mountPicker(birds = BIRDS) {
     opener,
     dialog,
     close,
-    rows,
+    rows: rowsOf(),
+    rowsOf,
+    render,
     backdrop: all.find((n) => n.attrs["aria-label"] === "Close")!,
     dispatch,
     key,
@@ -159,19 +165,37 @@ async function mountPicker(birds = BIRDS) {
   };
 }
 
-const markup = renderToStaticMarkup(
-  <BirdPicker
-    birds={BIRDS}
-    opener={null}
-    onChoose={() => {}}
-    onClose={() => {}}
-  />,
-);
+const markupOf = (birds: PickableBird[]) =>
+  renderToStaticMarkup(
+    <BirdPicker
+      birds={birds}
+      opener={null}
+      onChoose={() => {}}
+      onClose={() => {}}
+    />,
+  );
+const markup = markupOf(BIRDS);
 const rowsIn = (html: string) =>
   [...html.matchAll(/<li[^>]*>.*?<\/li>/gs)].map((m) => m[0]);
 const svgOf = (row: string) => row.match(/<svg.*<\/svg>/s)?.[0];
 const labelOf = (row: string) =>
   row.match(/<button[^>]*aria-label="([^"]*)"/)?.[1];
+const pip = (id: string, extra: Partial<PickableBird> = {}): PickableBird => ({
+  id,
+  name: "Pip",
+  look: "gerald",
+  gear: [],
+  ...extra,
+});
+
+const css = readFileSync(
+  new URL("./BirdPicker.module.css", import.meta.url),
+  "utf8",
+);
+const rule = (cls: string) =>
+  css.match(new RegExp(`\\.${cls} \\{[^}]*\\}`))?.[0];
+const px = (block: string | undefined, prop: string) =>
+  Number(block?.match(new RegExp(`${prop}: (-?\\d+)px`))?.[1] ?? 0);
 
 describe("BirdPicker lists the home birds (ac-1)", () => {
   it("opens a modal dialog titled Who goes?", () => {
@@ -202,6 +226,46 @@ describe("BirdPicker lists the home birds (ac-1)", () => {
     expect(labelOf(dot)).toBeUndefined();
   });
 
+  it("shows the whole bird inside the 42 px avatar, feet and leg gear included", () => {
+    const avatar = rule("avatar");
+    const [w, h] = ["width", "height"].map((p) => px(avatar, p));
+    expect([w, h]).toEqual([42, 42]);
+    const bird = rule("avatarBird");
+    const [left, top] = ["left", "top"].map((p) => px(bird, p));
+    for (const row of rowsIn(markupOf([pip("a", { gear: ["booties"] })]))) {
+      const [, svgW, svgH] = svgOf(row)!.match(
+        /<svg[^>]*width="(\d+)"[^>]*height="(\d+)"/,
+      )!.map(Number);
+      expect(left).toBeGreaterThanOrEqual(0);
+      expect(top).toBeGreaterThanOrEqual(0);
+      expect(left + svgW).toBeLessThanOrEqual(w);
+      expect(top + svgH).toBeLessThanOrEqual(h);
+    }
+  });
+
+  it("labels two Pips that differ only by gear, with different avatars", () => {
+    const [plain, booted] = rowsIn(
+      markupOf([pip("a"), pip("b", { gear: ["booties"] })]),
+    );
+    expect(labelOf(plain)).toBe("Pip, looks like Gerald");
+    expect(labelOf(booted)).toBe("Pip, looks like Gerald, wearing Rain booties");
+    expect(svgOf(plain)).not.toBe(svgOf(booted));
+  });
+
+  it("numbers two identical Pips so their labels still differ", () => {
+    const [first, second] = rowsIn(markupOf([pip("a"), pip("b")]));
+    expect(labelOf(first)).toBe("Pip, looks like Gerald, 1 of 2");
+    expect(labelOf(second)).toBe("Pip, looks like Gerald, 2 of 2");
+  });
+
+  it("treats Pip and pip as the same name, like birdName does", () => {
+    const [upper, lower] = rowsIn(
+      markupOf([pip("a"), pip("b", { name: "pip", look: "brenda" })]),
+    );
+    expect(labelOf(upper)).toBe("Pip, looks like Gerald");
+    expect(labelOf(lower)).toBe("pip, looks like Brenda");
+  });
+
   it("taps a row to choose that bird without closing", async () => {
     const { rows, dispatch, onChoose, onClose } = await mountPicker();
     await dispatch("click", rows[2]);
@@ -226,6 +290,21 @@ describe("rowLabel (ac-1)", () => {
     expect(rowLabel(BIRDS[2], BIRDS)).toBe(
       "Pip, looks like Brenda, wearing Wool beanie and Aviator goggles",
     );
+  });
+
+  it("numbers only the birds that look exactly alike, whatever their gear order", () => {
+    const twins = [
+      pip("a", { gear: ["beanie", "goggles"] }),
+      pip("b", { look: "brenda" }),
+      pip("c", { gear: ["goggles", "beanie"] }),
+      pip("d", { name: " pip" }),
+    ];
+    expect(twins.map((b) => rowLabel(b, twins))).toEqual([
+      "Pip, looks like Gerald, wearing Wool beanie and Aviator goggles, 1 of 2",
+      "Pip, looks like Brenda",
+      "Pip, looks like Gerald, wearing Wool beanie and Aviator goggles, 2 of 2",
+      " pip, looks like Gerald",
+    ]);
   });
 });
 
@@ -297,16 +376,28 @@ describe("BirdPicker as a keyboard modal (ac-3)", () => {
     const { key } = await mountPicker();
     expect(await key("Escape")).toBe(true);
   });
+
+  it("keeps the trap when the focused row leaves the list while open", async () => {
+    const m = await mountPicker();
+    await m.tab();
+    expect(document.activeElement).toBe(m.rows[0]);
+    await m.render([BIRDS[1], BIRDS[2]]);
+    expect(m.rowsOf()).toHaveLength(2);
+    expect(m.dialog.contains(document.activeElement)).toBe(true);
+    for (const shiftKey of [false, true, true]) {
+      expect(await m.tab(shiftKey)).toBe(true);
+      expect(m.dialog.contains(document.activeElement)).toBe(true);
+      expect(document.activeElement).not.toBe(m.backdrop);
+    }
+    expect(document.activeElement).toBe(m.rowsOf()[1]);
+    expect(await m.key("Escape")).toBe(true);
+    expect(m.onClose).toHaveBeenCalledOnce();
+    expect(m.onChoose).not.toHaveBeenCalled();
+    expect(m.opener.focus).toHaveBeenCalledOnce();
+  });
 });
 
 describe("BirdPicker styles", () => {
-  const css = readFileSync(
-    new URL("./BirdPicker.module.css", import.meta.url),
-    "utf8",
-  );
-  const rule = (cls: string) =>
-    css.match(new RegExp(`\\.${cls} \\{[^}]*\\}`))?.[0];
-
   it("keeps rows and Close at least the 44 px touch size", () => {
     for (const cls of ["row", "close"]) {
       expect(rule(cls), `.${cls}`).toMatch(
