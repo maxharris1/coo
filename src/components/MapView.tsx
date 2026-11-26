@@ -135,12 +135,24 @@ const PIN_LABEL = {
   boxSizing: "border-box",
 } as const;
 const NO_LINES: readonly string[] = [];
+const REDUCE_MOTION = "(prefers-reduced-motion: reduce)";
 const CLOUD_MAX_ZOOM = 11;
+const CLOUD_W = 74;
+const CLOUD_H = 36;
+// Each cloud is a map marker. It starts at a spot on the first view (a share
+// of the map's width and height) and drifts east across a band one view wide
+// plus a cloud each side, in `drift` seconds, then wraps to the band's west end.
 const CLOUDS = [
-  { top: "18%", drift: 34, start: 0, rest: "35%" },
-  { top: "42%", drift: 46, start: -15, rest: "85%" },
-  { top: "64%", drift: 40, start: -28, rest: "60%" },
+  { top: 0.18, rest: 0.35, drift: 44 },
+  { top: 0.42, rest: 0.85, drift: 58 },
+  { top: 0.64, rest: 0.6, drift: 50 },
 ] as const;
+// A frame never drifts the clouds more than this, so a tab that comes back
+// after a long time does not jump them.
+const CLOUD_MAX_STEP_MS = 250;
+// Clouds grow a little as the map zooms in (double every 4 levels), within limits.
+const CLOUD_GROWTH = 0.25;
+const CLOUD_SCALE = { min: 0.75, max: 1.5 } as const;
 const BUBBLE_BOX = {
   position: "absolute",
   bottom: "100%",
@@ -199,6 +211,29 @@ export function headsWest(from: LatLon, to: LatLon): boolean {
 export function routeFractions(distanceMi: number): number[] {
   const steps = distanceMi > 300 ? 500 : 100;
   return Array.from({ length: steps + 1 }, (_, i) => i / steps);
+}
+
+/** A cloud's drift band: where it wraps and how fast it crosses. */
+export type CloudBand = {
+  /** West end of the band, in degrees of longitude. */
+  west: number;
+  /** Width of the band in degrees of longitude, always above 0. */
+  span: number;
+  /** Where the cloud starts, in degrees east of `west`. */
+  offset: number;
+  degPerSec: number;
+};
+
+/** Longitude of a cloud after drifting east for `secs`, wrapped to its band. */
+export function cloudLon(band: CloudBand, secs: number): number {
+  const east = band.offset + band.degPerSec * secs;
+  return band.west + (((east % band.span) + band.span) % band.span);
+}
+
+/** How big a cloud draws at `zoom`, for a map that opened at `zoom0`. */
+export function cloudScale(zoom: number, zoom0: number): number {
+  const grown = 2 ** ((zoom - zoom0) * CLOUD_GROWTH);
+  return Math.min(CLOUD_SCALE.max, Math.max(CLOUD_SCALE.min, grown));
 }
 
 function nearLon(lon: number, ref: number): number {
@@ -344,7 +379,12 @@ export function MapView({
   const sillLabelEl = useRef<HTMLSpanElement>(null);
   const bubbleEl = useRef<HTMLDivElement>(null);
   const bubbleTextEl = useRef<HTMLSpanElement>(null);
-  const cloudsEl = useRef<HTMLDivElement>(null);
+  const cloudEl0 = useRef<HTMLDivElement>(null);
+  const cloudEl1 = useRef<HTMLDivElement>(null);
+  const cloudEl2 = useRef<HTMLDivElement>(null);
+  const cloudImg0 = useRef<HTMLImageElement>(null);
+  const cloudImg1 = useRef<HTMLImageElement>(null);
+  const cloudImg2 = useRef<HTMLImageElement>(null);
   const linesRef = useRef(bubbleLines);
   const followRef = useRef(true);
   const recentre = useRef<() => void>(() => {});
@@ -435,7 +475,6 @@ export function MapView({
     let frame = 0;
     let timer: ReturnType<typeof setInterval> | undefined;
     let cancelled = false;
-    let stopClouds = () => {};
     let stopCredit = () => {};
     const fracs = routeFractions(distanceMi);
     const now = () => Date.now() + offsetMs;
@@ -524,24 +563,74 @@ export function MapView({
         markers = [loft, sill, marker];
         markerRef.current = marker;
 
-        const clouds = cloudsEl.current;
-        if (!preview && clouds) {
-          m.getCanvas().after(clouds);
-          const showClouds = () => {
-            clouds.style.display =
-              m.getZoom() <= CLOUD_MAX_ZOOM ? "block" : "none";
+        // Clouds are markers too, anchored to places on the map so they pan
+        // and zoom with it. They start spread over the first view and drift
+        // slowly east. Each element moves to just above the canvas, below the
+        // pins and the bird; the credit and buttons sit above the canvas box.
+        let driftClouds = () => {};
+        if (!preview) {
+          const { clientWidth: w, clientHeight: h } = m.getContainer();
+          const zoom0 = m.getZoom();
+          const refs = [
+            [cloudEl0, cloudImg0],
+            [cloudEl1, cloudImg1],
+            [cloudEl2, cloudImg2],
+          ] as const;
+          const clouds = CLOUDS.flatMap((c, i) => {
+            const host = refs[i][0].current;
+            const img = refs[i][1].current;
+            if (!host || !img) return [];
+            const y = c.top * h;
+            const west = m.unproject([-CLOUD_W, y]).lng;
+            let east = m.unproject([w + CLOUD_W, y]).lng;
+            while (east <= west) east += 360;
+            const span = east - west;
+            const start = m.unproject([c.rest * w, y]);
+            const band: CloudBand = {
+              west,
+              span,
+              offset: (((start.lng - west) % span) + span) % span,
+              degPerSec: span / c.drift,
+            };
+            const cloud = new Marker({
+              element: host,
+              rotationAlignment: "map",
+              pitchAlignment: "map",
+              subpixelPositioning: true,
+            })
+              .setLngLat([cloudLon(band, 0), start.lat])
+              .addTo(m);
+            m.getCanvas().after(host);
+            return [{ marker: cloud, host, img, lat: start.lat, band }];
+          });
+          markers.push(...clouds.map((c) => c.marker));
+
+          const fitClouds = () => {
+            const zoom = m.getZoom();
+            const scale = `scale(${cloudScale(zoom, zoom0).toFixed(3)})`;
+            for (const c of clouds) {
+              c.host.style.display = zoom <= CLOUD_MAX_ZOOM ? "block" : "none";
+              c.img.style.transform = scale;
+            }
           };
-          const pauseClouds = () => {
-            clouds.style.animationPlayState = document.hidden
-              ? "paused"
-              : "running";
+          fitClouds();
+          m.on("zoom", fitClouds);
+
+          // Drift only while the tab shows and motion is welcome; under
+          // reduced motion the clouds stay put at their starting places.
+          const reduce = globalThis.matchMedia?.(REDUCE_MOTION);
+          let drifted = 0;
+          let last = Date.now();
+          driftClouds = () => {
+            const t = Date.now();
+            const step = Math.min(Math.max(t - last, 0), CLOUD_MAX_STEP_MS);
+            last = t;
+            if (document.hidden || reduce?.matches) return;
+            drifted += step / 1000;
+            for (const c of clouds) {
+              c.marker.setLngLat([cloudLon(c.band, drifted), c.lat]);
+            }
           };
-          showClouds();
-          pauseClouds();
-          m.on("zoom", showClouds);
-          document.addEventListener("visibilitychange", pauseClouds);
-          stopClouds = () =>
-            document.removeEventListener("visibilitychange", pauseClouds);
         }
 
         const clampLabels = () => {
@@ -623,6 +712,7 @@ export function MapView({
           const p = where();
           marker.setLngLat([p.lon, p.lat]);
           drawRoute(p.frac);
+          driftClouds();
           frame = requestAnimationFrame(tick);
         };
         frame = requestAnimationFrame(tick);
@@ -670,7 +760,6 @@ export function MapView({
 
     return () => {
       cancelled = true;
-      stopClouds();
       stopCredit();
       cancelAnimationFrame(frame);
       clearInterval(timer);
@@ -804,30 +893,22 @@ export function MapView({
             )}
           </div>
         </div>
-        <div ref={cloudsEl} className={styles.clouds}>
-          {CLOUDS.map((c) => (
-            <div
-              key={c.top}
-              className={styles.lane}
-              style={
-                {
-                  top: c.top,
-                  "--drift": `${c.drift}s`,
-                  "--start": `${c.start}s`,
-                  "--rest": c.rest,
-                } as CSSProperties
-              }
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={`/assets/svg/map/${night ? "night/" : ""}cloud.svg`}
-                alt=""
-                width={74}
-                height={36}
-              />
-            </div>
-          ))}
-        </div>
+        {CLOUDS.map((c, i) => (
+          <div
+            key={c.top}
+            ref={[cloudEl0, cloudEl1, cloudEl2][i]}
+            className={styles.cloud}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              ref={[cloudImg0, cloudImg1, cloudImg2][i]}
+              src={`/assets/svg/map/${night ? "night/" : ""}cloud.svg`}
+              alt=""
+              width={CLOUD_W}
+              height={CLOUD_H}
+            />
+          </div>
+        ))}
       </div>
       {!preview && !following && (
         <button

@@ -58,6 +58,9 @@ const lib = vi.hoisted(() => {
     getContainer() {
       return { clientWidth: 400, clientHeight: 800 };
     }
+    unproject([x, y]: [number, number]) {
+      return { lng: x / 1000, lat: -y / 1000 };
+    }
     easeTo() {
       counts.cameraUpdates++;
     }

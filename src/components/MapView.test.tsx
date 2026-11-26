@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import type { ReactElement, ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { interpolate, type FlightPlan, type LatLon } from "@/lib/flight/engine";
@@ -24,6 +25,8 @@ import { STOCK_STYLE } from "./mapStyle";
 import {
   FAR_ZOOM,
   MapView,
+  cloudLon,
+  cloudScale,
   dotsStart,
   ZOOM_BANDS,
   headsWest,
@@ -1089,8 +1092,19 @@ describe("the pigeon's speech bubble (#967 ac-3)", () => {
   });
 });
 
-describe("clouds drift over the map (#968 ac-4)", () => {
+describe("clouds drift over the map, anchored to it (#968 ac-4)", () => {
   type Host = { style: Record<string, string> };
+  // The fake map is 400 x 800 and reads as zoom 0 over 0, 0 until a camera is
+  // set, so that is the view the clouds are placed on at mount.
+  const AT_MOUNT = { lng: 0, lat: 0, zoom: 0 };
+  const DEG_PER_PX = 360 / 512;
+  const VIEW_DEG = 400 * DEG_PER_PX;
+  const BAND_DEG = (400 + 2 * 74) * DEG_PER_PX;
+  const REST = [
+    { x: 0.35 * 400, y: 0.18 * 800 },
+    { x: 0.85 * 400, y: 0.42 * 800 },
+    { x: 0.6 * 400, y: 0.64 * 800 },
+  ];
 
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"] });
@@ -1105,12 +1119,45 @@ describe("clouds drift over the map (#968 ac-4)", () => {
   });
 
   async function clouds(over: Partial<MapViewProps> = {}) {
-    const { map } = await mounted(props(over));
-    expect(map.afterCanvas).toHaveLength(1);
-    return { map, host: map.afterCanvas[0] as Host };
+    const { tree, map } = await mounted(props(over));
+    const cloudMarkers = markers.slice(3);
+    expect(cloudMarkers, "loft, sill, bird, then three clouds").toHaveLength(3);
+    const hosts = cloudMarkers.map((c) => c.options.element as Host);
+    const imgs = cloudImgsIn(tree);
+    return { map, cloudMarkers, hosts, imgs };
   }
 
-  it("draws three day clouds, or night clouds by night, each drifting 30 to 50 s", () => {
+  function cloudImgsIn(node: ReactNode): Host[] {
+    const out: Host[] = [];
+    const walk = (n: ReactNode) => {
+      if (!n || typeof n !== "object") return;
+      if (Array.isArray(n)) return n.forEach(walk);
+      const el = n as ReactElement<{
+        children?: ReactNode;
+        src?: string;
+        ref?: { current: Host };
+      }>;
+      if (el.type === "img" && el.props.src?.endsWith("cloud.svg")) {
+        out.push(el.props.ref!.current);
+      }
+      walk(el.props?.children);
+    };
+    walk(node);
+    return out;
+  }
+
+  const lngs = () => markers.slice(3).map((c) => c.lngLat![0]);
+
+  // Moves the clock on in 200 ms frames, as the browser would draw them.
+  function drift(ms: number, each: () => void = () => {}) {
+    for (let t = 0; t < ms; t += 200) {
+      vi.setSystemTime(Date.now() + 200);
+      nextFrame();
+      each();
+    }
+  }
+
+  it("draws three day clouds, or night clouds by night, 74 x 36", () => {
     for (const night of [false, true]) {
       const html = renderToStaticMarkup(<MapView {...props({ night })} />);
       const src = `/assets/svg/map/${night ? "night/" : ""}cloud.svg`;
@@ -1119,70 +1166,195 @@ describe("clouds drift over the map (#968 ac-4)", () => {
       for (const img of imgs) {
         expect(img).toContain(`src="${src}"`);
         expect(img).toMatch(/width="74"[^>]*height="36"/);
+        expect(img).toContain('alt=""');
       }
-      const secs = [...html.matchAll(/--drift:(\d+)s/g)].map((m) =>
-        Number(m[1]),
-      );
-      expect(secs).toHaveLength(3);
-      for (const s of secs) expect(s).toBeGreaterThanOrEqual(30);
-      for (const s of secs) expect(s).toBeLessThanOrEqual(50);
     }
   });
 
-  it("show at zoom 11 and below and hide at street zoom", async () => {
-    const { map, host } = await clouds();
-    for (const [zoom, display] of [
-      [11, "block"],
-      [12, "none"],
-      [16, "none"],
-      [6, "block"],
+  it("are map markers spread over the first view, just above the canvas and under the pins and bird", async () => {
+    const { map, cloudMarkers, hosts } = await clouds();
+    expect(new Set(hosts).size).toBe(3);
+    for (const c of cloudMarkers) {
+      expect(c.options).toMatchObject({
+        rotationAlignment: "map",
+        pitchAlignment: "map",
+        subpixelPositioning: true,
+      });
+      expect(c.lngLat, "anchored to a place").toBeDefined();
+    }
+    expect(
+      map.afterCanvas,
+      "moved above the canvas, below later markers",
+    ).toEqual(hosts);
+    // vi.waitFor moves the fake clock on while the map mounts, so the first
+    // frame has drifted each cloud east by a fraction of a pixel.
+    map.camera = AT_MOUNT;
+    cloudMarkers.forEach((c, i) => {
+      const at = map.project(c.getLngLat());
+      expect(at.x - REST[i].x, `cloud ${i} x`).toBeGreaterThanOrEqual(0);
+      expect(at.x - REST[i].x, `cloud ${i} x`).toBeLessThan(2);
+      expect(at.y, `cloud ${i} y`).toBeCloseTo(REST[i].y, 6);
+    });
+    for (const host of hosts) {
+      expect(host.style, "no screen-space transform or animation").toEqual({
+        display: "block",
+      });
+    }
+  });
+
+  it("pan with the map: a pan keeps their places and moves them on screen by the pan", async () => {
+    const { map, cloudMarkers } = await clouds();
+    map.camera = AT_MOUNT;
+    const places = cloudMarkers.map((c) => c.getLngLat());
+    const before = cloudMarkers.map((c) => map.project(c.getLngLat()));
+    map.camera = { lng: 10, lat: 5, zoom: 0 };
+    map.fire("move");
+    expect(cloudMarkers.map((c) => c.getLngLat())).toEqual(places);
+    const shift = 10 / DEG_PER_PX;
+    cloudMarkers.forEach((c, i) => {
+      const at = map.project(c.getLngLat());
+      expect(before[i].x - at.x, `cloud ${i}`).toBeCloseTo(shift, 6);
+      expect(
+        at.y,
+        `cloud ${i} moves down as the map pans north`,
+      ).toBeGreaterThan(before[i].y);
+    });
+  });
+
+  it("drift slowly east, each at its own speed, crossing the first view in 30 to 60 s", async () => {
+    const { cloudMarkers } = await clouds();
+    const lats = cloudMarkers.map((c) => c.lngLat![1]);
+    const start = lngs();
+    drift(1000);
+    const perSec = lngs().map((lng, i) => lng - start[i]);
+    expect(new Set(perSec.map((d) => d.toFixed(4))).size, "own speeds").toBe(3);
+    for (const d of perSec) {
+      expect(d, "east").toBeGreaterThan(0);
+      expect(VIEW_DEG / d).toBeGreaterThanOrEqual(30);
+      expect(VIEW_DEG / d).toBeLessThanOrEqual(60);
+    }
+    expect(
+      cloudMarkers.map((c) => c.lngLat![1]),
+      "same latitude",
+    ).toEqual(lats);
+  });
+
+  it("wrap back to the west end of their band rather than drifting away", async () => {
+    await clouds();
+    const west = (-74 - 200) * DEG_PER_PX;
+    const wraps = [0, 0, 0];
+    let prev = lngs();
+    drift(60_000, () => {
+      const now = lngs();
+      now.forEach((lng, i) => {
+        expect(lng).toBeGreaterThanOrEqual(west);
+        expect(lng).toBeLessThan(west + BAND_DEG);
+        if (lng < prev[i]) {
+          wraps[i]++;
+          expect(prev[i] - lng, "a jump of one band").toBeGreaterThan(
+            BAND_DEG * 0.9,
+          );
+        }
+      });
+      prev = now;
+    });
+    expect(wraps, "each wrapped once in a minute").toEqual([1, 1, 1]);
+  });
+
+  it("wraps a longitude into its band (cloudLon)", () => {
+    const band = { west: -10, span: 20, offset: 15, degPerSec: 2 };
+    expect(cloudLon(band, 0)).toBe(5);
+    expect(cloudLon(band, 2)).toBe(9);
+    expect(cloudLon(band, 3)).toBe(-9);
+    expect(cloudLon(band, 13)).toBe(-9);
+  });
+
+  it("pause while the tab is hidden and resume without a jump", async () => {
+    await clouds();
+    drift(1000);
+    const shown = lngs();
+    fakeDocument.hidden = true;
+    fakeDocument.fire("visibilitychange");
+    drift(5000);
+    expect(lngs(), "still while hidden").toEqual(shown);
+    fakeDocument.hidden = false;
+    fakeDocument.fire("visibilitychange");
+    vi.setSystemTime(Date.now() + 60_000);
+    nextFrame();
+    const back = lngs();
+    back.forEach((lng, i) => {
+      expect(lng).toBeGreaterThan(shown[i]);
+      expect(lng - shown[i], "at most a quarter second of drift").toBeLessThan(
+        BAND_DEG / 30 / 4 + 1e-9,
+      );
+    });
+  });
+
+  it("stay put under reduced motion, still shown and anchored, and drift once it is off", async () => {
+    const reduce = { matches: true };
+    vi.stubGlobal("matchMedia", (q: string) =>
+      q === "(prefers-reduced-motion: reduce)" ? reduce : { matches: false },
+    );
+    const { map, cloudMarkers, hosts } = await clouds();
+    const still = lngs();
+    drift(10_000);
+    expect(lngs()).toEqual(still);
+    for (const host of hosts) expect(host.style.display).toBe("block");
+    map.camera = AT_MOUNT;
+    cloudMarkers.forEach((c, i) =>
+      expect(map.project(c.getLngLat()).x).toBeCloseTo(REST[i].x, 6),
+    );
+    reduce.matches = false;
+    drift(1000);
+    lngs().forEach((lng, i) => expect(lng).toBeGreaterThan(still[i]));
+  });
+
+  it("show at zoom 11 and below, hide at street zoom, and grow gently with zoom", async () => {
+    const { map, hosts, imgs } = await clouds();
+    expect(imgs).toHaveLength(3);
+    for (const [zoom, display, scale] of [
+      [11, "block", "1.500"],
+      [12, "none", "1.500"],
+      [16, "none", "1.500"],
+      [1, "block", "1.189"],
+      [0, "block", "1.000"],
     ] as const) {
       map.camera = { lng: 0, zoom };
       map.fire("zoom");
-      expect(host.style.display, `zoom ${zoom}`).toBe(display);
+      for (const host of hosts)
+        expect(host.style.display, `zoom ${zoom}`).toBe(display);
+      for (const img of imgs) {
+        expect(img.style.transform, `zoom ${zoom}`).toBe(`scale(${scale})`);
+      }
     }
   });
 
-  it("pause while the tab is hidden and resume when it shows", async () => {
-    const { host } = await clouds();
-    expect(host.style.animationPlayState).toBe("running");
-    fakeDocument.hidden = true;
-    fakeDocument.fire("visibilitychange");
-    expect(host.style.animationPlayState).toBe("paused");
-    fakeDocument.hidden = false;
-    fakeDocument.fire("visibilitychange");
-    expect(host.style.animationPlayState).toBe("running");
-  });
-
-  it("stop listening once the map goes away", async () => {
-    await clouds();
-    resetFakes();
-    expect(fakeDocument.listeners.visibilitychange ?? []).toHaveLength(0);
+  it("scale with zoom within limits (cloudScale)", () => {
+    expect(cloudScale(6, 6)).toBe(1);
+    expect(cloudScale(8, 6)).toBeCloseTo(Math.SQRT2);
+    expect(cloudScale(14, 6)).toBe(1.5);
+    expect(cloudScale(2, 6)).toBe(0.75);
   });
 
   it("never draw on preview maps", async () => {
     const { map } = await mounted(props({ preview: true }));
+    expect(markers, "loft, sill and bird only").toHaveLength(3);
     expect(map.afterCanvas).toHaveLength(0);
   });
 
-  it("drift left to right with transforms only, wrap, and stop under reduced motion", () => {
+  it("leave the map with it", async () => {
+    const { cloudMarkers } = await clouds();
+    resetFakes();
+    for (const c of cloudMarkers) expect(c.removed).toBe(true);
+  });
+
+  it("never take a tap and leave no screen-space overlay behind", () => {
     const css = readFileSync(
       new URL("./MapView.module.css", import.meta.url),
       "utf8",
     );
-    expect(css).toMatch(/\.clouds \{[^}]*pointer-events: none;/);
-    expect(css).toMatch(
-      /\.lane \{[^}]*animation: coo-map-cloud var\(--drift\) linear var\(--start\) infinite;[^}]*animation-play-state: inherit;/,
-    );
-    const frames = css.match(/@keyframes coo-map-cloud \{([\s\S]*?)\n\}/)![1];
-    expect(frames).toMatch(/from \{\s*transform: translateX\(0\);/);
-    expect(frames).toMatch(
-      /to \{\s*transform: translateX\(calc\(100% \+ 74px\)\);/,
-    );
-    expect(frames.replace(/transform: [^;]+;/g, "")).not.toMatch(/:/);
-    expect(css).toMatch(
-      /@media \(prefers-reduced-motion: reduce\) \{\s*\.lane \{\s*animation: none;/,
-    );
+    expect(css).toMatch(/\.cloud \{[^}]*pointer-events: none;/);
+    expect(css).not.toMatch(/coo-map-cloud|\.clouds\b|\.lane\b/);
   });
 });
 

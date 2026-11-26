@@ -75,6 +75,12 @@ const lib = vi.hoisted(() => {
     getCanvas() {
       return { after() {} };
     }
+    getContainer() {
+      return { clientWidth: 390, clientHeight: 800 };
+    }
+    unproject([x, y]: [number, number]) {
+      return { lng: -74 + x / 1000, lat: 41 - y / 1000 };
+    }
     remove() {
       this.removed = true;
     }

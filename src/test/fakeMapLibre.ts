@@ -105,6 +105,23 @@ export class FakeMap {
       y: 400 + (mercY(this.camera.lat ?? 0) - mercY(lat)) * worldPx,
     };
   }
+  /**
+   * The inverse of project. With no camera set yet it reads the map as if it
+   * sat at zoom 0 over 0, 0, which is where a cloud is placed at mount.
+   */
+  unproject([x, y]: [number, number]) {
+    const camera = this.camera ?? { lng: 0, lat: 0, zoom: 0 };
+    const worldPx = 512 * 2 ** camera.zoom;
+    const mercY = (l: number) =>
+      Math.log(Math.tan(Math.PI / 4 + (l * Math.PI) / 360)) / (2 * Math.PI);
+    const merc = mercY(camera.lat ?? 0) - (y - 400) / worldPx;
+    return {
+      lng: camera.lng + ((x - this.width / 2) / worldPx) * 360,
+      lat:
+        (Math.atan(Math.exp(2 * Math.PI * merc)) - Math.PI / 4) *
+        (360 / Math.PI),
+    };
+  }
   getCanvas() {
     return { after: (el: unknown) => this.afterCanvas.push(el) };
   }
@@ -130,7 +147,8 @@ export class FakeMap {
 
 export class FakeMarker {
   lngLat: [number, number] | undefined;
-  constructor() {
+  removed = false;
+  constructor(readonly options: Record<string, unknown> = {}) {
     markers.push(this);
   }
   setLngLat(lngLat: [number, number]) {
@@ -153,6 +171,7 @@ export class FakeMarker {
     this.lngLat = [lng, this.lngLat[1]];
   }
   remove() {
+    this.removed = true;
     return this;
   }
 }

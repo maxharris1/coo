@@ -1,38 +1,13 @@
-.clouds {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
+/*
+ * A cloud is a map marker (MapView.tsx), anchored to a place so it pans and
+ * zooms with the map, drifting slowly east. It never takes a tap or a drag.
+ */
+.cloud {
   pointer-events: none;
 }
 
-.lane {
-  position: absolute;
-  left: 0;
-  width: 100%;
-  transform: translateX(var(--rest));
-  animation: coo-map-cloud var(--drift) linear var(--start) infinite;
-  animation-play-state: inherit;
-}
-
-.lane img {
-  position: absolute;
-  right: 100%;
+.cloud img {
   display: block;
-}
-
-@keyframes coo-map-cloud {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(calc(100% + 74px));
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .lane {
-    animation: none;
-  }
 }
 
 /*

@@ -36,6 +36,12 @@ const lib = vi.hoisted(() => {
     getCanvas() {
       return { after() {} };
     }
+    getContainer() {
+      return { clientWidth: 390, clientHeight: 800 };
+    }
+    unproject([x, y]: [number, number]) {
+      return { lng: -74 + x / 1000, lat: 41 - y / 1000 };
+    }
     remove() {
       this.removed = true;
     }
@@ -164,7 +170,10 @@ afterEach(() => {
 it("removes every marker it added when the effect cleans up", async () => {
   for (let cycle = 0; cycle < 3; cycle++) {
     const { map, cleanup } = await mountMap();
-    expect(lib.liveMarkers.size, "loft, sill and bird on the map").toBe(3);
+    expect(
+      lib.liveMarkers.size,
+      "loft, sill, bird and three clouds on the map",
+    ).toBe(6);
     cleanup();
     expect(map.removed, "map removed").toBe(true);
     expect(lib.liveMarkers.size, "markers left after cleanup").toBe(0);
