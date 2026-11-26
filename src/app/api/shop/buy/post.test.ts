@@ -292,7 +292,10 @@ describe("POST /api/shop/buy", () => {
       jar,
     );
     expect(second.status).toBe(409);
-    expect(second.json.error.code).toBe("conflict");
+    expect(second.json.error).toEqual({
+      code: "conflict",
+      message: config.copy.shop.loftOwned,
+    });
     expect(await holdings(id)).toEqual(bought);
   });
 

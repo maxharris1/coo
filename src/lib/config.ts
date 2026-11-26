@@ -4,6 +4,7 @@ import breeds from "../../config/breeds.json";
 import flightLog from "../../config/copy/flight-log.json";
 import legal from "../../config/copy/legal.json";
 import notifications from "../../config/copy/notifications.json";
+import shop from "../../config/copy/shop.json";
 import sms from "../../config/copy/sms.json";
 import foundObjects from "../../config/found-objects.json";
 import game from "../../config/game.json";
@@ -22,7 +23,7 @@ export const config = {
   jobs,
   loft,
   quirks,
-  copy: { flightLog, legal, notifications, sms },
+  copy: { flightLog, legal, notifications, shop, sms },
 } as const;
 
 export type Config = typeof config;

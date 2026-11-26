@@ -89,7 +89,7 @@ function choose(itemId: string, owner: Owner): Purchase {
   const loft = LOFT.get(itemId);
   if (loft) {
     if (owner.loftItems.includes(loft.id)) {
-      throw new AppError("conflict", "The loft already has that.");
+      throw new AppError("conflict", config.copy.shop.loftOwned);
     }
     return { kind: "loft", id: loft.id, price: loft.price };
   }
