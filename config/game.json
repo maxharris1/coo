@@ -176,6 +176,24 @@
       "name": "Rooftop birdbath",
       "effect": "Feathers stay clean twice as long",
       "price": 220
+    },
+    {
+      "id": "flower-boxes",
+      "name": "Flower boxes",
+      "effect": "Something nice on the wall",
+      "price": 90
+    },
+    {
+      "id": "weathervane",
+      "name": "Weathervane",
+      "effect": "Points at the weather. Mostly",
+      "price": 140
+    },
+    {
+      "id": "espresso-cart",
+      "name": "Espresso cart",
+      "effect": "Sells espresso shots for night flights",
+      "price": 260
     }
   ],
   "consumables": [

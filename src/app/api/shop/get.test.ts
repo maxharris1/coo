@@ -136,14 +136,23 @@ describe("GET /api/shop", () => {
     const { id, jar } = await onboarded("(555) 123-4567", "Max");
     await setSeeds(id, 219);
     let { json } = await client.get({}, jar);
-    expect(json.loftItems).toEqual([
-      expect.objectContaining({
-        id: "birdbath",
-        price: 220,
-        owned: false,
-        affordable: false,
-      }),
+    expect(json.loftItems).toEqual(
+      config.game.loftItems.map(({ id, name, effect, price }) =>
+        expect.objectContaining({ id, name, effect, price }),
+      ),
+    );
+    expect(json.loftItems.map((item: { id: string }) => item.id)).toEqual([
+      "birdbath",
+      "flower-boxes",
+      "weathervane",
+      "espresso-cart",
     ]);
+    expect(json.loftItems[0]).toMatchObject({
+      id: "birdbath",
+      price: 220,
+      owned: false,
+      affordable: false,
+    });
     await setSeeds(id, 220);
     ({ json } = await client.get({}, jar));
     expect(json.loftItems[0]).toMatchObject({ owned: false, affordable: true });

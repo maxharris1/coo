@@ -25,6 +25,7 @@ type Purchase =
   | { kind: "gear"; id: GearId; price: number }
   | { kind: "birdbath"; price: number }
   | { kind: "perch"; price: number }
+  | { kind: "loft"; id: string; price: number }
   | { kind: "consumable"; id: ConsumableId; price: number };
 
 type Consumable = Deps["config"]["game"]["consumables"][number];
@@ -39,10 +40,16 @@ type Owner = {
   hasBirdbath: boolean;
   perches: number;
   closet: readonly string[];
+  loftItems: readonly string[];
 };
 
 const GEAR = new Map(config.gear.items.map((item) => [item.id, item]));
 const BIRDBATH = config.game.loftItems.find((item) => item.id === "birdbath");
+const LOFT = new Map(
+  config.game.loftItems
+    .filter((item) => item.id !== "birdbath")
+    .map((item) => [item.id, item]),
+);
 const CONSUMABLES = new Map(
   config.game.consumables.map((item) => [item.id, item]),
 );
@@ -78,6 +85,13 @@ function choose(itemId: string, owner: Owner): Purchase {
       throw new AppError("conflict", "The loft already has a birdbath.");
     }
     return { kind: "birdbath", price: BIRDBATH.price };
+  }
+  const loft = LOFT.get(itemId);
+  if (loft) {
+    if (owner.loftItems.includes(loft.id)) {
+      throw new AppError("conflict", "The loft already has that.");
+    }
+    return { kind: "loft", id: loft.id, price: loft.price };
   }
   const consumable = CONSUMABLES.get(itemId);
   if (consumable) {
@@ -201,6 +215,7 @@ export async function buy(
       hasBirdbath: profile.has_birdbath,
       perches: profile.perches,
       closet: await closetOf(db, caller),
+      loftItems: profile.loft_items,
     });
     switch (purchase.kind) {
       case "gear":
@@ -220,6 +235,12 @@ export async function buy(
         await db.query(
           "update profiles set perches = perches + 1 where id = $1",
           [caller],
+        );
+        break;
+      case "loft":
+        await db.query(
+          "update profiles set loft_items = array_append(loft_items, $2) where id = $1",
+          [caller, purchase.id],
         );
         break;
       case "consumable": {
