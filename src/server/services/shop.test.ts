@@ -334,9 +334,8 @@ describe("buy", () => {
       code: "conflict",
       message: "The price changed. Take another look.",
     });
-    expect(await wallet(max)).toEqual(before);
+    expect(await wallet(max)).toEqual({ ...before, loft_items: [] });
     expect(await shopRows(max)).toEqual([]);
-    expect(before.loft_items).toEqual([]);
   });
 
   it("refuses a stale price before checking the balance", async () => {
@@ -533,7 +532,8 @@ describe("buy loft add-ons", () => {
       expect(await refusal(buy(deps, max, item(itemId)))).toBe(
         "insufficient_seeds",
       );
-      expect(await wallet(max)).toEqual({ ...before, loft_items: [] });
+      expect(await wallet(max)).toEqual(before);
+      expect(before.loft_items).toEqual([]);
     },
   );
 });
