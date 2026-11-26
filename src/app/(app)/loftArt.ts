@@ -316,21 +316,6 @@ export function cloud(
   );
 }
 
-const STARS = [
-  [120, 30],
-  [168, 16],
-  [228, 38],
-  [266, 60],
-  [270, 112],
-  [378, 64],
-  [374, 132],
-  [34, 140],
-  [92, 146],
-  [200, 140],
-  [246, 150],
-  [300, 142],
-];
-
 export function sky(look: LoftLook, clouds = true): string {
   let o = look.sky
     .map(
@@ -338,7 +323,7 @@ export function sky(look: LoftLook, clouds = true): string {
         `<rect x="-4" y="${fromY}" width="${W + 8}" height="${HERO_H + 300}" fill="${color}"/>`,
     )
     .join("");
-  STARS.slice(0, look.stars).forEach(([x, y], i) => {
+  config.loft.stars.slice(0, look.stars).forEach(({ x, y }, i) => {
     const r = i % 3 === 0 ? 2.2 : 1.5;
     o += `<path d="M${x} ${f(y - r * 2)} L${f(x + r * 0.6)} ${f(y - r * 0.6)} L${f(x + r * 2)} ${y} L${f(x + r * 0.6)} ${f(y + r * 0.6)} L${x} ${f(y + r * 2)} L${f(x - r * 0.6)} ${f(y + r * 0.6)} L${f(x - r * 2)} ${y} L${f(x - r * 0.6)} ${f(y - r * 0.6)} Z" fill="${CARD}" style="animation: coo-twinkle ${3 + (i % 4)}s ease-in-out ${pyFloat(i * 0.41, 2)}s infinite"/>`;
   });
