@@ -28,6 +28,7 @@ const at = (file: string, rule: string, prop: string): Ref => ({
 const BAND_HEIGHT = at(TAB_BAR, "band", "height");
 const BAR_BOTTOM = at(TAB_BAR, "bar", "bottom");
 const BAR_INSET = at(TAB_BAR, "bar", "padding-bottom");
+const BAR_POSITION = at(TAB_BAR, "bar", "position");
 const SPACER = at(
   "components/AppShell.module.css",
   "withTabs",
@@ -87,6 +88,12 @@ describe.each(VIEWPORTS)("tab bar on $name", ({ height }) => {
       return [iconTop - height, sendTop - height];
     });
     for (const row of rows) expect(row).toEqual(rows[0]);
+  });
+
+  it("pads tab pages by the bar height plus a 12px gap", () => {
+    for (const env of [flat, notched]) {
+      expect(value(TABS_PAD, env) - barHeight(env)).toBe(12);
+    }
   });
 
   it("clears the bar by the same margin with or without the inset", () => {
@@ -156,4 +163,47 @@ describe("tab bar stays put while the browser toolbar animates", () => {
       );
     }
   });
+});
+
+const PINS_TO_DOCUMENT =
+  /(?<![-\w])(transform|translate|scale|rotate|filter|backdrop-filter|perspective|will-change|contain|container-type):/;
+const SCROLLS = /(?<![-\w])overflow(-[xy])?: (?!visible)/;
+const ruleBodies = (file: string, selector: string) =>
+  [
+    ...read(file).matchAll(
+      new RegExp(`(?:^|\\n)\\s*${selector} \\{([^}]*)\\}`, "g"),
+    ),
+  ].map((m) => m[1]);
+
+describe("tab bar while a tab page scrolls", () => {
+  it.each([320, 390, 430, 599, 600, 1024])(
+    "is fixed to the bottom of a %ipx-wide viewport",
+    (width) => {
+      expect(declaration(BAR_POSITION, width)).toBe("fixed");
+      expect(declaration(BAR_BOTTOM, width)).toBe("0");
+    },
+  );
+
+  it("centres without a transform, so iOS keeps it on the viewport", () => {
+    const rules = ruleBodies(TAB_BAR, "\\.bar");
+    expect(rules.length).toBeGreaterThan(0);
+    for (const body of rules) expect(body).not.toMatch(PINS_TO_DOCUMENT);
+  });
+
+  it.each([
+    ["app/globals.css", "html"],
+    ["app/globals.css", "body"],
+    ["components/AppShell.module.css", "\\.column"],
+    ["components/AppShell.module.css", "\\.withTabs"],
+  ])(
+    "has no %s %s ancestor that carries it off with the document",
+    (file, selector) => {
+      const rules = ruleBodies(file, selector);
+      expect(rules.length).toBeGreaterThan(0);
+      for (const body of rules) {
+        expect(body).not.toMatch(PINS_TO_DOCUMENT);
+        expect(body).not.toMatch(SCROLLS);
+      }
+    },
+  );
 });

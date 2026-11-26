@@ -17,6 +17,60 @@ export type Env = {
 };
 export type Ref = { file: string; rule: string; prop: string };
 
+type Decl = { prop: string; value: string; important: boolean };
+type Rule = { selectors: string[]; media: string | null; decls: Decl[] };
+
+const squash = (s: string) => s.replace(/\s+/g, " ").trim();
+
+function decls(body: string): Decl[] {
+  return body.split(";").flatMap((d) => {
+    const colon = d.indexOf(":");
+    if (colon < 0) return [];
+    const raw = squash(d.slice(colon + 1));
+    const important = /!\s*important$/i.test(raw);
+    const value = raw.replace(/\s*!\s*important$/i, "");
+    return [{ prop: squash(d.slice(0, colon)), value, important }];
+  });
+}
+
+function rules(file: string): Rule[] {
+  const css = read(file).replace(/\/\*[\s\S]*?\*\//g, "");
+  const out: Rule[] = [];
+  const open: { prelude: string; start: number }[] = [];
+  let mark = 0;
+  for (let i = 0; i < css.length; i++) {
+    const c = css[i];
+    if (c === "{") {
+      open.push({ prelude: squash(css.slice(mark, i)), start: i + 1 });
+    } else if (c === "}") {
+      const { prelude, start } = open.pop()!;
+      const media = open.length === 1 ? open[0].prelude : null;
+      const nestable = open.length === 0 || media?.startsWith("@media ");
+      if (nestable && !prelude.startsWith("@")) {
+        out.push({
+          selectors: prelude.split(",").map(squash),
+          media,
+          decls: decls(css.slice(start, i)),
+        });
+      }
+    }
+    if (c === "{" || c === "}" || c === ";") mark = i + 1;
+  }
+  return out;
+}
+
+function applies(media: string | null, width: number) {
+  if (media === null) return true;
+  return media
+    .replace(/^@media /, "")
+    .split(" and ")
+    .every((feature) => {
+      const m = feature.match(/^\((min|max)-width: ?(\d+(?:\.\d+)?)px\)$/);
+      if (!m) return false;
+      return m[1] === "min" ? width >= +m[2] : width <= +m[2];
+    });
+}
+
 export function blocks(file: string, rule: string) {
   const selector = rule === "body" ? "\\nbody" : `\\.${rule}`;
   return [
@@ -24,19 +78,20 @@ export function blocks(file: string, rule: string) {
   ].map((m) => m[1]);
 }
 
-export function optionalDeclaration({ file, rule, prop }: Ref) {
-  const all = blocks(file, rule);
-  if (all.length === 0) throw new Error(`no ${rule} rule in ${file}`);
-  const values = all.flatMap((body) =>
-    [...body.matchAll(new RegExp(`(?<![\\w-])${prop}: ([^;]+);`, "g"))].map(
-      (m) => m[1].replace(/\s+/g, " ").trim(),
-    ),
-  );
-  return values.at(-1);
+export function optionalDeclaration({ file, rule, prop }: Ref, width = 390) {
+  const selector = rule === "body" ? "body" : `.${rule}`;
+  const matching = rules(file).filter((r) => r.selectors.includes(selector));
+  if (matching.length === 0) throw new Error(`no ${rule} rule in ${file}`);
+  const found = matching
+    .filter((r) => applies(r.media, width))
+    .flatMap((r) => r.decls)
+    .filter((d) => d.prop === prop);
+  const winner = found.findLast((d) => d.important) ?? found[found.length - 1];
+  return winner?.value;
 }
 
-export function declaration(ref: Ref) {
-  const v = optionalDeclaration(ref);
+export function declaration(ref: Ref, width = 390) {
+  const v = optionalDeclaration(ref, width);
   if (v === undefined)
     throw new Error(`no ${ref.prop} on ${ref.rule} in ${ref.file}`);
   return v;

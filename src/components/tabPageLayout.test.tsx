@@ -181,6 +181,18 @@ function routes(dir = APP, prefix = ""): string[] {
   });
 }
 
+const VOID = new Set(["br", "hr", "img", "input", "link", "meta"]);
+function depth(markup: string) {
+  let open = 0;
+  for (const [, close, tag, selfClose] of markup.matchAll(
+    /<(\/?)([a-z][\w-]*)[^>]*?(\/?)>/g,
+  )) {
+    if (selfClose || VOID.has(tag)) continue;
+    open += close ? -1 : 1;
+  }
+  return open;
+}
+
 const TAB_ROUTES = routes().filter((path) => chromeFor(path) === "tabs");
 
 const TOOLBAR_COLLAPSE = [0, 50, 83];
@@ -247,6 +259,21 @@ describe("every tab page", () => {
     );
     expect(html).toMatch(/<div class="[^"]*withTabs[^"]*"><i>page<\/i><\/div>/);
   });
+
+  it.each(TAB_ROUTES)(
+    "%s renders the tab bar outside the scrolling page",
+    (path) => {
+      nav.path = path;
+      const html = renderToStaticMarkup(
+        <AppLayout>
+          <i>page</i>
+        </AppLayout>,
+      );
+      const navAt = html.indexOf("<nav");
+      expect(navAt).toBeGreaterThan(html.indexOf("<i>page</i></div>"));
+      expect(depth(html.slice(0, navAt))).toBe(0);
+    },
+  );
 
   describe.each(VIEWPORTS)("on $name", ({ height }) => {
     describe.each(INSETS)("with a %ipx home indicator", (bottom) => {

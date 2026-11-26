@@ -71,5 +71,4 @@ The QA lane runs on the `local-docker` runner. `qa-local` uses the runner's defa
 - Never commit secrets. Name environment variables only (`.env.example` lists names with no values); Max sets real values in Vercel and Supabase himself. Never apply migrations, change config or set secrets on a hosted Supabase, Vercel or Twilio project from an agent session; that is ops, tracked in plain issues Max closes.
 - Risky areas: `supabase/migrations/`, auth and session middleware (`src/middleware.ts`, `src/proxy.ts`, `src/server/auth.ts`), the cron tick (`src/app/api/cron/`), guest link tokens, account deletion.
 - If something in the packet is wrong or contradictory, stop and say so in the PR instead of guessing.
-- Builds for this project run on the PC only, never the Mac or the box (Max, 3:15 PM ET, 2026-11-19). The pin is set in the factory's own config, not here.
 - PRs target `main`.
