@@ -275,9 +275,14 @@ describe("GET /api/sync", () => {
   it("reads me, closet, outfits, egg, punch card, unread and friends from the caller's rows", async () => {
     const { max, priya, rosa } = world;
     const db = deps.db;
-    await db.query("update profiles set deliveries_count = 4 where id = $1", [
-      max.id,
-    ]);
+    await db.query(
+      "update profiles set deliveries_count = 4, espresso_shots = 2, loft_items = '{flower-boxes,espresso-cart}' where id = $1",
+      [max.id],
+    );
+    await db.query(
+      "update profiles set loft_items = '{weathervane}' where id = $1",
+      [priya.id],
+    );
     await db.query(
       "insert into eggs (user_id, hatch_at_delivery, status) values ($1, 10, 'incubating'), ($2, 3, 'ready')",
       [max.id, priya.id],
@@ -320,6 +325,8 @@ describe("GET /api/sync", () => {
       handle: "max",
       seeds: config.game.start.seeds,
       timezone: "America/New_York",
+      espressoShots: 2,
+      loftItems: ["flower-boxes", "espresso-cart"],
       loft: { label: "East Village", city: "New York", travelling: false },
     });
     expect(json.closet).toEqual(config.game.start.gear);

@@ -162,6 +162,7 @@ export function toMe(r: Row<"profiles">) {
     seeds: r.seeds,
     perches: r.perches,
     espressoShots: r.espresso_shots,
+    loftItems: r.loft_items,
     hasBirdbath: r.has_birdbath,
     units: r.units,
     timezone: r.timezone,

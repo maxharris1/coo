@@ -325,7 +325,7 @@ function shopLoftItem(item: LoftItem, profile: Profile): ShopLoftItem {
     name,
     effect,
     price,
-    owned: loftOwned[id]?.(profile) ?? false,
+    owned: loftOwned[id]?.(profile) ?? profile.loft_items.includes(id),
     affordable: profile.seeds >= price,
   };
 }
