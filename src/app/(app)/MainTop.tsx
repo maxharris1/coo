@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useState } from "react";
 import type { SyncPayload } from "@/components/sync";
 import { config } from "@/lib/config";
 import { greeting } from "@/lib/format";
@@ -144,13 +144,7 @@ export function MainTopView({
   return (
     <section
       className={styles.top}
-      style={
-        {
-          background: sky[0].color,
-          color: textColor,
-          "--hero-ring": textColor,
-        } as CSSProperties
-      }
+      style={{ background: sky[0].color, color: textColor }}
     >
       <header className={styles.header}>
         <p className={styles.wordmark}>coo</p>

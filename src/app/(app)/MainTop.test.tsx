@@ -322,6 +322,105 @@ const INSTANTS: Record<LoftTime, number> = {
 };
 const LOOKS = times.order as LoftTime[];
 
+const luminance = (hex: string) => {
+  const [r, g, b] = [1, 3, 5].map((i) => {
+    const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+const contrast = (a: string, b: string) => {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+};
+
+const tokens = readFileSync(
+  new URL("../../../public/assets/tokens.css", import.meta.url),
+  "utf8",
+);
+const token = (name: string) =>
+  tokens.match(new RegExp(`${name}: (#[0-9A-Fa-f]{6});`))?.[1] ?? "";
+
+const CONTROLS = [".bell", ".menu", ".seeds"];
+
+const focusStyle = (control: string, source: string) =>
+  new Map(
+    [
+      ...source
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .matchAll(/([^{}]+)\{([^{}]*)\}/g),
+    ]
+      .filter(([, selectors]) =>
+        selectors
+          .split(",")
+          .map((s) => s.trim())
+          .includes(`${control}:focus-visible`),
+      )
+      .flatMap(([, , body]) =>
+        [...body.matchAll(/([\w-]+):\s*([^;]+);/g)].map(
+          ([, prop, value]) =>
+            [prop, value.replace(/\s+/g, " ").trim()] as const,
+        ),
+      ),
+  );
+
+const focusRing = (control: string, source = css) => {
+  const style = focusStyle(control, source);
+  expect(
+    [...style.keys()].filter((prop) =>
+      /^outline-(width|style|color)$/.test(prop),
+    ),
+  ).toEqual([]);
+  const outline = style
+    .get("outline")
+    ?.match(/^(\d+(?:\.\d+)?)px (\w+) var\((--coo-[\w-]+)\)$/);
+  const offset = style.get("outline-offset")?.match(/^(\d+)px$/);
+  const shadow = style
+    .get("box-shadow")
+    ?.match(/^var\(--coo-shadow-1\), 0 0 0 (\d+)px var\((--coo-[\w-]+)\)$/);
+  const width = Number(outline?.[1] ?? 0);
+  const spread = Number(shadow?.[1] ?? 0);
+  const ink = outline ? token(outline[3]) : "";
+  const halo = shadow ? token(shadow[2]) : "";
+  const inkPaints = width > 0 && !["none", "hidden"].includes(outline![2]);
+  return {
+    ink,
+    halo,
+    painted: [...(inkPaints ? [ink] : []), ...(spread > 0 ? [halo] : [])],
+    outsetPx: Math.max(Number(offset?.[1] ?? 0) + width, spread),
+  };
+};
+
+const ringContrast = (ring: { painted: string[] }, sky: string) =>
+  Math.max(0, ...ring.painted.map((color) => contrast(color, sky)));
+
+const cubicBezier = (x1: number, y1: number, x2: number, y2: number) => {
+  const at = (s: number, a: number, b: number) =>
+    3 * a * s * (1 - s) ** 2 + 3 * b * s ** 2 * (1 - s) + s ** 3;
+  return (x: number) => {
+    let [lo, hi] = [0, 1];
+    for (let i = 0; i < 60; i++) {
+      const mid = (lo + hi) / 2;
+      if (at(mid, x1, x2) < x) lo = mid;
+      else hi = mid;
+    }
+    return at((lo + hi) / 2, y1, y2);
+  };
+};
+
+const mix = (under: string, over: string, alpha: number) =>
+  "#" +
+  [1, 3, 5]
+    .map((i) => {
+      const [a, b] = [under, over].map((hex) =>
+        parseInt(hex.slice(i, i + 2), 16),
+      );
+      return Math.round(a + (b - a) * alpha)
+        .toString(16)
+        .padStart(2, "0");
+    })
+    .join("");
+
 const layers = (html: string) =>
   [...html.matchAll(/<div[^>]* data-time="(\w+)"[^>]*>/g)].map(
     ([tag, time]) => ({ time, tag }),
@@ -345,18 +444,6 @@ describe("the hero takes the look's sky and text colour (#1056 ac-6)", () => {
     },
   );
 
-  const luminance = (hex: string) => {
-    const [r, g, b] = [1, 3, 5].map((i) => {
-      const c = parseInt(hex.slice(i, i + 2), 16) / 255;
-      return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-    });
-    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-  };
-  const contrast = (a: string, b: string) => {
-    const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
-    return (hi + 0.05) / (lo + 0.05);
-  };
-
   it.each(LOOKS)(
     "keeps %s text at least 4.5 to 1 on its first sky band",
     (look) => {
@@ -365,24 +452,103 @@ describe("the hero takes the look's sky and text colour (#1056 ac-6)", () => {
     },
   );
 
+  it("draws the header focus ring in two tones at least 9 to 1 apart", () => {
+    for (const control of CONTROLS) {
+      const { ink, halo } = focusRing(control);
+      expect(contrast(ink, halo)).toBeGreaterThanOrEqual(9);
+    }
+  });
+
   it.each(LOOKS)(
     "rings focused header controls at least 3 to 1 on the %s sky",
     (look) => {
-      const ring = heroAt(look).match(
-        /^<section[^>]*style="[^"]*--hero-ring:(#[0-9A-Fa-f]{6})/,
-      )?.[1];
-      expect(ring).toBeDefined();
-      expect(contrast(ring!, times[look].sky[0].color)).toBeGreaterThanOrEqual(
-        3,
-      );
+      for (const control of CONTROLS) {
+        expect(
+          ringContrast(focusRing(control), times[look].sky[0].color),
+        ).toBeGreaterThanOrEqual(3);
+      }
+    },
+  );
+});
+
+describe("the header focus ring through the sunset-to-dusk fade (#1081 ac-1)", () => {
+  const html = renderToStaticMarkup(
+    <MainTopView
+      data={data(mock, 240, 0, { loft: LOFT })}
+      nowMs={INSTANTS.dusk}
+      look={{ time: "dusk", leaving: "sunset" }}
+    />,
+  );
+  const [bottom, top] = layers(html).map(({ time, tag }) => ({
+    time,
+    color: tag.match(/background:(#[0-9A-Fa-f]{6})/)?.[1] ?? "",
+    durationMs: Number(tag.match(/animation-duration:(\d+)ms/)?.[1]),
+  }));
+
+  it("paints dusk fading in over the opaque sunset sky", () => {
+    expect([bottom.time, top.time]).toEqual(["sunset", "dusk"]);
+    expect(bottom.color).toBe(times.sunset.sky[0].color);
+    expect(top.color).toBe(times.dusk.sky[0].color);
+    expect(top.durationMs).toBe(times.crossFadeMs);
+    expect(rule("\\.fadeIn")).toMatch(
+      /animation-timing-function: ease-in-out;/,
+    );
+    expect(css).toMatch(
+      /@keyframes loft-fade \{\s*from \{\s*opacity: 0;\s*\}\s*to \{\s*opacity: 1;\s*\}/,
+    );
+  });
+
+  const easeInOut = cubicBezier(0.42, 0, 0.58, 1);
+  const skyAt = (ms: number) =>
+    mix(bottom.color, top.color, easeInOut(ms / top.durationMs));
+
+  it.each(
+    CONTROLS.flatMap((control) =>
+      [500, 1000].map((ms) => [control, ms] as const),
+    ),
+  )(
+    "rings %s at least 3 to 1 on the sky %i ms into the fade",
+    (control, ms) => {
+      expect(
+        ringContrast(focusRing(control), skyAt(ms)),
+      ).toBeGreaterThanOrEqual(3);
     },
   );
 
-  it("draws the header focus ring in the look's ring colour", () => {
-    const focus = css.match(
-      /\.menu:focus-visible,\s*\.bell:focus-visible,\s*\.seeds:focus-visible\s*\{([^}]*)\}/,
-    )?.[1];
-    expect(focus).toMatch(/outline: 3px solid var\(--hero-ring\);/);
+  it.each([
+    [
+      "a zero-width outline",
+      (s: string) => s.replace("outline: 3px solid", "outline: 0px solid"),
+    ],
+    [
+      "an outline with no style",
+      (s: string) => s.replace("outline: 3px solid", "outline: 3px none"),
+    ],
+    [
+      "a later rule that removes the outline",
+      (s: string) =>
+        `${s}\n.menu:focus-visible,\n.bell:focus-visible,\n.seeds:focus-visible {\n  outline: none;\n}\n`,
+    ],
+  ])(
+    "drops below 3 to 1 at 500 and 1000 ms when %s leaves only the light halo",
+    (_, unpaint) => {
+      const source = unpaint(css);
+      expect(source).not.toBe(css);
+      for (const control of CONTROLS) {
+        for (const ms of [500, 1000]) {
+          expect(
+            ringContrast(focusRing(control, source), skyAt(ms)),
+          ).toBeLessThan(3);
+        }
+      }
+    },
+  );
+
+  it("keeps the ring's light halo inside the header's top padding", () => {
+    const padTop = Number(rule("\\.header").match(/padding: (\d+)px/)?.[1]);
+    for (const control of CONTROLS) {
+      expect(focusRing(control).outsetPx).toBeLessThanOrEqual(padTop);
+    }
   });
 });
 

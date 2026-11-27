@@ -103,8 +103,11 @@
 .menu:focus-visible,
 .bell:focus-visible,
 .seeds:focus-visible {
-  outline: 3px solid var(--hero-ring);
+  outline: 3px solid var(--coo-ink);
   outline-offset: 3px;
+  box-shadow:
+    var(--coo-shadow-1),
+    0 0 0 9px var(--coo-card);
 }
 
 .greeting {
