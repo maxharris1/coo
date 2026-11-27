@@ -3,6 +3,7 @@ import { config } from "@/lib/config";
 import { capitalise, fuzzyWhen, inWords, isAway } from "@/lib/format";
 import { roommateOwed } from "@/lib/starter";
 import type { CannotFly } from "@/server/services/sync";
+import type { LoftTime } from "./loftTime";
 
 type FlockBird = SyncPayload["birds"][number];
 
@@ -244,12 +245,12 @@ function roomsSentence(n: number, rest: string) {
   ];
 }
 
-export function describeLoft(rooms: readonly Room[]): string {
+export function describeLoft(rooms: readonly Room[], time: LoftTime): string {
   const count = (kind: Room["kind"]) =>
     rooms.filter((r) => r.kind === kind).length;
   const home = rooms.filter((r) => r.kind === "home");
   return [
-    "Your rooftop loft.",
+    `${capitalise(time)} on your rooftop loft.`,
     ...birdsSentence(
       names(home.filter((r) => !r.asleep)),
       "sits at home",

@@ -13,10 +13,17 @@ import type { SyncPayload } from "@/components/sync";
 import { config } from "@/lib/config";
 import birdLooks from "../../../public/assets/data/birds.json";
 import { describeLoft, loftRooms } from "./flockRows";
-import { awakeIds, LoftScene, LoftSceneView, useLoftMotion } from "./LoftScene";
+import {
+  awakeIds,
+  LoftScene,
+  LoftSceneView,
+  sceneRooms,
+  useLoftMotion,
+} from "./LoftScene";
 import type { LoftItem } from "./loftArt";
 import { gestureAnimation, GESTURES, REST_MS, type Gesture } from "./loftIdle";
 import { birdBox, loftLayout } from "./loftLayout";
+import type { LoftTime } from "./loftTime";
 
 type Bird = SyncPayload["birds"][number];
 
@@ -38,11 +45,24 @@ type Props = {
   perches: number;
   egg?: { status: string } | null;
   items?: LoftItem[];
+  time?: LoftTime;
 };
 
-const render = ({ birds, perches, egg = null, items = [] }: Props) =>
+const render = ({
+  birds,
+  perches,
+  egg = null,
+  items = [],
+  time = "day",
+}: Props) =>
   renderToStaticMarkup(
-    <LoftScene birds={birds} perches={perches} egg={egg} items={items} />,
+    <LoftScene
+      birds={birds}
+      perches={perches}
+      egg={egg}
+      items={items}
+      time={time}
+    />,
   )
     .replaceAll("&#x27;", "'")
     .replaceAll("&quot;", '"');
@@ -80,11 +100,12 @@ const overlay = (html: string) => {
 const birdGroups = (html: string) =>
   [
     ...overlay(html).matchAll(
-      /<g data-room="(\d+)" transform="([^"]*)">(.*?<\/svg>)<\/g>/g,
+      /<g data-room="(\d+)" transform="([^"]*)"(?: style="([^"]*)")?>(.*?<\/svg>)<\/g>/g,
     ),
-  ].map(([, room, transform, body]) => ({
+  ].map(([, room, transform, style, body]) => ({
     room: Number(room),
     transform,
+    style,
     body,
   }));
 
@@ -161,7 +182,7 @@ describe("room links (ac-1)", () => {
       { href: "/birds/kevin" },
     ]);
     expect(sceneLabel(html)).toBe(
-      "Your rooftop loft. Gerald sits at home. Brenda and Kevin are out.",
+      "Day on your rooftop loft. Gerald sits at home. Brenda and Kevin are out.",
     );
   });
 
@@ -251,9 +272,11 @@ describe("scene label (ac-3)", () => {
   it("describes the rooms and draws the clouds", () => {
     const birds = [gerald, bird("Kevin", { look: "kevin", tired: true })];
     const html = render({ birds, perches: 4 });
-    expect(sceneLabel(html)).toBe(describeLoft(loftRooms(birds, 4, null)));
     expect(sceneLabel(html)).toBe(
-      "Your rooftop loft. Gerald sits at home. Kevin is asleep. Two rooms are free. One room is to let.",
+      describeLoft(loftRooms(birds, 4, null), "day"),
+    );
+    expect(sceneLabel(html)).toBe(
+      "Day on your rooftop loft. Gerald sits at home. Kevin is asleep. Two rooms are free. One room is to let.",
     );
     expect(html).toContain("coo-drift");
   });
@@ -280,14 +303,19 @@ const artOf = (b: Bird, pose: "perched" | "sleep") =>
   );
 
 const still = { reduced: false, paused: false, gestures: {} };
-const view = (motion: Parameters<typeof LoftSceneView>[0]["motion"]) =>
+const view = (
+  motion: Parameters<typeof LoftSceneView>[0]["motion"],
+  rooms = flockRooms,
+  time: LoftTime = "day",
+) =>
   unescape(
     renderToStaticMarkup(
       <LoftSceneView
-        rooms={flockRooms}
+        rooms={rooms}
         perches={PERCHES}
         items={[]}
         motion={motion}
+        time={time}
       />,
     ),
   );
@@ -486,5 +514,232 @@ describe("clouds and motion (ac-3)", () => {
     expect(css.replace(/\s+/g, " ")).toContain(
       ".loft[data-paused] * { animation-play-state: paused !important; }",
     );
+  });
+});
+
+const { times } = config.loft;
+const NIGHT_LOOKS = times.order.filter(
+  (t) => times[t as LoftTime].birdsAsleep,
+) as LoftTime[];
+const DAY_LOOKS = times.order.filter(
+  (t) => !times[t as LoftTime].birdsAsleep,
+) as LoftTime[];
+
+describe("birds sleep at dusk and night (ac-5)", () => {
+  const onJob = bird("Dot", {
+    look: "fantail",
+    status: "busy",
+    busyKind: "job",
+  });
+  const lofts = [
+    {
+      name: "a full loft",
+      birds: [gerald, brenda, flying, onJob],
+      perches: 4,
+      egg: null,
+      sleepers: [gerald, brenda],
+      others: ["Kevin, out", "Dot, out", "Room to let. Open the shop"],
+      feathers: 2,
+    },
+    {
+      name: "a lone bird",
+      birds: [gerald],
+      perches: 4,
+      egg: { status: "incubating" },
+      sleepers: [gerald],
+      others: [
+        "A roommate is waiting",
+        "An egg in its nest",
+        "Room to let. Open the shop",
+      ],
+      feathers: 0,
+    },
+  ];
+  const feathers = (html: string) =>
+    html.match(/<g transform="rotate\(-14 [^"]*">/g) ?? [];
+
+  it("covers every kind of room in every look", () => {
+    const kinds = new Set(
+      lofts.flatMap((l) =>
+        loftRooms(l.birds, l.perches, l.egg).map((r) => r.kind),
+      ),
+    );
+    expect([...kinds].sort()).toEqual(
+      ["away", "egg", "empty", "home", "roommate", "tolet"].sort(),
+    );
+    expect(NIGHT_LOOKS).toEqual(["dusk", "night"]);
+  });
+
+  describe.each(NIGHT_LOOKS)("at %s", (time) => {
+    const { birdFilter } = times[time];
+
+    describe.each(lofts)("in $name", (loft) => {
+      const html = render({ ...loft, time });
+      const day = render({ ...loft, time: "day" });
+      const sleeperLabels = loft.sleepers.map((b) => `${b.name}, asleep`);
+      const notHome = (h: string) =>
+        links(h).filter(
+          (l) => !loft.sleepers.some((b) => l.label?.startsWith(`${b.name}, `)),
+        );
+
+      it("draws every home bird asleep behind the look's filter", () => {
+        const groups = birdGroups(html);
+        expect(groups.map((g) => g.room)).toEqual(
+          birdGroups(day).map((g) => g.room),
+        );
+        expect(groups.map((g) => g.body)).toEqual(
+          loft.sleepers.map((b) => expect.stringContaining(artOf(b, "sleep"))),
+        );
+        expect(birdFilter).not.toBe("none");
+        for (const g of groups) expect(g.style).toBe(`filter:${birdFilter}`);
+      });
+
+      it("names the home birds asleep", () => {
+        for (const [i, label] of sleeperLabels.entries())
+          expect(linkNamed(html, label)).toMatchObject([
+            { href: `/birds/${loft.sleepers[i].id}` },
+          ]);
+      });
+
+      it("leaves away birds, the egg, the roommate and the free rooms as by day", () => {
+        expect(notHome(html)).toEqual(notHome(day));
+        expect(notHome(html).map((l) => l.label)).toEqual(loft.others);
+        expect(feathers(html)).toEqual(feathers(day));
+        expect(feathers(html)).toHaveLength(loft.feathers);
+        expect(html.includes("coo-wobble")).toBe(day.includes("coo-wobble"));
+      });
+
+      it("plays no gesture for any bird", async () => {
+        const rooms = sceneRooms(loft.birds, loft.perches, loft.egg, time);
+        await mount(awakeIds(rooms));
+        await runIdle();
+        expect(seen.every((m) => Object.keys(m.gestures).length === 0)).toBe(
+          true,
+        );
+        const gestures = Object.fromEntries(
+          loft.birds.map((b) => [b.id, "hop" as const]),
+        );
+        expect(
+          overlay(view({ ...still, gestures }, rooms, time)),
+        ).not.toContain("data-idle");
+      });
+    });
+  });
+
+  describe.each(DAY_LOOKS)("at %s", (time) => {
+    const [full] = lofts;
+    const html = render({ ...full, time });
+
+    it("draws awake birds perched with no filter, as today", () => {
+      const day = render({ ...full, time: "day" });
+      expect(overlay(html)).not.toContain("filter");
+      const [g, b] = birdGroups(html).map((x) => x.body);
+      expect(g).toContain(artOf(gerald, "perched"));
+      expect(b).toContain(artOf(brenda, "sleep"));
+      expect(overlay(html)).toBe(overlay(day));
+      expect(links(html)).toEqual(links(day));
+    });
+
+    it("plays gestures for the awake bird", async () => {
+      await mount(awakeIds(sceneRooms(full.birds, full.perches, null, time)));
+      await runIdle();
+      const played = seen.flatMap((m) => Object.keys(m.gestures));
+      expect(played).toContain("gerald");
+      expect(played).not.toContain("brenda");
+    });
+  });
+});
+
+describe("the label names the time of day (ac-9)", () => {
+  const birds = [gerald, bird("Brenda", { look: "brenda" })];
+
+  it("says the birds are asleep at night", () => {
+    expect(sceneLabel(render({ birds, perches: 3, time: "night" }))).toBe(
+      "Night on your rooftop loft. Gerald and Brenda are asleep. One room is free.",
+    );
+  });
+
+  it("says they sit at home by day", () => {
+    expect(sceneLabel(render({ birds, perches: 3, time: "day" }))).toBe(
+      "Day on your rooftop loft. Gerald and Brenda sit at home. One room is free.",
+    );
+  });
+});
+
+describe("a sleep on the same mount resumes the idle cadence (ac-5)", () => {
+  type SceneProps = Parameters<typeof LoftScene>[0];
+  const frames: string[] = [];
+  const shown = () => frames.at(-1);
+  afterEach(() => vi.restoreAllMocks());
+
+  function MountedScene(props: SceneProps) {
+    const rooms = sceneRooms(props.birds, props.perches, props.egg, props.time);
+    const motion = useLoftMotion(awakeIds(rooms));
+    frames.push(
+      renderToStaticMarkup(
+        <LoftSceneView {...props} rooms={rooms} motion={motion} />,
+      ),
+    );
+    return null;
+  }
+
+  const show = (time: LoftTime, birds: Bird[] = [gerald]) =>
+    act(async () =>
+      root!.render(
+        <MountedScene
+          birds={birds}
+          perches={3}
+          egg={null}
+          items={[]}
+          time={time}
+        />,
+      ),
+    );
+  const advance = (ms: number) =>
+    act(async () => {
+      await vi.advanceTimersByTimeAsync(ms);
+    });
+
+  beforeEach(() => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    root = createRoot(
+      Object.assign(new EventTarget(), {
+        nodeType: 1,
+        tagName: "DIV",
+        ownerDocument: new EventTarget(),
+      }) as unknown as Element,
+    );
+  });
+
+  it("drops the gesture in flight at dusk and waits a full rest after sunrise", async () => {
+    await show("sunset");
+    await act(async () => {
+      await vi.advanceTimersToNextTimerAsync();
+    });
+    expect(shown()).toContain('data-idle="hop"');
+    await show("dusk");
+    await show("night");
+    await advance(8 * 60 * 60 * 1000);
+    await show("sunrise");
+    expect(shown()).not.toContain("data-idle");
+    await advance(REST_MS.min - 1);
+    expect(shown()).not.toContain("data-idle");
+  });
+
+  it("lets a bird that stays awake finish its hop when another bird comes home", async () => {
+    await show("day", [gerald, flying]);
+    await act(async () => {
+      await vi.advanceTimersToNextTimerAsync();
+    });
+    const geraldHops = /data-room="0"[^>]*><g data-idle="hop"/;
+    expect(shown()).toMatch(geraldHops);
+    await advance(150);
+    await show("day", [gerald, kevin]);
+    expect(shown()).toMatch(geraldHops);
+    await advance(GESTURES.hop.ms - 150 - 1);
+    expect(shown()).toMatch(geraldHops);
+    expect(shown()?.match(/data-idle=/g)).toHaveLength(1);
+    await advance(1);
+    expect(shown()).not.toContain("data-idle");
   });
 });

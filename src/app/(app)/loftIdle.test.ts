@@ -33,15 +33,15 @@ type Event_ = { at: number; id: string; gesture: Gesture | null };
 function run(ids: string[], doc = fakeDoc(), random = seeded()) {
   const log: Event_[] = [];
   const pauses: boolean[] = [];
-  const stop = startLoftIdle({
-    birdIds: ids,
+  const idle = startLoftIdle({
     reducedMotion: false,
     doc,
     random,
     onGesture: (id, gesture) => log.push({ at: Date.now(), id, gesture }),
     onPause: (p) => pauses.push(p),
   });
-  return { log, pauses, stop, doc };
+  idle.setBirds(ids);
+  return { log, pauses, stop: idle.stop, setBirds: idle.setBirds, doc };
 }
 
 beforeEach(() => {
@@ -146,9 +146,8 @@ describe("loft idles (ac-7)", () => {
     const doc = fakeDoc();
     const log: Event_[] = [];
     let paused = false;
-    const session = (reducedMotion: boolean) =>
-      startLoftIdle({
-        birdIds: ["gerald"],
+    const session = (reducedMotion: boolean) => {
+      const idle = startLoftIdle({
         reducedMotion,
         doc,
         random: seeded(),
@@ -157,6 +156,9 @@ describe("loft idles (ac-7)", () => {
           paused = p;
         },
       });
+      idle.setBirds(["gerald"]);
+      return idle.stop;
+    };
 
     let stop = session(false);
     setHidden(doc, true);
@@ -172,6 +174,59 @@ describe("loft idles (ac-7)", () => {
     expect(vi.getTimerCount()).toBeGreaterThan(0);
     vi.advanceTimersByTime(REST_MS.max + REST_MS.min);
     expect(log.some((e) => e.gesture !== null)).toBe(true);
+    stop();
+  });
+
+  it("clears a gesture in progress when stopped, and only that one", () => {
+    const { log, stop } = run(["gerald", "brenda"]);
+    vi.advanceTimersToNextTimer();
+    const [playing] = log;
+    expect(playing.gesture).not.toBeNull();
+    stop();
+    expect(log.slice(1)).toEqual([
+      { at: Date.now(), id: playing.id, gesture: null },
+    ]);
+  });
+
+  it("lets a bird that stays awake finish its gesture when the roster changes", () => {
+    const { log, setBirds, stop } = run(["gerald"]);
+    vi.advanceTimersToNextTimer();
+    const [start] = log;
+    expect(start).toMatchObject({ id: "gerald" });
+    expect(start.gesture).not.toBeNull();
+    vi.advanceTimersByTime(150);
+    setBirds(["gerald", "kevin"]);
+    expect(log).toEqual([start]);
+    vi.advanceTimersByTime(GESTURES[start.gesture!].ms - 150);
+    expect(log[1]).toEqual({
+      at: start.at + GESTURES[start.gesture!].ms,
+      id: "gerald",
+      gesture: null,
+    });
+    stop();
+  });
+
+  it("clears the gesture of a bird that leaves the roster and starts one that joins after a rest", () => {
+    const { log, setBirds, stop } = run(["gerald"]);
+    vi.advanceTimersToNextTimer();
+    const joined = Date.now();
+    setBirds(["kevin"]);
+    expect(log.at(-1)).toEqual({ at: joined, id: "gerald", gesture: null });
+    vi.advanceTimersByTime(REST_MS.min - 1);
+    expect(log.filter((e) => e.id === "kevin")).toEqual([]);
+    vi.advanceTimersByTime(REST_MS.max * 2);
+    expect(log.some((e) => e.id === "kevin" && e.gesture)).toBe(true);
+    expect(log.filter((e) => e.id === "gerald")).toHaveLength(2);
+    stop();
+  });
+
+  it("schedules no bird that joins while the tab is hidden until it shows", () => {
+    const { doc, setBirds, stop } = run([]);
+    setHidden(doc, true);
+    setBirds(["gerald"]);
+    expect(vi.getTimerCount()).toBe(0);
+    setHidden(doc, false);
+    expect(vi.getTimerCount()).toBe(1);
     stop();
   });
 
@@ -191,13 +246,13 @@ describe("loft idles under reduced motion (ac-6)", () => {
     const listen = vi.spyOn(doc, "addEventListener");
     const onGesture = vi.fn();
     const onPause = vi.fn();
-    const stop = startLoftIdle({
-      birdIds: ["gerald", "brenda"],
+    const { setBirds, stop } = startLoftIdle({
       reducedMotion: true,
       doc,
       onGesture,
       onPause,
     });
+    setBirds(["gerald", "brenda"]);
     vi.advanceTimersByTime(60_000);
     expect(vi.getTimerCount()).toBe(0);
     expect(listen).not.toHaveBeenCalled();

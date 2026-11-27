@@ -112,6 +112,7 @@ export function MainTop({ data, nowMs }: { data: SyncPayload; nowMs: number }) {
           perches={data.me.perches}
           egg={data.egg}
           items={loftItems(data.me)}
+          time="day"
         />
       </div>
     </section>
