@@ -1,8 +1,18 @@
 import { readFileSync } from "node:fs";
+import {
+  act,
+  Children,
+  isValidElement,
+  type ReactElement,
+  type ReactNode,
+} from "react";
+import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SyncPayload } from "@/components/sync";
 import { config } from "@/lib/config";
+import { EspressoSheet } from "./EspressoSheet";
+import { LoftScene } from "./LoftScene";
 import { MainTop } from "./MainTop";
 
 type Bird = SyncPayload["birds"][number];
@@ -25,13 +35,20 @@ type Extra = {
   hasBirdbath?: boolean;
   loftItems?: string[];
   egg?: SyncPayload["egg"];
+  espressoShots?: number;
 };
 
 const data = (
   birds: Bird[],
   seeds = 240,
   unread = 0,
-  { perches = 4, hasBirdbath = false, loftItems = [], egg = null }: Extra = {},
+  {
+    perches = 4,
+    hasBirdbath = false,
+    loftItems = [],
+    egg = null,
+    espressoShots = 0,
+  }: Extra = {},
 ) =>
   ({
     me: {
@@ -41,6 +58,7 @@ const data = (
       perches,
       hasBirdbath,
       loftItems,
+      espressoShots,
     },
     birds,
     unread,
@@ -275,5 +293,75 @@ describe("the hero layout (#972 ac-2)", () => {
   it("keeps the greeting to the left two thirds", () => {
     expect(rule("\\.greeting")).toMatch(/box-sizing: border-box/);
     expect(rule("\\.greeting")).toMatch(/max-width: calc\(200% \/ 3\)/);
+  });
+});
+
+describe("the espresso cart opens the espresso sheet (#1046 ac-2)", () => {
+  const home = [bird("Gerald")];
+  const CART = 'aria-label="Espresso cart. See espresso shots"';
+  let root: Root | null = null;
+
+  afterEach(async () => {
+    if (root) await act(async () => root!.unmount());
+    root = null;
+    vi.unstubAllGlobals();
+  });
+
+  type Props = { onCart?: () => void; onClose?: () => void; held?: number };
+  const find = (node: ReactNode, type: unknown) => {
+    const walk = (n: ReactNode): ReactElement<Props> | undefined => {
+      if (!isValidElement<Props & { children?: ReactNode }>(n)) return;
+      if (n.type === type) return n;
+      for (const child of Children.toArray(n.props.children)) {
+        const hit = walk(child);
+        if (hit) return hit;
+      }
+    };
+    return walk(node);
+  };
+
+  const mount = async (extra: Extra) => {
+    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    vi.stubGlobal("document", new EventTarget());
+    vi.stubGlobal(
+      "window",
+      Object.assign(new EventTarget(), { HTMLIFrameElement: class {} }),
+    );
+    let out: ReactNode = null;
+    function Probe() {
+      out = MainTop({ data: data(home, 240, 0, extra), nowMs: morning });
+      return null;
+    }
+    root = createRoot(
+      Object.assign(new EventTarget(), {
+        nodeType: 1,
+        tagName: "DIV",
+        ownerDocument: new EventTarget(),
+      }) as unknown as Element,
+    );
+    await act(async () => root!.render(<Probe />));
+    return () => out;
+  };
+
+  it("opens a dialog with the shots held when the owned cart is tapped, and Close removes it", async () => {
+    const top = await mount({ loftItems: ["espresso-cart"], espressoShots: 2 });
+    expect(find(top(), EspressoSheet)).toBeUndefined();
+
+    const onCart = find(top(), LoftScene)?.props.onCart;
+    await act(async () => onCart?.());
+    const sheet = find(top(), EspressoSheet);
+    expect(sheet?.props.held).toBe(2);
+    const html = renderToStaticMarkup(top());
+    expect(html).toMatch(/role="dialog"/);
+    expect(html).toContain(">You hold 2 shots<");
+
+    await act(async () => sheet?.props.onClose?.());
+    expect(find(top(), EspressoSheet)).toBeUndefined();
+    expect(renderToStaticMarkup(top())).not.toMatch(/role="dialog"/);
+  });
+
+  it("draws the cart button only when the cart is owned", () => {
+    expect(renderWith(home, { loftItems: ["espresso-cart"] })).toContain(CART);
+    expect(renderWith(home, {})).not.toContain(CART);
   });
 });

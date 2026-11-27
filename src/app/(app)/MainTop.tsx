@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { useState } from "react";
 import type { SyncPayload } from "@/components/sync";
 import { greeting } from "@/lib/format";
+import { EspressoSheet } from "./EspressoSheet";
 import type { LoftItem } from "./loftArt";
 import { LoftScene } from "./LoftScene";
 import styles from "./MainTop.module.css";
@@ -67,6 +69,7 @@ function BellIcon() {
 export function MainTop({ data, nowMs }: { data: SyncPayload; nowMs: number }) {
   const { seeds, timezone } = data.me;
   const { unread } = data;
+  const [espressoOpen, setEspressoOpen] = useState(false);
   return (
     <section className={styles.top}>
       <header className={styles.header}>
@@ -112,8 +115,15 @@ export function MainTop({ data, nowMs }: { data: SyncPayload; nowMs: number }) {
           perches={data.me.perches}
           egg={data.egg}
           items={loftItems(data.me)}
+          onCart={() => setEspressoOpen(true)}
         />
       </div>
+      {espressoOpen && (
+        <EspressoSheet
+          held={data.me.espressoShots}
+          onClose={() => setEspressoOpen(false)}
+        />
+      )}
     </section>
   );
 }
