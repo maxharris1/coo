@@ -1,4 +1,4 @@
-import { useCallback, useId, useRef, type KeyboardEvent } from "react";
+import { useCallback, useId, useLayoutEffect, useRef } from "react";
 import { config } from "@/lib/config";
 import styles from "./EspressoSheet.module.css";
 
@@ -16,43 +16,46 @@ export function EspressoSheet({
   onClose: () => void;
 }) {
   const titleId = useId();
-  const dialog = useRef<HTMLDivElement | null>(null);
-  const opener = useRef<HTMLElement | null>(null);
-  const mountDialog = useCallback((el: HTMLDivElement | null) => {
-    dialog.current = el;
-    if (el) {
-      opener.current = document.activeElement as HTMLElement | null;
-      el.focus();
-    } else {
-      opener.current?.focus();
-    }
+  const close = useRef(onClose);
+  useLayoutEffect(() => {
+    close.current = onClose;
+  });
+  const mountDialog = useCallback((el: HTMLDivElement) => {
+    const opener = document.activeElement as HTMLElement | null;
+    el.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        close.current();
+      } else if (e.key === "Tab") {
+        e.preventDefault();
+        const items = [...el.querySelectorAll<HTMLElement>(FOCUSABLE)];
+        const at = items.indexOf(e.target as HTMLElement);
+        items
+          .at(e.shiftKey ? Math.max(at, 0) - 1 : (at + 1) % items.length)
+          ?.focus();
+      }
+    };
+    const onFocusIn = (e: FocusEvent) => {
+      if (!el.contains(e.target as Node)) el.focus();
+    };
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("focusin", onFocusIn);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("focusin", onFocusIn);
+      opener?.focus();
+    };
   }, []);
 
-  const onKey = (e: KeyboardEvent<HTMLElement>) => {
-    if (e.key === "Escape") {
-      e.preventDefault();
-      onClose();
-    } else if (e.key === "Tab") {
-      e.preventDefault();
-      const items = [
-        ...(dialog.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []),
-      ];
-      const at = items.indexOf(e.target as HTMLElement);
-      items
-        .at(e.shiftKey ? Math.max(at, 0) - 1 : (at + 1) % items.length)
-        ?.focus();
-    }
-  };
-
   return (
-    <div className={styles.layer} onKeyDown={onKey}>
+    <div className={styles.layer}>
       <button
         type="button"
         aria-label="Close"
         tabIndex={-1}
         className={styles.scrim}
         onClick={onClose}
-        onFocus={() => dialog.current?.focus()}
       />
       <div
         ref={mountDialog}

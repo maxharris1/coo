@@ -12,19 +12,11 @@ import { EspressoSheet } from "./EspressoSheet";
 
 const shot = config.game.consumables.find((c) => c.id === "espresso")!;
 
-type Key = {
-  key: string;
-  shiftKey?: boolean;
-  target?: unknown;
-  preventDefault: () => void;
-};
 type El = ReactElement<{
   children?: ReactNode;
   role?: string;
   "aria-label"?: string;
   onClick?: () => void;
-  onFocus?: () => void;
-  onKeyDown?: (e: Key) => void;
   ref?: (el: unknown) => void;
 }>;
 
@@ -53,21 +45,36 @@ const tree = (onClose = vi.fn()) => {
   return { node: out as ReactNode, onClose };
 };
 
-const press = (
-  node: ReactNode,
-  key: string,
-  target?: unknown,
-  shift = false,
-) => {
-  const preventDefault = vi.fn();
-  find(node, (el) => el.props.onKeyDown !== undefined)?.props.onKeyDown?.({
-    key,
-    shiftKey: shift,
-    target,
-    preventDefault,
-  });
-  return preventDefault;
+const mounted = (onClose = vi.fn()) => {
+  const opener = { focus: vi.fn() };
+  vi.stubGlobal(
+    "document",
+    Object.assign(new EventTarget(), { activeElement: opener }),
+  );
+  const { node } = tree(onClose);
+  const items = [{ focus: vi.fn() }, { focus: vi.fn() }];
+  const dialog = {
+    focus: vi.fn(),
+    querySelectorAll: () => items,
+    contains: (n: unknown) => n === dialog || items.includes(n as never),
+  };
+  const ref = find(node, (el) => el.props.role === "dialog")?.props.ref;
+  const cleanup = ref?.(dialog) as (() => void) | undefined;
+  return { node, onClose, opener, dialog, items, cleanup };
 };
+
+const fire = (type: string, target: unknown, key = "", shiftKey = false) => {
+  const e = new Event(type, { cancelable: true });
+  Object.defineProperties(e, {
+    target: { value: target },
+    key: { value: key },
+    shiftKey: { value: shiftKey },
+  });
+  document.dispatchEvent(e);
+  return e;
+};
+
+const outside = {};
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -136,53 +143,59 @@ describe("closing the espresso sheet (#1046 ac-3)", () => {
     expect(html(2)).toMatch(/<button[^>]*aria-label="Close"[^>]*tabindex="-1"/);
   });
 
-  it("closes on Escape and ignores other keys", () => {
-    const { node, onClose } = tree();
-    press(node, "a");
+  it("closes on Escape wherever focus is, and ignores other keys", () => {
+    const { onClose, items } = mounted();
+    fire("keydown", outside, "a");
     expect(onClose).not.toHaveBeenCalled();
-    press(node, "Escape");
+    expect(fire("keydown", outside, "Escape").defaultPrevented).toBe(true);
     expect(onClose).toHaveBeenCalledOnce();
+    fire("keydown", items[0], "Escape");
+    expect(onClose).toHaveBeenCalledTimes(2);
   });
 });
 
 describe("focus in the espresso sheet (#1046 ac-3)", () => {
-  const mounted = () => {
-    const opener = { focus: vi.fn() };
-    vi.stubGlobal("document", { activeElement: opener });
-    const { node } = tree();
-    const items = [{ focus: vi.fn() }, { focus: vi.fn() }];
-    const dialog = { focus: vi.fn(), querySelectorAll: () => items };
-    const ref = find(node, (el) => el.props.role === "dialog")?.props.ref;
-    ref?.(dialog);
-    return { node, opener, dialog, items, unmount: () => ref?.(null) };
-  };
-
   it("moves focus into the sheet on open", () => {
     expect(mounted().dialog.focus).toHaveBeenCalledOnce();
   });
 
   it("wraps Tab from the last control to the first", () => {
-    const { node, items } = mounted();
-    expect(press(node, "Tab", items[1])).toHaveBeenCalled();
+    const { items } = mounted();
+    expect(fire("keydown", items[1], "Tab").defaultPrevented).toBe(true);
     expect(items[0].focus).toHaveBeenCalledOnce();
   });
 
   it("wraps Shift+Tab from the first control to the last", () => {
-    const { node, items } = mounted();
-    expect(press(node, "Tab", items[0], true)).toHaveBeenCalled();
+    const { items } = mounted();
+    expect(fire("keydown", items[0], "Tab", true).defaultPrevented).toBe(true);
     expect(items[1].focus).toHaveBeenCalledOnce();
   });
 
-  it("pulls focus back into the sheet when the backdrop takes it", () => {
-    const { node, dialog } = mounted();
+  it("sends Tab from outside the sheet to its first control, Shift+Tab to its last", () => {
+    const { items } = mounted();
+    expect(fire("keydown", outside, "Tab").defaultPrevented).toBe(true);
+    expect(items[0].focus).toHaveBeenCalledOnce();
+    fire("keydown", outside, "Tab", true);
+    expect(items[1].focus).toHaveBeenCalledOnce();
+  });
+
+  it("pulls focus back when something outside the sheet takes it", () => {
+    const { dialog, items } = mounted();
     dialog.focus.mockClear();
-    find(node, (el) => el.props["aria-label"] === "Close")?.props.onFocus?.();
+    fire("focusin", items[0]);
+    expect(dialog.focus).not.toHaveBeenCalled();
+    fire("focusin", outside);
     expect(dialog.focus).toHaveBeenCalledOnce();
   });
 
-  it("returns focus to what opened it on close", () => {
-    const { opener, unmount } = mounted();
-    unmount();
+  it("returns focus to what opened it on close, and lets go of the page", () => {
+    const { opener, dialog, onClose, cleanup } = mounted();
+    cleanup?.();
     expect(opener.focus).toHaveBeenCalledOnce();
+    dialog.focus.mockClear();
+    fire("keydown", outside, "Escape");
+    fire("focusin", outside);
+    expect(onClose).not.toHaveBeenCalled();
+    expect(dialog.focus).not.toHaveBeenCalled();
   });
 });
