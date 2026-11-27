@@ -665,3 +665,61 @@ describe("the label names the time of day (ac-9)", () => {
     );
   });
 });
+
+describe("a sleep on the same mount resumes the idle cadence (ac-5)", () => {
+  type SceneProps = Parameters<typeof LoftScene>[0];
+  const frames: string[] = [];
+  const shown = () => frames.at(-1);
+  afterEach(() => vi.restoreAllMocks());
+
+  function MountedScene(props: SceneProps) {
+    const rooms = sceneRooms(props.birds, props.perches, props.egg, props.time);
+    const motion = useLoftMotion(awakeIds(rooms));
+    frames.push(
+      renderToStaticMarkup(
+        <LoftSceneView {...props} rooms={rooms} motion={motion} />,
+      ),
+    );
+    return null;
+  }
+
+  const show = (time: LoftTime) =>
+    act(async () =>
+      root!.render(
+        <MountedScene
+          birds={[gerald]}
+          perches={3}
+          egg={null}
+          items={[]}
+          time={time}
+        />,
+      ),
+    );
+  const advance = (ms: number) =>
+    act(async () => {
+      await vi.advanceTimersByTimeAsync(ms);
+    });
+
+  it("drops the gesture in flight at dusk and waits a full rest after sunrise", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    root = createRoot(
+      Object.assign(new EventTarget(), {
+        nodeType: 1,
+        tagName: "DIV",
+        ownerDocument: new EventTarget(),
+      }) as unknown as Element,
+    );
+    await show("sunset");
+    await act(async () => {
+      await vi.advanceTimersToNextTimerAsync();
+    });
+    expect(shown()).toContain('data-idle="hop"');
+    await show("dusk");
+    await show("night");
+    await advance(8 * 60 * 60 * 1000);
+    await show("sunrise");
+    expect(shown()).not.toContain("data-idle");
+    await advance(REST_MS.min - 1);
+    expect(shown()).not.toContain("data-idle");
+  });
+});

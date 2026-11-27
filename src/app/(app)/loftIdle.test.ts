@@ -175,6 +175,17 @@ describe("loft idles (ac-7)", () => {
     stop();
   });
 
+  it("clears a gesture in progress when stopped, and only that one", () => {
+    const { log, stop } = run(["gerald", "brenda"]);
+    vi.advanceTimersToNextTimer();
+    const [playing] = log;
+    expect(playing.gesture).not.toBeNull();
+    stop();
+    expect(log.slice(1)).toEqual([
+      { at: Date.now(), id: playing.id, gesture: null },
+    ]);
+  });
+
   it("stops every timer and listener when stopped", () => {
     const { log, doc, stop } = run(["gerald", "brenda"]);
     stop();

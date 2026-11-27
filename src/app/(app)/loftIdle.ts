@@ -89,14 +89,17 @@ export function startLoftIdle({
 }: LoftIdleOptions): () => void {
   if (reducedMotion) return () => {};
   const timers = new Map<string, ReturnType<typeof setTimeout>>();
+  const playing = new Set<string>();
   const rest = () => REST_MS.min + random() * (REST_MS.max - REST_MS.min);
   const later = (id: string, ms: number, run: () => void) =>
     timers.set(id, setTimeout(run, ms));
 
   const play = (id: string) => {
     const gesture = GESTURE_NAMES[Math.floor(random() * GESTURE_NAMES.length)];
+    playing.add(id);
     onGesture(id, gesture);
     later(id, GESTURES[gesture].ms, () => {
+      playing.delete(id);
       onGesture(id, null);
       later(id, rest(), () => play(id));
     });
@@ -105,6 +108,8 @@ export function startLoftIdle({
   const halt = () => {
     for (const t of timers.values()) clearTimeout(t);
     timers.clear();
+    for (const id of playing) onGesture(id, null);
+    playing.clear();
   };
 
   const resume = () => {
@@ -117,7 +122,6 @@ export function startLoftIdle({
   const onVisibility = () => {
     if (doc.hidden) {
       halt();
-      for (const id of birdIds) onGesture(id, null);
       onPause(true);
     } else {
       onPause(false);
