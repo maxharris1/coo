@@ -80,7 +80,7 @@ Free rooms are filled in this order: roommate, egg, then empty. This is the exis
 | Weathervane | Roof peak. Moves up with the roof | `weathervane` in `me.loftItems` |
 | String lights, stovepipe, sign | Always there | free |
 
-The drawing code takes a list of add-ons so the three unsold ones are ready when the store sells them.
+The drawing code takes a list of add-ons. `MainTop` builds it from `me.hasBirdbath` and `me.loftItems`.
 
 ## 4. The city behind
 
