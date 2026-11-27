@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { SyncPayload } from "@/components/sync";
+import { config } from "@/lib/config";
 import {
   describeLoft,
   feedThenRefresh,
@@ -11,6 +12,7 @@ import {
   type FlightLite,
   type Room,
 } from "./flockRows";
+import type { LoftTime } from "./loftTime";
 
 type Bird = SyncPayload["birds"][number];
 
@@ -428,44 +430,60 @@ describe("describeLoft", () => {
 
   it("says who is home, asleep and out, and what is free or to let", () => {
     expect(
-      describeLoft([
-        home("Gerald"),
-        asleep("Kevin"),
-        away("Brenda"),
-        { kind: "empty" },
-        { kind: "tolet" },
-      ]),
+      describeLoft(
+        [
+          home("Gerald"),
+          asleep("Kevin"),
+          away("Brenda"),
+          { kind: "empty" },
+          { kind: "tolet" },
+        ],
+        "day",
+      ),
     ).toBe(
-      "Your rooftop loft. Gerald sits at home. Kevin is asleep. Brenda is out. One room is free. One room is to let.",
+      "Day on your rooftop loft. Gerald sits at home. Kevin is asleep. Brenda is out. One room is free. One room is to let.",
     );
   });
 
   it("names several birds in one sentence and counts free rooms", () => {
     expect(
-      describeLoft([
-        home("Gerald"),
-        home("Pip"),
-        home("Dot"),
-        asleep("Kevin"),
-        asleep("Moss"),
-        away("Brenda"),
-        away("Fig"),
-        { kind: "empty" },
-        { kind: "empty" },
-      ]),
+      describeLoft(
+        [
+          home("Gerald"),
+          home("Pip"),
+          home("Dot"),
+          asleep("Kevin"),
+          asleep("Moss"),
+          away("Brenda"),
+          away("Fig"),
+          { kind: "empty" },
+          { kind: "empty" },
+        ],
+        "day",
+      ),
     ).toBe(
-      "Your rooftop loft. Gerald, Pip and Dot sit at home. Kevin and Moss are asleep. Brenda and Fig are out. Two rooms are free.",
+      "Day on your rooftop loft. Gerald, Pip and Dot sit at home. Kevin and Moss are asleep. Brenda and Fig are out. Two rooms are free.",
     );
   });
 
   it("leaves out sentences with nobody in them", () => {
-    expect(describeLoft([{ kind: "empty" }])).toBe(
-      "Your rooftop loft. One room is free.",
+    expect(describeLoft([{ kind: "empty" }], "day")).toBe(
+      "Day on your rooftop loft. One room is free.",
     );
-    expect(describeLoft([away("Brenda"), { kind: "roommate" }])).toBe(
-      "Your rooftop loft. Brenda is out.",
+    expect(describeLoft([away("Brenda"), { kind: "roommate" }], "day")).toBe(
+      "Day on your rooftop loft. Brenda is out.",
     );
   });
+
+  it.each(config.loft.times.order as LoftTime[])(
+    "opens with the time of day at %s",
+    (time) => {
+      const opening = `${time[0].toUpperCase()}${time.slice(1)} on your rooftop loft.`;
+      expect(describeLoft([home("Gerald")], time)).toBe(
+        `${opening} Gerald sits at home.`,
+      );
+    },
+  );
 });
 
 describe("incomingCards (ac-3)", () => {

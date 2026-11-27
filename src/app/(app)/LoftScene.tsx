@@ -9,6 +9,7 @@ import { describeLoft, loftRooms, ROOM_LINK, type Room } from "./flockRows";
 import { LoftArt, type LoftItem, type LoftRoom } from "./loftArt";
 import { gestureAnimation, startLoftIdle, type Gesture } from "./loftIdle";
 import { birdBox, loftLayout, type Box } from "./loftLayout";
+import type { LoftTime } from "./loftTime";
 import styles from "./LoftScene.module.css";
 
 type FlockBird = SyncPayload["birds"][number];
@@ -66,6 +67,19 @@ export const awakeIds = (rooms: readonly Room[]): string[] =>
     room.kind === "home" && !room.asleep ? [room.bird.id] : [],
   );
 
+export const sceneRooms = (
+  birds: readonly FlockBird[],
+  perches: number,
+  egg: { status: string } | null,
+  time: LoftTime,
+): Room[] => {
+  const rooms = loftRooms(birds, perches, egg);
+  if (!config.loft.times[time].birdsAsleep) return rooms;
+  return rooms.map((room) =>
+    room.kind === "home" ? { ...room, asleep: true } : room,
+  );
+};
+
 export function useLoftMotion(awake: readonly string[]): LoftMotion {
   const reduced = useSyncExternalStore(
     subscribeReducedMotion,
@@ -107,12 +121,14 @@ function HomeBird({
   box,
   room,
   motion,
+  filter,
 }: {
   bird: FlockBird;
   asleep: boolean;
   box: Box;
   room: number;
   motion: LoftMotion;
+  filter: string;
 }) {
   const gesture =
     motion.reduced || asleep ? undefined : motion.gestures[bird.id];
@@ -120,6 +136,7 @@ function HomeBird({
     <g
       data-room={room}
       transform={`translate(${box.x} ${box.y}) scale(${box.w / BIRD_SIZE})`}
+      style={filter === "none" ? undefined : { filter }}
     >
       <g
         data-idle={gesture}
@@ -175,13 +192,16 @@ export function LoftSceneView({
   perches,
   items,
   motion,
+  time,
 }: {
   rooms: readonly Room[];
   perches: number;
   items: readonly LoftItem[];
   motion: LoftMotion;
+  time: LoftTime;
 }) {
   const layout = loftLayout(perches);
+  const { birdFilter } = config.loft.times[time];
 
   return (
     <div className={styles.loft} data-paused={motion.paused ? "" : undefined}>
@@ -189,8 +209,8 @@ export function LoftSceneView({
         perches={perches}
         rooms={rooms.map((room) => ROOM_ART[room.kind](room as never))}
         items={items}
-        time="day"
-        label={describeLoft(rooms)}
+        time={time}
+        label={describeLoft(rooms, time)}
       />
       <svg
         className={styles.birds}
@@ -208,6 +228,7 @@ export function LoftSceneView({
                 box={birdBox(layout.rooms[i])}
                 room={i}
                 motion={motion}
+                filter={birdFilter}
               />
             ),
         )}
@@ -241,13 +262,15 @@ export function LoftScene({
   perches,
   egg,
   items,
+  time,
 }: {
   birds: readonly FlockBird[];
   perches: number;
   egg: { status: string } | null;
   items: readonly LoftItem[];
+  time: LoftTime;
 }) {
-  const rooms = loftRooms(birds, perches, egg);
+  const rooms = sceneRooms(birds, perches, egg, time);
   const motion = useLoftMotion(awakeIds(rooms));
   return (
     <LoftSceneView
@@ -255,6 +278,7 @@ export function LoftScene({
       perches={perches}
       items={items}
       motion={motion}
+      time={time}
     />
   );
 }
