@@ -3,7 +3,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
-import { BirdPicker, rowLabel, type PickableBird } from "./BirdPicker";
+import { BirdPicker, rowLabels, type PickableBird } from "./BirdPicker";
 
 const BIRDS: PickableBird[] = [
   { id: "b-pip-1", name: "Pip", look: "gerald", gear: [] },
@@ -243,13 +243,13 @@ describe("BirdPicker lists the home birds (ac-1)", () => {
     }
   });
 
-  it("labels two Pips that differ only by gear, with different avatars", () => {
+  it("numbers two Pips that differ only by gear, with different avatars", () => {
     const [plain, booted] = rowsIn(
       markupOf([pip("a"), pip("b", { gear: ["booties"] })]),
     );
-    expect(labelOf(plain)).toBe("Pip, looks like Gerald");
+    expect(labelOf(plain)).toBe("Pip, looks like Gerald, 1 of 2");
     expect(labelOf(booted)).toBe(
-      "Pip, looks like Gerald, wearing Rain booties",
+      "Pip, looks like Gerald, wearing Rain booties, 2 of 2",
     );
     expect(svgOf(plain)).not.toBe(svgOf(booted));
   });
@@ -264,8 +264,24 @@ describe("BirdPicker lists the home birds (ac-1)", () => {
     const [upper, lower] = rowsIn(
       markupOf([pip("a"), pip("b", { name: "pip", look: "brenda" })]),
     );
-    expect(labelOf(upper)).toBe("Pip, looks like Gerald");
-    expect(labelOf(lower)).toBe("pip, looks like Brenda");
+    expect(labelOf(upper)).toBe("Pip, looks like Gerald, 1 of 2");
+    expect(labelOf(lower)).toBe("pip, looks like Brenda, 2 of 2");
+  });
+
+  it("never gives two rows the same accessible name, even when a name reads like a label", () => {
+    const flock = [
+      pip("a"),
+      pip("b", { name: "pip", look: "kevin" }),
+      pip("c", { name: "Pip, looks like Gerald", look: "brenda" }),
+    ];
+    const spoken = rowsIn(markupOf(flock)).map(
+      (row, i) => labelOf(row) ?? flock[i].name,
+    );
+    expect(spoken).toEqual([
+      "Pip, looks like Gerald, 1 of 2",
+      "pip, looks like Kevin, 2 of 2",
+      "Pip, looks like Gerald",
+    ]);
   });
 
   it("taps a row to choose that bird without closing", async () => {
@@ -278,35 +294,67 @@ describe("BirdPicker lists the home birds (ac-1)", () => {
   });
 });
 
-describe("rowLabel (ac-1)", () => {
-  it("leaves a uniquely named bird to its visible name", () => {
-    expect(rowLabel(BIRDS[1], BIRDS)).toBeUndefined();
-    expect(rowLabel(BIRDS[0], [BIRDS[0], BIRDS[1]])).toBeUndefined();
-  });
-
-  it("names the look of a bird that shares its name", () => {
-    expect(rowLabel(BIRDS[0], BIRDS)).toBe("Pip, looks like Gerald");
-  });
-
-  it("adds the gear a bird that shares its name is wearing", () => {
-    expect(rowLabel(BIRDS[2], BIRDS)).toBe(
-      "Pip, looks like Brenda, wearing Wool beanie and Aviator goggles",
+describe("rowLabels (ac-1)", () => {
+  const spokenNames = (birds: PickableBird[]) =>
+    rowLabels(birds).map((label, i) =>
+      (label ?? birds[i].name).toLowerCase().trim(),
     );
+
+  it("leaves uniquely named birds to their visible names", () => {
+    expect(rowLabels([BIRDS[0], BIRDS[1]])).toEqual([undefined, undefined]);
   });
 
-  it("numbers only the birds that look exactly alike, whatever their gear order", () => {
-    const twins = [
-      pip("a", { gear: ["beanie", "goggles"] }),
-      pip("b", { look: "brenda" }),
-      pip("c", { gear: ["goggles", "beanie"] }),
-      pip("d", { name: " pip" }),
-    ];
-    expect(twins.map((b) => rowLabel(b, twins))).toEqual([
-      "Pip, looks like Gerald, wearing Wool beanie and Aviator goggles, 1 of 2",
-      "Pip, looks like Brenda",
-      "Pip, looks like Gerald, wearing Aviator goggles and Wool beanie, 2 of 2",
-      " pip, looks like Gerald",
+  it("numbers every bird in a name clash, with its look and worn gear", () => {
+    expect(rowLabels(BIRDS)).toEqual([
+      "Pip, looks like Gerald, 1 of 2",
+      undefined,
+      "Pip, looks like Brenda, wearing Wool beanie and Aviator goggles, 2 of 2",
     ]);
+  });
+
+  it("numbers names that clash after trimming and case folding", () => {
+    expect(
+      rowLabels([
+        pip("a"),
+        pip("b", { name: " pip" }),
+        pip("c", { name: "PIP " }),
+      ]),
+    ).toEqual([
+      "Pip, looks like Gerald, 1 of 3",
+      " pip, looks like Gerald, 2 of 3",
+      "PIP , looks like Gerald, 3 of 3",
+    ]);
+  });
+
+  it.each([
+    [
+      "a raw name equal to a described label",
+      [
+        pip("a"),
+        pip("b", { name: "pip", look: "kevin" }),
+        pip("c", { name: "Pip, looks like Gerald", look: "brenda" }),
+      ],
+    ],
+    [
+      "a raw name equal to a numbered label",
+      [
+        pip("a"),
+        pip("b"),
+        pip("c", { name: "Pip, looks like Gerald, 1 of 2", look: "brenda" }),
+      ],
+    ],
+    [
+      "a raw name equal to a numbered label of another case",
+      [
+        pip("a"),
+        pip("b"),
+        pip("c", { name: "pip, LOOKS LIKE GERALD, 2 OF 2" }),
+        pip("d", { name: "pip, looks like gerald, 2 of 2" }),
+      ],
+    ],
+  ])("gives every row a distinct accessible name with %s", (_, birds) => {
+    const spoken = spokenNames(birds);
+    expect(new Set(spoken).size).toBe(birds.length);
   });
 });
 
