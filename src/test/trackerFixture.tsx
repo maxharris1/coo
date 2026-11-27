@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
-import type { ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { Page } from "@playwright/test";
-import { BANNER_HEIGHT_VAR } from "@/app/OfflineBanner";
+import { BANNER_HEIGHT_VAR, OfflineLine } from "@/app/OfflineBanner";
 import { CSS_MODULES, prefixOf, readRepoFile, scopeCss } from "./cssModules";
 
 const ROOT = new URL("../../", import.meta.url);
@@ -25,6 +25,10 @@ function withInsets(css: string, { top, bottom }: Insets) {
     .replace(/env\(safe-area-inset-bottom, 0px\)/g, `${bottom}px`)
     .replace(/env\(safe-area-inset-(?:left|right), 0px\)/g, "0px");
 }
+
+const bannerPublisher = String(
+  (OfflineLine() as ReactElement<{ ref?: unknown }>).props.ref,
+);
 
 const MAP_STYLE = {
   version: 8,
@@ -54,7 +58,6 @@ export function fixtureHtml({
     ...GLOBAL_CSS.map(readRepoFile),
     ...CSS_MODULES.map((m) => scopeCss(readRepoFile(m), prefixOf(m))),
   ].join("\n");
-  const banner = JSON.stringify(BANNER_HEIGHT_VAR);
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -67,13 +70,10 @@ ${renderToStaticMarkup(body)}
 <script type="module">
   import * as maplibregl from "${ORIGIN}/maplibre-gl.mjs";
   maplibregl.setWorkerUrl("${ORIGIN}/maplibre-gl-worker.mjs");
+  const BANNER_HEIGHT_VAR = ${JSON.stringify(BANNER_HEIGHT_VAR)};
+  const publish = ${bannerPublisher};
   const banner = document.querySelector("p[role=status]");
-  if (banner) {
-    document.body.style.setProperty(
-      ${banner},
-      banner.getBoundingClientRect().height + "px",
-    );
-  }
+  if (banner && typeof publish === "function") publish(banner);
   const style = ${JSON.stringify(mapStyle)};
   for (const container of document.querySelectorAll(
     ${JSON.stringify(`.${mapClass} > div > div:first-child`)},

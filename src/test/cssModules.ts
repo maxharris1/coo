@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 const ROOT = new URL("../../", import.meta.url);
 
@@ -19,7 +20,8 @@ export const CSS_MODULES = [
 export const readRepoFile = (path: string) =>
   readFileSync(new URL(path, ROOT), "utf8");
 
-export const modulePath = (module: string) => new URL(module, ROOT).pathname;
+export const modulePath = (module: string, root = ROOT) =>
+  fileURLToPath(new URL(module, root));
 
 export const prefixOf = (module: string) =>
   module.replace(/^.*\//, "").replace(/\.module\.css$/, "");
