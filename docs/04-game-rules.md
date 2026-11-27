@@ -197,11 +197,20 @@ Spent:
 | Search party | 20 |
 | Gear | 60 to 300, see `config/gear.json` |
 | Rooftop birdbath | 220 |
+| Flower boxes | 90 |
+| Weathervane | 140 |
+| Espresso cart | 260 |
 | Perch 4, perch 5 | 250, 400 |
 | Espresso shot | 25 each, see `consumables` in `config/game.json` |
 
 The Espresso shot's effect is "One night of flying". It stacks: a player can buy as many as they
 like, and the Shop shows how many they hold. Section 6, "Espresso shot", says how one is spent.
+
+Loft items are `loftItems` in `config/game.json`, sold in this order: the rooftop birdbath,
+flower boxes, the weathervane and the espresso cart. Each is bought once and kept. The birdbath
+halves feather loss (section 9). The other three are looks only: the loft draws the flower boxes
+on the wall under the deck, the weathervane on the roof peak and the espresso cart in the right
+deck slot.
 
 Example: Brooklyn to Philadelphia is 81 miles. 10 + floor(81 / 25) = 13 seeds.
 

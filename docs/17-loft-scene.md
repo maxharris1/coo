@@ -75,9 +75,9 @@ Free rooms are filled in this order: roommate, egg, then empty. This is the exis
 | Add-on | Place | Owned when |
 |---|---|---|
 | Rooftop birdbath | Left deck slot | `me.hasBirdbath` |
-| Espresso cart | Right deck slot | not sold yet |
-| Flower boxes | Hung on the wall under each deck slot. Nothing rises above the deck line | not sold yet |
-| Weathervane | Roof peak. Moves up with the roof | not sold yet |
+| Espresso cart | Right deck slot | `espresso-cart` in `me.loftItems` |
+| Flower boxes | Hung on the wall under each deck slot. Nothing rises above the deck line | `flower-boxes` in `me.loftItems` |
+| Weathervane | Roof peak. Moves up with the roof | `weathervane` in `me.loftItems` |
 | String lights, stovepipe, sign | Always there | free |
 
 The drawing code takes a list of add-ons so the three unsold ones are ready when the store sells them.

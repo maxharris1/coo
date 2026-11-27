@@ -253,10 +253,11 @@ every owned piece the same way. Unowned items show their price and link to the s
 save on tap.
 
 ### Shop (`/shop`)
-As drawn: balance, "More ways" → Earn, gear list (owned items say "Unlocked"), loft items,
-the next perch with "n to go" when short, and the Espresso shot (25 seeds, "One night of
-flying") under "For the loft" with "{n} owned" beside its effect, "0 owned" when the player holds
-none. It stays buyable after each buy. Buying asks once: "Buy the rain hat for 180 seeds?"
+As drawn: balance, "More ways" → Earn, gear list (owned items say "Unlocked"), then "For the
+loft": the rooftop birdbath, flower boxes, weathervane and espresso cart in that order, the
+next perch with "n to go" when short, and the Espresso shot (25 seeds, "One night of flying")
+with "{n} owned" beside its effect, "0 owned" when the player holds none. An owned birdbath says
+"In the loft". An owned flower box, weathervane or espresso cart says "On the roof". It stays buyable after each buy. Buying asks once: "Buy the rain hat for 180 seeds?"
 Buying gear the flock already unlocked is refused with "You already unlocked that." and costs
 nothing.
 
