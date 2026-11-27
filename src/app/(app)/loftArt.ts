@@ -3,6 +3,7 @@ import birds from "../../../public/assets/data/birds.json";
 import type { Look } from "@/components/Bird";
 import { config } from "@/lib/config";
 import { loftLayout, type LoftLayout } from "./loftLayout";
+import type { LoftTime } from "./loftTime";
 
 export const TOKENS = {
   ink: "#2A2140",
@@ -21,7 +22,7 @@ export const TOKENS = {
   nightWater: "#2C2752",
 } as const;
 
-export type LoftLook = typeof config.loft.times.day;
+export type LoftLook = (typeof config.loft.times)[LoftTime];
 
 const {
   ink: INK,
@@ -84,6 +85,13 @@ export function pyFloat(n: number, digits?: number): string {
   if (!tie || Number(away.at(-1)) % 2 === 0) return away;
   const down = exact.slice(0, digits ? point + 1 + digits : point);
   return n < 0 ? `-${down}` : down;
+}
+
+export function grade(svg: string, tint: string | null, amt: number): string {
+  if (!tint || !amt) return svg;
+  return svg.replace(/#[0-9A-Fa-f]{6}/g, (hex) =>
+    hex.toUpperCase() === INK ? hex : mix(hex, tint, amt),
+  );
 }
 
 const WOOD_D = mix(WOOD, INK, 0.2);
@@ -290,8 +298,7 @@ export function skyline(look: LoftLook): { back: string; near: string } {
     moreLit,
   );
   near += waterTower(367, 246);
-  const litWindow = (s: string) => s.replaceAll("§lit§", SUN);
-  return { back: litWindow(back), near: litWindow(near) };
+  return { back, near };
 }
 
 export function cloud(
@@ -316,14 +323,34 @@ export function sky(look: LoftLook, clouds = true): string {
         `<rect x="-4" y="${fromY}" width="${W + 8}" height="${HERO_H + 300}" fill="${color}"/>`,
     )
     .join("");
+  config.loft.stars.slice(0, look.stars).forEach(({ x, y }, i) => {
+    const r = i % 3 === 0 ? 2.2 : 1.5;
+    o += `<path d="M${x} ${f(y - r * 2)} L${f(x + r * 0.6)} ${f(y - r * 0.6)} L${f(x + r * 2)} ${y} L${f(x + r * 0.6)} ${f(y + r * 0.6)} L${x} ${f(y + r * 2)} L${f(x - r * 0.6)} ${f(y + r * 0.6)} L${f(x - r * 2)} ${y} L${f(x - r * 0.6)} ${f(y - r * 0.6)} Z" fill="${CARD}" style="animation: coo-twinkle ${3 + (i % 4)}s ease-in-out ${pyFloat(i * 0.41, 2)}s infinite"/>`;
+  });
+  if (look.sun) {
+    const { cx, cy, r, color } = look.sun;
+    o += `<circle cx="${cx}" cy="${cy}" r="${r + 12}" fill="${color}" opacity=".28"/><circle cx="${cx}" cy="${cy}" r="${r}" fill="${color}" ${ST}/>`;
+  }
+  if (look.moon) {
+    const [cx, cy] = [322, 94];
+    o += `<circle cx="${cx}" cy="${cy}" r="26" fill="${CARD}" opacity=".12"/><path d="M${cx + 5} ${cy - 17} A17 17 0 1 0 ${cx + 17} ${cy + 6} A13.5 13.5 0 1 1 ${cx + 5} ${cy - 17} Z" fill="${CARD}" ${ST}/>`;
+  }
   if (clouds) {
-    o += cloud(288, 80, 60, 0, 30, look.cloud);
-    o += cloud(338, 122, 34, 4, 24, look.cloud);
+    if (!look.moon) o += cloud(288, 80, 60, 0, 30, look.cloud);
+    o += look.moon
+      ? cloud(214, 58, 34, 4, 24, look.cloud).replace(
+          '<g transform="translate(214 58)',
+          '<g opacity=".0" transform="translate(214 58)',
+        )
+      : cloud(338, 122, 34, 4, 24, look.cloud);
   }
   return o;
 }
 
-export function lights(hide?: { x0: number; x1: number; y: number }): string {
+export function lights(
+  hide: { x0: number; x1: number; y: number } | undefined,
+  on: boolean,
+): string {
   const p0 = [-6, GARLAND.y];
   const p1 = [CX, GARLAND.y + 2 * GARLAND.sag];
   const p2 = [W + 6, GARLAND.y];
@@ -336,13 +363,13 @@ export function lights(hide?: { x0: number; x1: number; y: number }): string {
     const x = at(0);
     const y = at(1);
     if (hide && hide.x0 < x && x < hide.x1 && y > hide.y) continue;
-    const c = mix(
-      GARLAND.colors[i % GARLAND.colors.length],
-      CARD,
-      GARLAND.unlitMixToCard,
-    );
+    const colour = GARLAND.colors[i % GARLAND.colors.length];
+    const halo = on
+      ? `<circle cy="8" r="12" fill="${colour}" opacity=".42" style="animation: coo-twinkle ${3 + (i % 3)}s ease-in-out ${pyFloat(i * 0.37, 2)}s infinite"/>`
+      : "";
+    const c = on ? colour : mix(colour, CARD, GARLAND.unlitMixToCard);
     o +=
-      `<g transform="translate(${pyFloat(x, 1)} ${pyFloat(y, 1)})">` +
+      `<g transform="translate(${pyFloat(x, 1)} ${pyFloat(y, 1)})">${halo}` +
       `<rect x="-2.5" y="0" width="5" height="4" rx="1" fill="${INK}"/><path d="M0 3.5 C5 5 5.5 11 0 14 C-5.5 11 -5 5 0 3.5 Z" fill="${c}" stroke="${INK}" stroke-width="1.8" stroke-linejoin="round"/></g>`;
   }
   return o;
@@ -371,6 +398,7 @@ export type LoftArtProps = {
   perches: number;
   rooms: readonly LoftRoom[];
   items: readonly LoftItem[];
+  time: LoftTime;
   clouds?: boolean;
 };
 
@@ -564,27 +592,33 @@ export function loftArtMarkup({
   perches,
   rooms,
   items,
+  time,
   clouds = true,
 }: LoftArtProps): string {
-  const look = config.loft.times.day;
+  const look = config.loft.times[time];
   const layout = loftLayout(perches);
   const { roof } = layout;
   const { back, near } = skyline(look);
-  let o = sky(look, clouds) + back + near;
+  let o =
+    sky(look, clouds) + back + grade(near, look.tint, look.tintNeighbours);
   o += lights(
     layout.floors > 1
       ? { x0: roof.x0 - 4, x1: roof.x1 + 4, y: roof.peak - 22 }
       : undefined,
+    look.lightsOn,
   );
-  o += house(layout, rooms, items);
-  if (items.includes("birdbath")) o += birdbath();
-  if (items.includes("cart")) o += cart();
-  o += deck();
+  let stage = house(layout, rooms, items);
+  if (items.includes("birdbath")) stage += birdbath();
+  if (items.includes("cart")) stage += cart();
+  o += grade(stage, look.tint, look.tintHouseAndAddOns);
+  let front = deck();
   if (items.includes("planters"))
-    o += SLOTS.flowerBoxes.centerX.map(planter).join("");
+    front += SLOTS.flowerBoxes.centerX.map(planter).join("");
+  o += grade(front, look.tint, look.tintDeckAndFlowerBoxes);
   const warm = mix(SUN, CARD, 0.25);
   const glow = look.doorwaysGlow;
   return o
+    .replaceAll("§lit§", SUN)
     .replaceAll("§hole§", glow ? warm : NIGHT)
     .replaceAll(
       "§holehi§",

@@ -189,6 +189,7 @@ export function LoftSceneView({
         perches={perches}
         rooms={rooms.map((room) => ROOM_ART[room.kind](room as never))}
         items={items}
+        time="day"
         label={describeLoft(rooms)}
       />
       <svg
