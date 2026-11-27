@@ -307,21 +307,31 @@ const layers = (html: string) =>
     ([tag, time]) => ({ time, tag }),
   );
 
+const heroAt = (look: LoftTime) => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(INSTANTS[look]);
+  try {
+    return renderToStaticMarkup(
+      <MainTop
+        data={data(mock, 240, 0, { loft: LOFT })}
+        nowMs={INSTANTS[look]}
+        offsetMs={0}
+      />,
+    );
+  } finally {
+    vi.useRealTimers();
+  }
+};
+
 describe("the hero takes the look's sky and text colour (#1056 ac-6)", () => {
   it.each(LOOKS)(
     "paints %s with its first sky band and text colour",
     (look) => {
-      const html = renderToStaticMarkup(
-        <MainTop
-          data={data(mock, 240, 0, { loft: LOFT })}
-          nowMs={INSTANTS[look]}
-          offsetMs={0}
-        />,
-      );
+      const html = heroAt(look);
       const { sky, textColor } = times[look];
       expect(html).toMatch(
         new RegExp(
-          `^<section[^>]*style="background:${sky[0].color};color:${textColor}"`,
+          `^<section[^>]*style="background:${sky[0].color};color:${textColor}`,
         ),
       );
       expect(layers(html).map((l) => l.time)).toEqual([look]);
@@ -347,21 +357,41 @@ describe("the hero takes the look's sky and text colour (#1056 ac-6)", () => {
       expect(contrast(textColor, sky[0].color)).toBeGreaterThanOrEqual(4.5);
     },
   );
+
+  it.each(LOOKS)(
+    "rings focused header controls at least 3 to 1 on the %s sky",
+    (look) => {
+      const ring = heroAt(look).match(
+        /^<section[^>]*style="[^"]*--hero-ring:(#[0-9A-Fa-f]{6})/,
+      )?.[1];
+      expect(ring).toBeDefined();
+      expect(contrast(ring!, times[look].sky[0].color)).toBeGreaterThanOrEqual(
+        3,
+      );
+    },
+  );
+
+  it("draws the header focus ring in the look's ring colour", () => {
+    const focus = css.match(
+      /\.menu:focus-visible,\s*\.bell:focus-visible,\s*\.seeds:focus-visible\s*\{([^}]*)\}/,
+    )?.[1];
+    expect(focus).toMatch(/outline: 3px solid var\(--hero-ring\);/);
+  });
 });
 
 describe("the hero rechecks the sun and cross-fades (#1056 ac-8)", () => {
   let root: Root | null = null;
   let reduce = false;
+  let offsetMs = 0;
   let doc: EventTarget & { hidden: boolean };
   const frames: string[] = [];
   const shown = () => layers(frames.at(-1) ?? "");
 
   function Hero() {
     const look = useLoftTime({
-      nowMs: Date.now(),
       loft: LOFT,
       timeZone: "America/New_York",
-      offsetMs: 0,
+      offsetMs,
       reduced: useReducedMotion(),
     });
     frames.push(
@@ -399,6 +429,7 @@ describe("the hero rechecks the sun and cross-fades (#1056 ac-8)", () => {
     vi.useFakeTimers();
     vi.setSystemTime(INSTANTS.sunset);
     reduce = false;
+    offsetMs = 0;
     frames.length = 0;
     doc = Object.assign(new EventTarget(), { hidden: false });
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
@@ -439,6 +470,20 @@ describe("the hero rechecks the sun and cross-fades (#1056 ac-8)", () => {
     await advance(1);
     expect(shown().map((l) => l.time)).toEqual(["dusk"]);
     expect(shown()[0].tag).not.toContain("animation-duration");
+  });
+
+  it("mounts on the server-corrected look with no fade from cached time", async () => {
+    vi.setSystemTime(1795123530000);
+    offsetMs = 600000;
+    await mount();
+    for (const step of [0, times.crossFadeMs / 2, times.crossFadeMs / 2 - 1]) {
+      await advance(step);
+      expect(shown().map((l) => l.time)).toEqual(["dusk"]);
+      expect(shown()[0].tag).not.toContain("animation");
+    }
+    expect(frames.map((f) => layers(f).map((l) => l.time))).not.toContainEqual(
+      expect.arrayContaining(["sunset"]),
+    );
   });
 
   it("swaps at once with reduced motion", async () => {

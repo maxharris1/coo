@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import type { SyncPayload } from "@/components/sync";
 import { config } from "@/lib/config";
 import { greeting } from "@/lib/format";
@@ -15,20 +15,18 @@ const { recheckMs, crossFadeMs } = config.loft.times;
 export type LoftLook = { time: LoftTime; leaving: LoftTime | null };
 
 export function useLoftTime({
-  nowMs,
   loft,
   timeZone,
   offsetMs,
   reduced,
 }: {
-  nowMs: number;
   loft: SyncPayload["me"]["loft"];
   timeZone: string;
   offsetMs: number;
   reduced: boolean;
 }): LoftLook {
   const [look, setLook] = useState<LoftLook>(() => ({
-    time: loftTime(nowMs, loft, timeZone),
+    time: loftTime(Date.now() + offsetMs, loft, timeZone),
     leaving: null,
   }));
   const lat = loft?.lat;
@@ -146,7 +144,13 @@ export function MainTopView({
   return (
     <section
       className={styles.top}
-      style={{ background: sky[0].color, color: textColor }}
+      style={
+        {
+          background: sky[0].color,
+          color: textColor,
+          "--hero-ring": textColor,
+        } as CSSProperties
+      }
     >
       <header className={styles.header}>
         <p className={styles.wordmark}>coo</p>
@@ -228,7 +232,6 @@ export function MainTop({
   offsetMs: number;
 }) {
   const look = useLoftTime({
-    nowMs,
     loft: data.me.loft,
     timeZone: data.me.timezone,
     offsetMs,
