@@ -7,8 +7,6 @@
   margin-left: calc(-1 * var(--coo-safe-left));
   padding-top: env(safe-area-inset-top, 0px);
   overflow: clip;
-  background: var(--coo-sky);
-  color: var(--coo-ink);
 }
 
 .top::after {
@@ -126,7 +124,33 @@
 
 .loft {
   position: absolute;
+  top: 0;
   right: 0;
   bottom: 0;
   left: 0;
+  display: grid;
+}
+
+.layer {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  grid-area: 1 / 1;
+}
+
+.fadeIn {
+  composes: layer;
+  animation-name: loft-fade;
+  animation-timing-function: ease-in-out;
+  animation-fill-mode: both;
+}
+
+@keyframes loft-fade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }

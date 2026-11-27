@@ -1,9 +1,13 @@
 import { readFileSync } from "node:fs";
+import { act } from "react";
+import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SyncPayload } from "@/components/sync";
 import { config } from "@/lib/config";
-import { MainTop } from "./MainTop";
+import { useReducedMotion } from "./LoftScene";
+import { MainTop, MainTopView, useLoftTime } from "./MainTop";
+import type { LoftTime } from "./loftTime";
 
 type Bird = SyncPayload["birds"][number];
 
@@ -25,19 +29,26 @@ type Extra = {
   hasBirdbath?: boolean;
   loftItems?: string[];
   egg?: SyncPayload["egg"];
+  loft?: SyncPayload["me"]["loft"];
 };
 
 const data = (
   birds: Bird[],
   seeds = 240,
   unread = 0,
-  { perches = 4, hasBirdbath = false, loftItems = [], egg = null }: Extra = {},
+  {
+    perches = 4,
+    hasBirdbath = false,
+    loftItems = [],
+    egg = null,
+    loft = null,
+  }: Extra = {},
 ) =>
   ({
     me: {
       seeds,
       timezone: "America/New_York",
-      loft: null,
+      loft,
       perches,
       hasBirdbath,
       loftItems,
@@ -58,7 +69,7 @@ const mock = [
 
 const render = (birds: Bird[], seeds?: number, unread?: number) =>
   renderToStaticMarkup(
-    <MainTop data={data(birds, seeds, unread)} nowMs={morning} />,
+    <MainTop data={data(birds, seeds, unread)} nowMs={morning} offsetMs={0} />,
   ).replaceAll("&#x27;", "'");
 
 describe("the top of Main (ac-1)", () => {
@@ -137,7 +148,7 @@ describe("the top of Main (ac-1)", () => {
 
 const renderWith = (birds: Bird[], extra: Extra) =>
   renderToStaticMarkup(
-    <MainTop data={data(birds, 240, 0, extra)} nowMs={morning} />,
+    <MainTop data={data(birds, 240, 0, extra)} nowMs={morning} offsetMs={0} />,
   ).replaceAll("&#x27;", "'");
 
 const hrefs = (html: string) =>
@@ -271,11 +282,206 @@ describe("the hero layout (#972 ac-2)", () => {
       expect(rule(sel)).toMatch(/position: relative/);
       expect(rule(sel)).toMatch(/z-index: 1/);
     }
-    expect(rule("\\.top")).toMatch(/background: var\(--coo-sky\)/);
+    expect(render(mock)).toMatch(/^<section[^>]*style="background:#/);
   });
 
   it("keeps the greeting to the left two thirds", () => {
     expect(rule("\\.greeting")).toMatch(/box-sizing: border-box/);
     expect(rule("\\.greeting")).toMatch(/max-width: calc\(200% \/ 3\)/);
+  });
+});
+
+const { times } = config.loft;
+const LOFT = { lat: 40.73, lon: -73.9875 } as SyncPayload["me"]["loft"];
+const INSTANTS: Record<LoftTime, number> = {
+  sunrise: 1795089300000,
+  day: 1795100400000,
+  sunset: 1795123800000,
+  dusk: 1795125000000,
+  night: 1795131000000,
+};
+const LOOKS = times.order as LoftTime[];
+
+const layers = (html: string) =>
+  [...html.matchAll(/<div[^>]* data-time="(\w+)"[^>]*>/g)].map(
+    ([tag, time]) => ({ time, tag }),
+  );
+
+describe("the hero takes the look's sky and text colour (#1056 ac-6)", () => {
+  it.each(LOOKS)(
+    "paints %s with its first sky band and text colour",
+    (look) => {
+      const html = renderToStaticMarkup(
+        <MainTop
+          data={data(mock, 240, 0, { loft: LOFT })}
+          nowMs={INSTANTS[look]}
+          offsetMs={0}
+        />,
+      );
+      const { sky, textColor } = times[look];
+      expect(html).toMatch(
+        new RegExp(
+          `^<section[^>]*style="background:${sky[0].color};color:${textColor}"`,
+        ),
+      );
+      expect(layers(html).map((l) => l.time)).toEqual([look]);
+    },
+  );
+
+  const luminance = (hex: string) => {
+    const [r, g, b] = [1, 3, 5].map((i) => {
+      const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+      return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const contrast = (a: string, b: string) => {
+    const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+    return (hi + 0.05) / (lo + 0.05);
+  };
+
+  it.each(LOOKS)(
+    "keeps %s text at least 4.5 to 1 on its first sky band",
+    (look) => {
+      const { sky, textColor } = times[look];
+      expect(contrast(textColor, sky[0].color)).toBeGreaterThanOrEqual(4.5);
+    },
+  );
+});
+
+describe("the hero rechecks the sun and cross-fades (#1056 ac-8)", () => {
+  let root: Root | null = null;
+  let reduce = false;
+  let doc: EventTarget & { hidden: boolean };
+  const frames: string[] = [];
+  const shown = () => layers(frames.at(-1) ?? "");
+
+  function Hero() {
+    const look = useLoftTime({
+      nowMs: Date.now(),
+      loft: LOFT,
+      timeZone: "America/New_York",
+      offsetMs: 0,
+      reduced: useReducedMotion(),
+    });
+    frames.push(
+      renderToStaticMarkup(
+        <MainTopView
+          data={data(mock, 240, 0, { loft: LOFT })}
+          nowMs={Date.now()}
+          look={look}
+        />,
+      ),
+    );
+    return null;
+  }
+
+  const mount = async () => {
+    root = createRoot(
+      Object.assign(new EventTarget(), {
+        nodeType: 1,
+        tagName: "DIV",
+        ownerDocument: new EventTarget(),
+      }) as unknown as Element,
+    );
+    await act(async () => root!.render(<Hero />));
+  };
+  const advance = (ms: number) =>
+    act(async () => {
+      await vi.advanceTimersByTimeAsync(ms);
+    });
+  const dusk = async () => {
+    vi.setSystemTime(INSTANTS.dusk);
+    await advance(times.recheckMs);
+  };
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(INSTANTS.sunset);
+    reduce = false;
+    frames.length = 0;
+    doc = Object.assign(new EventTarget(), { hidden: false });
+    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    vi.stubGlobal("document", doc);
+    vi.stubGlobal(
+      "window",
+      Object.assign(new EventTarget(), { HTMLIFrameElement: class {} }),
+    );
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: reduce && query === "(prefers-reduced-motion: reduce)",
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    }));
+  });
+
+  afterEach(async () => {
+    if (root) await act(async () => root!.unmount());
+    root = null;
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  it("fades sunset into dusk over crossFadeMs, then keeps only dusk", async () => {
+    await mount();
+    expect(shown().map((l) => l.time)).toEqual(["sunset"]);
+    await dusk();
+    const [old, next] = shown();
+    expect([old.time, next.time]).toEqual(["sunset", "dusk"]);
+    expect(old.tag).toContain('aria-hidden="true"');
+    expect(old.tag).toContain('inert=""');
+    expect(next.tag).not.toContain("aria-hidden");
+    expect(next.tag).toContain(`animation-duration:${times.crossFadeMs}ms`);
+    expect(frames.at(-1)).toMatch(
+      new RegExp(`^<section[^>]*style="background:${times.dusk.sky[0].color}`),
+    );
+    await advance(times.crossFadeMs - 1);
+    expect(shown()).toHaveLength(2);
+    await advance(1);
+    expect(shown().map((l) => l.time)).toEqual(["dusk"]);
+    expect(shown()[0].tag).not.toContain("animation-duration");
+  });
+
+  it("swaps at once with reduced motion", async () => {
+    reduce = true;
+    await mount();
+    await dusk();
+    expect(shown().map((l) => l.time)).toEqual(["dusk"]);
+    expect(shown()[0].tag).not.toContain("animation");
+  });
+
+  it("runs no timer while the tab is hidden and rechecks when it shows", async () => {
+    await mount();
+    expect(vi.getTimerCount()).toBe(1);
+    await act(async () => {
+      doc.hidden = true;
+      doc.dispatchEvent(new Event("visibilitychange"));
+    });
+    expect(vi.getTimerCount()).toBe(0);
+    vi.setSystemTime(INSTANTS.dusk);
+    await act(async () => {
+      doc.hidden = false;
+      doc.dispatchEvent(new Event("visibilitychange"));
+    });
+    expect(shown().at(-1)?.time).toBe("dusk");
+  });
+
+  it("drops a fade in flight when the tab hides", async () => {
+    await mount();
+    await dusk();
+    expect(shown()).toHaveLength(2);
+    await act(async () => {
+      doc.hidden = true;
+      doc.dispatchEvent(new Event("visibilitychange"));
+    });
+    expect(vi.getTimerCount()).toBe(0);
+    expect(shown().map((l) => l.time)).toEqual(["dusk"]);
+  });
+
+  it("animates only opacity in the loft-fade keyframes", () => {
+    const keyframes =
+      css.match(/@keyframes loft-fade \{([\s\S]*?\})\s*\}/)?.[1] ?? "";
+    const props = [...keyframes.matchAll(/([\w-]+):/g)].map((m) => m[1]);
+    expect(props.length).toBeGreaterThan(0);
+    expect(new Set(props)).toEqual(new Set(["opacity"]));
   });
 });

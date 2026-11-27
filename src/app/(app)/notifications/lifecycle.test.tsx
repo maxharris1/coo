@@ -80,7 +80,9 @@ function Bell() {
 
 function bell() {
   if (!shown) throw new Error("no sync data yet");
-  const html = renderToStaticMarkup(<MainTop data={shown} nowMs={NOW} />);
+  const html = renderToStaticMarkup(
+    <MainTop data={shown} nowMs={NOW} offsetMs={0} />,
+  );
   return html.match(/<a[^>]*href="\/notifications"[^>]*>.*?<\/a>/s)![0];
 }
 

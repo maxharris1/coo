@@ -10,12 +10,12 @@ import { MainTop } from "./MainTop";
 import { PushAsk } from "./PushAsk";
 
 export default function MainPage() {
-  const { data, refresh } = useSync();
+  const { data, offsetMs, refresh } = useSync();
   const toast = useToast();
   if (!data) return <Loader />;
   return (
     <>
-      <MainTop data={data} nowMs={data.serverNow} />
+      <MainTop data={data} nowMs={data.serverNow} offsetMs={offsetMs} />
       <Flock
         data={data}
         onFeed={(id) => void feedThenRefresh(id, feedBird, refresh, toast)}

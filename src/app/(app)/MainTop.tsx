@@ -1,9 +1,76 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import type { SyncPayload } from "@/components/sync";
+import { config } from "@/lib/config";
 import { greeting } from "@/lib/format";
 import type { LoftItem } from "./loftArt";
-import { LoftScene } from "./LoftScene";
+import { LoftScene, useReducedMotion } from "./LoftScene";
+import { loftTime, type LoftTime } from "./loftTime";
 import styles from "./MainTop.module.css";
+
+const { recheckMs, crossFadeMs } = config.loft.times;
+
+export type LoftLook = { time: LoftTime; leaving: LoftTime | null };
+
+export function useLoftTime({
+  nowMs,
+  loft,
+  timeZone,
+  offsetMs,
+  reduced,
+}: {
+  nowMs: number;
+  loft: SyncPayload["me"]["loft"];
+  timeZone: string;
+  offsetMs: number;
+  reduced: boolean;
+}): LoftLook {
+  const [look, setLook] = useState<LoftLook>(() => ({
+    time: loftTime(nowMs, loft, timeZone),
+    leaving: null,
+  }));
+  const lat = loft?.lat;
+  const lon = loft?.lon;
+
+  useEffect(() => {
+    const spot = lat === undefined || lon === undefined ? null : { lat, lon };
+    let interval: ReturnType<typeof setInterval> | undefined;
+    const check = () => {
+      const time = loftTime(Date.now() + offsetMs, spot, timeZone);
+      setLook((now) =>
+        now.time === time ? now : { time, leaving: reduced ? null : now.time },
+      );
+    };
+    const sync = () => {
+      clearInterval(interval);
+      if (document.hidden) {
+        setLook((now) => (now.leaving ? { ...now, leaving: null } : now));
+        return;
+      }
+      check();
+      interval = setInterval(check, recheckMs);
+    };
+    sync();
+    document.addEventListener("visibilitychange", sync);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", sync);
+    };
+  }, [lat, lon, timeZone, offsetMs, reduced]);
+
+  useEffect(() => {
+    if (!look.leaving) return;
+    const fade = setTimeout(
+      () => setLook((now) => ({ ...now, leaving: null })),
+      crossFadeMs,
+    );
+    return () => clearTimeout(fade);
+  }, [look]);
+
+  return look;
+}
 
 const INK = "#2A2140";
 
@@ -64,11 +131,23 @@ function BellIcon() {
   );
 }
 
-export function MainTop({ data, nowMs }: { data: SyncPayload; nowMs: number }) {
+export function MainTopView({
+  data,
+  nowMs,
+  look: { time, leaving },
+}: {
+  data: SyncPayload;
+  nowMs: number;
+  look: LoftLook;
+}) {
   const { seeds, timezone } = data.me;
   const { unread } = data;
+  const { sky, textColor } = config.loft.times[time];
   return (
-    <section className={styles.top}>
+    <section
+      className={styles.top}
+      style={{ background: sky[0].color, color: textColor }}
+    >
       <header className={styles.header}>
         <p className={styles.wordmark}>coo</p>
         <div className={styles.actions}>
@@ -107,14 +186,53 @@ export function MainTop({ data, nowMs }: { data: SyncPayload; nowMs: number }) {
         {greeting(nowMs, timezone, data.birds)}
       </h1>
       <div className={styles.loft}>
-        <LoftScene
-          birds={data.birds}
-          perches={data.me.perches}
-          egg={data.egg}
-          items={loftItems(data.me)}
-          time="day"
-        />
+        {[leaving, time].map(
+          (layer) =>
+            layer && (
+              <div
+                key={layer}
+                className={
+                  layer === time && leaving ? styles.fadeIn : styles.layer
+                }
+                style={{
+                  background: config.loft.times[layer].sky[0].color,
+                  animationDuration:
+                    layer === time && leaving ? `${crossFadeMs}ms` : undefined,
+                }}
+                data-time={layer}
+                aria-hidden={layer === leaving || undefined}
+                inert={layer === leaving}
+              >
+                <LoftScene
+                  birds={data.birds}
+                  perches={data.me.perches}
+                  egg={data.egg}
+                  items={loftItems(data.me)}
+                  time={layer}
+                />
+              </div>
+            ),
+        )}
       </div>
     </section>
   );
+}
+
+export function MainTop({
+  data,
+  nowMs,
+  offsetMs,
+}: {
+  data: SyncPayload;
+  nowMs: number;
+  offsetMs: number;
+}) {
+  const look = useLoftTime({
+    nowMs,
+    loft: data.me.loft,
+    timeZone: data.me.timezone,
+    offsetMs,
+    reduced: useReducedMotion(),
+  });
+  return <MainTopView data={data} nowMs={nowMs} look={look} />;
 }
