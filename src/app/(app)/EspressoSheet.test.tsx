@@ -23,6 +23,7 @@ type El = ReactElement<{
   role?: string;
   "aria-label"?: string;
   onClick?: () => void;
+  onFocus?: () => void;
   onKeyDown?: (e: Key) => void;
   ref?: (el: unknown) => void;
 }>;
@@ -105,6 +106,22 @@ describe("the espresso sheet (#1046 ac-2)", () => {
   });
 });
 
+const zIndex = (file: string, rule: string) => {
+  const css = readFileSync(new URL(file, import.meta.url), "utf8");
+  const body = css.match(new RegExp(`\\.${rule}\\s*\\{([^}]*)\\}`))?.[1];
+  return Number(body?.match(/z-index:\s*(\d+)/)?.[1]);
+};
+
+describe("the espresso sheet on Main (#1046 ac-2, ac-3)", () => {
+  it("sits above the push prompt and the tab bar, so nothing on Main covers its details or Close", () => {
+    const sheet = zIndex("./EspressoSheet.module.css", "layer");
+    expect(sheet).toBeGreaterThan(zIndex("./PushAsk.module.css", "sheet"));
+    expect(sheet).toBeGreaterThan(
+      zIndex("../../components/TabBar.module.css", "bar"),
+    );
+  });
+});
+
 describe("closing the espresso sheet (#1046 ac-3)", () => {
   it("closes from the Close button", () => {
     const { node, onClose } = tree();
@@ -154,6 +171,13 @@ describe("focus in the espresso sheet (#1046 ac-3)", () => {
     const { node, items } = mounted();
     expect(press(node, "Tab", items[0], true)).toHaveBeenCalled();
     expect(items[1].focus).toHaveBeenCalledOnce();
+  });
+
+  it("pulls focus back into the sheet when the backdrop takes it", () => {
+    const { node, dialog } = mounted();
+    dialog.focus.mockClear();
+    find(node, (el) => el.props["aria-label"] === "Close")?.props.onFocus?.();
+    expect(dialog.focus).toHaveBeenCalledOnce();
   });
 
   it("returns focus to what opened it on close", () => {

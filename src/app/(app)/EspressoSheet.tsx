@@ -52,6 +52,7 @@ export function EspressoSheet({
         tabIndex={-1}
         className={styles.scrim}
         onClick={onClose}
+        onFocus={() => dialog.current?.focus()}
       />
       <div
         ref={mountDialog}
