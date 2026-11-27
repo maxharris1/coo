@@ -6,10 +6,6 @@ import styles from "./ShopItems.module.css";
 import { INK, SUN, SeedIcon } from "./ShopTop";
 
 const CARD = "#FFFBF0";
-const WOOD = "#D99A6C";
-const TOMATO = "#F4623F";
-const MINT = "#86D9A0";
-const ROSE = "#F59C8E";
 
 export type SeedBurst = { itemId: string; seq: number };
 
@@ -136,100 +132,30 @@ function CupIcon() {
   );
 }
 
-function FlowerBoxIcon() {
-  const flowers = [TOMATO, CARD, ROSE, SUN];
-  return (
-    <svg width="38" height="38" viewBox="0 0 32 32">
-      <g stroke={INK} strokeWidth="2" strokeLinejoin="round">
-        {[8, 13.3, 18.6, 24].map((cx) => (
-          <circle key={cx} cx={cx} cy="17" r="3.6" fill={MINT} />
-        ))}
-        {flowers.map((fill, i) => (
-          <circle
-            key={i}
-            cx={8.5 + i * 5}
-            cy={12.5 + (i % 2)}
-            r="2.8"
-            fill={fill}
-            strokeWidth="1.6"
-          />
-        ))}
-        <rect x="3" y="19" width="26" height="9" rx="2.5" fill={WOOD} />
-      </g>
-      <path
-        d="M5 23 H27"
-        stroke={INK}
-        strokeWidth="1.4"
-        strokeLinecap="round"
-        opacity=".6"
-      />
-    </svg>
-  );
-}
-
-function WeathervaneIcon() {
-  return (
-    <svg width="38" height="38" viewBox="0 0 32 32">
-      <g
-        stroke={INK}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M16 13 V29 M11 29 H21" fill="none" />
-        <path d="M6 13 H24" fill="none" />
-        <path d="M23 9 L29 13 L23 17 Z" fill={SUN} />
-        <path d="M7 9 L3 13 L7 17 Z" fill={SUN} />
-        <path
-          d="M11 13 Q11 7 16 7 Q19 3.5 21.5 6.5 L24.5 7.3 L21.5 8.7 Q21.5 13 16 13 Z"
-          fill={CARD}
-          strokeWidth="2"
-        />
-        <circle cx="16" cy="21" r="2.4" fill={SUN} strokeWidth="1.8" />
-      </g>
-      <circle cx="19" cy="7.6" r=".9" fill={INK} />
-    </svg>
-  );
-}
-
-function EspressoCartIcon() {
-  return (
-    <svg width="38" height="38" viewBox="0 0 32 32">
-      <g
-        stroke={INK}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M7 10 V18 M25 10 V18" fill="none" />
-        {[5, 10.5, 16, 21.5].map((x, i) => (
-          <path
-            key={x}
-            d={`M${x} 6 h5.5 v3.5 a2.75 2.75 0 0 1 -5.5 0 Z`}
-            fill={i % 2 === 0 ? TOMATO : CARD}
-          />
-        ))}
-        <rect x="4" y="3" width="24" height="4" rx="2" fill={TOMATO} />
-        <path d="M13.5 11.5 H19 L18.3 16 H14.2 Z" fill={CARD} />
-        <rect x="5" y="18" width="22" height="7" rx="2" fill={CARD} />
-        <rect x="4" y="16" width="24" height="3" rx="1.5" fill={WOOD} />
-        <circle cx="10" cy="27" r="3" fill={CARD} />
-        <circle cx="22" cy="27" r="3" fill={CARD} />
-      </g>
-    </svg>
-  );
-}
-
 const LOFT_ICONS: Partial<Record<string, () => ReactElement>> = {
   birdbath: BirdbathIcon,
   perch: PerchIcon,
   espresso: CupIcon,
-  "flower-boxes": FlowerBoxIcon,
-  weathervane: WeathervaneIcon,
-  "espresso-cart": EspressoCartIcon,
+};
+
+const ADDON_PIECES: Partial<Record<string, string>> = {
+  "flower-boxes": "planter",
+  weathervane: "weathervane",
+  "espresso-cart": "espresso-cart",
 };
 
 function ItemIcon({ itemId }: { itemId: string }) {
+  const piece = ADDON_PIECES[itemId];
+  if (piece)
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={`/assets/svg/loft/addons/${piece}.svg`}
+        alt=""
+        width={38}
+        height={38}
+      />
+    );
   const Loft = LOFT_ICONS[itemId];
   if (Loft) return <Loft />;
   return isGearId(itemId) ? <GearIcon id={itemId} size={38} /> : null;

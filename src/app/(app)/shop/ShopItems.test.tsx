@@ -404,12 +404,32 @@ describe("/shop loft add-ons (#1045 ac-1)", () => {
     );
   });
 
-  it("draws each add-on's own icon in its tile", () => {
-    const icons = cards(html)
-      .slice(0, 4)
-      .map((card) => card.match(/<svg[^>]*viewBox="0 0 32 32".*?<\/svg>/)?.[0]);
-    for (const icon of icons) expect(icon).toBeDefined();
-    expect(new Set(icons).size, "none reuses the birdbath or another").toBe(4);
+  it("draws each add-on's tile from its supplied standalone SVG", () => {
+    const pieces: Record<string, string> = {
+      "flower-boxes": "planter",
+      weathervane: "weathervane",
+      "espresso-cart": "espresso-cart",
+    };
+    expect(addOns.map((row) => row.itemId).sort()).toEqual(
+      Object.keys(pieces).sort(),
+    );
+    const byId = new Map(
+      cards(html).map((card, i) => [[bath, ...addOns, perch][i].itemId, card]),
+    );
+    for (const [itemId, piece] of Object.entries(pieces)) {
+      const src = `/assets/svg/loft/addons/${piece}.svg`;
+      const tile = byId
+        .get(itemId)
+        ?.match(/<div[^>]*class="[^"]*tile[^"]*"[^>]*>(.*?)<\/div>/)?.[1];
+      expect(tile, itemId).toMatch(new RegExp(`^<img[^>]*src="${src}"`));
+      expect(tile, `${itemId} draws no art of its own`).not.toContain("<svg");
+      expect(
+        readFileSync(
+          new URL(`../../../../public${src}`, import.meta.url),
+          "utf8",
+        ),
+      ).toContain(`id="${piece}"`);
+    }
   });
 
   it("gives each add-on a buy button with the same row design", () => {
