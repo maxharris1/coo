@@ -32,7 +32,9 @@ avatar, name, one status line, a status chip (Ready, Flying, Resting, Scheduled,
 job) or a "Feed me" button when hungry; "n of m perches"; a link to the post office (More).
 Rows tap to the bird's page. The loft scene at the top of the screen is one yellow house on a
 rooftop, drawn as `docs/17-loft-scene.md` specifies; that document has the sizes, colours, times
-of day and motion. Every owned perch is a room on the front of the house, three rooms to a floor,
+of day and motion. The loft scene follows the sun: it shows sunrise, day, sunset, dusk or night
+from the sun at the user's loft, as [`docs/17-loft-scene.md` section 5](17-loft-scene.md#5-times-of-day)
+describes. Every owned perch is a room on the front of the house, three rooms to a floor,
 filled bottom-left first. Three perches make one floor; at four or five perches a second floor
 two rooms wide sits on top, which makes the house taller. Bird `i` in flock order owns room `i`,
 so a new hatchling never moves anyone. An awake home bird (napping and bathing count as home) sits
