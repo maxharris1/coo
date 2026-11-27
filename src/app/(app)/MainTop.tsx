@@ -1,10 +1,22 @@
 import Link from "next/link";
 import type { SyncPayload } from "@/components/sync";
 import { greeting } from "@/lib/format";
+import type { LoftItem } from "./loftArt";
 import { LoftScene } from "./LoftScene";
 import styles from "./MainTop.module.css";
 
 const INK = "#2A2140";
+
+const ADD_ON_ART: Partial<Record<string, LoftItem>> = {
+  "espresso-cart": "cart",
+  "flower-boxes": "planters",
+  weathervane: "vane",
+};
+
+function loftItems({ hasBirdbath, loftItems }: SyncPayload["me"]): LoftItem[] {
+  const addOns = loftItems.flatMap((id) => ADD_ON_ART[id] ?? []);
+  return hasBirdbath ? ["birdbath", ...addOns] : addOns;
+}
 
 function SeedIcon() {
   return (
@@ -99,7 +111,7 @@ export function MainTop({ data, nowMs }: { data: SyncPayload; nowMs: number }) {
           birds={data.birds}
           perches={data.me.perches}
           egg={data.egg}
-          items={data.me.hasBirdbath ? ["birdbath"] : []}
+          items={loftItems(data.me)}
         />
       </div>
     </section>

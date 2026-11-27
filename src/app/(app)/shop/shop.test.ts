@@ -528,3 +528,54 @@ describe("espresso shots", () => {
     });
   });
 });
+
+describe("loft add-ons (#1045 ac-1)", () => {
+  const loftShop = (owned: (id: string) => boolean = () => false): Shop => ({
+    ...MOCK,
+    seeds: 1000,
+    loftItems: config.game.loftItems.map((item) => ({
+      ...item,
+      owned: owned(item.id),
+      affordable: true,
+    })),
+  });
+  const actionOf = (rows: { loft: ShopRow[] }, itemId: string) =>
+    rows.loft.find((row) => row.itemId === itemId)?.action;
+
+  it("lists flower boxes, weathervane and espresso cart after the birdbath, then the perch", () => {
+    expect(shopRows(loftShop()).loft.map((row) => row.name)).toEqual([
+      "Rooftop birdbath",
+      "Flower boxes",
+      "Weathervane",
+      "Espresso cart",
+      "Fifth perch",
+    ]);
+  });
+
+  it("says On the roof on each owned add-on and keeps In the loft on the birdbath", () => {
+    const rows = shopRows(loftShop(() => true));
+    for (const id of ["flower-boxes", "weathervane", "espresso-cart"])
+      expect(actionOf(rows, id), id).toEqual({
+        kind: "owned",
+        label: "On the roof",
+      });
+    expect(actionOf(rows, "birdbath")).toEqual({
+      kind: "owned",
+      label: "In the loft",
+    });
+  });
+
+  it("settles a bought add-on to On the roof and a bought birdbath to In the loft", () => {
+    const rows = shopRows(loftShop());
+    const buy = (id: string) =>
+      buyable(rows.loft).find((r) => r.itemId === id)!;
+    expect(actionOf(settle(rows, buy("weathervane")), "weathervane")).toEqual({
+      kind: "owned",
+      label: "On the roof",
+    });
+    expect(actionOf(settle(rows, buy("birdbath")), "birdbath")).toEqual({
+      kind: "owned",
+      label: "In the loft",
+    });
+  });
+});

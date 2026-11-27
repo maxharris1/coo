@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { SyncPayload } from "@/components/sync";
+import { config } from "@/lib/config";
 import { MainTop } from "./MainTop";
 
 type Bird = SyncPayload["birds"][number];
@@ -22,6 +23,7 @@ const bird = (name: string, over: Partial<Bird> = {}): Bird =>
 type Extra = {
   perches?: number;
   hasBirdbath?: boolean;
+  loftItems?: string[];
   egg?: SyncPayload["egg"];
 };
 
@@ -29,7 +31,7 @@ const data = (
   birds: Bird[],
   seeds = 240,
   unread = 0,
-  { perches = 4, hasBirdbath = false, egg = null }: Extra = {},
+  { perches = 4, hasBirdbath = false, loftItems = [], egg = null }: Extra = {},
 ) =>
   ({
     me: {
@@ -38,6 +40,7 @@ const data = (
       loft: null,
       perches,
       hasBirdbath,
+      loftItems,
     },
     birds,
     unread,
@@ -184,6 +187,70 @@ describe("the loft below the header (#972 ac-1)", () => {
     const label = 'aria-label="Birdbath. Open the shop"';
     expect(renderWith(home, { hasBirdbath: true })).toContain(label);
     expect(renderWith(home, { hasBirdbath: false })).not.toContain(label);
+  });
+});
+
+describe("the loft add-ons in the scene (#1045 ac-2)", () => {
+  const home = [bird("Gerald"), bird("Kevin", { look: "kevin" })];
+  const { floorY } = config.loft.scene;
+  const { cart, flowerBoxes } = config.loft.slots;
+
+  const awning = (html: string) =>
+    [...html.matchAll(/d="M([\d.]+) ([\d.]+) h11 v9 a5\.5/g)].map((m) => ({
+      x: Number(m[1]),
+      y: Number(m[2]),
+    }));
+  const planters = (html: string) =>
+    [
+      ...html.matchAll(
+        /<rect x="([\d.]+)" y="([\d.]+)" width="56" height="13"/g,
+      ),
+    ].map((m) => ({ centerX: Number(m[1]) + 28, top: Number(m[2]) }));
+  const swaying = (html: string) => /animation: coo-sway/.test(html);
+
+  it("draws the espresso cart under its awning at the cart slot only when owned", () => {
+    const stripes = awning(renderWith(home, { loftItems: ["espresso-cart"] }));
+    expect(stripes).toHaveLength(5);
+    const left = stripes[0].x;
+    const right = stripes[4].x + 11;
+    expect((left + right) / 2).toBeCloseTo(cart.centerX, 0);
+    expect(stripes.every(({ y }) => y < floorY)).toBe(true);
+    expect(awning(renderWith(home, {}))).toEqual([]);
+  });
+
+  it("draws two flower boxes hung below the deck floor, never on the deck, only when owned", () => {
+    const boxes = planters(renderWith(home, { loftItems: ["flower-boxes"] }));
+    expect(boxes.map((box) => box.centerX)).toEqual(flowerBoxes.centerX);
+    for (const box of boxes) {
+      expect(box.top).toBe(floorY + flowerBoxes.topBelowFloor);
+      expect(box.top).toBeGreaterThan(floorY);
+    }
+    expect(planters(renderWith(home, {}))).toEqual([]);
+  });
+
+  it("draws the weathervane swaying on the roof peak only when owned", () => {
+    expect(swaying(renderWith(home, { loftItems: ["weathervane"] }))).toBe(
+      true,
+    );
+    expect(swaying(renderWith(home, {}))).toBe(false);
+  });
+
+  it("draws the birdbath and all three add-ons together", () => {
+    const html = renderWith(home, {
+      hasBirdbath: true,
+      loftItems: ["flower-boxes", "weathervane", "espresso-cart"],
+    });
+    expect(html).toContain('aria-label="Birdbath. Open the shop"');
+    expect(awning(html)).toHaveLength(5);
+    expect(planters(html)).toHaveLength(2);
+    expect(swaying(html)).toBe(true);
+  });
+
+  it("ignores a loft item id it does not know", () => {
+    const html = renderWith(home, { loftItems: ["hot-tub"] });
+    expect(awning(html)).toEqual([]);
+    expect(planters(html)).toEqual([]);
+    expect(swaying(html)).toBe(false);
   });
 });
 

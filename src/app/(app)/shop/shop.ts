@@ -2,8 +2,10 @@ import type { GearId } from "@/lib/game/types";
 import type { Me } from "@/server/rows";
 import type { Shop } from "@/server/services/shop";
 
+type OwnedLabel = "Unlocked" | "In the loft" | "On the roof";
+
 export type RowAction =
-  | { kind: "owned"; label: "Unlocked" | "In the loft" }
+  | { kind: "owned"; label: OwnedLabel }
   | { kind: "buy"; price: number }
   | { kind: "short"; price: number; toGo: number };
 
@@ -69,19 +71,27 @@ type Item = {
   affordable: boolean;
 };
 
+const LOFT_LABELS: Partial<Record<string, OwnedLabel>> = {
+  birdbath: "In the loft",
+};
+
+const gearLabel = (): OwnedLabel => "Unlocked";
+const loftLabel = (itemId: string): OwnedLabel =>
+  LOFT_LABELS[itemId] ?? "On the roof";
+
 const priced = (price: number, affordable: boolean, toGo: number): RowAction =>
   affordable ? { kind: "buy", price } : { kind: "short", price, toGo };
 
 const row = (
   { id, name, effect, price, owned, affordable }: Item,
   seeds: number,
-  label: "Unlocked" | "In the loft",
+  label: (itemId: string) => OwnedLabel,
 ): ShopRow => ({
   itemId: id,
   name,
   effect,
   action: owned
-    ? { kind: "owned", label }
+    ? { kind: "owned", label: label(id) }
     : priced(price, affordable, price - seeds),
 });
 
@@ -101,9 +111,9 @@ export function shopRows(shop: Shop): ShopRows {
     seeds,
     gear: shop.gear
       .filter((item) => item.forSale || item.owned)
-      .map((item) => row(item, seeds, "Unlocked")),
+      .map((item) => row(item, seeds, gearLabel)),
     loft: [
-      ...shop.loftItems.map((item) => row(item, seeds, "In the loft")),
+      ...shop.loftItems.map((item) => row(item, seeds, loftLabel)),
       ...perch,
       ...shop.consumables.map(
         ({ id, name, effect, price, held, affordable }): ShopRow => ({
@@ -178,13 +188,13 @@ export async function openShop(
 export function settle(rows: ShopRows, bought: BuyRow): ShopRows {
   const seeds = rows.seeds - bought.action.price;
   const reprice =
-    (label: "Unlocked" | "In the loft") =>
+    (label: (itemId: string) => OwnedLabel) =>
     (row: ShopRow): ShopRow[] => {
       const isBought = row.itemId === bought.itemId;
       if (isBought && row.held === undefined)
         return row.itemId === "perch"
           ? []
-          : [{ ...row, action: { kind: "owned", label } }];
+          : [{ ...row, action: { kind: "owned", label: label(row.itemId) } }];
       if (row.action.kind === "owned") return [row];
       const { price } = row.action;
       const repriced = {
@@ -195,8 +205,8 @@ export function settle(rows: ShopRows, bought: BuyRow): ShopRows {
     };
   return {
     seeds,
-    gear: rows.gear.flatMap(reprice("Unlocked")),
-    loft: rows.loft.flatMap(reprice("In the loft")),
+    gear: rows.gear.flatMap(reprice(gearLabel)),
+    loft: rows.loft.flatMap(reprice(loftLabel)),
   };
 }
 

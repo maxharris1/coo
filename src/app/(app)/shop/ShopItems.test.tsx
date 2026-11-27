@@ -375,3 +375,57 @@ describe("/shop espresso shot", () => {
     expect(card({ ...shot, held: undefined })).not.toContain("owned");
   });
 });
+
+describe("/shop loft add-ons (#1045 ac-1)", () => {
+  const addOns = config.game.loftItems
+    .filter((item) => item.id !== "birdbath")
+    .map(({ id, name, effect, price }): ShopRow => ({
+      itemId: id,
+      name,
+      effect,
+      action: { kind: "buy", price },
+    }));
+  const [bath, perch] = MOCK.loft;
+  const html = render({ gear: [], loft: [bath, ...addOns, perch] });
+
+  it("lists flower boxes, weathervane and espresso cart under For the loft after the birdbath", () => {
+    const names = cards(html).map(
+      (card) => card.match(/class="[^"]*name[^"]*">([^<]*)</)?.[1],
+    );
+    expect(names).toEqual([
+      "Rooftop birdbath",
+      "Flower boxes",
+      "Weathervane",
+      "Espresso cart",
+      "Fifth perch",
+    ]);
+    expect(html.indexOf("Flower boxes")).toBeGreaterThan(
+      html.indexOf("For the loft"),
+    );
+  });
+
+  it("draws each add-on's own icon in its tile", () => {
+    const icons = cards(html)
+      .slice(0, 4)
+      .map((card) => card.match(/<svg[^>]*viewBox="0 0 32 32".*?<\/svg>/)?.[0]);
+    for (const icon of icons) expect(icon).toBeDefined();
+    expect(new Set(icons).size, "none reuses the birdbath or another").toBe(4);
+  });
+
+  it("gives each add-on a buy button with the same row design", () => {
+    for (const card of cards(html).slice(1, 4)) {
+      expect(card).toMatch(/class="[^"]*tile[^"]*"/);
+      expect(card).toMatch(/<button[^>]*aria-label="Buy [^"]+ for \d+ seeds"/);
+    }
+  });
+
+  it("shows On the roof on an owned add-on", () => {
+    const owned: ShopRow = {
+      ...addOns[1],
+      action: { kind: "owned", label: "On the roof" },
+    };
+    const [card] = cards(render({ gear: [], loft: [owned] }));
+    expect(card).toMatch(/class="[^"]*chip[^"]*">On the roof</);
+    expect(card).not.toContain("<button");
+  });
+});
