@@ -183,6 +183,8 @@ function render() {
   return {
     flightId: (map.props as { flightId: string }).flightId,
     pose: (bird.props as { pose: string }).pose,
+    findBelowHeader: (map.props as { findBelowHeader?: boolean })
+      .findBelowHeader,
   };
 }
 
@@ -238,6 +240,11 @@ afterEach(() => {
 });
 
 describe("the job tracker map as the clock ticks (ac-1)", () => {
+  it("puts Find below the Back and title header", () => {
+    vi.setSystemTime(Date.parse("2026-11-22T15:02:00.000Z"));
+    expect(render().findBelowHeader).toBe(true);
+  });
+
   it("keeps one map and follows the bird within a leg", async () => {
     vi.setSystemTime(Date.parse("2026-11-22T15:02:00.000Z"));
     render();
