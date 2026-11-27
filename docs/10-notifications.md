@@ -15,11 +15,50 @@ opened from the home screen, so every new sign-up sees install right after namin
   `env(safe-area-inset-top)` directly, never through a custom property.
 - Detect "running installed" with `matchMedia('(display-mode: standalone)')` or
   `navigator.standalone`. When true, set `installed` in settings once.
-- The Install screen (drawn) shows iPhone steps on iOS Safari. On Android Chrome, capture the
-  `beforeinstallprompt` event and show one Install button. In an in-app browser (Instagram,
-  Messages preview and so on) say "Open this in Safari first" with a copy-link button. Chrome,
-  Firefox and Edge on iPhone count as in-app, because they cannot add to the home screen.
-  Desktop browsers skip the step.
+- Platform detection lives in `src/lib/platform.ts` (`detectPlatform`), and the screen is one
+  state machine in `src/app/(app)/welcome/install/installFlow.ts`, driven by `useInstall`. The
+  same guide serves `/welcome/install` and Settings.
+- **Android Chrome and Edge: the button.** Capture `beforeinstallprompt` (`preventDefault`, keep
+  the event) and show one Install button that calls `prompt()`. `userChoice` "accepted" or an
+  `appinstalled` event finishes. If no event arrives within 2.5 seconds, or the person dismisses
+  the prompt, show "Tap your browser's menu, then Install app" in place of the button, and keep
+  the heading and skip link. A late event brings the button back. The page never moves on by
+  itself while it waits.
+- **iOS Safari: the button and the sheet.** iPhone and iPad Safari (an iPad asking for the
+  desktop site counts) show an Install button with no pointer on the page. Tapping it opens a
+  dismissible sheet with three steps, written for the iOS 26 Safari layouts:
+  1. Tap Share. If it is hidden, tap ••• first. Share sits at the bottom in portrait and at the
+     top right in landscape.
+  2. Choose Add to Home Screen. Tap View More or scroll if it is hidden.
+  3. Leave Open as Web App on, then tap Add.
+  The sheet closes from Close, the backdrop or Escape. Its pointer animation stops under
+  `prefers-reduced-motion`. The steps are a table in `Install.tsx`, so a later Safari layout is a
+  row edit.
+- **In-app browsers and Chrome on iPhone: the guidance.** In an in-app browser (Instagram,
+  Facebook, Gmail and other Google apps, X, LinkedIn, TikTok, Snapchat, Line, WeChat, an Android
+  webview, or an iPhone webview without `Safari/` such as a Messages preview) say "Open this in
+  Safari first" ("Chrome" on Android) with a Copy link button. Chrome, Firefox and Edge on iPhone
+  count as in-app, because only Safari can add a web app to the home screen there.
+- **Desktop: hidden.** Desktop browsers, desktop Chrome with an install prompt included, and any
+  other browser skip the onboarding step and get no action in Settings.
+- **Settings.** "On your home screen" shows an Install action on a phone that is not installed
+  and not standalone. It opens the guide full screen without the step pill, with "Not now" in
+  place of the loft skip link.
+- **Once installed, it disappears.** Standalone display mode, `navigator.standalone`, an accepted
+  prompt or `appinstalled` all count as installed. Onboarding moves on to the Loft, the step never
+  shows again for an installed profile, and Settings shows a read-only "Yes". When Settings sees
+  the install finish in a browser tab, it also saves `installed` on the profile.
+- Screenshots of each state at 390 pt are in `docs/screenshots/1017/`: Android prompt, Android
+  menu fallback, iOS sheet closed and open, in-app "Open this in Safari first", and Settings
+  before and after install.
+- Sources for the iOS 26 steps:
+  [Apple iPhone User Guide, add a website icon to your Home Screen](https://support.apple.com/guide/iphone/iph42ab2f3a7/ios)
+  (Share, then Add to Home Screen);
+  [WebKit Features in Safari 26.0](https://webkit.org/blog/17333/webkit-features-in-safari-26-0/)
+  (any site added to the Home Screen opens as a web app, with the Open as Web App switch on by
+  default);
+  [khmyznikov/pwa-install#158](https://github.com/khmyznikov/pwa-install/issues/158)
+  (Add to Home Screen hides behind View More on newer iPhones).
 - The service worker (`public/sw.js`, hand-written, no library) does three things: caches the
   app shell and static assets so the app opens offline, shows push notifications, and opens the
   right page when one is tapped. Do not cache API responses.
