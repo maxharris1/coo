@@ -41,7 +41,11 @@ its own perch in the `sleep` pose. A bird away (flying, on a sill, on a job) lea
 feather on its perch in its wing colour. A free room holds a suitcase while a roommate is owed
 (tap → `/aviary/roommate`), then an egg in a nest when one is due (tap → `/aviary`), otherwise a
 bare perch. With four perches the fifth room is built but not bought and hangs a "TO LET" sign
-(tap → `/shop`). Each room with a bird, home or away, taps to that bird's page. The scene moves
+(tap → `/shop`). Each room with a bird, home or away, taps to that bird's page. An owned
+espresso cart is a button ("Espresso cart. See espresso shots") that opens a small espresso sheet:
+the shot's name, effect line and price from `config/game.json` `consumables`, "You hold n shots"
+from `me.espressoShots`, and Close. The sheet closes from Close, the backdrop or Escape and keeps
+focus inside while open. Shots are still bought in the store. The scene moves
 gently: the clouds drift slowly back and forth, and each awake bird plays a one-shot idle (hop,
 preen, ruffle, look around, wing stretch, coo bob) on its own timer with rests of several seconds
 between, never leaving its perch. Sleeping birds play no idles. With reduced motion on, all of it

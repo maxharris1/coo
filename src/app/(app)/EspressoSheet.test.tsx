@@ -1,0 +1,201 @@
+import { readFileSync } from "node:fs";
+import {
+  Children,
+  isValidElement,
+  type ReactElement,
+  type ReactNode,
+} from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { config } from "@/lib/config";
+import { EspressoSheet } from "./EspressoSheet";
+
+const shot = config.game.consumables.find((c) => c.id === "espresso")!;
+
+type El = ReactElement<{
+  children?: ReactNode;
+  role?: string;
+  "aria-label"?: string;
+  onClick?: () => void;
+  ref?: (el: unknown) => void;
+}>;
+
+function find(node: ReactNode, hit: (el: El) => boolean): El | undefined {
+  if (!isValidElement<El["props"]>(node)) return undefined;
+  if (hit(node)) return node;
+  for (const child of Children.toArray(node.props.children)) {
+    const found = find(child, hit);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+const html = (held: number) =>
+  renderToStaticMarkup(<EspressoSheet held={held} onClose={() => {}} />)
+    .replaceAll("&#x27;", "'")
+    .replaceAll("&quot;", '"');
+
+const tree = (onClose = vi.fn()) => {
+  let out: ReactNode = null;
+  function Probe() {
+    out = EspressoSheet({ held: 2, onClose });
+    return null;
+  }
+  renderToStaticMarkup(<Probe />);
+  return { node: out as ReactNode, onClose };
+};
+
+const mounted = (onClose = vi.fn()) => {
+  const opener = { focus: vi.fn() };
+  vi.stubGlobal(
+    "document",
+    Object.assign(new EventTarget(), { activeElement: opener }),
+  );
+  const { node } = tree(onClose);
+  const items = [{ focus: vi.fn() }, { focus: vi.fn() }];
+  const dialog = {
+    focus: vi.fn(),
+    querySelectorAll: () => items,
+    contains: (n: unknown) => n === dialog || items.includes(n as never),
+  };
+  const ref = find(node, (el) => el.props.role === "dialog")?.props.ref;
+  const cleanup = ref?.(dialog) as (() => void) | undefined;
+  return { node, onClose, opener, dialog, items, cleanup };
+};
+
+const fire = (type: string, target: unknown, key = "", shiftKey = false) => {
+  const e = new Event(type, { cancelable: true });
+  Object.defineProperties(e, {
+    target: { value: target },
+    key: { value: key },
+    shiftKey: { value: shiftKey },
+  });
+  document.dispatchEvent(e);
+  return e;
+};
+
+const outside = {};
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+describe("the espresso sheet (#1046 ac-2)", () => {
+  it("is a modal dialog named by the shot's name from config", () => {
+    const out = html(2);
+    const id = out.match(/role="dialog"[^>]*aria-labelledby="([^"]+)"/)?.[1];
+    expect(out).toContain('aria-modal="true"');
+    expect(out).toMatch(new RegExp(`<h2 id="${id}"[^>]*>${shot.name}</h2>`));
+  });
+
+  it("shows the effect line and the price in seeds from config", () => {
+    const out = html(2);
+    expect(out).toContain(`>${shot.effect}<`);
+    expect(out).toContain(`>${shot.price} seeds<`);
+  });
+
+  it("shows how many shots the player holds", () => {
+    expect(html(2)).toContain(">You hold 2 shots<");
+    expect(html(1)).toContain(">You hold 1 shot<");
+    expect(html(0)).toContain(">You hold 0 shots<");
+  });
+
+  it("offers no way to buy yet", () => {
+    expect(html(2)).not.toMatch(/>Buy/);
+  });
+
+  it("uses only tokens for colour in its stylesheet", () => {
+    const css = readFileSync(
+      new URL("./EspressoSheet.module.css", import.meta.url),
+      "utf8",
+    );
+    expect(css).not.toMatch(/#[0-9a-f]{3,8}\b|rgb\(/i);
+  });
+});
+
+const zIndex = (file: string, rule: string) => {
+  const css = readFileSync(new URL(file, import.meta.url), "utf8");
+  const body = css.match(new RegExp(`\\.${rule}\\s*\\{([^}]*)\\}`))?.[1];
+  return Number(body?.match(/z-index:\s*(\d+)/)?.[1]);
+};
+
+describe("the espresso sheet on Main (#1046 ac-2, ac-3)", () => {
+  it("sits above the push prompt and the tab bar, so nothing on Main covers its details or Close", () => {
+    const sheet = zIndex("./EspressoSheet.module.css", "layer");
+    expect(sheet).toBeGreaterThan(zIndex("./PushAsk.module.css", "sheet"));
+    expect(sheet).toBeGreaterThan(
+      zIndex("../../components/TabBar.module.css", "bar"),
+    );
+  });
+});
+
+describe("closing the espresso sheet (#1046 ac-3)", () => {
+  it("closes from the Close button", () => {
+    const { node, onClose } = tree();
+    find(node, (el) => el.props.children === "Close")?.props.onClick?.();
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("closes from the backdrop, which stays out of the Tab order", () => {
+    const { node, onClose } = tree();
+    find(node, (el) => el.props["aria-label"] === "Close")?.props.onClick?.();
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(html(2)).toMatch(/<button[^>]*aria-label="Close"[^>]*tabindex="-1"/);
+  });
+
+  it("closes on Escape wherever focus is, and ignores other keys", () => {
+    const { onClose, items } = mounted();
+    fire("keydown", outside, "a");
+    expect(onClose).not.toHaveBeenCalled();
+    expect(fire("keydown", outside, "Escape").defaultPrevented).toBe(true);
+    expect(onClose).toHaveBeenCalledOnce();
+    fire("keydown", items[0], "Escape");
+    expect(onClose).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("focus in the espresso sheet (#1046 ac-3)", () => {
+  it("moves focus into the sheet on open", () => {
+    expect(mounted().dialog.focus).toHaveBeenCalledOnce();
+  });
+
+  it("wraps Tab from the last control to the first", () => {
+    const { items } = mounted();
+    expect(fire("keydown", items[1], "Tab").defaultPrevented).toBe(true);
+    expect(items[0].focus).toHaveBeenCalledOnce();
+  });
+
+  it("wraps Shift+Tab from the first control to the last", () => {
+    const { items } = mounted();
+    expect(fire("keydown", items[0], "Tab", true).defaultPrevented).toBe(true);
+    expect(items[1].focus).toHaveBeenCalledOnce();
+  });
+
+  it("sends Tab from outside the sheet to its first control, Shift+Tab to its last", () => {
+    const { items } = mounted();
+    expect(fire("keydown", outside, "Tab").defaultPrevented).toBe(true);
+    expect(items[0].focus).toHaveBeenCalledOnce();
+    fire("keydown", outside, "Tab", true);
+    expect(items[1].focus).toHaveBeenCalledOnce();
+  });
+
+  it("pulls focus back when something outside the sheet takes it", () => {
+    const { dialog, items } = mounted();
+    dialog.focus.mockClear();
+    fire("focusin", items[0]);
+    expect(dialog.focus).not.toHaveBeenCalled();
+    fire("focusin", outside);
+    expect(dialog.focus).toHaveBeenCalledOnce();
+  });
+
+  it("returns focus to what opened it on close, and lets go of the page", () => {
+    const { opener, dialog, onClose, cleanup } = mounted();
+    cleanup?.();
+    expect(opener.focus).toHaveBeenCalledOnce();
+    dialog.focus.mockClear();
+    fire("keydown", outside, "Escape");
+    fire("focusin", outside);
+    expect(onClose).not.toHaveBeenCalled();
+    expect(dialog.focus).not.toHaveBeenCalled();
+  });
+});

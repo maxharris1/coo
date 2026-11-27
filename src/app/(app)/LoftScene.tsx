@@ -26,17 +26,29 @@ const ROOM_ART: {
 
 const { scene, slots } = config.loft;
 
-const BIRDBATH: Box = {
-  x: slots.birdbath.centerX - slots.birdbath.width / 2,
-  y: scene.floorY - slots.birdbath.height,
-  w: slots.birdbath.width,
-  h: slots.birdbath.height,
-};
+type DeckSlot = { centerX: number; width: number; height: number };
+
+const onDeck = (slot: DeckSlot): Box => ({
+  x: slot.centerX - slot.width / 2,
+  y: scene.floorY - slot.height,
+  w: slot.width,
+  h: slot.height,
+});
+
+const BIRDBATH = onDeck(slots.birdbath);
+const CART = onDeck(slots.cart);
 
 export const BIRD_SIZE = 120;
 const REDUCE = "(prefers-reduced-motion: reduce)";
 
 const pct = (n: number, of: number) => `${(n / of) * 100}%`;
+
+const boxStyle = (box: Box) => ({
+  left: pct(box.x, scene.width),
+  top: pct(box.y, scene.height),
+  width: pct(box.w, scene.width),
+  height: pct(box.h, scene.height),
+});
 
 function subscribeReducedMotion(onChange: () => void) {
   const query = globalThis.matchMedia?.(REDUCE);
@@ -160,12 +172,7 @@ function SceneLink({
       href={href}
       aria-label={label}
       className={styles.link}
-      style={{
-        left: pct(box.x, scene.width),
-        top: pct(box.y, scene.height),
-        width: pct(box.w, scene.width),
-        height: pct(box.h, scene.height),
-      }}
+      style={boxStyle(box)}
     />
   );
 }
@@ -175,11 +182,13 @@ export function LoftSceneView({
   perches,
   items,
   motion,
+  onCart,
 }: {
   rooms: readonly Room[];
   perches: number;
   items: readonly LoftItem[];
   motion: LoftMotion;
+  onCart?: () => void;
 }) {
   const layout = loftLayout(perches);
 
@@ -232,6 +241,15 @@ export function LoftSceneView({
           box={BIRDBATH}
         />
       )}
+      {items.includes("cart") && onCart && (
+        <button
+          type="button"
+          aria-label="Espresso cart. See espresso shots"
+          className={`${styles.link} ${styles.cart}`}
+          style={boxStyle(CART)}
+          onClick={onCart}
+        />
+      )}
     </div>
   );
 }
@@ -241,11 +259,13 @@ export function LoftScene({
   perches,
   egg,
   items,
+  onCart,
 }: {
   birds: readonly FlockBird[];
   perches: number;
   egg: { status: string } | null;
   items: readonly LoftItem[];
+  onCart?: () => void;
 }) {
   const rooms = loftRooms(birds, perches, egg);
   const motion = useLoftMotion(awakeIds(rooms));
@@ -255,6 +275,7 @@ export function LoftScene({
       perches={perches}
       items={items}
       motion={motion}
+      onCart={onCart}
     />
   );
 }

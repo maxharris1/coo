@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { act } from "react";
+import { act, Children, isValidElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -38,11 +38,18 @@ type Props = {
   perches: number;
   egg?: { status: string } | null;
   items?: LoftItem[];
+  onCart?: () => void;
 };
 
-const render = ({ birds, perches, egg = null, items = [] }: Props) =>
+const render = ({ birds, perches, egg = null, items = [], onCart }: Props) =>
   renderToStaticMarkup(
-    <LoftScene birds={birds} perches={perches} egg={egg} items={items} />,
+    <LoftScene
+      birds={birds}
+      perches={perches}
+      egg={egg}
+      items={items}
+      onCart={onCart}
+    />,
   )
     .replaceAll("&#x27;", "'")
     .replaceAll("&quot;", '"');
@@ -244,6 +251,65 @@ describe("birdbath (ac-2)", () => {
     expect(link.left).toBeCloseTo((8 / 390) * 100);
     expect(link.top).toBeCloseTo((318 / 412) * 100);
     expectTappable(link);
+  });
+});
+
+describe("espresso cart (#1046 ac-1)", () => {
+  const LABEL = "Espresso cart. See espresso shots";
+  const { cart } = config.loft.slots;
+  const view = (items: LoftItem[], onCart?: () => void) =>
+    LoftSceneView({
+      rooms: loftRooms([gerald], 3, null),
+      perches: 3,
+      items,
+      motion: { reduced: false, paused: false, gestures: {} },
+      onCart,
+    });
+  const cartButton = (items: LoftItem[], onCart?: () => void) =>
+    Children.toArray(view(items, onCart).props.children)
+      .filter(isValidElement<{ "aria-label"?: string; onClick?: () => void }>)
+      .find((el) => el.props["aria-label"] === LABEL);
+  const buttonTag = (html: string) =>
+    html.match(new RegExp(`<button[^>]*aria-label="${LABEL}"[^>]*>`))?.[0];
+
+  it("draws a labelled native button over the cart slot when owned", () => {
+    const html = render({
+      birds: [gerald],
+      perches: 3,
+      items: ["cart"],
+      onCart: () => {},
+    });
+    const tag = buttonTag(html);
+    expect(tag).toContain('type="button"');
+    expect(tag).not.toMatch(/tabindex|disabled/);
+    const style = attr(tag!, "style") ?? "";
+    const box = {
+      left: pct(style, "left"),
+      top: pct(style, "top"),
+      width: pct(style, "width"),
+      height: pct(style, "height"),
+    };
+    expect(box.left).toBeCloseTo(
+      ((cart.centerX - cart.width / 2) / scene.width) * 100,
+    );
+    expect(box.top).toBeCloseTo(
+      ((scene.floorY - cart.height) / scene.height) * 100,
+    );
+    expectTappable(box as ReturnType<typeof links>[number]);
+  });
+
+  it("calls onCart when the cart is tapped", () => {
+    const onCart = vi.fn();
+    cartButton(["cart"], onCart)?.props.onClick?.();
+    expect(onCart).toHaveBeenCalledOnce();
+  });
+
+  it("has nothing to tap without the cart or without a handler", () => {
+    expect(cartButton([], () => {})).toBeUndefined();
+    expect(cartButton(["cart"])).toBeUndefined();
+    expect(
+      buttonTag(render({ birds: [gerald], perches: 3, onCart: () => {} })),
+    ).toBeUndefined();
   });
 });
 

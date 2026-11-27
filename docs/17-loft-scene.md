@@ -192,6 +192,7 @@ room top while a bird hops.
 
 The right deck item is an espresso cart, drawn by `cart()` in `loftArt.ts` and matched by the
 fixtures in `public/assets/loft-reference/`. Its two steam wisps twinkle and stop under reduced
-motion. The cart is decoration only: espresso shots are still bought in the store.
+motion. Tapping the owned cart opens the espresso sheet on Main (`docs/07-screens.md`), which
+shows the shot and how many the player holds. Shots are still bought in the store for now.
 
 The spare light posts (`assets/svg/loft/lights/post.svg`) are not part of the approved scene.
