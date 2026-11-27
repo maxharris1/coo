@@ -1,8 +1,17 @@
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { chromium, type Browser } from "@playwright/test";
 import type { ReactNode } from "react";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import {
   type FlightInput,
   type FlightPlan,
@@ -96,12 +105,15 @@ const job: JobView = {
 const JOB_NOW_MS = Date.parse("2026-11-22T15:03:00.000Z");
 
 const offsetTo = (nowMs: number) => nowMs - Date.now();
+const FROZEN_NOW_MS = Date.parse("2026-11-22T12:00:00.000Z");
 
 const SCREENS = [
   {
     name: "Tracker",
     css: "src/components/Tracker.module.css",
     mapClass: "Tracker__map",
+    offlineHash:
+      "54cd57ccf5e2b323cc95b29908360459d1342ae1690b9d8ec752c26d51c6949d",
     render: () => {
       const { flight, nowMs } = twoRowFlight();
       return (
@@ -118,6 +130,8 @@ const SCREENS = [
     name: "JobTracker",
     css: "src/app/(app)/jobs/[id]/JobTracker.module.css",
     mapClass: "JobTracker__map",
+    offlineHash:
+      "42bf9647c8e05edd6b9834f06edf2ad34883a3a32645f7e9fc44f729d49299ac",
     render: () => (
       <JobTracker job={job} offsetMs={offsetTo(JOB_NOW_MS)} timeZone={TZ} />
     ),
@@ -147,7 +161,7 @@ function measure(mapClass: string): Measured {
     const x = r.left + r.width / 2;
     const y = r.top + r.height / 2;
     const at = document.elementFromPoint(x, y);
-    return { y, ok: at !== null && (el!.contains(at) || at.contains(el!)) };
+    return { y, ok: at !== null && el!.contains(at) };
   };
   const map = document.querySelector(`.${mapClass}`);
   const tracker = rect(map?.parentElement ?? null);
@@ -177,10 +191,15 @@ beforeAll(async () => {
 
 afterAll(() => browser?.close());
 
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 async function layout(
   body: ReactNode,
   mapClass: string,
   viewport: (typeof VIEWPORTS)[number],
+  css?: string,
 ) {
   const html = fixture.fixtureHtml({
     body,
@@ -193,7 +212,11 @@ async function layout(
   });
   try {
     await fixture.serve(page, html);
-    return await page.evaluate(measure, mapClass);
+    if (css) await page.addStyleTag({ content: css });
+    return {
+      ...(await page.evaluate(measure, mapClass)),
+      hash: createHash("sha256").update(html).digest("hex"),
+    };
   } finally {
     await page.close();
   }
@@ -227,9 +250,20 @@ describe.each(SCREENS)("the $name map in Chromium", (screen) => {
       expect(m.attribution.y).toBeLessThan(m.barTop);
       expect(m.back.ok).toBe(true);
     });
+
+    it("misses the attribution when its button ignores the pointer", async () => {
+      const m = await layout(
+        <AppLayout>{screen.render()}</AppLayout>,
+        screen.mapClass,
+        viewport,
+        ".maplibregl-ctrl-attrib-button { pointer-events: none; }",
+      );
+      expect(m.attribution.ok).toBe(false);
+    });
   });
 
   it("starts under the offline banner and still ends at the tab bar", async () => {
+    vi.useFakeTimers({ toFake: ["Date"], now: FROZEN_NOW_MS });
     const m = await layout(
       <>
         <OfflineLine />
@@ -238,6 +272,7 @@ describe.each(SCREENS)("the $name map in Chromium", (screen) => {
       screen.mapClass,
       VIEWPORTS[0],
     );
+    expect(m.hash).toBe(screen.offlineHash);
     expect(m.bannerHeight).toBeGreaterThan(0);
     expect(m.trackerTop).toBeCloseTo(m.bannerHeight, 1);
     expect(m.trackerBottom).toBeCloseTo(m.barTop, 1);
