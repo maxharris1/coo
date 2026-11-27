@@ -33,7 +33,7 @@ export type JobTrackerView =
 
 const HEADLINES = { out: "On an odd job", back: "Heading home" } as const;
 const YOUR_LOFT = "Your loft";
-const CARD_PX = 200;
+const CARD_OVERLAP_PX = 28;
 
 export function jobView(
   job: JobView,
@@ -152,7 +152,7 @@ export function JobTracker({
           {...view.map}
           bird={job.bird}
           offsetMs={offsetMs}
-          bottomPadding={CARD_PX}
+          bottomPadding={CARD_OVERLAP_PX}
         />
       </div>
       <header className={styles.top}>

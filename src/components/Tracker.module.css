@@ -1,10 +1,11 @@
 .tracker {
-  position: relative;
-  margin-top: calc(-1 * env(safe-area-inset-top, 0px));
-  height: calc(
-    100dvh - 84px - var(--coo-safe-bottom, 0px) + env(safe-area-inset-top, 0px)
-  );
-  min-height: 560px;
+  position: absolute;
+  top: var(--coo-offline-banner, 0px);
+  right: var(--coo-safe-right);
+  bottom: calc(84px + max(env(safe-area-inset-bottom, 0px), 34px));
+  left: var(--coo-safe-left);
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   background: #d4ebb0;
   color: var(--coo-ink);
@@ -14,14 +15,25 @@
   background: var(--coo-night);
 }
 
+@media (min-width: 600px) {
+  .tracker {
+    right: 0;
+    left: 0;
+    max-width: 430px;
+    margin-inline: auto;
+  }
+}
+
 .map {
-  position: absolute;
-  inset: 0;
+  position: relative;
+  flex: 1 1 0;
+  min-height: max(120px, 45%);
+  margin-bottom: -28px;
 }
 
 .map :global(.maplibregl-ctrl-bottom-right),
 .map :global(.maplibregl-ctrl-bottom-left) {
-  bottom: 250px;
+  bottom: 28px;
 }
 
 .top {
@@ -133,10 +145,12 @@
 }
 
 .card {
-  position: absolute;
-  inset: auto 0 0;
+  position: relative;
   z-index: 3;
   display: flex;
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
   flex-direction: column;
   gap: 12px;
   padding: 10px var(--coo-gutter) var(--coo-gutter);

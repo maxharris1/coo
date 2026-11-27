@@ -6,6 +6,7 @@ import {
   declaration,
   type Env,
   GUTTER,
+  optionalDeclaration,
   px,
   read,
   type Ref,
@@ -310,5 +311,61 @@ describe("every tab page", () => {
         /(padding|margin)(-bottom)?:[^;]*(96px|84px|--coo-tabs-pad)/,
       );
     }
+  });
+});
+
+const SHORT_VIEWPORTS = [
+  { name: "390x844", width: 390, height: 844, top: STATUS_BAR, bottom: 34 },
+  { name: "440x956", width: 440, height: 956, top: STATUS_BAR, bottom: 34 },
+  { name: "360x568", width: 360, height: 568, top: 0, bottom: 0 },
+  { name: "667x375", width: 667, height: 375, top: 0, bottom: 21 },
+];
+const OFFLINE_BANNER = 54.375;
+const ENV: Env = { top: STATUS_BAR, bottom: HOME_INDICATOR, height: 844 };
+
+function mapBox(file: string, env: Env, banner: number, width: number) {
+  const prop = (prop: string) => declaration(at(file, "tracker", prop), width);
+  expect(prop("position")).toBe("absolute");
+  return {
+    top: px(prop("top"), { ...env, banner }),
+    bottom: env.height - px(prop("bottom"), env),
+  };
+}
+
+describe.each([
+  ["Tracker", "components/Tracker.module.css"],
+  ["JobTracker", "app/(app)/jobs/[id]/JobTracker.module.css"],
+])("the %s map", (_, file) => {
+  describe.each(SHORT_VIEWPORTS)(
+    "on $name",
+    ({ width, height, top, bottom }) => {
+      it.each([
+        ["online", 0],
+        ["offline", OFFLINE_BANNER],
+      ])("ends at or above the tab bar's top when %s", (_, banner) => {
+        for (const grow of TOOLBAR_COLLAPSE) {
+          const env: Env = { top, bottom, height, dvh: height + grow };
+          const map = mapBox(file, env, banner, width);
+          const barTop = env.height + grow - 84 - Math.max(bottom, 34);
+          expect(map.bottom, `grow ${grow}`).toBeLessThanOrEqual(barTop);
+          expect(map.top, `grow ${grow}`).toBe(banner);
+        }
+      });
+    },
+  );
+
+  it("ends the map at the card's top so the attribution sits above the card", () => {
+    const card = file.startsWith("components") ? "card" : "tracker .card";
+    const cardPosition = optionalDeclaration(at(file, card, "position"));
+    expect(cardPosition).not.toBe("absolute");
+    expect(optionalDeclaration(at(file, "tracker", "display"))).toBe("flex");
+    const overlap = -px(declaration(at(file, "map", "margin-bottom")), ENV);
+    const controls = px(
+      declaration(
+        at(file, "map :global(.maplibregl-ctrl-bottom-right)", "bottom"),
+      ),
+      ENV,
+    );
+    expect(controls).toBeGreaterThanOrEqual(overlap);
   });
 });
