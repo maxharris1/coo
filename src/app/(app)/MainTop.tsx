@@ -43,10 +43,10 @@ export function useLoftTime({
     };
     const sync = () => {
       clearInterval(interval);
-      if (document.hidden) {
+      if (document.hidden || reduced) {
         setLook((now) => (now.leaving ? { ...now, leaving: null } : now));
-        return;
       }
+      if (document.hidden) return;
       check();
       interval = setInterval(check, recheckMs);
     };

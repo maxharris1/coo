@@ -67,10 +67,20 @@ const mock = [
   bird("Admiral Crumbs", { look: "admiral", gear: ["cap"] }),
 ];
 
+const renderAt = (nowMs: number, payload: SyncPayload) => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(nowMs);
+  try {
+    return renderToStaticMarkup(
+      <MainTop data={payload} nowMs={nowMs} offsetMs={0} />,
+    ).replaceAll("&#x27;", "'");
+  } finally {
+    vi.useRealTimers();
+  }
+};
+
 const render = (birds: Bird[], seeds?: number, unread?: number) =>
-  renderToStaticMarkup(
-    <MainTop data={data(birds, seeds, unread)} nowMs={morning} offsetMs={0} />,
-  ).replaceAll("&#x27;", "'");
+  renderAt(morning, data(birds, seeds, unread));
 
 describe("the top of Main (ac-1)", () => {
   const html = render(mock);
@@ -147,9 +157,7 @@ describe("the top of Main (ac-1)", () => {
 });
 
 const renderWith = (birds: Bird[], extra: Extra) =>
-  renderToStaticMarkup(
-    <MainTop data={data(birds, 240, 0, extra)} nowMs={morning} offsetMs={0} />,
-  ).replaceAll("&#x27;", "'");
+  renderAt(morning, data(birds, 240, 0, extra));
 
 const hrefs = (html: string) =>
   [...html.matchAll(/<a[^>]*href="([^"]+)"/g)].map((m) => m[1]);
@@ -176,6 +184,18 @@ describe("the loft below the header (#972 ac-1)", () => {
     expect(html).toMatch(
       /role="img"[^>]*aria-label="Day on your rooftop loft\./,
     );
+  });
+
+  it("draws the same loft when the wall clock reads 02:00 in New York", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(1795762800000);
+    try {
+      expect(renderWith(home, {})).toMatch(
+        /role="img"[^>]*aria-label="Day on your rooftop loft\./,
+      );
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("builds one room per owned perch, with a second floor at four", () => {
@@ -307,21 +327,8 @@ const layers = (html: string) =>
     ([tag, time]) => ({ time, tag }),
   );
 
-const heroAt = (look: LoftTime) => {
-  vi.useFakeTimers({ toFake: ["Date"] });
-  vi.setSystemTime(INSTANTS[look]);
-  try {
-    return renderToStaticMarkup(
-      <MainTop
-        data={data(mock, 240, 0, { loft: LOFT })}
-        nowMs={INSTANTS[look]}
-        offsetMs={0}
-      />,
-    );
-  } finally {
-    vi.useRealTimers();
-  }
-};
+const heroAt = (look: LoftTime) =>
+  renderAt(INSTANTS[look], data(mock, 240, 0, { loft: LOFT }));
 
 describe("the hero takes the look's sky and text colour (#1056 ac-6)", () => {
   it.each(LOOKS)(
@@ -384,6 +391,7 @@ describe("the hero rechecks the sun and cross-fades (#1056 ac-8)", () => {
   let reduce = false;
   let offsetMs = 0;
   let doc: EventTarget & { hidden: boolean };
+  const motionListeners = new Set<() => void>();
   const frames: string[] = [];
   const shown = () => layers(frames.at(-1) ?? "");
 
@@ -431,6 +439,7 @@ describe("the hero rechecks the sun and cross-fades (#1056 ac-8)", () => {
     reduce = false;
     offsetMs = 0;
     frames.length = 0;
+    motionListeners.clear();
     doc = Object.assign(new EventTarget(), { hidden: false });
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     vi.stubGlobal("document", doc);
@@ -440,8 +449,9 @@ describe("the hero rechecks the sun and cross-fades (#1056 ac-8)", () => {
     );
     vi.stubGlobal("matchMedia", (query: string) => ({
       matches: reduce && query === "(prefers-reduced-motion: reduce)",
-      addEventListener: () => {},
-      removeEventListener: () => {},
+      addEventListener: (_: string, fn: () => void) => motionListeners.add(fn),
+      removeEventListener: (_: string, fn: () => void) =>
+        motionListeners.delete(fn),
     }));
   });
 
@@ -492,6 +502,30 @@ describe("the hero rechecks the sun and cross-fades (#1056 ac-8)", () => {
     await dusk();
     expect(shown().map((l) => l.time)).toEqual(["dusk"]);
     expect(shown()[0].tag).not.toContain("animation");
+  });
+
+  it("never brings sunset back when reduced motion toggles mid-fade", async () => {
+    const setReduced = (on: boolean) =>
+      act(async () => {
+        reduce = on;
+        motionListeners.forEach((fn) => fn());
+      });
+    await mount();
+    await dusk();
+    expect(shown().map((l) => l.time)).toEqual(["sunset", "dusk"]);
+    const fadeStart = frames.length;
+    await setReduced(true);
+    expect(shown().map((l) => l.time)).toEqual(["dusk"]);
+    expect(shown()[0].tag).not.toContain("animation");
+    await advance(times.crossFadeMs / 2);
+    await setReduced(false);
+    await advance(times.crossFadeMs);
+    expect(shown().map((l) => l.time)).toEqual(["dusk"]);
+    const later = frames.slice(fadeStart + 1).map(layers);
+    expect(later.flat().map((l) => l.time)).not.toContain("sunset");
+    expect(later.flat().map((l) => l.tag)).not.toContainEqual(
+      expect.stringContaining("animation"),
+    );
   });
 
   it("runs no timer while the tab is hidden and rechecks when it shows", async () => {
