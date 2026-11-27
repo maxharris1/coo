@@ -153,6 +153,7 @@ export function JobTracker({
           bird={job.bird}
           offsetMs={offsetMs}
           bottomPadding={CARD_OVERLAP_PX}
+          findBelowHeader
         />
       </div>
       <header className={styles.top}>

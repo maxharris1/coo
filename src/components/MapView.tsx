@@ -57,6 +57,7 @@ export type MapViewProps = {
   state?: BirdState;
   preview?: boolean;
   bubbleLines?: readonly string[];
+  findBelowHeader?: boolean;
 };
 
 export const ZOOM_BANDS: readonly { underMi: number; zoom: number }[] = [
@@ -237,6 +238,15 @@ function nearEdge(map: MapLibreMap, p: LatLon): boolean {
   );
 }
 
+export const findButtonStyle = (belowHeader = false): CSSProperties => ({
+  position: "absolute",
+  top: belowHeader
+    ? "calc(var(--coo-gutter) + env(safe-area-inset-top, 0px) + var(--coo-touch) + 8px)"
+    : 16,
+  right: 16,
+  maxWidth: "calc(100% - 32px)",
+});
+
 export function MapView({
   flightId,
   from,
@@ -253,6 +263,7 @@ export function MapView({
   state = "flying",
   preview = false,
   bubbleLines = NO_LINES,
+  findBelowHeader,
 }: MapViewProps) {
   const container = useRef<HTMLDivElement>(null);
   const birdEl = useRef<HTMLDivElement>(null);
@@ -678,12 +689,7 @@ export function MapView({
           type="button"
           onClick={findBird}
           className="coo-truncate"
-          style={{
-            position: "absolute",
-            top: 16,
-            right: 16,
-            maxWidth: "calc(100% - 32px)",
-          }}
+          style={findButtonStyle(findBelowHeader)}
         >
           Find {bird.name}
         </button>

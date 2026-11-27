@@ -1,5 +1,5 @@
 .tracker {
-  position: absolute;
+  position: fixed;
   top: var(--coo-offline-banner, 0px);
   right: var(--coo-safe-right);
   bottom: calc(84px + max(env(safe-area-inset-bottom, 0px), 34px));
@@ -29,6 +29,12 @@
   flex: 1 1 0;
   min-height: max(120px, 45%);
   margin-bottom: -28px;
+}
+
+@media (min-height: 500px) {
+  .map {
+    min-height: max(200px, 45%);
+  }
 }
 
 .map :global(.maplibregl-ctrl-bottom-right),

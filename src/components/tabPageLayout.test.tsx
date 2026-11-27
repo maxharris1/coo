@@ -325,7 +325,7 @@ const ENV: Env = { top: STATUS_BAR, bottom: HOME_INDICATOR, height: 844 };
 
 function mapBox(file: string, env: Env, banner: number, width: number) {
   const prop = (prop: string) => declaration(at(file, "tracker", prop), width);
-  expect(prop("position")).toBe("absolute");
+  expect(prop("position")).toBe("fixed");
   return {
     top: px(prop("top"), { ...env, banner }),
     bottom: env.height - px(prop("bottom"), env),

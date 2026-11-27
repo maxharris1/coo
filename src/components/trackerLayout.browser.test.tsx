@@ -1,8 +1,9 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { chromium, type Browser } from "@playwright/test";
+import { chromium, type Browser, type Page } from "@playwright/test";
 import type { ReactNode } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import {
   afterAll,
   afterEach,
@@ -37,6 +38,7 @@ const { OfflineLine, BANNER_HEIGHT_VAR } = await import("@/app/OfflineBanner");
 const { Tracker } = await import("./Tracker");
 const { flightLog } = await import("./FlightLog");
 const { JobTracker } = await import("@/app/(app)/jobs/[id]/JobTracker");
+const { findButtonStyle } = await import("./MapView");
 
 const TZ = "America/New_York";
 const INSTALL = "npx playwright install chromium";
@@ -113,7 +115,7 @@ const SCREENS = [
     css: "src/components/Tracker.module.css",
     mapClass: "Tracker__map",
     offlineHash:
-      "54cd57ccf5e2b323cc95b29908360459d1342ae1690b9d8ec752c26d51c6949d",
+      "c8fd23be97d89f39f3f7bf03840346723024a3f6fb52aede6865e64ed1908886",
     render: () => {
       const { flight, nowMs } = twoRowFlight();
       return (
@@ -131,7 +133,7 @@ const SCREENS = [
     css: "src/app/(app)/jobs/[id]/JobTracker.module.css",
     mapClass: "JobTracker__map",
     offlineHash:
-      "42bf9647c8e05edd6b9834f06edf2ad34883a3a32645f7e9fc44f729d49299ac",
+      "b74bb1e43b38620d31a98d9c1aee3849670ac91bafbce382e7cf9369ae6f061a",
     render: () => (
       <JobTracker job={job} offsetMs={offsetTo(JOB_NOW_MS)} timeZone={TZ} />
     ),
@@ -147,6 +149,8 @@ type Measured = {
   trackerBottom: number;
   attribution: Hit;
   back: Hit;
+  find: Hit | null;
+  scrollY: number;
   bannerHeight: number;
   bannerBottom: number;
 };
@@ -166,6 +170,9 @@ function measure(mapClass: string): Measured {
   const map = document.querySelector(`.${mapClass}`);
   const tracker = rect(map?.parentElement ?? null);
   const banner = document.querySelector("p[role=status]");
+  const find = [...document.querySelectorAll(`.${mapClass} button`)].find((b) =>
+    b.textContent?.startsWith("Find "),
+  );
   return {
     map: rect(map).height,
     mapBottom: rect(map).bottom,
@@ -174,6 +181,8 @@ function measure(mapClass: string): Measured {
     trackerBottom: tracker.bottom,
     attribution: hit(document.querySelector(".maplibregl-ctrl-attrib-button")),
     back: hit(document.querySelector("a[aria-label^='Back']")),
+    find: find ? hit(find) : null,
+    scrollY: window.scrollY,
     bannerHeight: banner ? rect(banner).height : 0,
     bannerBottom: banner ? rect(banner).bottom : 0,
   };
@@ -200,6 +209,7 @@ async function layout(
   mapClass: string,
   viewport: (typeof VIEWPORTS)[number],
   css?: string,
+  act?: (page: Page) => Promise<void>,
 ) {
   const html = fixture.fixtureHtml({
     body,
@@ -213,6 +223,7 @@ async function layout(
   try {
     await fixture.serve(page, html);
     if (css) await page.addStyleTag({ content: css });
+    if (act) await act(page);
     return {
       ...(await page.evaluate(measure, mapClass)),
       hash: createHash("sha256").update(html).digest("hex"),
@@ -220,6 +231,57 @@ async function layout(
   } finally {
     await page.close();
   }
+}
+
+const settle = (page: Page) =>
+  page.evaluate(
+    () =>
+      new Promise((done) =>
+        requestAnimationFrame(() => requestAnimationFrame(done)),
+      ),
+  );
+
+async function scrollByWheel(page: Page) {
+  const title = await page.locator("a[aria-label^='Back'] + *").boundingBox();
+  if (!title) throw new Error("missing title");
+  await page.mouse.move(title.x + title.width / 2, title.y + title.height / 2);
+  await page.mouse.wheel(0, 54);
+  await settle(page);
+}
+
+async function scrollToEnd(page: Page) {
+  await page.evaluate(() =>
+    window.scrollTo(0, document.scrollingElement!.scrollHeight),
+  );
+  await settle(page);
+}
+
+function panThenFind(mapClass: string) {
+  return async (page: Page) => {
+    const box = await page.locator(`.${mapClass} canvas`).boundingBox();
+    if (!box) throw new Error("missing map canvas");
+    const x = box.x + box.width / 2;
+    const y = box.y + box.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x + 40, y + 40, { steps: 5 });
+    await page.mouse.up();
+    const button = renderToStaticMarkup(
+      <button
+        type="button"
+        className="coo-truncate"
+        style={findButtonStyle(true)}
+      >
+        Find Gerald
+      </button>,
+    );
+    await page.evaluate(
+      ([root, html]) =>
+        document.querySelector(root)!.insertAdjacentHTML("beforeend", html),
+      [`.${mapClass} > div`, button] as const,
+    );
+    await settle(page);
+  };
 }
 
 describe.each(SCREENS)("the $name map in Chromium", (screen) => {
@@ -282,4 +344,64 @@ describe.each(SCREENS)("the $name map in Chromium", (screen) => {
     expect(m.attribution.ok).toBe(true);
     expect(m.attribution.y).toBeLessThan(m.barTop);
   });
+
+  describe.each(VIEWPORTS)("offline at $name", (viewport) => {
+    it(`keeps a map of at least ${viewport.map}px under the banner and above the tab bar`, async () => {
+      const m = await layout(
+        <>
+          <OfflineLine />
+          <AppLayout>{screen.render()}</AppLayout>
+        </>,
+        screen.mapClass,
+        viewport,
+      );
+      expect(m.bannerHeight).toBeGreaterThan(0);
+      expect(m.map).toBeGreaterThanOrEqual(viewport.map);
+      expect(m.trackerTop).toBeCloseTo(m.bannerHeight, 1);
+      expect(m.trackerBottom).toBeCloseTo(m.barTop, 1);
+      expect(m.mapBottom).toBeLessThanOrEqual(m.barTop);
+    });
+  });
+
+  it.each([
+    ["a wheel over the title", scrollByWheel],
+    ["scrolling to the end", scrollToEnd],
+  ])("keeps Back below the offline banner after %s", async (_, scroll) => {
+    const m = await layout(
+      <>
+        <OfflineLine />
+        <AppLayout>{screen.render()}</AppLayout>
+      </>,
+      screen.mapClass,
+      VIEWPORTS[0],
+      undefined,
+      scroll,
+    );
+    expect(m.bannerHeight).toBeGreaterThan(0);
+    expect(m.back.ok).toBe(true);
+    expect(m.back.y).toBeGreaterThan(m.bannerBottom);
+  });
+
+  it.each([
+    ["online", false],
+    ["offline", true],
+  ])(
+    "lets a tap reach Find Gerald after a pan at 360x568 %s",
+    async (_, offline) => {
+      const m = await layout(
+        <>
+          {offline && <OfflineLine />}
+          <AppLayout>{screen.render()}</AppLayout>
+        </>,
+        screen.mapClass,
+        VIEWPORTS[1],
+        undefined,
+        panThenFind(screen.mapClass),
+      );
+      expect(m.find).not.toBeNull();
+      expect(m.find!.ok).toBe(true);
+      expect(m.find!.y).toBeGreaterThan(m.bannerBottom);
+      expect(m.back.ok).toBe(true);
+    },
+  );
 });
