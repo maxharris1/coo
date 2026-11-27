@@ -322,6 +322,77 @@ const INSTANTS: Record<LoftTime, number> = {
 };
 const LOOKS = times.order as LoftTime[];
 
+const luminance = (hex: string) => {
+  const [r, g, b] = [1, 3, 5].map((i) => {
+    const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+const contrast = (a: string, b: string) => {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+};
+
+const tokens = readFileSync(
+  new URL("../../../public/assets/tokens.css", import.meta.url),
+  "utf8",
+);
+const token = (name: string) =>
+  tokens.match(new RegExp(`${name}: (#[0-9A-Fa-f]{6});`))?.[1] ?? "";
+
+const CONTROLS = [".bell", ".menu", ".seeds"];
+
+const focusRing = (control: string) => {
+  const [, selectors = "", body = ""] =
+    css.match(/((?:\.\w+:focus-visible,?\s*)+)\{([^}]*)\}/) ?? [];
+  expect(selectors.split(/,\s*/).map((s) => s.trim())).toContain(
+    `${control}:focus-visible`,
+  );
+  const outline = body.match(/outline: (\d+)px solid var\((--coo-[\w-]+)\);/);
+  const offset = body.match(/outline-offset: (\d+)px;/);
+  const shadow = body.match(
+    /box-shadow:\s+var\(--coo-shadow-1\),\s+0 0 0 (\d+)px var\((--coo-[\w-]+)\);/,
+  );
+  expect(outline && offset && shadow).toBeTruthy();
+  const ringOutset = Number(offset![1]) + Number(outline![1]);
+  return {
+    ink: token(outline![2]),
+    halo: token(shadow![2]),
+    outsetPx: Math.max(ringOutset, Number(shadow![1])),
+  };
+};
+
+const ringContrast = (ring: { ink: string; halo: string }, sky: string) =>
+  Math.max(contrast(ring.ink, sky), contrast(ring.halo, sky));
+
+const cubicBezier = (x1: number, y1: number, x2: number, y2: number) => {
+  const at = (s: number, a: number, b: number) =>
+    3 * a * s * (1 - s) ** 2 + 3 * b * s ** 2 * (1 - s) + s ** 3;
+  return (x: number) => {
+    let [lo, hi] = [0, 1];
+    for (let i = 0; i < 60; i++) {
+      const mid = (lo + hi) / 2;
+      if (at(mid, x1, x2) < x) lo = mid;
+      else hi = mid;
+    }
+    return at((lo + hi) / 2, y1, y2);
+  };
+};
+
+const mix = (under: string, over: string, alpha: number) =>
+  "#" +
+  [1, 3, 5]
+    .map((i) => {
+      const [a, b] = [under, over].map((hex) =>
+        parseInt(hex.slice(i, i + 2), 16),
+      );
+      return Math.round(a + (b - a) * alpha)
+        .toString(16)
+        .padStart(2, "0");
+    })
+    .join("");
+
 const layers = (html: string) =>
   [...html.matchAll(/<div[^>]* data-time="(\w+)"[^>]*>/g)].map(
     ([tag, time]) => ({ time, tag }),
@@ -345,18 +416,6 @@ describe("the hero takes the look's sky and text colour (#1056 ac-6)", () => {
     },
   );
 
-  const luminance = (hex: string) => {
-    const [r, g, b] = [1, 3, 5].map((i) => {
-      const c = parseInt(hex.slice(i, i + 2), 16) / 255;
-      return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-    });
-    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-  };
-  const contrast = (a: string, b: string) => {
-    const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
-    return (hi + 0.05) / (lo + 0.05);
-  };
-
   it.each(LOOKS)(
     "keeps %s text at least 4.5 to 1 on its first sky band",
     (look) => {
@@ -365,24 +424,74 @@ describe("the hero takes the look's sky and text colour (#1056 ac-6)", () => {
     },
   );
 
+  it("draws the header focus ring in two tones at least 9 to 1 apart", () => {
+    for (const control of CONTROLS) {
+      const { ink, halo } = focusRing(control);
+      expect(contrast(ink, halo)).toBeGreaterThanOrEqual(9);
+    }
+  });
+
   it.each(LOOKS)(
     "rings focused header controls at least 3 to 1 on the %s sky",
     (look) => {
-      const ring = heroAt(look).match(
-        /^<section[^>]*style="[^"]*--hero-ring:(#[0-9A-Fa-f]{6})/,
-      )?.[1];
-      expect(ring).toBeDefined();
-      expect(contrast(ring!, times[look].sky[0].color)).toBeGreaterThanOrEqual(
-        3,
-      );
+      for (const control of CONTROLS) {
+        expect(
+          ringContrast(focusRing(control), times[look].sky[0].color),
+        ).toBeGreaterThanOrEqual(3);
+      }
+    },
+  );
+});
+
+describe("the header focus ring through the sunset-to-dusk fade (#1081 ac-1)", () => {
+  const html = renderToStaticMarkup(
+    <MainTopView
+      data={data(mock, 240, 0, { loft: LOFT })}
+      nowMs={INSTANTS.dusk}
+      look={{ time: "dusk", leaving: "sunset" }}
+    />,
+  );
+  const [bottom, top] = layers(html).map(({ time, tag }) => ({
+    time,
+    color: tag.match(/background:(#[0-9A-Fa-f]{6})/)?.[1] ?? "",
+    durationMs: Number(tag.match(/animation-duration:(\d+)ms/)?.[1]),
+  }));
+
+  it("paints dusk fading in over the opaque sunset sky", () => {
+    expect([bottom.time, top.time]).toEqual(["sunset", "dusk"]);
+    expect(bottom.color).toBe(times.sunset.sky[0].color);
+    expect(top.color).toBe(times.dusk.sky[0].color);
+    expect(top.durationMs).toBe(times.crossFadeMs);
+    expect(rule("\\.fadeIn")).toMatch(
+      /animation-timing-function: ease-in-out;/,
+    );
+    expect(css).toMatch(
+      /@keyframes loft-fade \{\s*from \{\s*opacity: 0;\s*\}\s*to \{\s*opacity: 1;\s*\}/,
+    );
+  });
+
+  const easeInOut = cubicBezier(0.42, 0, 0.58, 1);
+  const skyAt = (ms: number) =>
+    mix(bottom.color, top.color, easeInOut(ms / top.durationMs));
+
+  it.each(
+    CONTROLS.flatMap((control) =>
+      [500, 1000].map((ms) => [control, ms] as const),
+    ),
+  )(
+    "rings %s at least 3 to 1 on the sky %i ms into the fade",
+    (control, ms) => {
+      expect(
+        ringContrast(focusRing(control), skyAt(ms)),
+      ).toBeGreaterThanOrEqual(3);
     },
   );
 
-  it("draws the header focus ring in the look's ring colour", () => {
-    const focus = css.match(
-      /\.menu:focus-visible,\s*\.bell:focus-visible,\s*\.seeds:focus-visible\s*\{([^}]*)\}/,
-    )?.[1];
-    expect(focus).toMatch(/outline: 3px solid var\(--hero-ring\);/);
+  it("keeps the ring's light halo inside the header's top padding", () => {
+    const padTop = Number(rule("\\.header").match(/padding: (\d+)px/)?.[1]);
+    for (const control of CONTROLS) {
+      expect(focusRing(control).outsetPx).toBeLessThanOrEqual(padTop);
+    }
   });
 });
 
