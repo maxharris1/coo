@@ -21,6 +21,9 @@ const TINTS: Partial<Record<string, Tint>> = {
   birdbath: "sky",
   perch: "sun",
   espresso: "peach",
+  "flower-boxes": "peach",
+  weathervane: "sky",
+  "espresso-cart": "lilac",
 };
 
 function BirdbathIcon() {
@@ -135,7 +138,24 @@ const LOFT_ICONS: Partial<Record<string, () => ReactElement>> = {
   espresso: CupIcon,
 };
 
+const ADDON_PIECES: Partial<Record<string, string>> = {
+  "flower-boxes": "planter",
+  weathervane: "weathervane",
+  "espresso-cart": "espresso-cart",
+};
+
 function ItemIcon({ itemId }: { itemId: string }) {
+  const piece = ADDON_PIECES[itemId];
+  if (piece)
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={`/assets/svg/loft/addons/${piece}.svg`}
+        alt=""
+        width={38}
+        height={38}
+      />
+    );
   const Loft = LOFT_ICONS[itemId];
   if (Loft) return <Loft />;
   return isGearId(itemId) ? <GearIcon id={itemId} size={38} /> : null;

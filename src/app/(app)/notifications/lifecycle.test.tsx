@@ -36,6 +36,7 @@ function reply(url: string, method: string): () => Response {
         loft: null,
         perches: 3,
         hasBirdbath: false,
+        loftItems: [],
       },
       egg: null,
     };

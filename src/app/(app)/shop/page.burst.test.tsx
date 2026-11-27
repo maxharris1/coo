@@ -3,6 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SyncContext } from "@/components/SyncProvider";
+import { config } from "@/lib/config";
 import type { Shop } from "@/server/services/shop";
 import type { ConfirmBuy } from "./ConfirmBuy";
 import ShopPage from "./page";
@@ -42,19 +43,22 @@ const { ShopItems: RealShopItems } =
   await vi.importActual<typeof import("./ShopItems")>("./ShopItems");
 
 let perch: number;
+let vane: Shop["loftItems"][number] | null;
 let root: Root;
 
 const shop = (): Shop => ({
   seeds: 2000,
   gear: [],
-  loftItems: [],
+  loftItems: vane ? [vane] : [],
   nextPerch: { number: perch, price: 250, affordable: true, toGo: 0 },
   consumables: [],
 });
 
-function fakeFetch(url: RequestInfo | URL) {
+function fakeFetch(url: RequestInfo | URL, init?: RequestInit) {
   if (String(url) === "/api/shop/buy") {
-    perch += 1;
+    const { itemId } = JSON.parse(String(init?.body)) as { itemId: string };
+    if (vane && itemId === vane.id) vane = { ...vane, owned: true };
+    else perch += 1;
     return Promise.resolve(Response.json({ me: {}, closet: [] }));
   }
   return Promise.resolve(Response.json(shop()));
@@ -67,20 +71,23 @@ const burstSeeds = () => {
   );
 };
 
-async function buyPerch() {
-  const row = view.items!.loft.find((r) => r.itemId === "perch")!;
+async function buy(itemId: string) {
+  const row = view.items!.loft.find((r) => r.itemId === itemId)!;
   await act(async () => view.items!.onBuy(row as BuyRow));
   await act(async () => view.confirm!.onConfirm());
 }
+
+const buyPerch = () => buy("perch");
 
 const advance = (ms: number) =>
   act(async () => {
     await vi.advanceTimersByTimeAsync(ms);
   });
 
-beforeEach(async () => {
+beforeEach(() => {
   vi.useFakeTimers();
   perch = 4;
+  vane = null;
   view.items = null;
   view.confirm = null;
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
@@ -89,6 +96,9 @@ beforeEach(async () => {
     Object.assign(new EventTarget(), { HTMLIFrameElement: class {} }),
   );
   vi.stubGlobal("fetch", vi.fn(fakeFetch));
+});
+
+async function mount() {
   const container = Object.assign(new EventTarget(), {
     nodeType: 1,
     tagName: "DIV",
@@ -104,7 +114,7 @@ beforeEach(async () => {
       </SyncContext.Provider>,
     );
   });
-});
+}
 
 afterEach(async () => {
   await act(async () => root.unmount());
@@ -113,6 +123,8 @@ afterEach(async () => {
 });
 
 describe("/shop seed burst on a second purchase (#479)", () => {
+  beforeEach(mount);
+
   it("plays the second perch's burst for the full 1.8 s after its success", async () => {
     expect(view.items!.loft.map((r) => r.name)).toEqual(["Fourth perch"]);
     await buyPerch();
@@ -142,5 +154,26 @@ describe("/shop seed burst on a second purchase (#479)", () => {
     await advance(1000);
     await buyPerch();
     expect(view.items!.burst).not.toEqual(first);
+  });
+});
+
+describe("/shop buying a loft add-on (#1045 ac-1)", () => {
+  beforeEach(async () => {
+    const item = config.game.loftItems.find((i) => i.id === "weathervane")!;
+    vane = { ...item, owned: false, affordable: true };
+    await mount();
+  });
+
+  it("buys the weathervane through the confirm step and plays the seed burst", async () => {
+    const row = view.items!.loft.find((r) => r.itemId === "weathervane")!;
+    await act(async () => view.items!.onBuy(row as BuyRow));
+    expect(view.confirm!.row.name).toBe("Weathervane");
+
+    await act(async () => view.confirm!.onConfirm());
+    expect(view.items!.burst?.itemId).toBe("weathervane");
+    expect(burstSeeds(), "the weathervane bursts").toHaveLength(3);
+    expect(
+      view.items!.loft.find((r) => r.itemId === "weathervane")!.action,
+    ).toEqual({ kind: "owned", label: "On the roof" });
   });
 });
