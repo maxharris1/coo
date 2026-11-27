@@ -53,6 +53,13 @@ function subscribeReducedMotion(onChange: () => void) {
 const prefersReducedMotion = () =>
   globalThis.matchMedia?.(REDUCE).matches ?? false;
 
+export const useReducedMotion = () =>
+  useSyncExternalStore(
+    subscribeReducedMotion,
+    prefersReducedMotion,
+    prefersReducedMotion,
+  );
+
 function subscribeVisibility(onChange: () => void) {
   document.addEventListener("visibilitychange", onChange);
   return () => document.removeEventListener("visibilitychange", onChange);
@@ -86,11 +93,7 @@ export const sceneRooms = (
 };
 
 export function useLoftMotion(awake: readonly string[]): LoftMotion {
-  const reduced = useSyncExternalStore(
-    subscribeReducedMotion,
-    prefersReducedMotion,
-    prefersReducedMotion,
-  );
+  const reduced = useReducedMotion();
   const [gestures, setGestures] = useState<Record<string, Gesture>>({});
   const paused = useSyncExternalStore(
     subscribeVisibility,
