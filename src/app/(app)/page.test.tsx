@@ -46,7 +46,14 @@ describe("Main at / (ac-1, ac-2)", () => {
 
   it("shows the header, greeting and loft once synced", () => {
     const html = render({
-      me: { seeds: 12, perches: 2, timezone: "UTC", loft: null },
+      me: {
+        seeds: 12,
+        perches: 2,
+        timezone: "UTC",
+        loft: null,
+        hasBirdbath: false,
+        loftItems: [],
+      },
       serverNow: Date.parse("2026-11-20T19:00:00Z"),
       birds: [],
       flights: [],
@@ -59,7 +66,14 @@ describe("Main at / (ac-1, ac-2)", () => {
 
   it("shows the flock and perches under the loft", () => {
     const html = render({
-      me: { seeds: 12, perches: 3, timezone: "UTC", loft: null },
+      me: {
+        seeds: 12,
+        perches: 3,
+        timezone: "UTC",
+        loft: null,
+        hasBirdbath: false,
+        loftItems: [],
+      },
       serverNow: Date.parse("2026-11-20T19:00:00Z"),
       birds: [
         {
@@ -101,7 +115,14 @@ describe("Feed me on Main (ac-2)", () => {
           value={
             {
               data: {
-                me: { seeds: 12, perches: 3, timezone: "UTC", loft: null },
+                me: {
+                  seeds: 12,
+                  perches: 3,
+                  timezone: "UTC",
+                  loft: null,
+                  hasBirdbath: false,
+                  loftItems: [],
+                },
                 serverNow: Date.parse("2026-11-20T19:00:00Z"),
                 birds: [
                   {
