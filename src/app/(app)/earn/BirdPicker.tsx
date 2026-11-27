@@ -18,19 +18,30 @@ const FOCUSABLE = "button, a[href], [tabindex]:not([tabindex='-1'])";
 const GEAR_NAMES = new Map(config.gear.items.map((g) => [g.id, g.name]));
 const AND = new Intl.ListFormat("en", { type: "conjunction" });
 
-export const rowLabel = (
-  bird: PickableBird,
-  all: PickableBird[],
-): string | undefined => {
-  const named = all.filter((b) => sameBirdName(b.name, bird.name));
-  if (named.length < 2) return;
-  const kit = (b: PickableBird) => `${b.look}|${[...b.gear].sort()}`;
-  const twins = named.filter((b) => kit(b) === kit(bird));
+const describe = (bird: PickableBird): string => {
   const worn = bird.gear.flatMap((id) => GEAR_NAMES.get(id) ?? []);
-  let label = `${bird.name}, looks like ${lookName(bird.look as Look)}`;
-  if (worn.length) label += `, wearing ${AND.format(worn)}`;
-  if (twins.length < 2) return label;
-  return `${label}, ${twins.indexOf(bird) + 1} of ${twins.length}`;
+  const label = `${bird.name}, looks like ${lookName(bird.look as Look)}`;
+  return worn.length ? `${label}, wearing ${AND.format(worn)}` : label;
+};
+
+export const rowLabels = (birds: PickableBird[]): (string | undefined)[] => {
+  const labels: (string | undefined)[] = birds.map(() => undefined);
+  const spoken = birds.map((b) => b.name);
+  for (;;) {
+    const clashes = spoken
+      .map((name) =>
+        spoken.flatMap((other, j) => (sameBirdName(other, name) ? [j] : [])),
+      )
+      .filter((group, i) => group.length > 1 && group[0] === i);
+    if (!clashes.length) return labels;
+    for (const group of clashes) {
+      group.forEach((i, k) => {
+        labels[i] =
+          `${labels[i] ?? describe(birds[i])}, ${k + 1} of ${group.length}`;
+        spoken[i] = labels[i];
+      });
+    }
+  }
 };
 
 export function BirdPicker({
@@ -46,6 +57,7 @@ export function BirdPicker({
 }) {
   const titleId = useId();
   const dialog = useRef<HTMLDivElement>(null);
+  const labels = rowLabels(birds);
 
   const close = useCallback(() => {
     flushSync(onClose);
@@ -101,11 +113,11 @@ export function BirdPicker({
           Who goes?
         </h2>
         <ul className={styles.rows}>
-          {birds.map((bird) => (
+          {birds.map((bird, i) => (
             <li key={bird.id}>
               <button
                 type="button"
-                aria-label={rowLabel(bird, birds)}
+                aria-label={labels[i]}
                 className={styles.row}
                 onClick={() => onChoose(bird.id)}
               >
