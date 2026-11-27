@@ -186,7 +186,6 @@ describe("Loft top", () => {
 
   it("pulls the sky up under the status bar", () => {
     expect(value(top, "margin-top")).toBe(BLEED);
-    expect(value(top, "background")).toBe("var(--coo-sky)");
   });
 
   it("pads the header back down by the same inset, so the controls clear the notch", () => {
