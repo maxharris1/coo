@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { config } from "@/lib/config";
@@ -456,6 +457,25 @@ describe("SettingsView home screen install (ac-6)", () => {
     expect(text(html)).toContain("On your home screen No");
     expect(installButton(html)).toBeUndefined();
     expect(text(html)).not.toContain("Install");
+  });
+
+  it("matches the docs: desktop reads Yes for an installed profile, No otherwise", () => {
+    const desktop =
+      /the row reads "Yes" when the profile is installed and "No" when it is not/;
+    for (const name of ["07-screens.md", "10-notifications.md"]) {
+      const doc = readFileSync(
+        new URL(`../../../../docs/${name}`, import.meta.url),
+        "utf8",
+      ).replace(/\s+/g, " ");
+      expect(doc, name).toMatch(desktop);
+      expect(doc, name).not.toMatch(/Desktop browsers show a read-only "No"/);
+    }
+    expect(text(render(ME, null, [], SKIP))).toContain(
+      "On your home screen Yes",
+    );
+    expect(text(render(NOT_INSTALLED, null, [], SKIP))).toContain(
+      "On your home screen No",
+    );
   });
 
   it("shows a read-only Yes once installed or running standalone", () => {

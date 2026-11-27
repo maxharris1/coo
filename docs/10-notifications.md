@@ -18,9 +18,11 @@ opened from the home screen, so every new sign-up sees install right after namin
 - Platform detection lives in `src/lib/platform.ts` (`detectPlatform`), and the screen is one
   state machine in `src/app/(app)/welcome/install/installFlow.ts`, driven by `useInstall`. The
   same guide serves `/welcome/install` and Settings.
-- **Android Chrome and Edge: the button.** Capture `beforeinstallprompt` (`preventDefault`, keep
-  the event) and show one Install button that calls `prompt()`. `userChoice` "accepted" or an
-  `appinstalled` event finishes. If no event arrives within 2.5 seconds, or the person dismisses
+- **Android Chromium browsers: the button.** Android browsers whose user agent carries `Chrome/`
+  (Chrome, Edge, Samsung Internet, Opera and other Chromium browsers) wait for the install prompt.
+  Any Android browser that has already fired it when the page detects the platform gets the button
+  at once. Capture `beforeinstallprompt` (`preventDefault`, keep the event) and show one Install
+  button that calls `prompt()`. `userChoice` "accepted" or an `appinstalled` event finishes. If no event arrives within 2.5 seconds, or the person dismisses
   the prompt, show "Tap your browser's menu, then Install app" in place of the button, and keep
   the heading and skip link. A late event brings the button back. The page never moves on by
   itself while it waits.
@@ -28,7 +30,7 @@ opened from the home screen, so every new sign-up sees install right after namin
   desktop site counts) show an Install button with no pointer on the page. Tapping it opens a
   dismissible sheet with three steps, written for the iOS 26 Safari layouts:
   1. Tap Share. If it is hidden, tap ••• first. Share sits at the bottom in portrait and at the
-     top right in landscape.
+     top right in landscape. On iPad it sits at the top right in both.
   2. Choose Add to Home Screen. Tap View More or scroll if it is hidden.
   3. Leave Open as Web App on, then tap Add.
   The sheet closes from Close, the backdrop or Escape. Its pointer animation stops under
@@ -38,12 +40,19 @@ opened from the home screen, so every new sign-up sees install right after namin
   Facebook, Gmail and other Google apps, X, LinkedIn, TikTok, Snapchat, Line, WeChat, an Android
   webview, or an iPhone webview without `Safari/` such as a Messages preview) say "Open this in
   Safari first" ("Chrome" on Android) with a Copy link button. Chrome, Firefox and Edge on iPhone
-  count as in-app, because only Safari can add a web app to the home screen there.
-- **Desktop: hidden.** Desktop browsers, desktop Chrome with an install prompt included, and any
-  other browser skip the onboarding step and get no action in Settings.
-- **Settings.** "On your home screen" shows an Install action on a phone that is not installed
-  and not standalone. It opens the guide full screen without the step pill, with "Not now" in
-  place of the loft skip link.
+  get the same guidance: `detectPlatform` reads `CriOS`, `FxiOS` and `EdgiOS` as in-app with
+  `openIn: "Safari"`, so Coo hands off to Safari and its sheet. Those browsers can add a site to
+  the Home Screen from their own Share menu
+  ([Chrome Help for iPhone and iPad](https://support.google.com/chrome/answer/9658361?co=GENIE.Platform%3DiOS&hl=en),
+  [WebKit, third-party browser support](https://webkit.org/blog/13878/web-push-for-web-apps-on-ios-and-ipados/)),
+  but Coo guides only the Safari steps.
+- **Desktop and other browsers: hidden.** Desktop browsers (desktop Chrome with an install prompt
+  included) and Android browsers without `Chrome/` in the user agent that have not fired
+  `beforeinstallprompt` (Firefox, for one) skip the onboarding step and get no action in Settings.
+  In Settings the row reads "Yes" when the profile is installed and "No" when it is not.
+- **Settings.** "On your home screen" shows an Install action on a phone browser that gets one of
+  the guides above, while the profile is not installed and the page is not standalone. It opens
+  the guide full screen without the step pill, with "Not now" in place of the loft skip link.
 - **Once installed, it disappears.** Standalone display mode, `navigator.standalone`, an accepted
   prompt or `appinstalled` all count as installed. Onboarding moves on to the Loft, the step never
   shows again for an installed profile, and Settings shows a read-only "Yes". When Settings sees
