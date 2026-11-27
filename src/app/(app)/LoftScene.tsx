@@ -1,13 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Bird, type GearId, type Look } from "@/components/Bird";
 import type { SyncPayload } from "@/components/sync";
 import { config } from "@/lib/config";
 import { describeLoft, loftRooms, ROOM_LINK, type Room } from "./flockRows";
 import { LoftArt, type LoftItem, type LoftRoom } from "./loftArt";
-import { gestureAnimation, startLoftIdle, type Gesture } from "./loftIdle";
+import {
+  gestureAnimation,
+  startLoftIdle,
+  type Gesture,
+  type LoftIdle,
+} from "./loftIdle";
 import { birdBox, loftLayout, type Box } from "./loftLayout";
 import type { LoftTime } from "./loftTime";
 import styles from "./LoftScene.module.css";
@@ -92,25 +97,32 @@ export function useLoftMotion(awake: readonly string[]): LoftMotion {
     tabHidden,
     serverTabHidden,
   );
+  const idle = useRef<LoftIdle | null>(null);
   const key = awake.join(" ");
 
-  useEffect(
-    () =>
-      startLoftIdle({
-        birdIds: key ? key.split(" ") : [],
-        reducedMotion: reduced,
-        doc: document,
-        onGesture: (id, gesture) =>
-          setGestures((all) => {
-            const next = { ...all };
-            if (gesture) next[id] = gesture;
-            else delete next[id];
-            return next;
-          }),
-        onPause: () => {},
-      }),
-    [key, reduced],
-  );
+  useEffect(() => {
+    const run = startLoftIdle({
+      reducedMotion: reduced,
+      doc: document,
+      onGesture: (id, gesture) =>
+        setGestures((all) => {
+          const next = { ...all };
+          if (gesture) next[id] = gesture;
+          else delete next[id];
+          return next;
+        }),
+      onPause: () => {},
+    });
+    idle.current = run;
+    return () => {
+      run.stop();
+      idle.current = null;
+    };
+  }, [reduced]);
+
+  useEffect(() => {
+    idle.current?.setBirds(key ? key.split(" ") : []);
+  }, [key, reduced]);
 
   return { reduced, paused, gestures };
 }

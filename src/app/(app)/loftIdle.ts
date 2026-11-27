@@ -71,7 +71,6 @@ type VisibilityDoc = Pick<
 >;
 
 export type LoftIdleOptions = {
-  birdIds: readonly string[];
   reducedMotion: boolean;
   doc: VisibilityDoc;
   random?: () => number;
@@ -79,15 +78,20 @@ export type LoftIdleOptions = {
   onPause: (paused: boolean) => void;
 };
 
+export type LoftIdle = {
+  setBirds: (ids: readonly string[]) => void;
+  stop: () => void;
+};
+
 export function startLoftIdle({
-  birdIds,
   reducedMotion,
   doc,
   random = Math.random,
   onGesture,
   onPause,
-}: LoftIdleOptions): () => void {
-  if (reducedMotion) return () => {};
+}: LoftIdleOptions): LoftIdle {
+  if (reducedMotion) return { setBirds: () => {}, stop: () => {} };
+  let birds = new Set<string>();
   const timers = new Map<string, ReturnType<typeof setTimeout>>();
   const playing = new Set<string>();
   const rest = () => REST_MS.min + random() * (REST_MS.max - REST_MS.min);
@@ -105,35 +109,35 @@ export function startLoftIdle({
     });
   };
 
-  const halt = () => {
-    for (const t of timers.values()) clearTimeout(t);
-    timers.clear();
-    for (const id of playing) onGesture(id, null);
-    playing.clear();
-  };
+  const begin = (id: string) =>
+    later(id, stagger(id) * REST_MS.min + rest(), () => play(id));
 
-  const resume = () => {
-    halt();
-    for (const id of birdIds) {
-      later(id, stagger(id) * REST_MS.min + rest(), () => play(id));
-    }
+  const drop = (id: string) => {
+    clearTimeout(timers.get(id));
+    timers.delete(id);
+    if (playing.delete(id)) onGesture(id, null);
   };
 
   const onVisibility = () => {
-    if (doc.hidden) {
-      halt();
-      onPause(true);
-    } else {
-      onPause(false);
-      resume();
-    }
+    for (const id of birds) drop(id);
+    onPause(doc.hidden);
+    if (!doc.hidden) for (const id of birds) begin(id);
   };
 
   doc.addEventListener("visibilitychange", onVisibility);
   onVisibility();
 
-  return () => {
-    halt();
-    doc.removeEventListener("visibilitychange", onVisibility);
+  return {
+    setBirds: (ids) => {
+      const next = new Set(ids);
+      for (const id of birds) if (!next.has(id)) drop(id);
+      if (!doc.hidden) for (const id of next) if (!birds.has(id)) begin(id);
+      birds = next;
+    },
+    stop: () => {
+      for (const id of birds) drop(id);
+      birds.clear();
+      doc.removeEventListener("visibilitychange", onVisibility);
+    },
   };
 }

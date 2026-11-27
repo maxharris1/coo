@@ -683,11 +683,11 @@ describe("a sleep on the same mount resumes the idle cadence (ac-5)", () => {
     return null;
   }
 
-  const show = (time: LoftTime) =>
+  const show = (time: LoftTime, birds: Bird[] = [gerald]) =>
     act(async () =>
       root!.render(
         <MountedScene
-          birds={[gerald]}
+          birds={birds}
           perches={3}
           egg={null}
           items={[]}
@@ -700,7 +700,7 @@ describe("a sleep on the same mount resumes the idle cadence (ac-5)", () => {
       await vi.advanceTimersByTimeAsync(ms);
     });
 
-  it("drops the gesture in flight at dusk and waits a full rest after sunrise", async () => {
+  beforeEach(() => {
     vi.spyOn(Math, "random").mockReturnValue(0);
     root = createRoot(
       Object.assign(new EventTarget(), {
@@ -709,6 +709,9 @@ describe("a sleep on the same mount resumes the idle cadence (ac-5)", () => {
         ownerDocument: new EventTarget(),
       }) as unknown as Element,
     );
+  });
+
+  it("drops the gesture in flight at dusk and waits a full rest after sunrise", async () => {
     await show("sunset");
     await act(async () => {
       await vi.advanceTimersToNextTimerAsync();
@@ -720,6 +723,23 @@ describe("a sleep on the same mount resumes the idle cadence (ac-5)", () => {
     await show("sunrise");
     expect(shown()).not.toContain("data-idle");
     await advance(REST_MS.min - 1);
+    expect(shown()).not.toContain("data-idle");
+  });
+
+  it("lets a bird that stays awake finish its hop when another bird comes home", async () => {
+    await show("day", [gerald, flying]);
+    await act(async () => {
+      await vi.advanceTimersToNextTimerAsync();
+    });
+    const geraldHops = /data-room="0"[^>]*><g data-idle="hop"/;
+    expect(shown()).toMatch(geraldHops);
+    await advance(150);
+    await show("day", [gerald, kevin]);
+    expect(shown()).toMatch(geraldHops);
+    await advance(GESTURES.hop.ms - 150 - 1);
+    expect(shown()).toMatch(geraldHops);
+    expect(shown()?.match(/data-idle=/g)).toHaveLength(1);
+    await advance(1);
     expect(shown()).not.toContain("data-idle");
   });
 });
