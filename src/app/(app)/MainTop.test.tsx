@@ -343,28 +343,56 @@ const token = (name: string) =>
 
 const CONTROLS = [".bell", ".menu", ".seeds"];
 
-const focusRing = (control: string) => {
-  const [, selectors = "", body = ""] =
-    css.match(/((?:\.\w+:focus-visible,?\s*)+)\{([^}]*)\}/) ?? [];
-  expect(selectors.split(/,\s*/).map((s) => s.trim())).toContain(
-    `${control}:focus-visible`,
+const focusStyle = (control: string, source: string) =>
+  new Map(
+    [
+      ...source
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .matchAll(/([^{}]+)\{([^{}]*)\}/g),
+    ]
+      .filter(([, selectors]) =>
+        selectors
+          .split(",")
+          .map((s) => s.trim())
+          .includes(`${control}:focus-visible`),
+      )
+      .flatMap(([, , body]) =>
+        [...body.matchAll(/([\w-]+):\s*([^;]+);/g)].map(
+          ([, prop, value]) =>
+            [prop, value.replace(/\s+/g, " ").trim()] as const,
+        ),
+      ),
   );
-  const outline = body.match(/outline: (\d+)px solid var\((--coo-[\w-]+)\);/);
-  const offset = body.match(/outline-offset: (\d+)px;/);
-  const shadow = body.match(
-    /box-shadow:\s+var\(--coo-shadow-1\),\s+0 0 0 (\d+)px var\((--coo-[\w-]+)\);/,
-  );
-  expect(outline && offset && shadow).toBeTruthy();
-  const ringOutset = Number(offset![1]) + Number(outline![1]);
+
+const focusRing = (control: string, source = css) => {
+  const style = focusStyle(control, source);
+  expect(
+    [...style.keys()].filter((prop) =>
+      /^outline-(width|style|color)$/.test(prop),
+    ),
+  ).toEqual([]);
+  const outline = style
+    .get("outline")
+    ?.match(/^(\d+(?:\.\d+)?)px (\w+) var\((--coo-[\w-]+)\)$/);
+  const offset = style.get("outline-offset")?.match(/^(\d+)px$/);
+  const shadow = style
+    .get("box-shadow")
+    ?.match(/^var\(--coo-shadow-1\), 0 0 0 (\d+)px var\((--coo-[\w-]+)\)$/);
+  const width = Number(outline?.[1] ?? 0);
+  const spread = Number(shadow?.[1] ?? 0);
+  const ink = outline ? token(outline[3]) : "";
+  const halo = shadow ? token(shadow[2]) : "";
+  const inkPaints = width > 0 && !["none", "hidden"].includes(outline![2]);
   return {
-    ink: token(outline![2]),
-    halo: token(shadow![2]),
-    outsetPx: Math.max(ringOutset, Number(shadow![1])),
+    ink,
+    halo,
+    painted: [...(inkPaints ? [ink] : []), ...(spread > 0 ? [halo] : [])],
+    outsetPx: Math.max(Number(offset?.[1] ?? 0) + width, spread),
   };
 };
 
-const ringContrast = (ring: { ink: string; halo: string }, sky: string) =>
-  Math.max(contrast(ring.ink, sky), contrast(ring.halo, sky));
+const ringContrast = (ring: { painted: string[] }, sky: string) =>
+  Math.max(0, ...ring.painted.map((color) => contrast(color, sky)));
 
 const cubicBezier = (x1: number, y1: number, x2: number, y2: number) => {
   const at = (s: number, a: number, b: number) =>
@@ -484,6 +512,35 @@ describe("the header focus ring through the sunset-to-dusk fade (#1081 ac-1)", (
       expect(
         ringContrast(focusRing(control), skyAt(ms)),
       ).toBeGreaterThanOrEqual(3);
+    },
+  );
+
+  it.each([
+    [
+      "a zero-width outline",
+      (s: string) => s.replace("outline: 3px solid", "outline: 0px solid"),
+    ],
+    [
+      "an outline with no style",
+      (s: string) => s.replace("outline: 3px solid", "outline: 3px none"),
+    ],
+    [
+      "a later rule that removes the outline",
+      (s: string) =>
+        `${s}\n.menu:focus-visible,\n.bell:focus-visible,\n.seeds:focus-visible {\n  outline: none;\n}\n`,
+    ],
+  ])(
+    "drops below 3 to 1 at 500 and 1000 ms when %s leaves only the light halo",
+    (_, unpaint) => {
+      const source = unpaint(css);
+      expect(source).not.toBe(css);
+      for (const control of CONTROLS) {
+        for (const ms of [500, 1000]) {
+          expect(
+            ringContrast(focusRing(control, source), skyAt(ms)),
+          ).toBeLessThan(3);
+        }
+      }
     },
   );
 
